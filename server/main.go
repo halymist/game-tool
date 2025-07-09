@@ -39,8 +39,8 @@ var s3Client *s3.Client
 var s3Presigner *s3.PresignClient
 
 func init() {
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
+	// Load environment variables from .env file in parent directory
+	if err := godotenv.Load("../.env"); err != nil {
 		log.Printf("Warning: .env file not found, using environment variables")
 	}
 
