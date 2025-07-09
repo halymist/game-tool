@@ -311,6 +311,7 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 	// Log the received enemy data
 	log.Printf("CREATE ENEMY REQUEST:")
 	log.Printf("  Name: %v", enemyData["name"])
+	log.Printf("  Description: %v", enemyData["description"])
 	log.Printf("  Stats: %v", enemyData["stats"])
 	log.Printf("  Effects: %v", enemyData["effects"])
 	log.Printf("  Icon: %v", enemyData["icon"] != nil && enemyData["icon"] != "")
@@ -392,6 +393,7 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 	// Log the received enemy data
 	log.Printf("UPDATE ENEMY REQUEST:")
 	log.Printf("  Name: %v", enemyData["name"])
+	log.Printf("  Description: %v", enemyData["description"])
 	log.Printf("  Stats: %v", enemyData["stats"])
 	log.Printf("  Effects: %v", enemyData["effects"])
 	log.Printf("  ImageChanged: %v", enemyData["imageChanged"])
@@ -486,8 +488,9 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 
 	enemies := []map[string]interface{}{
 		{
-			"id":   1,
-			"name": "Bandit",
+			"id":          1,
+			"name":        "Bandit",
+			"description": "A ruthless outlaw who preys on travelers. These criminals have honed their combat skills through countless skirmishes and ambushes.",
 			"stats": map[string]interface{}{
 				"strength": 15,
 				"stamina":  100,
@@ -510,8 +513,9 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 			"iconKey": "images/enemies/1.PNG",
 		},
 		{
-			"id":   2,
-			"name": "Fire Mage",
+			"id":          2,
+			"name":        "Fire Mage",
+			"description": "A powerful spellcaster who has mastered the elemental forces of fire. Their spells can incinerate enemies and create walls of flame.",
 			"stats": map[string]interface{}{
 				"strength": 25,
 				"stamina":  80,
@@ -534,8 +538,9 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 			"iconKey": "images/enemies/1.PNG",
 		},
 		{
-			"id":   3,
-			"name": "Goblin Warrior",
+			"id":          3,
+			"name":        "Goblin Warrior",
+			"description": "A fierce and cunning goblin warrior armed with crude but effective weapons. Despite their small stature, they are surprisingly agile and dangerous in combat.",
 			"stats": map[string]interface{}{
 				"strength": 12,
 				"stamina":  70,

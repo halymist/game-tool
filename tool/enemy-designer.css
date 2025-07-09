@@ -44,7 +44,8 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.75rem;
     border: 2px solid #8b4513;
@@ -57,11 +58,19 @@
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
     outline: none;
     border-color: #d4af37;
     box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.3);
     background: rgba(244, 228, 188, 1);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    max-height: 200px;
+    font-family: 'Crimson Text', serif;
 }
 
 /* Input hint styles */
@@ -83,23 +92,57 @@
     color: #ffd700;
 }
 
-/* Icon and Stats Layout */
+/* Icon, Stats, and Description Layout */
 .icon-stats-wrapper {
     display: flex;
-    gap: 2rem;
-    align-items: stretch; /* Force equal height */
+    gap: 3rem; /* Increased from 2rem to 3rem for more spacing */
+    align-items: flex-start; /* Align all columns to the top */
+    min-height: 400px; /* Match the icon height */
 }
 
 .icon-container {
     flex: 0 0 auto;
     display: flex;
-    align-items: flex-start; /* Align to top */
+    align-items: flex-start;
 }
 
 .stats-container {
+    flex: 0 0 auto;
+    min-width: 200px;
+    max-width: 250px;
+    margin-right: 2rem; /* Additional spacing after stats */
+}
+
+.stats-container h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.description-container {
+    flex: 1.5; /* Increased from 1 to 1.5 to make it wider */
+    min-width: 350px; /* Increased from 250px to 350px */
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.description-container h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.description-container .form-group {
     flex: 1;
-    max-width: 400px;
-    min-width: 0; /* Prevent flex item from growing too much */
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.description-container textarea {
+    flex: 1;
+    min-height: 300px;
+    resize: vertical;
+    font-family: 'Crimson Text', serif;
 }
 
 .icon-upload-area {
@@ -376,19 +419,36 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1200px) {
     .icon-stats-wrapper {
         flex-direction: column;
-        gap: 1rem;
+        gap: 1.5rem;
     }
     
     .icon-container {
         align-self: center;
     }
     
+    .stats-container {
+        max-width: none;
+        align-self: center;
+        margin-right: 0; /* Remove additional margin in mobile */
+    }
+    
+    .description-container {
+        min-width: 0;
+        flex: 1; /* Reset flex to normal on mobile */
+    }
+    
+    .description-container textarea {
+        min-height: 150px;
+    }
+}
+
+@media (max-width: 768px) {
     .icon-upload-area {
-        width: 200px;
-        height: 200px;
+        width: 250px;
+        height: 250px;
     }
     
     .effect-row {

@@ -183,6 +183,7 @@ class EnemyDesigner {
 
         // Load basic data
         document.getElementById('enemyName').value = enemy.name;
+        document.getElementById('enemyDescription').value = enemy.description || '';
         
         // Load stats
         if (enemy.stats) {
@@ -262,6 +263,7 @@ class EnemyDesigner {
 
         // Reset form fields
         document.getElementById('enemyName').value = '';
+        document.getElementById('enemyDescription').value = '';
         document.getElementById('strength').value = '0';
         document.getElementById('stamina').value = '0';
         document.getElementById('agility').value = '0';
@@ -339,6 +341,7 @@ class EnemyDesigner {
     collectFormData() {
         const formData = {
             name: document.getElementById('enemyName').value,
+            description: document.getElementById('enemyDescription').value,
             icon: this.currentIcon,
             stats: {
                 strength: parseInt(document.getElementById('strength').value) || 0,
@@ -426,13 +429,13 @@ class EnemyDesigner {
             enemyData.imageChanged = imageChanged;
             
             if (!imageChanged) {
-                // Preserve the original asset ID for updates without image changes
-                enemyData.assetID = this.currentEnemyData.assetID;
+                // Preserve the original icon key for updates without image changes
+                enemyData.iconKey = this.currentEnemyData.iconKey;
                 enemyData.icon = null; // Don't send icon data if not changed
             }
             
             console.log('Image changed:', imageChanged);
-            console.log('Using assetID:', enemyData.assetID);
+            console.log('Using iconKey:', enemyData.iconKey);
             
             this.sendToServer(enemyData, 'update');
         } else {
