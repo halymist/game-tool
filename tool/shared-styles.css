@@ -1,0 +1,302 @@
+/* Shared header styles for all tool pages */
+
+/* Import fantasy fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Text:wght@400;600&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Crimson Text', serif;
+    background: #2c1810;
+    background-image: 
+        radial-gradient(circle at 25% 25%, #3d2817 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, #4a3322 0%, transparent 50%);
+    min-height: 100vh;
+    color: #e8dcc0;
+}
+
+.header {
+    background: linear-gradient(135deg, #2c1810 0%, #3d2817 100%);
+    border-bottom: 3px solid #8b4513;
+    padding: 1rem 2rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.header h1 {
+    font-family: 'Cinzel', serif;
+    color: #f4e4bc;
+    font-size: 1.8rem;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    font-weight: 600;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#username-display {
+    font-family: 'Cinzel', serif;
+    color: #f4e4bc;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.logout-btn {
+    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+    color: #f4e4bc;
+    border: 2px solid #654321;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.back-btn {
+    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+    color: #f4e4bc;
+    border: 2px solid #654321;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.back-btn:hover {
+    background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.main-content {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.tool-header {
+    background: linear-gradient(135deg, #3d2817 0%, #2c1810 100%);
+    border: 3px solid #8b4513;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.tool-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.tool-header h1 {
+    font-family: 'Cinzel', serif;
+    color: #f4e4bc;
+    font-weight: 600;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    margin-bottom: 1rem;
+    font-size: 2rem;
+}
+
+.tool-header p {
+    color: #d4c4a8;
+    line-height: 1.6;
+    font-size: 1.1rem;
+    font-family: 'Crimson Text', serif;
+}
+
+.content-section {
+    background: linear-gradient(135deg, #3d2817 0%, #2c1810 100%);
+    border: 3px solid #8b4513;
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    margin-bottom: 2rem;
+}
+
+.content-section h2 {
+    font-family: 'Cinzel', serif;
+    color: #f4e4bc;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    border-bottom: 3px solid #8b4513;
+    padding-bottom: 0.5rem;
+    display: inline-block;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.content-section p {
+    color: #d4c4a8;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    font-family: 'Crimson Text', serif;
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f4e4bc;
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Dashboard specific styles */
+
+.section-title {
+    font-family: 'Cinzel', serif;
+    color: #ffd700;
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.tool-card {
+    background: linear-gradient(135deg, #3d2817 0%, #2c1810 100%);
+    border: 3px solid #8b4513;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.tool-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+    border-color: #d4af37;
+}
+
+.tool-card-header {
+    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+    color: #f4e4bc;
+    padding: 1.5rem;
+    text-align: center;
+    border-bottom: 2px solid #654321;
+}
+
+.tool-card-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.tool-card-title {
+    font-family: 'Cinzel', serif;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.tool-card-body {
+    padding: 1.5rem;
+}
+
+.tool-card-description {
+    color: #d4c4a8;
+    line-height: 1.5;
+    margin: 0;
+    font-family: 'Crimson Text', serif;
+}
+
+.creation-tools {
+    margin-bottom: 3rem;
+}
+
+.management-tools {
+    margin-bottom: 3rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.info-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h3 {
+    color: #333;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 0.5rem;
+}
+
+.info-card p {
+    color: #666;
+    line-height: 1.5;
+}
+
+.token-info {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-top: 1rem;
+    font-family: monospace;
+    font-size: 0.8rem;
+    word-break: break-all;
+    border: 1px solid #e9ecef;
+}
+
+/* Page Content Styles */
+.page-content {
+    width: 100%;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}

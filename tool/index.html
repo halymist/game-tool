@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="http://localhost:8080/static/shared-styles.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer.css">
+    <!-- AWS Cognito SDK for token management -->
+    <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <h1>Dashboard</h1>
+            <button id="back-to-dashboard" onclick="showPage('dashboard'); return false;" class="back-btn" style="display: none;">← Back to Dashboard</button>
+        </div>
+        <div class="user-info">
+            <span id="username-display">Admin User</span>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Dashboard Section -->
+        <div id="dashboard-content" class="page-content">
+            <!-- Creation Tools Section -->
+            <div class="creation-tools">
+                <h3 class="section-title">🛠️ Creation Tools</h3>
+                <div class="tools-grid">
+                    <a href="#" onclick="showPage('quests'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🗡️</span>
+                            <h4 class="tool-card-title">Quest Manager</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create and manage quests, objectives, and rewards for your players.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('enemies'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">👹</span>
+                            <h4 class="tool-card-title">Enemy Designer</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Design monsters, bosses, and enemy encounters for your game world.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('dungeons'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🏰</span>
+                            <h4 class="tool-card-title">Dungeon Builder</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create dungeons, raids, and special areas with custom layouts and mechanics.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('npcs'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">👥</span>
+                            <h4 class="tool-card-title">NPC Manager</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create NPCs, manage dialogues, and set up interactive characters.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Management Tools Section -->
+            <div class="management-tools">
+                <h3 class="section-title">⚙️ Management Tools</h3>
+                <div class="tools-grid">
+                    <a href="#" onclick="showPage('players'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">👤</span>
+                            <h4 class="tool-card-title">Player Management</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Monitor player activity, handle reports, and manage user accounts.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('servers'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🖥️</span>
+                            <h4 class="tool-card-title">Server Management</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Monitor server health, performance, and manage game instances.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('moderation'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🛡️</span>
+                            <h4 class="tool-card-title">Chat Moderation</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Manage chat messages, moderate conversations, and handle reports.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('analytics'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">📊</span>
+                            <h4 class="tool-card-title">Game Analytics</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">View detailed analytics about player behavior and game performance.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quest Manager Section -->
+        <div id="quests-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">🗡️</div>
+                <h1>Quest Manager</h1>
+                <p>Create and manage quests, objectives, and rewards for your players.</p>
+            </div>
+        </div>
+
+        <!-- Enemy Designer Section -->
+        <div id="enemies-content" class="page-content" style="display: none;">
+            <div class="enemy-form">
+                <form id="enemyForm">
+                    <!-- Name Section -->
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label for="enemyName">Enemy Name</label>
+                            <div class="input-with-hint">
+                                <input type="text" id="enemyName" name="enemyName" placeholder="Type to search or create new enemy..." required list="existingEnemies">
+                                <small class="input-hint">💡 Start typing to see existing enemies, or enter a new name</small>
+                            </div>
+                            <datalist id="existingEnemies">
+                                <!-- Options will be populated by JavaScript -->
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <!-- Icon and Stats Section -->
+                    <div class="form-section">
+                        <div class="icon-stats-wrapper">
+                            <div class="icon-container">
+                                <div class="icon-upload-area" id="iconUploadArea">
+                                    <div class="icon-preview" id="iconPreview">
+                                        <div class="icon-placeholder">📷</div>
+                                    </div>
+                                    <div class="upload-text">Click or drag image</div>
+                                    <div class="upload-hint">Max 5MB</div>
+                                </div>
+                                <input type="file" id="iconFile" accept="image/*">
+                            </div>
+                            <div class="stats-container">
+                                <div class="stats-grid">
+                                    <div class="stat-group">
+                                        <label for="strength">Strength</label>
+                                        <input type="number" id="strength" name="strength" class="stat-input" min="0" max="999" value="10">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label for="stamina">Stamina</label>
+                                        <input type="number" id="stamina" name="stamina" class="stat-input" min="0" max="999" value="10">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label for="agility">Agility</label>
+                                        <input type="number" id="agility" name="agility" class="stat-input" min="0" max="999" value="10">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label for="luck">Luck</label>
+                                        <input type="number" id="luck" name="luck" class="stat-input" min="0" max="999" value="10">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label for="armor">Armor</label>
+                                        <input type="number" id="armor" name="armor" class="stat-input" min="0" max="999" value="10">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Effects Section -->
+                    <div class="form-section">
+                        <h3>Effects</h3>
+                        <div class="effects-list">
+                            <div class="effect-row">
+                                <select id="effect1" name="effect1" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor1" name="factor1" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description1">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect2" name="effect2" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor2" name="factor2" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description2">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect3" name="effect3" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor3" name="factor3" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description3">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect4" name="effect4" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor4" name="factor4" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description4">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect5" name="effect5" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor5" name="factor5" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description5">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect6" name="effect6" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor6" name="factor6" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description6">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect7" name="effect7" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor7" name="factor7" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description7">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect8" name="effect8" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor8" name="factor8" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description8">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect9" name="effect9" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor9" name="factor9" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description9">Select an effect to see description</span>
+                            </div>
+                            <div class="effect-row">
+                                <select id="effect10" name="effect10" class="effect-select">
+                                    <!-- Options will be populated by JavaScript -->
+                                </select>
+                                <input type="number" id="factor10" name="factor10" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                <span class="effect-description" id="description10">Select an effect to see description</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button type="button" id="saveBtn" class="save-btn">Save Enemy</button>
+                        <button type="button" id="resetBtn" class="reset-btn">Reset Form</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dungeon Builder Section -->
+        <div id="dungeons-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">🏰</div>
+                <h1>Dungeon Builder</h1>
+                <p>Create dungeons, raids, and special areas with custom layouts and mechanics.</p>
+            </div>
+        </div>
+
+        <!-- NPC Manager Section -->
+        <div id="npcs-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">👥</div>
+                <h1>NPC Manager</h1>
+                <p>Create NPCs, manage dialogues, and set up interactive characters.</p>
+            </div>
+        </div>
+
+        <!-- Player Management Section -->
+        <div id="players-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">👤</div>
+                <h1>Player Management</h1>
+                <p>Monitor player activity, handle reports, and manage user accounts.</p>
+            </div>
+        </div>
+
+        <!-- Server Management Section -->
+        <div id="servers-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">🖥️</div>
+                <h1>Server Management</h1>
+                <p>Monitor server health, performance, and manage game instances.</p>
+            </div>
+        </div>
+
+        <!-- Chat Moderation Section -->
+        <div id="moderation-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">🛡️</div>
+                <h1>Chat Moderation</h1>
+                <p>Manage chat messages, moderate conversations, and handle reports.</p>
+            </div>
+        </div>
+
+        <!-- Game Analytics Section -->
+        <div id="analytics-content" class="page-content" style="display: none;">
+            <div class="tool-header">
+                <div class="tool-icon">📊</div>
+                <h1>Game Analytics</h1>
+                <p>View detailed analytics about player behavior and game performance.</p>
+            </div>
+        </div>
+    </div>    <!-- AWS Cognito SDK -->
+    <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+
+    <script>
+        // Function to get current access token from Cognito (same as in login.html)
+        function getCurrentAccessToken() {
+            try {
+                const COGNITO_USER_POOL_ID = 'eu-north-1_il4Ww30RF';
+                const COGNITO_CLIENT_ID = 'g7sjca510dnqgs2tldhgvbihj';
+                const COGNITO_REGION = 'eu-north-1';
+
+                const poolData = {
+                    UserPoolId: COGNITO_USER_POOL_ID,
+                    ClientId: COGNITO_CLIENT_ID,
+                    region: COGNITO_REGION
+                };
+
+                const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+                const cognitoUser = userPool.getCurrentUser();
+
+                if (cognitoUser != null) {
+                    return new Promise((resolve, reject) => {
+                        cognitoUser.getSession((err, session) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+                            if (session.isValid()) {
+                                resolve(session.getAccessToken().getJwtToken());
+                            } else {
+                                resolve(null);
+                            }
+                        });
+                    });
+                }
+                return Promise.resolve(null);
+            } catch (error) {
+                console.error('Error getting access token:', error);
+                return Promise.resolve(null);
+            }
+        }
+
+        // Simple logout function
+        function logout() {
+            console.log('Logout called');
+            
+            // Clear all Cognito-related tokens
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('CognitoIdentityServiceProvider')) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            keysToRemove.forEach(key => {
+                console.log('Removing Cognito key:', key);
+                localStorage.removeItem(key);
+            });
+            
+            console.log('Logout successful - redirecting to login');
+            window.location.href = 'http://localhost:8080/login';
+        }
+        
+        // Page navigation system
+        const pages = {
+            'dashboard': { title: 'Dashboard', element: 'dashboard-content' },
+            'quests': { title: 'Quest Manager', element: 'quests-content' },
+            'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
+            'dungeons': { title: 'Dungeon Builder', element: 'dungeons-content' },
+            'npcs': { title: 'NPC Manager', element: 'npcs-content' },
+            'players': { title: 'Player Management', element: 'players-content' },
+            'servers': { title: 'Server Management', element: 'servers-content' },
+            'moderation': { title: 'Chat Moderation', element: 'moderation-content' },
+            'analytics': { title: 'Game Analytics', element: 'analytics-content' }
+        };
+
+        let currentPage = 'dashboard';
+
+        function showPage(pageName) {
+            const page = pages[pageName];
+            if (!page) {
+                console.error('Page not found:', pageName);
+                return false;
+            }
+
+            console.log('Switching to page:', pageName);
+            currentPage = pageName;
+
+            // Hide all page content
+            document.querySelectorAll('.page-content').forEach(content => {
+                content.style.display = 'none';
+            });
+
+            // Show selected page content
+            const targetElement = document.getElementById(page.element);
+            if (targetElement) {
+                targetElement.style.display = 'block';
+                console.log('Showing element:', page.element);
+                
+                // If showing the enemy designer, load data
+                if (pageName === 'enemies' && window.enemyDesigner) {
+                    console.log('Loading enemies and effects data...');
+                    window.enemyDesigner.loadEnemiesAndEffects();
+                }
+            } else {
+                console.error('Element not found:', page.element);
+                return false;
+            }
+
+            // Update header title
+            const headerTitle = document.querySelector('.header h1');
+            if (headerTitle) {
+                headerTitle.textContent = page.title;
+            }
+
+            // Show/hide back button based on current page
+            const backButton = document.getElementById('back-to-dashboard');
+            if (backButton) {
+                if (pageName === 'dashboard') {
+                    backButton.style.display = 'none';
+                } else {
+                    backButton.style.display = 'inline-block';
+                }
+            }
+
+            // Update URL without reload
+            if (window.history && window.history.pushState) {
+                window.history.pushState({page: pageName}, page.title, `#${pageName}`);
+            }
+
+            return false; // Prevent default behavior
+        }
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function(event) {
+            const pageName = event.state?.page || 'dashboard';
+            showPage(pageName);
+        });
+
+        // Initialize page navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing page navigation');
+            
+            const hash = window.location.hash.substring(1);
+            const initialPage = hash && pages[hash] ? hash : 'dashboard';
+            
+            // Small delay to ensure all elements are ready
+            setTimeout(() => {
+                showPage(initialPage);
+            }, 100);
+        });
+
+        // Prevent default link behavior for tool cards
+        document.addEventListener('click', function(event) {
+            if (event.target.closest('a[onclick]')) {
+                event.preventDefault();
+            }
+        });
+    </script>
+    <script src="http://localhost:8080/static/enemy-designer.js"></script>
+</body>
+</html>

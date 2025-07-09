@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-header h1 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border: 1px solid #fcc;
+            display: none;
+        }
+
+        .success-message {
+            background: #efe;
+            color: #363;
+            padding: 0.75rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+            border: 1px solid #cfc;
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .config-section label {
+            font-size: 0.85rem;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Login</h1>
+            <p>Enter your credentials to access your account</p>
+        </div>
+
+        <div class="error-message" id="error-message"></div>
+        <div class="success-message" id="success-message"></div>
+
+        <form id="login-form">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+
+            <button type="submit" class="login-btn" id="login-btn">
+                Login
+            </button>
+        </form>
+    </div>
+
+    <!-- AWS Cognito SDK -->
+    <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
+
+    <script>
+        // AWS Cognito configuration
+        const COGNITO_REGION = 'eu-north-1';
+        const COGNITO_USER_POOL_ID = 'eu-north-1_il4Ww30RF';
+        const COGNITO_CLIENT_ID = 'g7sjca510dnqgs2tldhgvbihj';
+
+        // Cognito Authentication Class
+        class CognitoAuth {
+            constructor() {
+                this.userPool = null;
+                this.cognitoUser = null;
+            }
+
+            validateConfig() {
+                if (!COGNITO_REGION || !COGNITO_USER_POOL_ID || !COGNITO_CLIENT_ID) {
+                    throw new Error('AWS Cognito configuration is incomplete.');
+                }
+                return { region: COGNITO_REGION, userPoolId: COGNITO_USER_POOL_ID, clientId: COGNITO_CLIENT_ID };
+            }
+
+            async login(username, password) {
+                try {
+                    const config = this.validateConfig();
+                    
+                    // Create Cognito User Pool
+                    const poolData = {
+                        UserPoolId: config.userPoolId,
+                        ClientId: config.clientId,
+                        region: config.region
+                    };
+                    
+                    this.userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+                    
+                    // Create user
+                    const userData = {
+                        Username: username,
+                        Pool: this.userPool
+                    };
+                    
+                    this.cognitoUser = new AmazonCognitoIdentity.CognitoUser(userData);
+                    
+                    // Authentication details
+                    const authenticationDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+                        Username: username,
+                        Password: password
+                    });
+                    
+                    return new Promise((resolve, reject) => {
+                        this.cognitoUser.authenticateUser(authenticationDetails, {
+                            onSuccess: (result) => {
+                                console.log('Authentication successful');
+                                resolve(result);
+                            },
+                            onFailure: (err) => {
+                                console.error('Authentication failed:', err);
+                                reject(err);
+                            },
+                            newPasswordRequired: (userAttributes, requiredAttributes) => {
+                                reject(new Error('New password required. Please set a new password.'));
+                            }
+                        });
+                    });
+                    
+                } catch (error) {
+                    throw error;
+                }
+            }
+        }
+
+        // Function to get current access token from Cognito
+        function getCurrentAccessToken() {
+            try {
+                const poolData = {
+                    UserPoolId: COGNITO_USER_POOL_ID,
+                    ClientId: COGNITO_CLIENT_ID,
+                    region: COGNITO_REGION
+                };
+
+                const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
+                const cognitoUser = userPool.getCurrentUser();
+
+                if (cognitoUser != null) {
+                    return new Promise((resolve, reject) => {
+                        cognitoUser.getSession((err, session) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+                            if (session.isValid()) {
+                                resolve(session.getAccessToken().getJwtToken());
+                            } else {
+                                resolve(null);
+                            }
+                        });
+                    });
+                }
+                return Promise.resolve(null);
+            } catch (error) {
+                console.error('Error getting access token:', error);
+                return Promise.resolve(null);
+            }
+        }
+
+        // Global auth instance
+        const cognitoAuth = new CognitoAuth();
+        // Form submission handler
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('login-btn');
+            const errorMessage = document.getElementById('error-message');
+            const successMessage = document.getElementById('success-message');
+            
+            // Hide previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            // Show loading state
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<div class="loading"></div>Logging in...';
+            
+            try {
+                await cognitoAuth.login(username, password);
+                
+                // Success
+                successMessage.textContent = 'Login successful! Redirecting...';
+                successMessage.style.display = 'block';
+
+                // Redirect directly to dashboard
+                setTimeout(async () => {
+                    console.log(localStorage);
+                    const token = await getCurrentAccessToken();
+                    if (token) {
+                        try {
+                            const response = await fetch('http://localhost:8080/dashboard', {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Content-Type': 'text/html'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                const html = await response.text();
+                                document.open();
+                                document.write(html);
+                                document.close();
+                                // Update URL without reload
+                                window.history.pushState({}, '', '/dashboard');
+                            } else {
+                                console.error('Failed to load dashboard:', response.status);
+                                errorMessage.textContent = 'Failed to load dashboard. Please try again.';
+                                errorMessage.style.display = 'block';
+                            }
+                        } catch (error) {
+                            console.error('Error loading dashboard:', error);
+                            errorMessage.textContent = 'Error loading dashboard. Please try again.';
+                            errorMessage.style.display = 'block';
+                        }
+                    } else {
+                        errorMessage.textContent = 'No token found. Please try logging in again.';
+                        errorMessage.style.display = 'block';
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                let errorText = 'Login failed. Please try again.';
+                
+                if (error.code === 'NotAuthorizedException') {
+                    errorText = 'Incorrect username or password.';
+                } else if (error.code === 'UserNotFoundException') {
+                    errorText = 'User not found.';
+                } else if (error.code === 'TooManyRequestsException') {
+                    errorText = 'Too many failed attempts. Please try again later.';
+                } else if (error.message) {
+                    errorText = error.message;
+                }
+                
+                errorMessage.textContent = errorText;
+                errorMessage.style.display = 'block';
+                
+                // Reset form
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = 'Login';
+            }
+        });
+
+        // Check if user is already logged in
+        window.addEventListener('load', async () => {
+            const accessToken = await getCurrentAccessToken();
+            if (accessToken) {
+                // User is already logged in, fetch dashboard content
+                try {
+                    const response = await fetch('http://localhost:8080/dashboard', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'text/html'
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        const html = await response.text();
+                        document.open();
+                        document.write(html);
+                        document.close();
+                        window.history.pushState({}, '', '/dashboard');
+                    } else {
+                        console.log('Token invalid or expired, staying on login page');
+                    }
+                } catch (error) {
+                    console.error('Error checking authentication:', error);
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
