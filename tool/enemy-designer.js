@@ -52,17 +52,14 @@ const Enemy = {
         enemy.name = document.getElementById('enemyName').value;
         enemy.description = document.getElementById('enemyDescription').value;
         
-        // Handle icon - check if it's an existing asset or new upload
-        if (currentIcon && currentIcon.startsWith('existing:')) {
-            // This is an existing asset, use the asset ID
-            enemy.iconKey = currentAssetID;
-            enemy.icon = null; // Don't send icon data
-            console.log('Using existing asset with ID:', currentAssetID);
+        // Handle icon - currentIcon should always be base64 data now
+        enemy.icon = currentIcon; // This is always base64 data (either new upload or fetched from S3)
+        
+        // If currentAssetID is set, it means we're reusing an existing asset
+        if (currentAssetID) {
+            console.log('Reusing existing asset with ID:', currentAssetID, 'but sending as base64 data');
         } else {
-            // This is a new upload (base64 data)
-            enemy.icon = currentIcon;
-            enemy.iconKey = null;
-            console.log('Using new uploaded image');
+            console.log('Using new uploaded image as base64 data');
         }
         
         // === POPULATE ENEMY STATS ===
@@ -696,16 +693,17 @@ function hasImageChanged() {
         return true;
     }
     
-    // If currentIcon is base64 data (starts with 'data:'), then it's a new image
+    // If currentIcon is base64 data (starts with 'data:'), check if it's different
     if (currentIcon && currentIcon.startsWith('data:')) {
-        return true;
-    }
-    
-    // If currentIcon indicates an existing asset, check if it's different from the original
-    if (currentIcon && currentIcon.startsWith('existing:')) {
-        const selectedAssetID = currentAssetID;
-        const originalAssetID = currentEnemyData.iconKey;
-        return selectedAssetID !== originalAssetID;
+        // If we have an asset ID, it means we selected an existing asset
+        if (currentAssetID) {
+            // Check if the selected asset is different from the original
+            const originalAssetID = currentEnemyData.iconKey;
+            return currentAssetID !== originalAssetID;
+        } else {
+            // This is a new upload, so it's definitely changed
+            return true;
+        }
     }
     
     // If currentIcon is a signed URL (starts with 'https://'), then it's the same image
@@ -1105,15 +1103,46 @@ function toggleAssetGallery() {
  * Select an existing asset for the current enemy
  * @param {Object} asset - The selected asset object
  */
-function selectExistingAsset(asset) {
+async function selectExistingAsset(asset) {
     console.log('Selected existing asset:', asset.assetID);
     
-    // Set the current icon to indicate it's an existing asset
-    // Store the assetID instead of the URL to indicate this is an existing asset
-    currentIcon = `existing:${asset.assetID}`;
-    currentAssetID = asset.assetID; // Store the asset ID separately
+    try {
+        // Fetch the image from S3 using the signed URL and convert to base64
+        console.log('Fetching image from S3:', asset.texture);
+        const response = await fetch(asset.texture);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        console.log('Image fetched, size:', (blob.size / 1024).toFixed(2) + 'KB');
+        
+        // Convert blob to base64
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            // Store the base64 data directly (this is what the server expects)
+            currentIcon = e.target.result;
+            currentAssetID = asset.assetID; // Store the asset ID for reference
+            
+            console.log('✅ Existing asset converted to base64 and ready for use');
+            console.log('Base64 length:', currentIcon.length);
+        };
+        
+        reader.onerror = () => {
+            console.error('Failed to convert fetched image to base64');
+            alert('Failed to process the selected asset. Please try again.');
+            return;
+        };
+        
+        reader.readAsDataURL(blob);
+        
+    } catch (error) {
+        console.error('Error fetching asset from S3:', error);
+        alert('Failed to load the selected asset. Please try again.');
+        return;
+    }
     
-    // Update the preview
+    // Update the preview using the texture URL for display
     const iconPreview = document.getElementById('iconPreview');
     const uploadContent = document.querySelector('.upload-content');
     
