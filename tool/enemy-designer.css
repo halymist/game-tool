@@ -1,4 +1,4 @@
-/* Enemy Designer Specific Styles */
+/* Enemy Designer Specific Styles - Updated */
 
 .enemy-form {
     background-size: 300px 300px;
@@ -103,6 +103,7 @@
 .icon-container {
     flex: 0 0 auto;
     display: flex;
+    flex-direction: column; /* Stack items vertically */
     align-items: flex-start;
 }
 
@@ -184,7 +185,7 @@
     width: 100%;
     height: 100%;
     border: none;
-    border-radius: 8px;
+    border-radius: 12px; /* Match the upload area border radius */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -195,7 +196,7 @@
 .icon-preview img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: stretch;    /* This will stretch to fill the square completely */
 }
 
 .icon-placeholder {
@@ -225,12 +226,6 @@
     color: #a0917d;
     font-size: 0.8rem;
     font-family: 'Crimson Text', serif;
-}
-
-.icon-placeholder {
-    color: #8b7355;
-    font-size: 2rem;
-    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .icon-placeholder {
@@ -527,6 +522,7 @@
     margin-top: 0.5rem;
     width: 256px; /* Match icon area width */
     font-size: 0.9rem;
+    display: block; /* Ensure it's positioned properly below the upload area */
 }
 
 .asset-gallery-toggle:hover {

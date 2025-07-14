@@ -51,7 +51,19 @@ const Enemy = {
         // === POPULATE BASIC ENEMY INFORMATION ===
         enemy.name = document.getElementById('enemyName').value;
         enemy.description = document.getElementById('enemyDescription').value;
-        enemy.icon = currentIcon;
+        
+        // Handle icon - check if it's an existing asset or new upload
+        if (currentIcon && currentIcon.startsWith('existing:')) {
+            // This is an existing asset, use the asset ID
+            enemy.iconKey = currentAssetID;
+            enemy.icon = null; // Don't send icon data
+            console.log('Using existing asset with ID:', currentAssetID);
+        } else {
+            // This is a new upload (base64 data)
+            enemy.icon = currentIcon;
+            enemy.iconKey = null;
+            console.log('Using new uploaded image');
+        }
         
         // === POPULATE ENEMY STATS ===
         enemy.stats.strength = parseInt(document.getElementById('strength').value) || 0;
@@ -115,6 +127,7 @@ const Enemy = {
 
 // === GLOBAL VARIABLES ===
 let currentIcon = null;
+let currentAssetID = null; // Track selected existing asset ID
 let loadedEnemies = [];
 let loadedEffects = [];
 let currentEnemyData = null;
@@ -269,9 +282,10 @@ async function handleFileUpload(file) {
             
             // Store the WebP base64 data
             currentIcon = e.target.result;
+            currentAssetID = null; // Clear any selected existing asset
             
             // Show preview
-            iconPreview.innerHTML = `<img src="${e.target.result}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: cover;">`;
+            iconPreview.innerHTML = `<img src="${e.target.result}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
             
             // Hide upload text when image is loaded
             if (uploadContent) {
@@ -423,11 +437,12 @@ async function loadEnemyData(enemy) {
         // Use the signed URL directly for display
         console.log('Loading icon for enemy:', enemy.name, 'URL:', enemy.iconUrl);
         currentIcon = enemy.iconUrl; // Store the signed URL temporarily
+        currentAssetID = enemy.iconKey; // Store the asset ID if available
         const iconPreview = document.getElementById('iconPreview');
         const uploadContent = document.querySelector('.upload-content');
         
         // Create img element without crossorigin to avoid CORS issues
-        iconPreview.innerHTML = `<img src="${enemy.iconUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: cover;">`;
+        iconPreview.innerHTML = `<img src="${enemy.iconUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
         
         if (uploadContent) {
             uploadContent.style.display = 'none';
@@ -437,6 +452,7 @@ async function loadEnemyData(enemy) {
     } else if (enemy.iconKey) {
         // Fallback: try to get signed URL if we only have the key
         console.log('Loading icon for enemy:', enemy.name, 'Key:', enemy.iconKey);
+        currentAssetID = enemy.iconKey; // Store the asset ID
         try {
             const signedUrl = await getSignedUrl(enemy.iconKey);
             if (signedUrl) {
@@ -445,7 +461,7 @@ async function loadEnemyData(enemy) {
                 const uploadContent = document.querySelector('.upload-content');
                 
                 // Create img element without crossorigin to avoid CORS issues
-                iconPreview.innerHTML = `<img src="${signedUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: cover;">`;
+                iconPreview.innerHTML = `<img src="${signedUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
                 
                 if (uploadContent) {
                     uploadContent.style.display = 'none';
@@ -482,6 +498,7 @@ function resetForm() {
     // Clear current enemy data
     currentEnemyData = null;
     currentIcon = null;
+    currentAssetID = null; // Clear selected asset ID
 
     // Reset form fields
     document.getElementById('enemyName').value = '';
@@ -682,6 +699,13 @@ function hasImageChanged() {
     // If currentIcon is base64 data (starts with 'data:'), then it's a new image
     if (currentIcon && currentIcon.startsWith('data:')) {
         return true;
+    }
+    
+    // If currentIcon indicates an existing asset, check if it's different from the original
+    if (currentIcon && currentIcon.startsWith('existing:')) {
+        const selectedAssetID = currentAssetID;
+        const originalAssetID = currentEnemyData.iconKey;
+        return selectedAssetID !== originalAssetID;
     }
     
     // If currentIcon is a signed URL (starts with 'https://'), then it's the same image
@@ -986,10 +1010,12 @@ function createAssetGallery() {
 
     console.log('Creating asset gallery with', assets.length, 'available assets');
 
-    // Find the icon upload area to add the toggle button
+    // Find the icon container to add the toggle button
     const iconContainer = document.querySelector('.icon-container');
-    if (!iconContainer) {
-        console.error('Icon container not found, cannot create asset gallery');
+    const uploadArea = document.getElementById('iconUploadArea');
+    
+    if (!iconContainer || !uploadArea) {
+        console.error('Icon container or upload area not found, cannot create asset gallery');
         return;
     }
 
@@ -1004,7 +1030,7 @@ function createAssetGallery() {
         toggleBtn.textContent = '🎨 Browse Existing Assets';
         toggleBtn.onclick = () => toggleAssetGallery();
         
-        // Add button below the upload area
+        // Add button to icon container, after the upload area
         iconContainer.appendChild(toggleBtn);
     }
 
@@ -1082,15 +1108,17 @@ function toggleAssetGallery() {
 function selectExistingAsset(asset) {
     console.log('Selected existing asset:', asset.assetID);
     
-    // Set the current icon to the selected asset's texture URL
-    currentIcon = asset.texture;
+    // Set the current icon to indicate it's an existing asset
+    // Store the assetID instead of the URL to indicate this is an existing asset
+    currentIcon = `existing:${asset.assetID}`;
+    currentAssetID = asset.assetID; // Store the asset ID separately
     
     // Update the preview
     const iconPreview = document.getElementById('iconPreview');
     const uploadContent = document.querySelector('.upload-content');
     
     if (iconPreview) {
-        iconPreview.innerHTML = `<img src="${asset.texture}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: cover;">`;
+        iconPreview.innerHTML = `<img src="${asset.texture}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
     }
     
     if (uploadContent) {
