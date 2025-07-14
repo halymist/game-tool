@@ -288,6 +288,14 @@
             </div>
         </div>
 
+        <!-- Message Field Template (Hidden) -->
+        <template id="message-field-template">
+            <div class="message-field-wrapper">
+                <textarea class="message-textarea" placeholder="Enter message..."></textarea>
+                <button type="button" class="remove-message-btn" onclick="this.parentElement.remove()">✕</button>
+            </div>
+        </template>
+
         <!-- Dungeon Builder Section -->
         <div id="dungeons-content" class="page-content" style="display: none;">
             <div class="tool-header">
@@ -501,6 +509,7 @@
             }
         });
     </script>
+    <script src="http://localhost:8080/static/global-data.js"></script>
     <script src="http://localhost:8080/static/enemy-designer.js"></script>
 </body>
 </html>

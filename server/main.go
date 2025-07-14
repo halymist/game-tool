@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	_ "github.com/lib/pq" // PostgreSQL driver
 )
 
 // Configuration - loaded from environment variables
@@ -32,11 +34,17 @@ var (
 	S3_REGION             string
 	AWS_ACCESS_KEY_ID     string
 	AWS_SECRET_ACCESS_KEY string
+	DB_HOST               string
+	DB_PORT               string
+	DB_NAME               string
+	DB_USER               string
+	DB_PASSWORD           string
 )
 
 var jwksSet jwk.Set
 var s3Client *s3.Client
 var s3Presigner *s3.PresignClient
+var db *sql.DB
 
 func init() {
 	// Load environment variables from .env file in parent directory
@@ -52,6 +60,25 @@ func init() {
 	S3_REGION = os.Getenv("S3_REGION")
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
 	AWS_SECRET_ACCESS_KEY = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	DB_HOST = os.Getenv("DB_HOST")
+	DB_PORT = os.Getenv("DB_PORT")
+	DB_NAME = os.Getenv("DB_NAME")
+	DB_USER = os.Getenv("DB_USER")
+	DB_PASSWORD = os.Getenv("DB_PASSWORD")
+
+	// Set defaults for database if not provided
+	if DB_HOST == "" {
+		DB_HOST = "game.cjeko20kq7as.eu-north-1.rds.amazonaws.com"
+	}
+	if DB_PORT == "" {
+		DB_PORT = "5432"
+	}
+	if DB_NAME == "" {
+		DB_NAME = "game"
+	}
+	if DB_USER == "" {
+		DB_USER = "postgres"
+	}
 
 	// Validate required environment variables
 	if COGNITO_REGION == "" || COGNITO_USER_POOL == "" || COGNITO_CLIENT_ID == "" {
@@ -59,6 +86,9 @@ func init() {
 	}
 	if S3_BUCKET_NAME == "" || S3_REGION == "" || AWS_ACCESS_KEY_ID == "" || AWS_SECRET_ACCESS_KEY == "" {
 		log.Fatal("Missing required S3 environment variables")
+	}
+	if DB_PASSWORD == "" {
+		log.Fatal("Missing required DB_PASSWORD environment variable")
 	}
 
 	// Fetch JWKS on startup
@@ -108,6 +138,27 @@ func init() {
 			log.Printf("SUCCESS: AWS credentials are working!")
 		}
 	}
+
+	// Initialize PostgreSQL database connection
+	log.Printf("Attempting to connect to PostgreSQL database...")
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
+		DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
+
+	var errDatabase error
+	db, errDatabase = sql.Open("postgres", psqlInfo)
+	if errDatabase != nil {
+		log.Printf("CRITICAL: Failed to open database connection: %v", errDatabase)
+		db = nil
+	} else {
+		// Test the connection
+		errDatabase = db.Ping()
+		if errDatabase != nil {
+			log.Printf("CRITICAL: Failed to ping database: %v", errDatabase)
+			db = nil
+		} else {
+			log.Printf("SUCCESS: Connected to PostgreSQL database!")
+		}
+	}
 }
 
 func main() {
@@ -119,14 +170,20 @@ func main() {
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/updateEnemy", corsHandler(handleUpdateEnemy))
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
+	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
+	http.HandleFunc("/api/getEnemyAssets", corsHandler(handleGetEnemyAssets))
+	http.HandleFunc("/api/getSignedUrl", corsHandler(handleGetSignedUrl))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
 	fmt.Println("  GET /dashboard - Dashboard")
 	fmt.Println("  GET /static/ - Static files (CSS/JS public, others protected)")
-	fmt.Println("  POST /api/saveEnemy - Save enemy data (authenticated)")
+	fmt.Println("  POST /api/createEnemy - Create new enemy (authenticated)")
+	fmt.Println("  POST /api/updateEnemy - Update existing enemy (authenticated)")
 	fmt.Println("  GET /api/getEnemies - Get enemies and effects (authenticated)")
+	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
+	fmt.Println("  GET /api/getEnemyAssets - Get all enemy assets with signed URLs (authenticated)")
 	fmt.Println("  POST /api/getSignedUrl - Get signed URL for S3 file (authenticated)")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
@@ -421,6 +478,50 @@ func uploadImageToS3(imageData, contentType string) (string, error) {
 	}
 
 	log.Printf("Image uploaded to S3: %s", filename)
+	return filename, nil // Return S3 key instead of signed URL
+}
+
+// uploadImageToS3WithCustomKey uploads an image to S3 with a specified key/filename
+func uploadImageToS3WithCustomKey(imageData, contentType, customKey string) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized - AWS credentials not configured. Check server startup logs for setup instructions")
+	}
+
+	log.Printf("S3 client is available, proceeding with upload using custom key: %s", customKey)
+
+	// Decode base64 image data
+	// Remove data URL prefix if present (data:image/png;base64,...)
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %v", err)
+	}
+
+	// Use custom key with proper path structure and WebP extension
+	filename := fmt.Sprintf("images/enemies/%s.webp", customKey)
+
+	// Create S3 upload input (private bucket)
+	uploadInput := &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(filename),
+		Body:        bytes.NewReader(imageBytes),
+		ContentType: aws.String(contentType), // Use the provided content type (image/webp)
+		// Remove ACL to keep bucket private
+	}
+
+	// Upload to S3
+	_, err = s3Client.PutObject(context.TODO(), uploadInput)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %v", err)
+	}
+
+	log.Printf("Image uploaded to S3 with custom key: %s", filename)
 	return filename, nil // Return S3 key instead of signed URL
 }
 
