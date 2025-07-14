@@ -115,10 +115,10 @@ func main() {
 	http.HandleFunc("/login", corsHandler(handleLogin))
 	http.HandleFunc("/dashboard", corsHandler(handleDashboard))
 	http.HandleFunc("/static/", corsHandler(handleStatic))
+	// Enemy designer endpoints (now in enemy.go)
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/updateEnemy", corsHandler(handleUpdateEnemy))
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
-	http.HandleFunc("/api/getSignedUrl", corsHandler(handleGetSignedUrl))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
@@ -209,466 +209,6 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, filePath)
 }
 
-// Generate a signed URL for private S3 object access
-func generateSignedURL(key string, expiration time.Duration) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized")
-	}
-
-	presignClient := s3.NewPresignClient(s3Client)
-	request, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(S3_BUCKET_NAME),
-		Key:    aws.String(key),
-	}, func(opts *s3.PresignOptions) {
-		opts.Expires = expiration
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %v", err)
-	}
-
-	return request.URL, nil
-}
-
-func uploadImageToS3(imageData, contentType string) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized - AWS credentials not configured. Check server startup logs for setup instructions")
-	}
-
-	log.Printf("S3 client is available, proceeding with upload...")
-
-	// Decode base64 image data
-	// Remove data URL prefix if present (data:image/png;base64,...)
-	if strings.Contains(imageData, ",") {
-		parts := strings.Split(imageData, ",")
-		if len(parts) == 2 {
-			imageData = parts[1]
-		}
-	}
-
-	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64 image: %v", err)
-	}
-
-	// Generate unique filename
-	filename := fmt.Sprintf("images/enemies/%s.png", uuid.New().String())
-
-	// Create S3 upload input (private bucket)
-	uploadInput := &s3.PutObjectInput{
-		Bucket:      aws.String(S3_BUCKET_NAME),
-		Key:         aws.String(filename),
-		Body:        bytes.NewReader(imageBytes),
-		ContentType: aws.String("image/png"),
-		// Remove ACL to keep bucket private
-	}
-
-	// Upload to S3
-	_, err = s3Client.PutObject(context.TODO(), uploadInput)
-	if err != nil {
-		return "", fmt.Errorf("failed to upload to S3: %v", err)
-	}
-
-	log.Printf("Image uploaded to S3: %s", filename)
-	return filename, nil // Return S3 key instead of signed URL
-}
-
-func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("CREATE ENEMY DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
-	var enemyData map[string]interface{}
-	if err := json.Unmarshal(body, &enemyData); err != nil {
-		log.Printf("Error parsing JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Log the received enemy data
-	log.Printf("CREATE ENEMY REQUEST:")
-	log.Printf("  Name: %v", enemyData["name"])
-	log.Printf("  Description: %v", enemyData["description"])
-	log.Printf("  Stats: %v", enemyData["stats"])
-	log.Printf("  Effects: %v", enemyData["effects"])
-	log.Printf("  Icon: %v", enemyData["icon"] != nil && enemyData["icon"] != "")
-
-	// Handle icon upload (required for new enemies)
-	var iconKey string
-	if iconData, ok := enemyData["icon"].(string); ok && iconData != "" {
-		// Upload new icon to S3
-		log.Printf("Uploading new enemy icon to S3")
-		key, err := uploadImageToS3(iconData, "image/png")
-		if err != nil {
-			log.Printf("Error uploading image to S3: %v", err)
-			http.Error(w, "Failed to upload image", http.StatusInternalServerError)
-			return
-		}
-		iconKey = key
-	} else {
-		log.Printf("No icon provided for new enemy")
-		http.Error(w, "Icon is required for new enemies", http.StatusBadRequest)
-		return
-	}
-
-	// Here you would typically save to database
-	// For now, we'll just return success
-
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"success": true,
-		"message": "Enemy created successfully",
-		"id":      "temp_id_123", // In real app, this would be the database ID
-		"iconKey": iconKey,       // Return S3 key, not URL
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("CREATE ENEMY SUCCESS - new enemy created with iconKey: %s", iconKey)
-}
-
-func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("UPDATE ENEMY DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
-	var enemyData map[string]interface{}
-	if err := json.Unmarshal(body, &enemyData); err != nil {
-		log.Printf("Error parsing JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Log the received enemy data
-	log.Printf("UPDATE ENEMY REQUEST:")
-	log.Printf("  Name: %v", enemyData["name"])
-	log.Printf("  Description: %v", enemyData["description"])
-	log.Printf("  Stats: %v", enemyData["stats"])
-	log.Printf("  Effects: %v", enemyData["effects"])
-	log.Printf("  ImageChanged: %v", enemyData["imageChanged"])
-	log.Printf("  IconKey: %v", enemyData["iconKey"])
-
-	// Handle icon upload or preservation
-	var iconKey string
-	imageChanged, _ := enemyData["imageChanged"].(bool)
-
-	if imageChanged {
-		// Upload new icon to S3
-		if iconData, ok := enemyData["icon"].(string); ok && iconData != "" {
-			log.Printf("Uploading updated enemy icon to S3")
-			key, err := uploadImageToS3(iconData, "image/png")
-			if err != nil {
-				log.Printf("Error uploading image to S3: %v", err)
-				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
-				return
-			}
-			iconKey = key
-		} else {
-			log.Printf("Image change flag set but no icon data provided")
-			http.Error(w, "Icon data required when imageChanged is true", http.StatusBadRequest)
-			return
-		}
-	} else {
-		// Preserve existing icon
-		if existingKey, ok := enemyData["iconKey"].(string); ok && existingKey != "" {
-			iconKey = existingKey
-			log.Printf("Preserving existing icon key: %s", iconKey)
-		} else {
-			log.Printf("No existing icon key provided for update")
-			http.Error(w, "IconKey is required when imageChanged is false", http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Here you would typically update the database
-	// For now, we'll just return success
-
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"success": true,
-		"message": "Enemy updated successfully",
-		"id":      "temp_id_123", // In real app, this would be the database ID
-		"iconKey": iconKey,       // Return S3 key, not URL
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	if imageChanged {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new iconKey: %s", iconKey)
-	} else {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving iconKey: %s", iconKey)
-	}
-}
-
-func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET requests
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("GET ENEMIES DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("GET ENEMIES REQUEST")
-
-	// Mock data for now - replace with real database queries later
-	effects := []map[string]interface{}{
-		{"id": 1, "name": "Poison", "description": "Deals damage over time"},
-		{"id": 2, "name": "Stun", "description": "Prevents actions for turns"},
-		{"id": 3, "name": "Heal", "description": "Restores health"},
-		{"id": 4, "name": "Burn", "description": "Fire damage over time"},
-		{"id": 5, "name": "Shield", "description": "Reduces incoming damage"},
-	}
-
-	enemies := []map[string]interface{}{
-		{
-			"id":          1,
-			"name":        "Bandit",
-			"description": "A ruthless outlaw who preys on travelers. These criminals have honed their combat skills through countless skirmishes and ambushes.",
-			"stats": map[string]interface{}{
-				"strength": 15,
-				"stamina":  100,
-				"agility":  12,
-				"luck":     5,
-				"armor":    8,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "1", "factor": 2}, // Poison effect with factor 2
-				map[string]interface{}{"type": "2", "factor": 1}, // Stun effect with factor 1
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-			},
-			"iconKey": "images/enemies/1.PNG",
-		},
-		{
-			"id":          2,
-			"name":        "Fire Mage",
-			"description": "A powerful spellcaster who has mastered the elemental forces of fire. Their spells can incinerate enemies and create walls of flame.",
-			"stats": map[string]interface{}{
-				"strength": 25,
-				"stamina":  80,
-				"agility":  8,
-				"luck":     8,
-				"armor":    5,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "4", "factor": 3}, // Burn effect with factor 3
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-				map[string]interface{}{"type": "", "factor": 1},  // Empty slot
-			},
-			"iconKey": "images/enemies/1.PNG",
-		},
-		{
-			"id":          3,
-			"name":        "Goblin Warrior",
-			"description": "A fierce and cunning goblin warrior armed with crude but effective weapons. Despite their small stature, they are surprisingly agile and dangerous in combat.",
-			"stats": map[string]interface{}{
-				"strength": 12,
-				"stamina":  70,
-				"agility":  18,
-				"luck":     3,
-				"armor":    10,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-				map[string]interface{}{"type": "", "factor": 1}, // Empty slot
-			},
-			"iconKey": "images/enemies/1.PNG",
-		},
-	}
-
-	// Generate signed URLs for enemy icons
-	for _, enemy := range enemies {
-		if iconKey, ok := enemy["iconKey"].(string); ok && iconKey != "" {
-			signedURL, err := generateSignedURL(iconKey, 10*time.Minute) // 10 minute expiration
-			if err != nil {
-				log.Printf("Warning: Failed to generate signed URL for %s: %v", iconKey, err)
-				// Keep the original key as fallback
-			} else {
-				// Add signed URL to the enemy object
-				enemy["iconUrl"] = signedURL
-				log.Printf("Generated signed URL for icon: %s", iconKey)
-			}
-		}
-	}
-
-	response := map[string]interface{}{
-		"success": true,
-		"effects": effects,
-		"enemies": enemies,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("GET ENEMIES SUCCESS - returned %d effects, %d enemies", len(effects), len(enemies))
-}
-
-func handleGetSignedUrl(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("GET SIGNED URL DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
-	var requestData map[string]interface{}
-	if err := json.Unmarshal(body, &requestData); err != nil {
-		log.Printf("Error parsing JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	key, ok := requestData["key"].(string)
-	if !ok || key == "" {
-		log.Printf("Missing or invalid key in request")
-		http.Error(w, "Missing key", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("GET SIGNED URL REQUEST for key: %s", key)
-
-	// Generate signed URL for S3 object
-	presignResult, err := s3Presigner.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(S3_BUCKET_NAME),
-		Key:    aws.String(key),
-	}, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Duration(15 * time.Minute) // URL expires in 15 minutes
-	})
-
-	if err != nil {
-		log.Printf("Error generating signed URL: %v", err)
-		http.Error(w, "Failed to generate signed URL", http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]interface{}{
-		"success": true,
-		"url":     presignResult.URL,
-		"expires": time.Now().Add(15 * time.Minute).Unix(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("GET SIGNED URL SUCCESS for key: %s", key)
-}
-
 func verifyToken(tokenString string) (string, bool) {
 	// Parse the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -709,6 +249,17 @@ func verifyToken(tokenString string) (string, bool) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Printf("Claims parsing failed")
+		return "", false
+	}
+
+	// Explicitly check expiration
+	if exp, ok := claims["exp"].(float64); ok {
+		if int64(exp) < time.Now().Unix() {
+			log.Printf("Token expired at %v", time.Unix(int64(exp), 0))
+			return "", false
+		}
+	} else {
+		log.Printf("No exp claim in token")
 		return "", false
 	}
 
@@ -805,4 +356,144 @@ func getContentType(ext string) string {
 	default:
 		return "text/plain"
 	}
+}
+
+// HELPERS
+// Helper: Generate a signed URL for private S3 object access
+func generateSignedURL(key string, expiration time.Duration) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized")
+	}
+
+	presignClient := s3.NewPresignClient(s3Client)
+	request, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = expiration
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signed URL: %v", err)
+	}
+
+	return request.URL, nil
+}
+
+// Helper: Upload image to S3
+func uploadImageToS3(imageData, contentType string) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized - AWS credentials not configured. Check server startup logs for setup instructions")
+	}
+
+	log.Printf("S3 client is available, proceeding with upload...")
+
+	// Decode base64 image data
+	// Remove data URL prefix if present (data:image/png;base64,...)
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %v", err)
+	}
+
+	// Generate unique filename
+	filename := fmt.Sprintf("images/enemies/%s.png", uuid.New().String())
+
+	// Create S3 upload input (private bucket)
+	uploadInput := &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(filename),
+		Body:        bytes.NewReader(imageBytes),
+		ContentType: aws.String("image/png"),
+		// Remove ACL to keep bucket private
+	}
+
+	// Upload to S3
+	_, err = s3Client.PutObject(context.TODO(), uploadInput)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %v", err)
+	}
+
+	log.Printf("Image uploaded to S3: %s", filename)
+	return filename, nil // Return S3 key instead of signed URL
+}
+
+func handleGetSignedUrl(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// PREVENT ALL CACHING
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Printf("GET SIGNED URL DENIED - no auth")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Read request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	// Parse JSON
+	var requestData map[string]interface{}
+	if err := json.Unmarshal(body, &requestData); err != nil {
+		log.Printf("Error parsing JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	key, ok := requestData["key"].(string)
+	if !ok || key == "" {
+		log.Printf("Missing or invalid key in request")
+		http.Error(w, "Missing key", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("GET SIGNED URL REQUEST for key: %s", key)
+
+	// Generate signed URL for S3 object
+	presignResult, err := s3Presigner.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = time.Duration(15 * time.Minute) // URL expires in 15 minutes
+	})
+
+	if err != nil {
+		log.Printf("Error generating signed URL: %v", err)
+		http.Error(w, "Failed to generate signed URL", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"url":     presignResult.URL,
+		"expires": time.Now().Add(15 * time.Minute).Unix(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("GET SIGNED URL SUCCESS for key: %s", key)
 }

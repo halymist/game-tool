@@ -14,7 +14,39 @@ class EnemyDesigner {
         this.setupFormHandlers();
         this.setupEnemyNameHandler();
         this.initializeEffectOptions();
+        this.setupMessageHandlers(); // NEW
         // loadEnemiesAndEffects() will be called when the enemy designer is opened
+    }
+
+    setupMessageHandlers() {
+        // Victory
+        const victoryList = document.getElementById('victory-messages-list');
+        const addVictoryBtn = document.getElementById('add-victory-message');
+        addVictoryBtn.addEventListener('click', () => this.addMessageField(victoryList, 'victory'));
+        // Defeat
+        const defeatList = document.getElementById('defeat-messages-list');
+        const addDefeatBtn = document.getElementById('add-defeat-message');
+        addDefeatBtn.addEventListener('click', () => this.addMessageField(defeatList, 'defeat'));
+        // Add one field by default if empty
+        if (victoryList.children.length === 0) this.addMessageField(victoryList, 'victory');
+        if (defeatList.children.length === 0) this.addMessageField(defeatList, 'defeat');
+    }
+
+    addMessageField(listElem, type, value = '') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message-field-wrapper';
+        const textarea = document.createElement('textarea');
+        textarea.className = 'message-textarea';
+        textarea.placeholder = type === 'victory' ? 'Victory message...' : 'Defeat message...';
+        textarea.value = value;
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-message-btn';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = () => listElem.removeChild(wrapper);
+        wrapper.appendChild(textarea);
+        wrapper.appendChild(removeBtn);
+        listElem.appendChild(wrapper);
     }
 
     setupIconUpload() {
@@ -253,6 +285,21 @@ class EnemyDesigner {
             }
         }
 
+        // Load victory/defeat messages from messages array
+        const victoryList = document.getElementById('victory-messages-list');
+        const defeatList = document.getElementById('defeat-messages-list');
+        victoryList.innerHTML = '';
+        defeatList.innerHTML = '';
+        if (Array.isArray(enemy.messages)) {
+            const victories = enemy.messages.filter(m => m.type === 'onWin').map(m => m.message);
+            const defeats = enemy.messages.filter(m => m.type === 'onLose').map(m => m.message);
+            (victories.length ? victories : ['']).forEach(msg => this.addMessageField(victoryList, 'victory', msg));
+            (defeats.length ? defeats : ['']).forEach(msg => this.addMessageField(defeatList, 'defeat', msg));
+        } else {
+            this.addMessageField(victoryList, 'victory');
+            this.addMessageField(defeatList, 'defeat');
+        }
+
         console.log('Enemy data loaded successfully for:', enemy.name);
     }
 
@@ -289,6 +336,12 @@ class EnemyDesigner {
         if (iconPreview) iconPreview.innerHTML = '';
         if (uploadContent) uploadContent.style.display = 'block';
         if (fileInput) fileInput.value = '';
+
+        // Reset messages
+        document.getElementById('victory-messages-list').innerHTML = '';
+        document.getElementById('defeat-messages-list').innerHTML = '';
+        this.addMessageField(document.getElementById('victory-messages-list'), 'victory');
+        this.addMessageField(document.getElementById('defeat-messages-list'), 'defeat');
 
         // Clear validation styles
         document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
@@ -357,27 +410,24 @@ class EnemyDesigner {
         for (let i = 1; i <= 10; i++) {
             const effectElement = document.getElementById(`effect${i}`);
             const factorElement = document.getElementById(`factor${i}`);
-            
             if (!effectElement) {
-                console.warn(`Effect dropdown ${i} not found!`);
                 formData.effects.push({ type: "", factor: 1 });
                 continue;
             }
-            
             if (!factorElement) {
-                console.warn(`Factor input ${i} not found!`);
                 formData.effects.push({ type: "", factor: 1 });
                 continue;
             }
-            
             const effectValue = effectElement.value;
             const factorValue = parseInt(factorElement.value) || 1;
-            
-            formData.effects.push({
-                type: effectValue, // Will be empty string if no effect selected
-                factor: factorValue
-            });
+            formData.effects.push({ type: effectValue, factor: factorValue });
         }
+
+        // Collect messages as array of {type, message}
+        formData.messages = [
+            ...Array.from(document.querySelectorAll('#victory-messages-list .message-textarea')).map(t => ({ type: 'onWin', message: t.value.trim() })).filter(m => m.message),
+            ...Array.from(document.querySelectorAll('#defeat-messages-list .message-textarea')).map(t => ({ type: 'onLose', message: t.value.trim() })).filter(m => m.message)
+        ];
 
         return formData;
     }
@@ -436,6 +486,7 @@ class EnemyDesigner {
             
             console.log('Image changed:', imageChanged);
             console.log('Using iconKey:', enemyData.iconKey);
+            console.log('Updated enemy data:', enemyData);
             
             this.sendToServer(enemyData, 'update');
         } else {
