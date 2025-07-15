@@ -40,8 +40,7 @@ const Enemy = {
         effects: [],           // Array of up to 10 effects - JSON: "effects"
         icon: null,            // Base64 image data or signed URL - JSON: "icon,omitempty"
         assetID: 0,            // Asset ID for existing images - JSON: "assetID,omitempty"
-        messages: [],          // Array of victory/defeat messages - JSON: "messages,omitempty"
-        imageChanged: false    // Flag for update operations - JSON: "imageChanged,omitempty"
+        messages: []           // Array of victory/defeat messages - JSON: "messages,omitempty"
     }),
     
     // Load data from form into Enemy struct
@@ -354,17 +353,12 @@ function setupEnemyNameHandler() {
         console.log('User typed:', inputValue);
         
         // Check if this matches an existing enemy exactly
-        const existingEnemy = loadedEnemies.find(enemy => enemy.name === inputValue);
+        const enemies = getEnemies(); // Get enemies from global data
+        const existingEnemy = enemies.find(enemy => enemy.name === inputValue);
         
         if (existingEnemy) {
             console.log('Exact match found for existing enemy:', inputValue);
-            await loadEnemyData(existingEnemy);
-        } else {
-            // User is typing a new name or modified an existing one
-            if (currentEnemyData && currentEnemyData.name !== inputValue) {
-                console.log('Clearing current enemy data - user changed name from', currentEnemyData.name, 'to', inputValue);
-                currentEnemyData = null;
-            }
+            await selectExistingEnemy(existingEnemy);
         }
     });
 
@@ -373,127 +367,31 @@ function setupEnemyNameHandler() {
         const selectedValue = e.target.value;
         console.log('Input changed to:', selectedValue);
         
-        const existingEnemy = loadedEnemies.find(enemy => enemy.name === selectedValue);
+        const enemies = getEnemies(); // Get enemies from global data
+        const existingEnemy = enemies.find(enemy => enemy.name === selectedValue);
         
         if (existingEnemy) {
             console.log('Loading enemy from change event:', selectedValue);
-            await loadEnemyData(existingEnemy);
+            await selectExistingEnemy(existingEnemy);
         }
     });
 
     // Add focus event to help users discover the datalist
     nameInput.addEventListener('focus', (e) => {
-        console.log('Name input focused, available enemies:', loadedEnemies.map(e => e.name));
+        console.log('Name input focused');
         
         // Show a hint if there are loaded enemies
-        if (loadedEnemies.length > 0) {
+        const enemies = getEnemies();
+        if (enemies.length > 0) {
             const hint = document.querySelector('.input-hint');
             if (hint) {
-                hint.textContent = `💡 Available enemies: ${loadedEnemies.map(e => e.name).join(', ')}`;
+                hint.textContent = `💡 Available enemies: ${enemies.map(e => e.name).join(', ')}`;
                 setTimeout(() => {
                     hint.textContent = '💡 Start typing to see existing enemies, or enter a new name';
                 }, 3000);
             }
         }
     });
-}
-
-async function loadEnemyData(enemy) {
-    if (!enemy) return;
-
-    console.log('Loading enemy data for:', enemy.name);
-    currentEnemyData = enemy;
-
-    // Load basic data
-    document.getElementById('enemyName').value = enemy.name;
-    document.getElementById('enemyDescription').value = enemy.description || '';
-    
-    // Load stats
-    if (enemy.stats) {
-        document.getElementById('strength').value = enemy.stats.strength || 0;
-        document.getElementById('stamina').value = enemy.stats.stamina || 0;
-        document.getElementById('agility').value = enemy.stats.agility || 0;
-        document.getElementById('luck').value = enemy.stats.luck || 0;
-        document.getElementById('armor').value = enemy.stats.armor || 0;
-    }
-
-    // Load effects
-    if (enemy.effects && Array.isArray(enemy.effects)) {
-        for (let i = 0; i < 10; i++) {
-            const effect = enemy.effects[i];
-            const effectSelect = document.getElementById(`effect${i + 1}`);
-            const factorInput = document.getElementById(`factor${i + 1}`);
-
-            if (effectSelect && factorInput) {
-                effectSelect.value = effect?.type || '';
-                factorInput.value = effect?.factor || 1;
-
-                // Trigger change event to update description
-                effectSelect.dispatchEvent(new Event('change'));
-            }
-        }
-    }
-
-    // Load icon
-    if (enemy.iconUrl) {
-        // Use the signed URL directly for display
-        console.log('Loading icon for enemy:', enemy.name, 'URL:', enemy.iconUrl);
-        currentIcon = enemy.iconUrl; // Store the signed URL temporarily
-        currentAssetID = enemy.assetID; // Store the asset ID if available
-        const iconPreview = document.getElementById('iconPreview');
-        const uploadContent = document.querySelector('.upload-content');
-        
-        // Create img element without crossorigin to avoid CORS issues
-        iconPreview.innerHTML = `<img src="${enemy.iconUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
-        
-        if (uploadContent) {
-            uploadContent.style.display = 'none';
-        }
-        
-        console.log('Icon loaded successfully for:', enemy.name);
-    } else if (enemy.assetID) {
-        // Fallback: try to get signed URL if we only have the asset ID
-        console.log('Loading icon for enemy:', enemy.name, 'Asset ID:', enemy.assetID);
-        currentAssetID = enemy.assetID; // Store the asset ID
-        try {
-            const signedUrl = await getSignedUrl(`${enemy.assetID}`);
-            if (signedUrl) {
-                currentIcon = signedUrl;
-                const iconPreview = document.getElementById('iconPreview');
-                const uploadContent = document.querySelector('.upload-content');
-                
-                // Create img element without crossorigin to avoid CORS issues
-                iconPreview.innerHTML = `<img src="${signedUrl}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
-                
-                if (uploadContent) {
-                    uploadContent.style.display = 'none';
-                }
-                
-                console.log('Icon loaded successfully for:', enemy.name);
-            } else {
-                console.warn('Could not get signed URL for enemy:', enemy.name);
-            }
-        } catch (error) {
-            console.error('Error loading enemy icon:', error);
-        }
-    }
-
-    // Load victory/defeat messages from messages array
-    const victoryList = document.getElementById('victory-messages-list');
-    const defeatList = document.getElementById('defeat-messages-list');
-    victoryList.innerHTML = '';
-    defeatList.innerHTML = '';
-    if (Array.isArray(enemy.messages)) {
-        const victories = enemy.messages.filter(m => m.type === 'onWin').map(m => m.message);
-        const defeats = enemy.messages.filter(m => m.type === 'onLose').map(m => m.message);
-        (victories.length ? victories : ['']).forEach(msg => addMessageField(victoryList, 'victory', msg));
-        (defeats.length ? defeats : ['']).forEach(msg => addMessageField(defeatList, 'defeat', msg));
-    } else {
-        addMessageField(victoryList, 'victory');
-        addMessageField(defeatList, 'defeat');
-    }
-
-    console.log('Enemy data loaded successfully for:', enemy.name);
 }
 
 function resetForm() {
@@ -664,17 +562,17 @@ function saveEnemy() {
         console.log('Updated description:', enemy.description);
         console.log('Updated messages count:', enemy.messages.length);
         
-        // Check if image has changed
-        const imageChanged = hasImageChanged();
-        enemy.imageChanged = imageChanged;
-        
-        if (!imageChanged) {
-            // Preserve the original asset ID for updates without image changes
+        // For updates, we can infer image changes based on assetID
+        if (currentAssetID > 0 && currentAssetID !== currentEnemyData.assetID) {
+            console.log('Image changed - using different asset:', currentAssetID, 'vs original:', currentEnemyData.assetID);
+            enemy.assetID = currentAssetID;
+        } else if (currentAssetID === 0) {
+            console.log('Image changed - new upload detected');
+            // New upload, assetID will be 0
+        } else {
+            console.log('Image unchanged - preserving assetID:', currentEnemyData.assetID);
             enemy.assetID = currentEnemyData.assetID;
             enemy.icon = null; // Don't send icon data if not changed
-            console.log('Image unchanged - preserving assetID:', enemy.assetID);
-        } else {
-            console.log('Image changed - sending new image data');
         }
         
         sendToServer(enemy, 'update');
@@ -690,34 +588,6 @@ function saveEnemy() {
         
         sendToServer(enemy, 'create');
     }
-}
-
-function hasImageChanged() {
-    // If we don't have current enemy data, this is a new enemy
-    if (!currentEnemyData) {
-        return true;
-    }
-    
-    // If currentIcon is base64 data (starts with 'data:'), check if it's different
-    if (currentIcon && currentIcon.startsWith('data:')) {
-        // If we have an asset ID, it means we selected an existing asset
-        if (currentAssetID > 0) {
-            // Check if the selected asset is different from the original
-            const originalAssetID = currentEnemyData.assetID;
-            return currentAssetID !== originalAssetID;
-        } else {
-            // This is a new upload, so it's definitely changed
-            return true;
-        }
-    }
-    
-    // If currentIcon is a signed URL (starts with 'https://'), then it's the same image
-    if (currentIcon && currentIcon.startsWith('https://')) {
-        return false;
-    }
-    
-    // If no icon at all, consider it changed (should not happen in valid form)
-    return true;
 }
 
 async function sendToServer(enemy, operation) {
@@ -1003,13 +873,13 @@ function createAssetGallery() {
         return;
     }
 
-    const assets = getEnemyAssets();
-    if (assets.length === 0) {
-        console.log('No enemy assets available for reuse');
+    const enemies = getEnemiesWithAssets();
+    if (enemies.length === 0) {
+        console.log('No enemies with assets available for reuse');
         return;
     }
 
-    console.log('Creating asset gallery with', assets.length, 'available assets');
+    console.log('Creating asset gallery with', enemies.length, 'available enemies');
 
     // Get the existing toggle button and set up click handler
     const toggleBtn = document.getElementById('assetGalleryToggle');
@@ -1033,17 +903,17 @@ function createAssetGallery() {
     if (assetGrid) {
         assetGrid.innerHTML = ''; // Clear existing content
 
-        assets.forEach(asset => {
+        enemies.forEach(enemy => {
             const assetItem = document.createElement('div');
             assetItem.className = 'asset-item';
-            assetItem.dataset.assetId = asset.assetID;
+            assetItem.dataset.assetId = enemy.assetID;
             assetItem.innerHTML = `
-                <img src="${asset.texture}" alt="Asset ${asset.assetID}" class="asset-thumbnail">
-                <div class="asset-label">Asset ID: ${asset.assetID}</div>
+                <img src="${enemy.icon}" alt="${enemy.name}" class="asset-thumbnail">
+                <div class="asset-label">${enemy.name} (ID: ${enemy.assetID})</div>
             `;
             
-            // Add click handler to select this asset
-            assetItem.addEventListener('click', () => selectExistingAsset(asset));
+            // Add click handler to select only the asset (not the full enemy data)
+            assetItem.addEventListener('click', () => selectExistingAsset(enemy));
             
             assetGrid.appendChild(assetItem);
         });
@@ -1068,58 +938,67 @@ function toggleAssetGallery() {
 }
 
 /**
- * Select an existing asset for the current enemy
- * @param {Object} asset - The selected asset object
+ * Select an existing asset for reuse (without loading enemy data)
+ * @param {Object} enemy - The enemy object that has the asset we want to reuse
  */
-async function selectExistingAsset(asset) {
-    console.log('Selected existing asset:', asset.assetID);
+async function selectExistingAsset(enemy) {
+    console.log('Selected existing asset from enemy:', enemy.name, 'AssetID:', enemy.assetID);
     
     try {
-        // Fetch the image from S3 using the signed URL and convert to base64
-        console.log('Fetching image from S3:', asset.texture);
-        const response = await fetch(asset.texture);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status}`);
+        // Load only the enemy's icon if available
+        if (enemy.icon) {
+            // Fetch the image from S3 using the signed URL and convert to base64
+            console.log('Fetching asset icon from S3:', enemy.icon);
+            const response = await fetch(enemy.icon);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            console.log('Image fetched, size:', (blob.size / 1024).toFixed(2) + 'KB');
+            
+            // Convert blob to base64
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Store the base64 data directly (this is what the server expects)
+                currentIcon = e.target.result;
+                currentAssetID = enemy.assetID; // Store the asset ID for reference
+                
+                console.log('✅ Asset icon converted to base64 and ready for use');
+                console.log('Base64 length:', currentIcon.length);
+                
+                // Update the preview using the texture URL for display
+                const iconPreview = document.getElementById('iconPreview');
+                const uploadContent = document.querySelector('.upload-content');
+                
+                if (iconPreview) {
+                    iconPreview.innerHTML = `<img src="${enemy.icon}" alt="Asset ${enemy.assetID}" style="width: 100%; height: 100%; object-fit: stretch;">`;
+                }
+                
+                if (uploadContent) {
+                    uploadContent.style.display = 'none';
+                }
+            };
+            
+            reader.onerror = () => {
+                console.error('Failed to convert fetched image to base64');
+                alert('Failed to process the asset. Please try again.');
+                return;
+            };
+            
+            reader.readAsDataURL(blob);
+        } else {
+            // No icon for this enemy
+            currentIcon = null;
+            currentAssetID = 0;
+            alert('This enemy has no asset to reuse.');
+            return;
         }
         
-        const blob = await response.blob();
-        console.log('Image fetched, size:', (blob.size / 1024).toFixed(2) + 'KB');
-        
-        // Convert blob to base64
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            // Store the base64 data directly (this is what the server expects)
-            currentIcon = e.target.result;
-            currentAssetID = asset.assetID; // Store the asset ID for reference
-            
-            console.log('✅ Existing asset converted to base64 and ready for use');
-            console.log('Base64 length:', currentIcon.length);
-        };
-        
-        reader.onerror = () => {
-            console.error('Failed to convert fetched image to base64');
-            alert('Failed to process the selected asset. Please try again.');
-            return;
-        };
-        
-        reader.readAsDataURL(blob);
-        
     } catch (error) {
-        console.error('Error fetching asset from S3:', error);
+        console.error('Error loading asset:', error);
         alert('Failed to load the selected asset. Please try again.');
         return;
-    }
-    
-    // Update the preview using the texture URL for display
-    const iconPreview = document.getElementById('iconPreview');
-    const uploadContent = document.querySelector('.upload-content');
-    
-    if (iconPreview) {
-        iconPreview.innerHTML = `<img src="${asset.texture}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
-    }
-    
-    if (uploadContent) {
-        uploadContent.style.display = 'none';
     }
     
     // Close the asset gallery overlay
@@ -1128,13 +1007,145 @@ async function selectExistingAsset(asset) {
     // Add visual feedback in the gallery
     const allAssetItems = document.querySelectorAll('.asset-item');
     allAssetItems.forEach(item => item.classList.remove('selected'));
-    
-    const selectedItem = document.querySelector(`[data-asset-id="${asset.assetID}"]`);
+    const selectedItem = document.querySelector(`[data-asset-id="${enemy.assetID}"]`);
     if (selectedItem) {
         selectedItem.classList.add('selected');
     }
     
-    console.log('✅ Asset selected and preview updated');
+    console.log('✅ Asset selected and ready for reuse (enemy data not loaded)');
+}
+
+/**
+ * Select an existing enemy and load all its data into the form
+ * @param {Object} enemy - The selected enemy object
+ */
+async function selectExistingEnemy(enemy) {
+    console.log('Selected existing enemy:', enemy.name, 'ID:', enemy.id, 'AssetID:', enemy.assetID);
+    
+    try {
+        // Load the enemy's icon if available
+        if (enemy.icon) {
+            // Fetch the image from S3 using the signed URL and convert to base64
+            console.log('Fetching enemy icon from S3:', enemy.icon);
+            const response = await fetch(enemy.icon);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
+            const blob = await response.blob();
+            console.log('Image fetched, size:', (blob.size / 1024).toFixed(2) + 'KB');
+            
+            // Convert blob to base64
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                // Store the base64 data directly (this is what the server expects)
+                currentIcon = e.target.result;
+                currentAssetID = enemy.assetID; // Store the asset ID for reference
+                
+                console.log('✅ Enemy icon converted to base64 and ready for use');
+                console.log('Base64 length:', currentIcon.length);
+                
+                // Update the preview using the texture URL for display
+                const iconPreview = document.getElementById('iconPreview');
+                const uploadContent = document.querySelector('.upload-content');
+                
+                if (iconPreview) {
+                    iconPreview.innerHTML = `<img src="${enemy.icon}" alt="${enemy.name}" style="width: 100%; height: 100%; object-fit: stretch;">`;
+                }
+                
+                if (uploadContent) {
+                    uploadContent.style.display = 'none';
+                }
+            };
+            
+            reader.onerror = () => {
+                console.error('Failed to convert fetched image to base64');
+                alert('Failed to process the enemy icon. Please try again.');
+                return;
+            };
+            
+            reader.readAsDataURL(blob);
+        } else {
+            // No icon for this enemy
+            currentIcon = null;
+            currentAssetID = 0;
+        }
+        
+        // Load all enemy data into the form
+        loadEnemyIntoForm(enemy);
+        
+    } catch (error) {
+        console.error('Error loading enemy data:', error);
+        alert('Failed to load the selected enemy. Please try again.');
+        return;
+    }
+    
+    // Close the asset gallery overlay
+    toggleAssetGallery();
+    
+    // Add visual feedback in the gallery
+    const allAssetItems = document.querySelectorAll('.asset-item');
+    allAssetItems.forEach(item => item.classList.remove('selected'));
+    const selectedItem = document.querySelector(`[data-asset-id="${enemy.assetID}"]`);
+    if (selectedItem) {
+        selectedItem.classList.add('selected');
+    }
+    
+    console.log('✅ Enemy loaded into form successfully');
+}
+
+/**
+ * Load complete enemy data into the form fields
+ * @param {Object} enemy - The enemy object to load
+ */
+function loadEnemyIntoForm(enemy) {
+    console.log('Loading enemy data into form:', enemy.name);
+    
+    // Load basic information
+    document.getElementById('enemyName').value = enemy.name || '';
+    document.getElementById('enemyDescription').value = enemy.description || '';
+    
+    // Load stats
+    if (enemy.stats) {
+        document.getElementById('strength').value = enemy.stats.strength || 0;
+        document.getElementById('stamina').value = enemy.stats.stamina || 0;
+        document.getElementById('agility').value = enemy.stats.agility || 0;
+        document.getElementById('luck').value = enemy.stats.luck || 0;
+        document.getElementById('armor').value = enemy.stats.armor || 0;
+    }
+    
+    // Load effects
+    if (enemy.effects && Array.isArray(enemy.effects)) {
+        for (let i = 0; i < Math.min(enemy.effects.length, 10); i++) {
+            const effect = enemy.effects[i];
+            const effectElement = document.getElementById(`effect${i + 1}`);
+            const factorElement = document.getElementById(`factor${i + 1}`);
+            
+            if (effectElement) {
+                effectElement.value = effect.type || 0;
+            }
+            if (factorElement) {
+                factorElement.value = effect.factor || 1;
+            }
+        }
+    }
+    
+    // Load messages
+    if (enemy.messages && Array.isArray(enemy.messages)) {
+        // Clear existing messages
+        clearMessages('victory');
+        clearMessages('defeat');
+        
+        enemy.messages.forEach(message => {
+            if (message.type === 'onWin') {
+                addMessage('victory', message.message);
+            } else if (message.type === 'onLose') {
+                addMessage('defeat', message.message);
+            }
+        });
+    }
+    
+    console.log('✅ All enemy data loaded into form');
 }
 
 // Keyboard support for asset gallery overlay
@@ -1166,6 +1177,12 @@ async function initEnemyDesigner() {
         
         // Populate effect dropdowns with global data
         populateEffectDropdownsFromGlobal();
+
+        // Populate enemy name datalist with global data
+        const enemies = getEnemies();
+        if (enemies.length > 0) {
+            populateEnemyDatalist(enemies);
+        }
         
         // Create asset gallery for reusing existing enemy icons
         createAssetGallery();
@@ -1185,3 +1202,30 @@ document.addEventListener('DOMContentLoaded', function() {
         initEnemyDesigner();
     }
 });
+
+// === HELPER FUNCTIONS FOR ENEMY LOADING ===
+
+/**
+ * Clear all messages of a specific type
+ * @param {string} type - 'victory' or 'defeat'
+ */
+function clearMessages(type) {
+    const listId = type === 'victory' ? 'victory-messages-list' : 'defeat-messages-list';
+    const listElem = document.getElementById(listId);
+    if (listElem) {
+        listElem.innerHTML = '';
+    }
+}
+
+/**
+ * Add a message of a specific type
+ * @param {string} type - 'victory' or 'defeat'
+ * @param {string} message - The message text to add
+ */
+function addMessage(type, message) {
+    const listId = type === 'victory' ? 'victory-messages-list' : 'defeat-messages-list';
+    const listElem = document.getElementById(listId);
+    if (listElem) {
+        addMessageField(listElem, type, message);
+    }
+}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -21,15 +22,14 @@ type EnemyMessage struct {
 // Enemy struct for full enemy data
 // Adjust field types as needed for your app
 type Enemy struct {
-	ID           interface{}              `json:"id,omitempty"`
-	Name         string                   `json:"name"`
-	Description  string                   `json:"description"`
-	Stats        map[string]int           `json:"stats"`
-	Effects      []map[string]interface{} `json:"effects"`
-	Icon         string                   `json:"icon,omitempty"`
-	AssetID      int                      `json:"assetID,omitempty"`
-	Messages     []EnemyMessage           `json:"messages,omitempty"`
-	ImageChanged bool                     `json:"imageChanged,omitempty"`
+	ID          interface{}              `json:"id,omitempty"`
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	Stats       map[string]int           `json:"stats"`
+	Effects     []map[string]interface{} `json:"effects"`
+	Icon        string                   `json:"icon,omitempty"`
+	AssetID     int                      `json:"assetID,omitempty"`
+	Messages    []EnemyMessage           `json:"messages,omitempty"`
 }
 
 func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
@@ -291,9 +291,9 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse JSON
-	var enemyData map[string]interface{}
-	if err := json.Unmarshal(body, &enemyData); err != nil {
+	// Parse JSON into Enemy struct for simpler handling
+	var enemy Enemy
+	if err := json.Unmarshal(body, &enemy); err != nil {
 		log.Printf("Error parsing JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -301,48 +301,43 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 
 	// Log the received enemy data
 	log.Printf("UPDATE ENEMY REQUEST:")
-	log.Printf("  Name: %v", enemyData["name"])
-	log.Printf("  Description: %v", enemyData["description"])
-	log.Printf("  Stats: %v", enemyData["stats"])
-	log.Printf("  Effects: %v", enemyData["effects"])
-	log.Printf("  ImageChanged: %v", enemyData["imageChanged"])
-	log.Printf("  AssetID: %v", enemyData["assetID"])
-	log.Printf("  Messages: %v", enemyData["messages"])
+	log.Printf("  Name: %v", enemy.Name)
+	log.Printf("  Description: %v", enemy.Description)
+	log.Printf("  Stats: %v", enemy.Stats)
+	log.Printf("  Effects: %v", enemy.Effects)
+	log.Printf("  AssetID: %v", enemy.AssetID)
+	log.Printf("  Icon provided: %v", enemy.Icon != "")
+	log.Printf("  Messages: %v", enemy.Messages)
 
-	// Handle icon upload or preservation
-	var assetID int
-	imageChanged, _ := enemyData["imageChanged"].(bool)
+	var finalAssetID int
 
-	if imageChanged {
-		// Upload new icon to S3 with generated assetID
-		if iconData, ok := enemyData["icon"].(string); ok && iconData != "" {
-			log.Printf("Uploading updated enemy icon to S3")
+	// Determine if we need to upload a new image based on presence of icon data
+	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
+		// We have base64 icon data - this means new/changed image
+		log.Printf("New image upload detected for enemy update")
 
-			// Generate a new assetID for the uploaded image
-			assetID = int(time.Now().Unix()) // Use timestamp as unique ID
+		if enemy.AssetID > 0 {
+			// Use the provided assetID for existing asset reuse
+			finalAssetID = enemy.AssetID
+			log.Printf("Reusing existing asset with ID: %d", finalAssetID)
+		} else {
+			// Generate new assetID for new upload
+			finalAssetID = int(time.Now().Unix()) // Use timestamp as unique ID
+			log.Printf("Generating new assetID: %d", finalAssetID)
 
-			key, err := uploadImageToS3WithCustomKey(iconData, "image/webp", fmt.Sprintf("%d", assetID))
+			// Upload to S3 with new assetID
+			key, err := uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
 			if err != nil {
 				log.Printf("Error uploading image to S3: %v", err)
 				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("SUCCESS: Image uploaded to S3 with key: %s for assetID: %d", key, assetID)
-		} else {
-			log.Printf("Image change flag set but no icon data provided")
-			http.Error(w, "Icon data required when imageChanged is true", http.StatusBadRequest)
-			return
+			log.Printf("SUCCESS: Image uploaded to S3 with key: %s for assetID: %d", key, finalAssetID)
 		}
 	} else {
-		// Preserve existing assetID
-		if existingAssetID, ok := enemyData["assetID"].(float64); ok && existingAssetID > 0 {
-			assetID = int(existingAssetID)
-			log.Printf("Preserving existing assetID: %d", assetID)
-		} else {
-			log.Printf("No existing assetID provided for update")
-			http.Error(w, "assetID is required when imageChanged is false", http.StatusBadRequest)
-			return
-		}
+		// No new image data - preserve existing assetID
+		finalAssetID = enemy.AssetID
+		log.Printf("Preserving existing assetID: %d", finalAssetID)
 	}
 
 	// Here you would typically update the database
@@ -354,7 +349,7 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "Enemy updated successfully",
 		"id":      "temp_id_123", // In real app, this would be the database ID
-		"assetID": assetID,       // Return assetID instead of iconKey
+		"assetID": finalAssetID,  // Return finalAssetID instead of assetID
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -363,10 +358,10 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if imageChanged {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new assetID: %d", assetID)
+	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
+		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new assetID: %d", finalAssetID)
 	} else {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving assetID: %d", assetID)
+		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving assetID: %d", finalAssetID)
 	}
 }
 
@@ -391,111 +386,169 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("GET ENEMIES REQUEST")
 
-	// Mock data for now - replace with real database queries later
-	effects := []map[string]interface{}{
-		map[string]interface{}{"id": 1, "name": "Poison", "description": "Deals damage over time"},
-		map[string]interface{}{"id": 2, "name": "Stun", "description": "Prevents actions for turns"},
-		map[string]interface{}{"id": 3, "name": "Heal", "description": "Restores health"},
-		map[string]interface{}{"id": 4, "name": "Burn", "description": "Fire damage over time"},
-		map[string]interface{}{"id": 5, "name": "Shield", "description": "Reduces incoming damage"},
+	var effects []map[string]interface{}
+	var enemies []Enemy
+
+	if db != nil {
+		log.Printf("Querying effects and enemies from database...")
+
+		// First, get all effects
+		effectRows, err := db.Query(`SELECT "id", "name", "description" FROM "Effects" ORDER BY "id"`)
+		if err != nil {
+			log.Printf("ERROR: Failed to query effects: %v", err)
+			http.Error(w, "Failed to load effects", http.StatusInternalServerError)
+			return
+		}
+		defer effectRows.Close()
+
+		for effectRows.Next() {
+			var id int
+			var name string
+			var description *string
+
+			err := effectRows.Scan(&id, &name, &description)
+			if err != nil {
+				log.Printf("ERROR: Failed to scan effect row: %v", err)
+				continue
+			}
+
+			effect := map[string]interface{}{
+				"id":   id,
+				"name": name,
+			}
+
+			if description != nil {
+				effect["description"] = *description
+			} else {
+				effect["description"] = ""
+			}
+
+			effects = append(effects, effect)
+		}
+
+		// Now get all enemies with their complete data
+		enemyQuery := `SELECT "id", "name", "description", "strength", "stamina", "agility", "luck", "armor", "assetID",
+			"effect1_id", "effect1_factor", "effect2_id", "effect2_factor", "effect3_id", "effect3_factor",
+			"effect4_id", "effect4_factor", "effect5_id", "effect5_factor", "effect6_id", "effect6_factor",
+			"effect7_id", "effect7_factor", "effect8_id", "effect8_factor", "effect9_id", "effect9_factor",
+			"effect10_id", "effect10_factor"
+			FROM "Enemies" ORDER BY "id"`
+
+		enemyRows, err := db.Query(enemyQuery)
+		if err != nil {
+			log.Printf("ERROR: Failed to query enemies: %v", err)
+			http.Error(w, "Failed to load enemies", http.StatusInternalServerError)
+			return
+		}
+		defer enemyRows.Close()
+
+		for enemyRows.Next() {
+			var enemy Enemy
+			var id int
+			var assetID *int
+			var strength, stamina, agility, luck, armor int
+			var effectIDs [10]*int
+			var effectFactors [10]*float64 // Changed to *float64 to match DECIMAL(10,2) in database
+
+			err := enemyRows.Scan(&id, &enemy.Name, &enemy.Description,
+				&strength, &stamina, &agility, &luck, &armor,
+				&assetID,
+				&effectIDs[0], &effectFactors[0], &effectIDs[1], &effectFactors[1], &effectIDs[2], &effectFactors[2],
+				&effectIDs[3], &effectFactors[3], &effectIDs[4], &effectFactors[4], &effectIDs[5], &effectFactors[5],
+				&effectIDs[6], &effectFactors[6], &effectIDs[7], &effectFactors[7], &effectIDs[8], &effectFactors[8],
+				&effectIDs[9], &effectFactors[9])
+
+			if err != nil {
+				log.Printf("ERROR: Failed to scan enemy row: %v", err)
+				continue
+			}
+
+			// Set ID and AssetID
+			enemy.ID = id
+			if assetID != nil {
+				enemy.AssetID = *assetID
+			}
+
+			// Initialize Stats map and populate it
+			enemy.Stats = map[string]int{
+				"strength": strength,
+				"stamina":  stamina,
+				"agility":  agility,
+				"luck":     luck,
+				"armor":    armor,
+			}
+
+			// Process effects
+			enemy.Effects = make([]map[string]interface{}, 10)
+			for i := 0; i < 10; i++ {
+				effectType := 0
+				effectFactor := 1.0
+
+				if effectIDs[i] != nil {
+					effectType = *effectIDs[i]
+				}
+				if effectFactors[i] != nil {
+					effectFactor = *effectFactors[i]
+				}
+
+				enemy.Effects[i] = map[string]interface{}{
+					"type":   effectType,
+					"factor": int(effectFactor), // Convert to int for client compatibility
+				}
+			}
+
+			// Get messages for this enemy
+			messageQuery := `SELECT "won", "message" FROM "EnemyMessages" WHERE "enemy_id" = $1 ORDER BY "id"`
+			messageRows, err := db.Query(messageQuery, id)
+			if err != nil {
+				log.Printf("WARNING: Failed to query messages for enemy %d: %v", id, err)
+			} else {
+				for messageRows.Next() {
+					var won bool
+					var message string
+					err := messageRows.Scan(&won, &message)
+					if err != nil {
+						log.Printf("WARNING: Failed to scan message row for enemy %d: %v", id, err)
+						continue
+					}
+
+					messageType := "onLose"
+					if won {
+						messageType = "onWin"
+					}
+
+					enemy.Messages = append(enemy.Messages, EnemyMessage{
+						Type:    messageType,
+						Message: message,
+					})
+				}
+				messageRows.Close()
+			}
+
+			enemies = append(enemies, enemy)
+		}
+
+		log.Printf("SUCCESS: Loaded %d effects and %d enemies from database", len(effects), len(enemies))
+
+	} else {
+		log.Printf("WARNING: Database not available, returning empty data")
+		effects = []map[string]interface{}{}
+		enemies = []Enemy{}
 	}
 
-	enemies := []map[string]interface{}{
-		map[string]interface{}{
-			"id":          1,
-			"name":        "Bandit",
-			"description": "A ruthless outlaw who preys on travelers. These criminals have honed their combat skills through countless skirmishes and ambushes.",
-			"stats": map[string]interface{}{
-				"strength": 15,
-				"stamina":  100,
-				"agility":  12,
-				"luck":     5,
-				"armor":    8,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "1", "factor": 2},
-				map[string]interface{}{"type": "2", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-			},
-			"assetID": 1,
-			"messages": []EnemyMessage{
-				{Type: "onWin", Message: "The bandit falls to the ground, defeated!"},
-				{Type: "onWin", Message: "You have bested the bandit!"},
-				{Type: "onLose", Message: "The bandit laughs as you fall!"},
-			},
-		},
-		map[string]interface{}{
-			"id":          2,
-			"name":        "Fire Mage",
-			"description": "A powerful spellcaster who has mastered the elemental forces of fire. Their spells can incinerate enemies and create walls of flame.",
-			"stats": map[string]interface{}{
-				"strength": 25,
-				"stamina":  80,
-				"agility":  8,
-				"luck":     8,
-				"armor":    5,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "4", "factor": 3},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-			},
-			"assetID": 2,
-		},
-		map[string]interface{}{
-			"id":          3,
-			"name":        "Goblin Warrior",
-			"description": "A fierce and cunning goblin warrior armed with crude but effective weapons. Despite their small stature, they are surprisingly agile and dangerous in combat.",
-			"stats": map[string]interface{}{
-				"strength": 12,
-				"stamina":  70,
-				"agility":  18,
-				"luck":     3,
-				"armor":    10,
-			},
-			"effects": []interface{}{
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-				map[string]interface{}{"type": "", "factor": 1},
-			},
-			"assetID": 3,
-		},
-	}
-
-	// Generate signed URLs for enemy icons based on assetID
-	for _, enemy := range enemies {
-		if assetID, ok := enemy["assetID"].(int); ok && assetID > 0 {
-			// Convert assetID to S3 key format
-			iconKey := fmt.Sprintf("%d", assetID)
+	// Generate signed URLs for enemy icons and set them in the Icon field
+	for i := range enemies {
+		if enemies[i].AssetID > 0 {
+			// Convert assetID to S3 key format (matching the format used in handleGetEnemyAssets)
+			iconKey := fmt.Sprintf("images/enemies/%d.webp", enemies[i].AssetID)
 			signedURL, err := generateSignedURL(iconKey, 10*time.Minute) // 10 minute expiration
 			if err != nil {
-				log.Printf("Warning: Failed to generate signed URL for assetID %d: %v", assetID, err)
-				// Keep the original assetID as fallback
+				log.Printf("Warning: Failed to generate signed URL for assetID %d: %v", enemies[i].AssetID, err)
+				// Keep the icon field empty if we can't generate signed URL
 			} else {
-				// Add signed URL to the enemy object
-				enemy["iconUrl"] = signedURL
-				log.Printf("Generated signed URL for assetID: %d", assetID)
+				// Set signed URL in the Icon field
+				enemies[i].Icon = signedURL
+				log.Printf("Generated signed URL for enemy %s (assetID: %d)", enemies[i].Name, enemies[i].AssetID)
 			}
 		}
 	}

@@ -4,7 +4,7 @@
 // === GLOBAL DATA STORAGE ===
 const GlobalData = {
     effects: [],           // Array of all effects from database
-    enemyAssets: [],       // Array of all enemy assets with signed URLs
+    enemies: [],           // Array of all complete enemy data with signed URLs
     isLoaded: false,       // Flag to track if data has been loaded
     loadPromise: null      // Promise to prevent multiple simultaneous loads
 };
@@ -16,15 +16,6 @@ const Effect = {
         id: id,                    // Effect ID from database - JSON: "id"
         name: name,               // Effect name - JSON: "name"
         description: description  // Effect description - JSON: "description"
-    })
-};
-
-// === ENEMY ASSET DATA STRUCTURE ===
-// Matches server-side asset structure
-const EnemyAsset = {
-    create: (assetID, texture) => ({
-        assetID: assetID,     // Asset ID from database - JSON: "assetID"
-        texture: texture      // Signed URL for the asset - JSON: "texture"
     })
 };
 
@@ -80,21 +71,21 @@ async function loadEffectsData() {
 }
 
 /**
- * Load all enemy assets data from the server
- * @returns {Promise<Array>} Promise that resolves to array of enemy assets
+ * Load all enemies data from the server
+ * @returns {Promise<Array>} Promise that resolves to array of complete enemy data
  */
-async function loadEnemyAssetsData() {
+async function loadEnemiesData() {
     try {
         // Get current access token
         const token = await getCurrentAccessToken();
         if (!token) {
-            console.error('Authentication required to load enemy assets data');
+            console.error('Authentication required to load enemies data');
             throw new Error('Authentication required');
         }
 
-        console.log('Loading enemy assets data from server...');
+        console.log('Loading enemies data from server...');
 
-        const response = await fetch('http://localhost:8080/api/getEnemyAssets', {
+        const response = await fetch('http://localhost:8080/api/getEnemies', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -104,25 +95,31 @@ async function loadEnemyAssetsData() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('=== ENEMY ASSETS DATA LOADED ===');
+            console.log('=== ENEMIES DATA LOADED ===');
             console.log('Success:', data.success);
-            console.log('Assets count:', data.assets ? data.assets.length : 0);
-            console.log('Assets data:', data.assets);
+            console.log('Effects count from enemies endpoint:', data.effects ? data.effects.length : 0);
+            console.log('Enemies count:', data.enemies ? data.enemies.length : 0);
+            console.log('Enemies data:', data.enemies);
             
-            // Store the loaded enemy assets
-            GlobalData.enemyAssets = data.assets || [];
+            // Store the loaded enemies data
+            GlobalData.enemies = data.enemies || [];
+            // Don't override effects data if already loaded separately
+            if (data.effects && GlobalData.effects.length === 0) {
+                GlobalData.effects = data.effects;
+                console.log('Effects data also loaded from enemies endpoint');
+            }
             
-            console.log('✅ Enemy assets data loaded successfully:', GlobalData.enemyAssets.length, 'assets');
-            return GlobalData.enemyAssets;
+            console.log('✅ Enemies data loaded successfully:', GlobalData.enemies.length, 'enemies');
+            return GlobalData.enemies;
             
         } else {
             const error = await response.text();
-            console.error('Failed to load enemy assets data:', error);
+            console.error('Failed to load enemies data:', error);
             throw new Error(`Server error: ${error}`);
         }
 
     } catch (error) {
-        console.error('Error loading enemy assets data:', error);
+        console.error('Error loading enemies data:', error);
         throw error;
     }
 }
@@ -148,17 +145,15 @@ async function initializeGlobalData() {
         try {
             console.log('=== INITIALIZING GLOBAL DATA ===');
             
-            // Load effects data and enemy assets in parallel for better performance
-            const [effectsResult, assetsResult] = await Promise.all([
-                loadEffectsData(),
-                loadEnemyAssetsData()
-            ]);
+            // Load effects data first, then enemies data
+            await loadEffectsData();
+            await loadEnemiesData();
             
             GlobalData.isLoaded = true;
             
             console.log('=== GLOBAL DATA INITIALIZATION COMPLETE ===');
             console.log('Effects loaded:', GlobalData.effects.length);
-            console.log('Enemy assets loaded:', GlobalData.enemyAssets.length);
+            console.log('Enemies loaded:', GlobalData.enemies.length);
             
         } catch (error) {
             console.error('Failed to initialize global data:', error);
@@ -180,7 +175,7 @@ async function reloadGlobalData() {
     GlobalData.isLoaded = false;
     GlobalData.loadPromise = null;
     GlobalData.effects = [];
-    GlobalData.enemyAssets = [];
+    GlobalData.enemies = [];
     
     return await initializeGlobalData();
 }
@@ -225,30 +220,57 @@ function getEffectName(effectId) {
 }
 
 /**
- * Get all enemy assets data
- * @returns {Array} Array of enemy assets
+ * Get all enemies data
+ * @returns {Array} Array of complete enemy data
  */
-function getEnemyAssets() {
+function getEnemies() {
     if (!GlobalData.isLoaded) {
-        console.warn('Enemy assets data not loaded yet. Call initializeGlobalData() first.');
+        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
         return [];
     }
-    return GlobalData.enemyAssets;
+    return GlobalData.enemies;
 }
 
 /**
- * Get enemy asset by assetID
- * @param {number|string} assetID - The asset ID to find
- * @returns {Object|null} Enemy asset object or null if not found
+ * Get enemy by ID
+ * @param {number|string} enemyId - The enemy ID to find
+ * @returns {Object|null} Enemy object or null if not found
  */
-function getEnemyAssetById(assetID) {
+function getEnemyById(enemyId) {
     if (!GlobalData.isLoaded) {
-        console.warn('Enemy assets data not loaded yet. Call initializeGlobalData() first.');
+        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
+        return null;
+    }
+    
+    const id = parseInt(enemyId);
+    return GlobalData.enemies.find(enemy => enemy.id === id) || null;
+}
+
+/**
+ * Get enemy by assetID
+ * @param {number|string} assetID - The asset ID to find
+ * @returns {Object|null} Enemy object or null if not found
+ */
+function getEnemyByAssetID(assetID) {
+    if (!GlobalData.isLoaded) {
+        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
         return null;
     }
     
     const id = parseInt(assetID);
-    return GlobalData.enemyAssets.find(asset => asset.assetID === id) || null;
+    return GlobalData.enemies.find(enemy => enemy.assetID === id) || null;
+}
+
+/**
+ * Get all enemies with assets (for gallery display)
+ * @returns {Array} Array of enemies that have icons
+ */
+function getEnemiesWithAssets() {
+    if (!GlobalData.isLoaded) {
+        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
+        return [];
+    }
+    return GlobalData.enemies.filter(enemy => enemy.icon && enemy.assetID > 0);
 }
 
 /**
@@ -257,8 +279,8 @@ function getEnemyAssetById(assetID) {
  * @returns {string} Texture URL or empty string if not found
  */
 function getEnemyAssetTexture(assetID) {
-    const asset = getEnemyAssetById(assetID);
-    return asset ? asset.texture : '';
+    const enemy = getEnemyByAssetID(assetID);
+    return enemy ? enemy.icon : '';
 }
 
 /**
@@ -267,10 +289,12 @@ function getEnemyAssetTexture(assetID) {
  */
 function getAvailableAssetIDs() {
     if (!GlobalData.isLoaded) {
-        console.warn('Enemy assets data not loaded yet. Call initializeGlobalData() first.');
+        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
         return [];
     }
-    return GlobalData.enemyAssets.map(asset => asset.assetID);
+    return GlobalData.enemies
+        .filter(enemy => enemy.assetID > 0)
+        .map(enemy => enemy.assetID);
 }
 
 /**
@@ -313,4 +337,4 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(autoInitializeGlobalData, 1000);
 });
 
-console.log('🌍 Global Data Manager loaded - ready to load effects and enemy assets from server');
+console.log('🌍 Global Data Manager loaded - ready to load effects and enemies data from server');
