@@ -81,7 +81,6 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 
 	// Check if this is an update or create based on the presence of ID
 	if enemy.ID != nil && enemy.ID != "" {
-		log.Printf("Enemy has ID, routing to update logic")
 		handleUpdateEnemyWithData(w, enemy)
 		return
 	}
@@ -243,8 +242,6 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		log.Printf("Enemy creation completed successfully")
-
 		// Generate signed URL for the created enemy icon
 		var signedURL string
 		if finalAssetID > 0 {
@@ -268,6 +265,8 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
+
+		log.Printf("Created enemy ID %d with assetID: %d", enemyID, finalAssetID)
 
 	}
 }
@@ -300,37 +299,36 @@ func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
 		return
 	}
 
-	log.Printf("Updating enemy with ID: %d", enemyID)
-
 	var finalAssetID int
 
 	// Determine if we need to upload a new image or use existing asset
 	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
 		// We have base64 icon data - this means new/changed image
-		log.Printf("New image upload detected for enemy update")
 
 		if enemy.AssetID > 0 {
 			// Use the provided assetID for existing asset reuse
 			finalAssetID = enemy.AssetID
-			log.Printf("Reusing existing asset with ID: %d", finalAssetID)
 		} else {
-			// Generate new assetID for new upload
-			finalAssetID = int(time.Now().Unix()) // Use timestamp as unique ID
-			log.Printf("Generating new assetID: %d", finalAssetID)
+			// Generate new assetID from database sequence
+			newAssetID, err := getNextAssetID()
+			if err != nil {
+				log.Printf("Error getting next assetID: %v", err)
+				http.Error(w, "Failed to generate asset ID", http.StatusInternalServerError)
+				return
+			}
+			finalAssetID = newAssetID
 
 			// Upload to S3 with new assetID
-			key, err := uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
+			_, err = uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
 			if err != nil {
 				log.Printf("Error uploading image to S3: %v", err)
 				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
 				return
 			}
-			log.Printf("SUCCESS: Image uploaded to S3 with key: %s for assetID: %d", key, finalAssetID)
 		}
 	} else {
 		// No new image data - preserve existing assetID
 		finalAssetID = enemy.AssetID
-		log.Printf("Preserving existing assetID: %d", finalAssetID)
 	}
 
 	// Update enemy in database
@@ -397,8 +395,6 @@ func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
 		}
 	}
 
-	log.Printf("Enemy update completed successfully")
-
 	// Generate signed URL for the updated enemy icon
 	var signedURL string
 	if finalAssetID > 0 {
@@ -427,7 +423,7 @@ func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
 		return
 	}
 
-	log.Printf("UPDATE ENEMY SUCCESS - updated enemy ID %d with assetID: %d", enemyID, finalAssetID)
+	log.Printf("Updated enemy ID %d with assetID: %d", enemyID, finalAssetID)
 }
 
 func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
@@ -455,8 +451,6 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 	var enemies []Enemy
 
 	if db != nil {
-		log.Printf("Querying effects and enemies from database...")
-
 		// First, get all effects
 		effectRows, err := db.Query(`SELECT "id", "name", "description" FROM "Effects" ORDER BY "id"`)
 		if err != nil {
@@ -613,7 +607,6 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 			} else {
 				// Set signed URL in the Icon field
 				enemies[i].Icon = signedURL
-				log.Printf("Generated signed URL for enemy %s (assetID: %d)", enemies[i].Name, enemies[i].AssetID)
 			}
 		}
 	}
@@ -653,13 +646,9 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("GET EFFECTS REQUEST")
-
 	var effects []map[string]interface{}
 
 	if db != nil {
-		log.Printf("Querying effects from database...")
-
 		// Query all effects from the database
 		rows, err := db.Query(`SELECT "id", "name", "description" FROM "Effects" ORDER BY "id"`)
 		if err != nil {
@@ -704,10 +693,7 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("SUCCESS: Loaded %d effects from database", len(effects))
-
 	} else {
-		log.Printf("WARNING: Database not available, returning empty effects")
 		// Return empty array when database is not available
 		effects = []map[string]interface{}{}
 	}
@@ -792,7 +778,6 @@ func handleGetEnemyAssets(w http.ResponseWriter, r *http.Request) {
 			}
 
 			assets = append(assets, asset)
-			log.Printf("Generated signed URL for assetID %d", assetID)
 		}
 
 		// Check for row iteration errors
