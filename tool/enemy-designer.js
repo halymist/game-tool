@@ -410,7 +410,19 @@ function setupEnemyNameHandler() {
         if (enemies.length > 0) {
             const hint = document.querySelector('.input-hint');
             if (hint) {
-                hint.textContent = `💡 Available enemies: ${enemies.map(e => e.name).join(', ')}`;
+                // Show max 3 enemy names, then "..."
+                const maxNames = 3;
+                const enemyNames = enemies.map(e => e.name);
+                let displayText;
+                
+                if (enemyNames.length <= maxNames) {
+                    displayText = `💡 Available enemies: ${enemyNames.join(', ')}`;
+                } else {
+                    const firstNames = enemyNames.slice(0, maxNames).join(', ');
+                    displayText = `💡 Available enemies: ${firstNames}, ...`;
+                }
+                
+                hint.textContent = displayText;
                 setTimeout(() => {
                     hint.textContent = '💡 Start typing to see existing enemies, or enter a new name';
                 }, 3000);
@@ -1208,7 +1220,8 @@ function loadEnemyIntoForm(enemy) {
             const factorElement = document.getElementById(`factor${i + 1}`);
             
             if (effectElement) {
-                effectElement.value = effect.type || 0;
+                // Show "None" instead of empty (0) effect types
+                effectElement.value = (effect.type && effect.type !== 0) ? effect.type : "";
             }
             if (factorElement) {
                 factorElement.value = effect.factor || 1;
@@ -1218,7 +1231,7 @@ function loadEnemyIntoForm(enemy) {
     
     // Load messages
     if (enemy.messages && Array.isArray(enemy.messages)) {
-        // Clear existing messages
+        // Always clear existing messages and load enemy messages
         clearMessages('victory');
         clearMessages('defeat');
         

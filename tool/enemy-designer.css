@@ -124,6 +124,51 @@
     color: #ffd700;
 }
 
+/* Datalist dropdown styling */
+input[list]::-webkit-list-button {
+    color: #8b4513;
+    font-size: 1rem;
+}
+
+/* Custom styling for enemy name input with datalist */
+#enemyName {
+    position: relative;
+}
+
+/* Style the dropdown options - Note: Limited browser support for datalist styling */
+datalist {
+    position: absolute;
+    background: rgba(244, 228, 188, 0.98);
+    border: 2px solid #8b4513;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+/* Firefox datalist styling */
+@-moz-document url-prefix() {
+    datalist {
+        background: rgba(244, 228, 188, 0.98) !important;
+        border: 2px solid #8b4513 !important;
+        color: #2c1810 !important;
+    }
+}
+
+/* Enhanced styling for inputs with datalist */
+input[list] {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23%238b4513' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+input[list]:focus {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23%23d4af37' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
 /* Icon, Stats, and Description Layout */
 .icon-stats-wrapper {
     display: flex;
@@ -511,6 +556,26 @@
 .message-textarea::placeholder {
     color: #8b6914;
     font-style: italic;
+}
+
+/* Custom scrollbar for message textareas */
+.message-textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.message-textarea::-webkit-scrollbar-track {
+    background: rgba(139, 69, 19, 0.2);
+    border-radius: 4px;
+}
+
+.message-textarea::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+    border-radius: 4px;
+    border: 1px solid #654321;
+}
+
+.message-textarea::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #a0522d 0%, #b8651f 100%);
 }
 
 .remove-message-btn {

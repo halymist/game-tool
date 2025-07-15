@@ -593,14 +593,12 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 		log.Printf("WARNING: Database not available, returning empty data")
 		effects = []map[string]interface{}{}
 		enemies = []Enemy{}
-	}
-
-	// Generate signed URLs for enemy icons and set them in the Icon field
+	} // Generate signed URLs for enemy icons and set them in the Icon field
 	for i := range enemies {
 		if enemies[i].AssetID > 0 {
 			// Convert assetID to S3 key format (matching the format used in handleGetEnemyAssets)
 			iconKey := fmt.Sprintf("images/enemies/%d.webp", enemies[i].AssetID)
-			signedURL, err := generateSignedURL(iconKey, 1*time.Minute) // 1 minute expiration
+			signedURL, err := generateSignedURL(iconKey, 60*time.Minute) // 60 minute expiration
 			if err != nil {
 				log.Printf("Warning: Failed to generate signed URL for assetID %d: %v", enemies[i].AssetID, err)
 				// Keep the icon field empty if we can't generate signed URL
@@ -764,7 +762,7 @@ func handleGetEnemyAssets(w http.ResponseWriter, r *http.Request) {
 			s3Key := fmt.Sprintf("images/enemies/%d.webp", assetID)
 
 			// Generate signed URL for this asset
-			signedURL, err := generateSignedURL(s3Key, 30*time.Minute) // 30 minute expiration
+			signedURL, err := generateSignedURL(s3Key, 60*time.Minute) // 60 minute expiration
 			if err != nil {
 				log.Printf("WARNING: Failed to generate signed URL for assetID %d: %v", assetID, err)
 				// Skip this asset if we can't generate signed URL
