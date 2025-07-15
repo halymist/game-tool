@@ -24,8 +24,8 @@ const EnemyStats = {
 
 // Enemy Effect structure
 const EnemyEffect = {
-    create: (type = "", factor = 1) => ({
-        type: type,     // Effect type ID (can be empty) - JSON: "type"
+    create: (type = 0, factor = 1) => ({
+        type: type,     // Effect type ID (0 for empty, otherwise integer) - JSON: "type"
         factor: factor  // Effect factor (default: 1) - JSON: "factor"
     })
 };
@@ -39,7 +39,7 @@ const Enemy = {
         stats: EnemyStats.create(),      // Enemy stats object - JSON: "stats"
         effects: [],           // Array of up to 10 effects - JSON: "effects"
         icon: null,            // Base64 image data or signed URL - JSON: "icon,omitempty"
-        iconKey: null,         // S3 key for existing images - JSON: "iconKey,omitempty"
+        assetID: 0,            // Asset ID for existing images - JSON: "assetID,omitempty"
         messages: [],          // Array of victory/defeat messages - JSON: "messages,omitempty"
         imageChanged: false    // Flag for update operations - JSON: "imageChanged,omitempty"
     }),
@@ -56,8 +56,9 @@ const Enemy = {
         enemy.icon = currentIcon; // This is always base64 data (either new upload or fetched from S3)
         
         // If currentAssetID is set, it means we're reusing an existing asset
-        if (currentAssetID) {
-            console.log('Reusing existing asset with ID:', currentAssetID, 'but sending as base64 data');
+        if (currentAssetID > 0) {
+            enemy.assetID = currentAssetID; // Set the asset ID for reusing existing assets
+            console.log('Reusing existing asset with ID:', currentAssetID, 'sending as base64 data');
         } else {
             console.log('Using new uploaded image as base64 data');
         }
@@ -76,13 +77,17 @@ const Enemy = {
             const factorElement = document.getElementById(`factor${i}`);
             
             if (!effectElement || !factorElement) {
-                enemy.effects.push(EnemyEffect.create());
+                enemy.effects.push(EnemyEffect.create(0, 1)); // Use 0 for empty effects
                 continue;
             }
             
             const effectValue = effectElement.value || "";
             const factorValue = parseInt(factorElement.value) || 1;
-            enemy.effects.push(EnemyEffect.create(effectValue, factorValue));
+            
+            // Convert empty string to 0 for database compatibility
+            const effectType = effectValue === "" ? 0 : parseInt(effectValue) || 0;
+            
+            enemy.effects.push(EnemyEffect.create(effectType, factorValue));
         }
 
         // === POPULATE VICTORY/DEFEAT MESSAGES ===
@@ -124,7 +129,7 @@ const Enemy = {
 
 // === GLOBAL VARIABLES ===
 let currentIcon = null;
-let currentAssetID = null; // Track selected existing asset ID
+let currentAssetID = 0; // Track selected existing asset ID
 let loadedEnemies = [];
 let loadedEffects = [];
 let currentEnemyData = null;
@@ -279,7 +284,7 @@ async function handleFileUpload(file) {
             
             // Store the WebP base64 data
             currentIcon = e.target.result;
-            currentAssetID = null; // Clear any selected existing asset
+            currentAssetID = 0; // Clear any selected existing asset
             
             // Show preview
             iconPreview.innerHTML = `<img src="${e.target.result}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
@@ -434,7 +439,7 @@ async function loadEnemyData(enemy) {
         // Use the signed URL directly for display
         console.log('Loading icon for enemy:', enemy.name, 'URL:', enemy.iconUrl);
         currentIcon = enemy.iconUrl; // Store the signed URL temporarily
-        currentAssetID = enemy.iconKey; // Store the asset ID if available
+        currentAssetID = enemy.assetID; // Store the asset ID if available
         const iconPreview = document.getElementById('iconPreview');
         const uploadContent = document.querySelector('.upload-content');
         
@@ -446,12 +451,12 @@ async function loadEnemyData(enemy) {
         }
         
         console.log('Icon loaded successfully for:', enemy.name);
-    } else if (enemy.iconKey) {
-        // Fallback: try to get signed URL if we only have the key
-        console.log('Loading icon for enemy:', enemy.name, 'Key:', enemy.iconKey);
-        currentAssetID = enemy.iconKey; // Store the asset ID
+    } else if (enemy.assetID) {
+        // Fallback: try to get signed URL if we only have the asset ID
+        console.log('Loading icon for enemy:', enemy.name, 'Asset ID:', enemy.assetID);
+        currentAssetID = enemy.assetID; // Store the asset ID
         try {
-            const signedUrl = await getSignedUrl(enemy.iconKey);
+            const signedUrl = await getSignedUrl(`${enemy.assetID}`);
             if (signedUrl) {
                 currentIcon = signedUrl;
                 const iconPreview = document.getElementById('iconPreview');
@@ -495,7 +500,7 @@ function resetForm() {
     // Clear current enemy data
     currentEnemyData = null;
     currentIcon = null;
-    currentAssetID = null; // Clear selected asset ID
+    currentAssetID = 0; // Clear selected asset ID
 
     // Reset form fields
     document.getElementById('enemyName').value = '';
@@ -664,10 +669,10 @@ function saveEnemy() {
         enemy.imageChanged = imageChanged;
         
         if (!imageChanged) {
-            // Preserve the original icon key for updates without image changes
-            enemy.iconKey = currentEnemyData.iconKey;
+            // Preserve the original asset ID for updates without image changes
+            enemy.assetID = currentEnemyData.assetID;
             enemy.icon = null; // Don't send icon data if not changed
-            console.log('Image unchanged - preserving iconKey:', enemy.iconKey);
+            console.log('Image unchanged - preserving assetID:', enemy.assetID);
         } else {
             console.log('Image changed - sending new image data');
         }
@@ -696,9 +701,9 @@ function hasImageChanged() {
     // If currentIcon is base64 data (starts with 'data:'), check if it's different
     if (currentIcon && currentIcon.startsWith('data:')) {
         // If we have an asset ID, it means we selected an existing asset
-        if (currentAssetID) {
+        if (currentAssetID > 0) {
             // Check if the selected asset is different from the original
-            const originalAssetID = currentEnemyData.iconKey;
+            const originalAssetID = currentEnemyData.assetID;
             return currentAssetID !== originalAssetID;
         } else {
             // This is a new upload, so it's definitely changed
@@ -737,7 +742,6 @@ async function sendToServer(enemy, operation) {
 
         console.log('=== SENDING ENEMY STRUCT TO SERVER ===');
         console.log('Enemy struct being sent:', enemy);
-        console.log('JSON string:', JSON.stringify(enemy, null, 2));
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -761,8 +765,7 @@ async function sendToServer(enemy, operation) {
                 // loadEnemiesAndEffects();
             }
             
-            // Optional: Reset form after successful save
-            // resetForm();
+            resetForm();
         } else {
             const error = await response.text();
             alert(`Failed to ${operation} enemy: ${error}`);
@@ -1008,50 +1011,15 @@ function createAssetGallery() {
 
     console.log('Creating asset gallery with', assets.length, 'available assets');
 
-    // Find the icon container to add the toggle button
-    const iconContainer = document.querySelector('.icon-container');
-    const uploadArea = document.getElementById('iconUploadArea');
-    
-    if (!iconContainer || !uploadArea) {
-        console.error('Icon container or upload area not found, cannot create asset gallery');
-        return;
-    }
-
-    // Check if toggle button already exists
-    let toggleBtn = document.getElementById('assetGalleryToggle');
-    if (!toggleBtn) {
-        // Create toggle button
-        toggleBtn = document.createElement('button');
-        toggleBtn.id = 'assetGalleryToggle';
-        toggleBtn.type = 'button';
-        toggleBtn.className = 'asset-gallery-toggle';
-        toggleBtn.textContent = '🎨 Browse Existing Assets';
+    // Get the existing toggle button and set up click handler
+    const toggleBtn = document.getElementById('assetGalleryToggle');
+    if (toggleBtn) {
         toggleBtn.onclick = () => toggleAssetGallery();
-        
-        // Add button to icon container, after the upload area
-        iconContainer.appendChild(toggleBtn);
     }
 
-    // Check if overlay already exists
-    let overlay = document.getElementById('assetGalleryOverlay');
-    if (!overlay) {
-        // Create overlay
-        overlay = document.createElement('div');
-        overlay.id = 'assetGalleryOverlay';
-        overlay.className = 'asset-gallery-overlay hidden';
-        overlay.innerHTML = `
-            <div class="asset-gallery">
-                <div class="asset-gallery-header">
-                    <h3>🎨 Choose Existing Asset</h3>
-                    <button type="button" class="close-gallery-btn" onclick="toggleAssetGallery()">✕</button>
-                </div>
-                <div class="asset-gallery-grid" id="assetGrid"></div>
-            </div>
-        `;
-        
-        // Add overlay to body
-        document.body.appendChild(overlay);
-        
+    // Get the existing overlay and set up click handler
+    const overlay = document.getElementById('assetGalleryOverlay');
+    if (overlay) {
         // Close overlay when clicking outside the gallery
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {

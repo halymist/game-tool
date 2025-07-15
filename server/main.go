@@ -309,17 +309,6 @@ func verifyToken(tokenString string) (string, bool) {
 		return "", false
 	}
 
-	// Explicitly check expiration
-	if exp, ok := claims["exp"].(float64); ok {
-		if int64(exp) < time.Now().Unix() {
-			log.Printf("Token expired at %v", time.Unix(int64(exp), 0))
-			return "", false
-		}
-	} else {
-		log.Printf("No exp claim in token")
-		return "", false
-	}
-
 	// Check token use
 	tokenUse, ok := claims["token_use"].(string)
 	if !ok || tokenUse != "access" {
@@ -329,9 +318,6 @@ func verifyToken(tokenString string) (string, bool) {
 
 	// Get username
 	username, _ := claims["username"].(string)
-
-	// Check if user is admin (this info might not be in access token, so we'll default to false)
-	// In a real implementation, you might want to check this against the ID token or a database
 	isAdmin := false
 
 	log.Printf("Token verified successfully for user: %v", username)

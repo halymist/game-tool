@@ -555,7 +555,7 @@
     border: 3px solid #8b4513;
     border-radius: 15px;
     padding: 2rem;
-    max-width: 80vw;
+    max-width: 60vw; /* Changed from 80vw to 60vw */
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
@@ -606,6 +606,8 @@
     gap: 15px;
     padding: 1rem;
     min-height: 200px;
+    width: 60%; /* Make the grid 60% of the gallery width */
+    margin: 0 auto; /* Center the grid */
 }
 
 .asset-item {
@@ -697,7 +699,40 @@
     font-size: 1rem;
 }
 
-/* Responsive Design */
+/* Messages sections in two columns */
+.messages-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+/* Individual message sections within the two-column layout */
+.messages-container .form-section {
+    background: rgba(44, 24, 16, 0.3);
+    border: 2px solid #8b4513;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 0; /* Remove default margin since we're using grid gap */
+}
+
+.messages-container .form-section h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    color: #ffd700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+/* Responsive: stack on smaller screens */
+@media (max-width: 768px) {
+    .messages-container {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+}
+
 @media (max-width: 1200px) {
     .icon-stats-wrapper {
         flex-direction: column;

@@ -27,7 +27,7 @@ type Enemy struct {
 	Stats        map[string]int           `json:"stats"`
 	Effects      []map[string]interface{} `json:"effects"`
 	Icon         string                   `json:"icon,omitempty"`
-	IconKey      string                   `json:"iconKey,omitempty"`
+	AssetID      int                      `json:"assetID,omitempty"`
 	Messages     []EnemyMessage           `json:"messages,omitempty"`
 	ImageChanged bool                     `json:"imageChanged,omitempty"`
 }
@@ -74,122 +74,194 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Printf("  Stats: %v", enemy.Stats)
 	log.Printf("  Effects: %v", enemy.Effects)
 	log.Printf("  Icon: %v", enemy.Icon != "")
+	log.Printf("  AssetID: %v", enemy.AssetID)
 	log.Printf("  Messages: %v", enemy.Messages)
 
-	// Validate icon is provided (required for new enemies)
-	if enemy.Icon == "" {
-		log.Printf("No icon provided for new enemy")
-		http.Error(w, "Icon is required for new enemies", http.StatusBadRequest)
-		return
-	}
-
-	// === STEP 1: Insert enemy into database to get assetID ===
-	var enemyID int64
-	var assetID int64
 	if db != nil {
-		log.Printf("Inserting enemy into database to get assetID...")
+		var enemyID int
+		var finalAssetID int
 
-		// Build the INSERT query for Enemies table
-		query := `INSERT INTO "Enemies" ("name", "description", "strength", "stamina", "agility", "luck", "armor"`
-		values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"]}
+		// Determine if this is a new asset or existing asset
+		if enemy.AssetID == 0 {
+			// === NEW ASSET CASE ===
+			log.Printf("Creating enemy with NEW asset")
 
-		// Add effect columns dynamically based on the effects array
-		effectParams := make([]string, 0)
-		for i, effect := range enemy.Effects {
-			if i >= 10 { // Only handle up to 10 effects as per table schema
-				break
+			// Validate icon is provided (required for new assets)
+			if enemy.Icon == "" {
+				http.Error(w, "Icon is required for new enemies", http.StatusBadRequest)
+				return
 			}
 
-			effectMap := effect
-			effectType := ""
-			effectFactor := 1.0
+			// === STEP 1: Insert enemy into database to get new assetID ===
+			query := `INSERT INTO "Enemies" ("name", "description", "strength", "stamina", "agility", "luck", "armor"`
+			values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"]}
 
-			if typeVal, ok := effectMap["type"].(string); ok && typeVal != "" {
-				effectType = typeVal
-				if factorVal, ok := effectMap["factor"].(float64); ok {
-					effectFactor = factorVal
-				} else if factorInt, ok := effectMap["factor"].(int); ok {
-					effectFactor = float64(factorInt)
-				}
+			// Add effect columns dynamically based on the effects array
+			for i := 1; i <= 10; i++ {
+				query += fmt.Sprintf(`, "effect%d_id", "effect%d_factor"`, i, i)
+				if i <= len(enemy.Effects) {
+					effect := enemy.Effects[i-1]
 
-				// Add effect columns to query
-				query += fmt.Sprintf(`, "effect%d_id", "effect%d_factor"`, i+1, i+1)
-				effectParams = append(effectParams, fmt.Sprintf("$%d, $%d", len(values)+1, len(values)+2))
-				values = append(values, effectType, effectFactor)
-			}
-		}
+					// Handle effect type as integer (0 for empty, actual ID for real effects)
+					var effectType int
+					if typeVal, ok := effect["type"].(float64); ok {
+						effectType = int(typeVal)
+					} else if typeInt, ok := effect["type"].(int); ok {
+						effectType = typeInt
+					} else {
+						effectType = 0 // Default to 0 for invalid types
+					}
 
-		// Complete the query - return both id and assetID
-		query += `) VALUES ($1, $2, $3, $4, $5, $6, $7`
-		for _, param := range effectParams {
-			query += ", " + param
-		}
-		query += `) RETURNING "id", "assetID"`
+					effectFactor, _ := effect["factor"].(float64)
+					if effectFactor == 0 {
+						effectFactor = 1
+					}
 
-		log.Printf("Executing query: %s", query)
-		log.Printf("With values: %v", values)
-
-		err := db.QueryRow(query, values...).Scan(&enemyID, &assetID)
-		if err != nil {
-			log.Printf("ERROR: Failed to insert enemy into database: %v", err)
-			http.Error(w, "Failed to save enemy", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("SUCCESS: Enemy inserted with ID: %d, assetID: %d", enemyID, assetID)
-
-		// === STEP 2: Upload icon to S3 using assetID as key ===
-		log.Printf("Uploading enemy icon to S3 with assetID: %d", assetID)
-		iconKey, err := uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", assetID))
-		if err != nil {
-			log.Printf("ERROR: Failed to upload image to S3: %v", err)
-			// Since we already inserted the enemy, we should ideally rollback or handle this gracefully
-			// For now, we'll return an error but the enemy record will exist without an icon
-			http.Error(w, "Failed to upload image", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("SUCCESS: Image uploaded to S3 with key: %s", iconKey)
-
-		// Insert messages into EnemyMessages table
-		if len(enemy.Messages) > 0 {
-			log.Printf("Inserting %d messages for enemy ID %d", len(enemy.Messages), enemyID)
-			for _, message := range enemy.Messages {
-				won := message.Type == "onWin"
-				messageQuery := `INSERT INTO "EnemyMessages" ("enemy_id", "won", "message") VALUES ($1, $2, $3)`
-				_, err := db.Exec(messageQuery, enemyID, won, message.Message)
-				if err != nil {
-					log.Printf("ERROR: Failed to insert message: %v", err)
-					// Continue with other messages even if one fails
+					// Use NULL for effect_id when effectType is 0 (empty)
+					if effectType == 0 {
+						values = append(values, nil, int(effectFactor))
+					} else {
+						values = append(values, effectType, int(effectFactor))
+					}
 				} else {
-					log.Printf("SUCCESS: Message inserted for enemy ID %d", enemyID)
+					values = append(values, nil, 1) // Use nil for empty effects
 				}
 			}
+
+			// Complete the query - ADD CLOSING PARENTHESIS and VALUES clause
+			query += `) VALUES (`
+			for i := 0; i < len(values); i++ {
+				if i > 0 {
+					query += ", "
+				}
+				query += fmt.Sprintf("$%d", i+1)
+			}
+			query += `) RETURNING "id", "assetID"`
+
+			err := db.QueryRow(query, values...).Scan(&enemyID, &finalAssetID)
+			if err != nil {
+				log.Printf("Failed to insert enemy: %v", err)
+				http.Error(w, "Failed to create enemy", http.StatusInternalServerError)
+				return
+			}
+
+			log.Printf("Enemy inserted with ID: %d, assetID: %d", enemyID, finalAssetID)
+
+			// === STEP 2: Upload icon to S3 using assetID as key ===
+			log.Printf("Uploading enemy icon to S3 with assetID: %d", finalAssetID)
+			iconKey, err := uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
+			if err != nil {
+				log.Printf("Failed to upload image to S3: %v", err)
+				// Consider rolling back the database insert here
+				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
+				return
+			}
+
+			log.Printf("Image uploaded successfully with key: %s", iconKey)
+
+		} else {
+			// === EXISTING ASSET CASE ===
+			log.Printf("Creating enemy with EXISTING asset ID: %d", enemy.AssetID)
+
+			// No icon upload needed - just insert with the provided assetID
+			finalAssetID = enemy.AssetID
+
+			// === Insert enemy into database with existing assetID ===
+			query := `INSERT INTO "Enemies" ("name", "description", "strength", "stamina", "agility", "luck", "armor", "assetID"`
+			values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"], finalAssetID}
+
+			// Add effect columns dynamically based on the effects array
+			for i := 1; i <= 10; i++ {
+				query += fmt.Sprintf(`, "effect%d_id", "effect%d_factor"`, i, i)
+				if i <= len(enemy.Effects) {
+					effect := enemy.Effects[i-1]
+
+					// Handle effect type as integer (0 for empty, actual ID for real effects)
+					var effectType int
+					if typeVal, ok := effect["type"].(float64); ok {
+						effectType = int(typeVal)
+					} else if typeInt, ok := effect["type"].(int); ok {
+						effectType = typeInt
+					} else {
+						effectType = 0 // Default to 0 for invalid types
+					}
+
+					effectFactor, _ := effect["factor"].(float64)
+					if effectFactor == 0 {
+						effectFactor = 1
+					}
+
+					// Use NULL for effect_id when effectType is 0 (empty)
+					if effectType == 0 {
+						values = append(values, nil, int(effectFactor))
+					} else {
+						values = append(values, effectType, int(effectFactor))
+					}
+				} else {
+					values = append(values, nil, 1) // Use nil for empty effects
+				}
+			}
+
+			// Complete the query - ADD VALUES clause for existing asset case
+			query += `) VALUES (`
+			for i := 0; i < len(values); i++ {
+				if i > 0 {
+					query += ", "
+				}
+				query += fmt.Sprintf("$%d", i+1)
+			}
+			query += `) RETURNING "id"`
+			err := db.QueryRow(query, values...).Scan(&enemyID)
+			if err != nil {
+				log.Printf("Failed to insert enemy with existing asset: %v", err)
+				http.Error(w, "Failed to create enemy", http.StatusInternalServerError)
+				return
+			}
+
+			log.Printf("Enemy inserted with ID: %d, using existing assetID: %d", enemyID, finalAssetID)
 		}
+
+		// === Insert messages into EnemyMessages table ===
+		for _, message := range enemy.Messages {
+			won := message.Type == "onWin"
+			_, err = db.Exec(`INSERT INTO "EnemyMessages" ("enemy_id", "won", "message") VALUES ($1, $2, $3)`,
+				enemyID, won, message.Message)
+			if err != nil {
+				log.Printf("Failed to insert enemy message: %v", err)
+				// Continue with other messages even if one fails
+			}
+		}
+
+		log.Printf("Enemy creation completed successfully")
+
+		// Return success response
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Enemy created successfully",
+			"id":      enemyID,
+			"assetID": finalAssetID,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 
 	} else {
-		log.Printf("WARNING: Database not available, skipping insert")
-		http.Error(w, "Database not available", http.StatusInternalServerError)
-		return
-	}
+		// Mock response for testing without database
+		log.Printf("MOCK: Enemy creation (no database)")
+		mockAssetID := 999
+		if enemy.AssetID > 0 {
+			mockAssetID = enemy.AssetID
+		}
+		response := map[string]interface{}{
+			"success": true,
+			"message": "Enemy created successfully (mock mode)",
+			"id":      999,
+			"assetID": mockAssetID,
+		}
 
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"success": true,
-		"message": "Enemy created successfully",
-		"id":      enemyID,                    // Return actual database ID
-		"assetID": assetID,                    // Return the assetID
-		"iconKey": fmt.Sprintf("%d", assetID), // Return S3 key based on assetID
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
 	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("CREATE ENEMY SUCCESS - new enemy created with assetID: %d", assetID)
 }
 
 func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
@@ -234,37 +306,41 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Printf("  Stats: %v", enemyData["stats"])
 	log.Printf("  Effects: %v", enemyData["effects"])
 	log.Printf("  ImageChanged: %v", enemyData["imageChanged"])
-	log.Printf("  IconKey: %v", enemyData["iconKey"])
+	log.Printf("  AssetID: %v", enemyData["assetID"])
 	log.Printf("  Messages: %v", enemyData["messages"])
 
 	// Handle icon upload or preservation
-	var iconKey string
+	var assetID int
 	imageChanged, _ := enemyData["imageChanged"].(bool)
 
 	if imageChanged {
-		// Upload new icon to S3
+		// Upload new icon to S3 with generated assetID
 		if iconData, ok := enemyData["icon"].(string); ok && iconData != "" {
 			log.Printf("Uploading updated enemy icon to S3")
-			key, err := uploadImageToS3(iconData, "image/webp")
+
+			// Generate a new assetID for the uploaded image
+			assetID = int(time.Now().Unix()) // Use timestamp as unique ID
+
+			key, err := uploadImageToS3WithCustomKey(iconData, "image/webp", fmt.Sprintf("%d", assetID))
 			if err != nil {
 				log.Printf("Error uploading image to S3: %v", err)
 				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
 				return
 			}
-			iconKey = key
+			log.Printf("SUCCESS: Image uploaded to S3 with key: %s for assetID: %d", key, assetID)
 		} else {
 			log.Printf("Image change flag set but no icon data provided")
 			http.Error(w, "Icon data required when imageChanged is true", http.StatusBadRequest)
 			return
 		}
 	} else {
-		// Preserve existing icon
-		if existingKey, ok := enemyData["iconKey"].(string); ok && existingKey != "" {
-			iconKey = existingKey
-			log.Printf("Preserving existing icon key: %s", iconKey)
+		// Preserve existing assetID
+		if existingAssetID, ok := enemyData["assetID"].(float64); ok && existingAssetID > 0 {
+			assetID = int(existingAssetID)
+			log.Printf("Preserving existing assetID: %d", assetID)
 		} else {
-			log.Printf("No existing icon key provided for update")
-			http.Error(w, "IconKey is required when imageChanged is false", http.StatusBadRequest)
+			log.Printf("No existing assetID provided for update")
+			http.Error(w, "assetID is required when imageChanged is false", http.StatusBadRequest)
 			return
 		}
 	}
@@ -278,7 +354,7 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"message": "Enemy updated successfully",
 		"id":      "temp_id_123", // In real app, this would be the database ID
-		"iconKey": iconKey,       // Return S3 key, not URL
+		"assetID": assetID,       // Return assetID instead of iconKey
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -288,9 +364,9 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if imageChanged {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new iconKey: %s", iconKey)
+		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new assetID: %d", assetID)
 	} else {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving iconKey: %s", iconKey)
+		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving assetID: %d", assetID)
 	}
 }
 
@@ -348,7 +424,7 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 				map[string]interface{}{"type": "", "factor": 1},
 				map[string]interface{}{"type": "", "factor": 1},
 			},
-			"iconKey": "images/enemies/1.webp",
+			"assetID": 1,
 			"messages": []EnemyMessage{
 				{Type: "onWin", Message: "The bandit falls to the ground, defeated!"},
 				{Type: "onWin", Message: "You have bested the bandit!"},
@@ -378,7 +454,7 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 				map[string]interface{}{"type": "", "factor": 1},
 				map[string]interface{}{"type": "", "factor": 1},
 			},
-			"iconKey": "images/enemies/2.webp",
+			"assetID": 2,
 		},
 		map[string]interface{}{
 			"id":          3,
@@ -403,21 +479,23 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 				map[string]interface{}{"type": "", "factor": 1},
 				map[string]interface{}{"type": "", "factor": 1},
 			},
-			"iconKey": "images/enemies/3.webp",
+			"assetID": 3,
 		},
 	}
 
-	// Generate signed URLs for enemy icons
+	// Generate signed URLs for enemy icons based on assetID
 	for _, enemy := range enemies {
-		if iconKey, ok := enemy["iconKey"].(string); ok && iconKey != "" {
+		if assetID, ok := enemy["assetID"].(int); ok && assetID > 0 {
+			// Convert assetID to S3 key format
+			iconKey := fmt.Sprintf("%d", assetID)
 			signedURL, err := generateSignedURL(iconKey, 10*time.Minute) // 10 minute expiration
 			if err != nil {
-				log.Printf("Warning: Failed to generate signed URL for %s: %v", iconKey, err)
-				// Keep the original key as fallback
+				log.Printf("Warning: Failed to generate signed URL for assetID %d: %v", assetID, err)
+				// Keep the original assetID as fallback
 			} else {
 				// Add signed URL to the enemy object
 				enemy["iconUrl"] = signedURL
-				log.Printf("Generated signed URL for icon: %s", iconKey)
+				log.Printf("Generated signed URL for assetID: %d", assetID)
 			}
 		}
 	}

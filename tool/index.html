@@ -156,6 +156,7 @@
                                     <div class="upload-hint">Max 5MB</div>
                                 </div>
                                 <input type="file" id="iconFile" accept="image/*">
+                                <button type="button" id="assetGalleryToggle" class="asset-gallery-toggle">🎨 Browse Existing Assets</button>
                             </div>
                             <div class="stats-container">
                                 <div class="stats-grid">
@@ -267,16 +268,18 @@
                         </div>
                     </div>
 
-                    <!-- Victory Messages Section -->
-                    <div class="form-section">
-                        <h3>Victory Messages</h3>
-                        <div id="victory-messages-list" class="messages-list"></div>
-                        <button type="button" id="add-victory-message" class="add-message-btn">+ Add Victory Message</button>
-                    </div>
-                    <div class="form-section">
-                        <h3>Defeat Messages</h3>
-                        <div id="defeat-messages-list" class="messages-list"></div>
-                        <button type="button" id="add-defeat-message" class="add-message-btn">+ Add Defeat Message</button>
+                    <!-- Victory/Defeat Messages Section - Two Column Layout -->
+                    <div class="messages-container">
+                        <div class="form-section">
+                            <h3>Victory Messages</h3>
+                            <div id="victory-messages-list" class="messages-list"></div>
+                            <button type="button" id="add-victory-message" class="add-message-btn">+ Add Victory Message</button>
+                        </div>
+                        <div class="form-section">
+                            <h3>Defeat Messages</h3>
+                            <div id="defeat-messages-list" class="messages-list"></div>
+                            <button type="button" id="add-defeat-message" class="add-message-btn">+ Add Defeat Message</button>
+                        </div>
                     </div>
 
                     <!-- Action Buttons -->
@@ -347,6 +350,17 @@
                 <div class="tool-icon">📊</div>
                 <h1>Game Analytics</h1>
                 <p>View detailed analytics about player behavior and game performance.</p>
+            </div>
+        </div>
+
+        <!-- Asset Gallery Overlay -->
+        <div id="assetGalleryOverlay" class="asset-gallery-overlay hidden">
+            <div class="asset-gallery">
+                <div class="asset-gallery-header">
+                    <h3>🎨 Choose Existing Asset</h3>
+                    <button type="button" class="close-gallery-btn" onclick="toggleAssetGallery()">✕</button>
+                </div>
+                <div class="asset-gallery-grid" id="assetGrid"></div>
             </div>
         </div>
     </div>    <!-- AWS Cognito SDK -->
