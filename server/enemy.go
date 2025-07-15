@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,7 +69,8 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log the received enemy data
-	log.Printf("CREATE ENEMY REQUEST:")
+	log.Printf("CREATE/UPDATE ENEMY REQUEST:")
+	log.Printf("  ID: %v", enemy.ID)
 	log.Printf("  Name: %v", enemy.Name)
 	log.Printf("  Description: %v", enemy.Description)
 	log.Printf("  Stats: %v", enemy.Stats)
@@ -76,6 +78,15 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Printf("  Icon: %v", enemy.Icon != "")
 	log.Printf("  AssetID: %v", enemy.AssetID)
 	log.Printf("  Messages: %v", enemy.Messages)
+
+	// Check if this is an update or create based on the presence of ID
+	if enemy.ID != nil && enemy.ID != "" {
+		log.Printf("Enemy has ID, routing to update logic")
+		handleUpdateEnemyWithData(w, enemy)
+		return
+	}
+
+	log.Printf("Enemy has no ID, proceeding with create logic")
 
 	if db != nil {
 		var enemyID int
@@ -234,84 +245,66 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("Enemy creation completed successfully")
 
-		// Return success response
+		// Generate signed URL for the created enemy icon
+		var signedURL string
+		if finalAssetID > 0 {
+			iconKey := fmt.Sprintf("images/enemies/%d.webp", finalAssetID)
+			url, err := generateSignedURL(iconKey, 10*time.Minute)
+			if err != nil {
+				log.Printf("Warning: Failed to generate signed URL for new enemy: %v", err)
+			} else {
+				signedURL = url
+			}
+		}
+
+		// Return success response with signed URL
 		response := map[string]interface{}{
-			"success": true,
-			"message": "Enemy created successfully",
-			"id":      enemyID,
-			"assetID": finalAssetID,
+			"success":   true,
+			"message":   "Enemy created successfully",
+			"id":        enemyID,
+			"assetID":   finalAssetID,
+			"signedURL": signedURL,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
 
-	} else {
-		// Mock response for testing without database
-		log.Printf("MOCK: Enemy creation (no database)")
-		mockAssetID := 999
-		if enemy.AssetID > 0 {
-			mockAssetID = enemy.AssetID
-		}
-		response := map[string]interface{}{
-			"success": true,
-			"message": "Enemy created successfully (mock mode)",
-			"id":      999,
-			"assetID": mockAssetID,
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
 	}
 }
 
-func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// handleUpdateEnemyWithData handles updating an existing enemy with complete data
+func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
+	if db == nil {
+		log.Printf("UPDATE ENEMY ERROR: Database not available")
+		http.Error(w, "Database not available", http.StatusInternalServerError)
 		return
 	}
 
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("UPDATE ENEMY DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// Extract enemy ID
+	var enemyID int
+	switch id := enemy.ID.(type) {
+	case int:
+		enemyID = id
+	case float64:
+		enemyID = int(id)
+	case string:
+		var err error
+		if enemyID, err = strconv.Atoi(id); err != nil {
+			log.Printf("Invalid enemy ID format: %v", id)
+			http.Error(w, "Invalid enemy ID", http.StatusBadRequest)
+			return
+		}
+	default:
+		log.Printf("Unsupported enemy ID type: %T", id)
+		http.Error(w, "Invalid enemy ID type", http.StatusBadRequest)
 		return
 	}
 
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON into Enemy struct for simpler handling
-	var enemy Enemy
-	if err := json.Unmarshal(body, &enemy); err != nil {
-		log.Printf("Error parsing JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Log the received enemy data
-	log.Printf("UPDATE ENEMY REQUEST:")
-	log.Printf("  Name: %v", enemy.Name)
-	log.Printf("  Description: %v", enemy.Description)
-	log.Printf("  Stats: %v", enemy.Stats)
-	log.Printf("  Effects: %v", enemy.Effects)
-	log.Printf("  AssetID: %v", enemy.AssetID)
-	log.Printf("  Icon provided: %v", enemy.Icon != "")
-	log.Printf("  Messages: %v", enemy.Messages)
+	log.Printf("Updating enemy with ID: %d", enemyID)
 
 	var finalAssetID int
 
-	// Determine if we need to upload a new image based on presence of icon data
+	// Determine if we need to upload a new image or use existing asset
 	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
 		// We have base64 icon data - this means new/changed image
 		log.Printf("New image upload detected for enemy update")
@@ -340,29 +333,101 @@ func handleUpdateEnemy(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Preserving existing assetID: %d", finalAssetID)
 	}
 
-	// Here you would typically update the database
-	// For now, we'll just return success
+	// Update enemy in database
+	query := `UPDATE "Enemies" SET "name" = $1, "description" = $2, "strength" = $3, "stamina" = $4, "agility" = $5, "luck" = $6, "armor" = $7, "assetID" = $8`
+	values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"], finalAssetID}
 
-	// Return success response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"success": true,
-		"message": "Enemy updated successfully",
-		"id":      "temp_id_123", // In real app, this would be the database ID
-		"assetID": finalAssetID,  // Return finalAssetID instead of assetID
+	// Add effect columns dynamically
+	for i := 1; i <= 10; i++ {
+		query += fmt.Sprintf(`, "effect%d_id" = $%d, "effect%d_factor" = $%d`, i, len(values)+1, i, len(values)+2)
+		if i <= len(enemy.Effects) {
+			effect := enemy.Effects[i-1]
+
+			// Handle effect type as integer (0 for empty, actual ID for real effects)
+			var effectType int
+			if typeVal, ok := effect["type"].(float64); ok {
+				effectType = int(typeVal)
+			} else if typeInt, ok := effect["type"].(int); ok {
+				effectType = typeInt
+			} else {
+				effectType = 0 // Default to 0 for invalid types
+			}
+
+			effectFactor, _ := effect["factor"].(float64)
+			if effectFactor == 0 {
+				effectFactor = 1
+			}
+
+			// Use NULL for effect_id when effectType is 0 (empty)
+			if effectType == 0 {
+				values = append(values, nil, int(effectFactor))
+			} else {
+				values = append(values, effectType, int(effectFactor))
+			}
+		} else {
+			values = append(values, nil, 1) // Use nil for empty effects
+		}
 	}
 
+	query += fmt.Sprintf(` WHERE "id" = $%d`, len(values)+1)
+	values = append(values, enemyID)
+
+	_, err := db.Exec(query, values...)
+	if err != nil {
+		log.Printf("Failed to update enemy: %v", err)
+		http.Error(w, "Failed to update enemy", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete existing messages and insert new ones
+	_, err = db.Exec(`DELETE FROM "EnemyMessages" WHERE "enemy_id" = $1`, enemyID)
+	if err != nil {
+		log.Printf("Failed to delete existing enemy messages: %v", err)
+		// Continue anyway
+	}
+
+	// Insert new messages
+	for _, message := range enemy.Messages {
+		won := message.Type == "onWin"
+		_, err = db.Exec(`INSERT INTO "EnemyMessages" ("enemy_id", "won", "message") VALUES ($1, $2, $3)`,
+			enemyID, won, message.Message)
+		if err != nil {
+			log.Printf("Failed to insert enemy message: %v", err)
+			// Continue with other messages even if one fails
+		}
+	}
+
+	log.Printf("Enemy update completed successfully")
+
+	// Generate signed URL for the updated enemy icon
+	var signedURL string
+	if finalAssetID > 0 {
+		iconKey := fmt.Sprintf("images/enemies/%d.webp", finalAssetID)
+		url, err := generateSignedURL(iconKey, 60*time.Minute)
+		if err != nil {
+			log.Printf("Warning: Failed to generate signed URL for updated enemy: %v", err)
+		} else {
+			signedURL = url
+		}
+	}
+
+	// Return success response with signed URL
+	response := map[string]interface{}{
+		"success":   true,
+		"message":   "Enemy updated successfully",
+		"id":        enemyID,
+		"assetID":   finalAssetID,
+		"signedURL": signedURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("Error encoding response: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy with new assetID: %d", finalAssetID)
-	} else {
-		log.Printf("UPDATE ENEMY SUCCESS - updated enemy preserving assetID: %d", finalAssetID)
-	}
+	log.Printf("UPDATE ENEMY SUCCESS - updated enemy ID %d with assetID: %d", enemyID, finalAssetID)
 }
 
 func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
@@ -541,7 +606,7 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 		if enemies[i].AssetID > 0 {
 			// Convert assetID to S3 key format (matching the format used in handleGetEnemyAssets)
 			iconKey := fmt.Sprintf("images/enemies/%d.webp", enemies[i].AssetID)
-			signedURL, err := generateSignedURL(iconKey, 10*time.Minute) // 10 minute expiration
+			signedURL, err := generateSignedURL(iconKey, 1*time.Minute) // 1 minute expiration
 			if err != nil {
 				log.Printf("Warning: Failed to generate signed URL for assetID %d: %v", enemies[i].AssetID, err)
 				// Keep the icon field empty if we can't generate signed URL

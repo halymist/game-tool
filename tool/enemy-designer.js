@@ -48,6 +48,7 @@ const Enemy = {
         const enemy = Enemy.create();
         
         // === POPULATE BASIC ENEMY INFORMATION ===
+        enemy.id = currentEnemyID; // Set the current enemy ID (null for new, number for existing)
         enemy.name = document.getElementById('enemyName').value;
         enemy.description = document.getElementById('enemyDescription').value;
         
@@ -129,11 +130,35 @@ const Enemy = {
 // === GLOBAL VARIABLES ===
 let currentIcon = null;
 let currentAssetID = 0; // Track selected existing asset ID
+let currentEnemyID = null; // Track current enemy ID (null for new, number for existing)
 let loadedEnemies = [];
 let loadedEffects = [];
 let currentEnemyData = null;
 
 // === FUNCTIONS ===
+
+// Update the Enemy ID display field
+function updateEnemyIDDisplay() {
+    const enemyIDInput = document.getElementById('enemyID');
+    const saveBtn = document.getElementById('saveBtn');
+    
+    if (enemyIDInput) {
+        if (currentEnemyID === null || currentEnemyID === 0) {
+            enemyIDInput.value = '0 (new enemy)';
+        } else {
+            enemyIDInput.value = currentEnemyID.toString();
+        }
+    }
+    
+    // Update save button text based on whether it's create or update
+    if (saveBtn) {
+        if (currentEnemyID === null || currentEnemyID === 0) {
+            saveBtn.textContent = 'Save Enemy';
+        } else {
+            saveBtn.textContent = 'Update Enemy';
+        }
+    }
+}
 
 function setupMessageHandlers() {
     // Victory
@@ -399,6 +424,8 @@ function resetForm() {
     currentEnemyData = null;
     currentIcon = null;
     currentAssetID = 0; // Clear selected asset ID
+    currentEnemyID = null; // Reset enemy ID for new enemy
+    updateEnemyIDDisplay(); // Update the ID display field
 
     // Reset form fields
     document.getElementById('enemyName').value = '';
@@ -601,7 +628,6 @@ async function sendToServer(enemy, operation) {
 
         // Show loading state
         const saveBtn = document.getElementById('saveBtn');
-        const originalText = saveBtn.textContent;
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving...';
 
@@ -623,16 +649,28 @@ async function sendToServer(enemy, operation) {
         });
 
         if (response.ok) {
-            const result = await response.json();
+            // First check if response is JSON
+            const contentType = response.headers.get('content-type');
+            console.log('Response content-type:', contentType);
+            console.log('Response status:', response.status);
+            
+            let result;
+            if (contentType && contentType.includes('application/json')) {
+                result = await response.json();
+            } else {
+                const textResponse = await response.text();
+                console.log('Non-JSON response received:', textResponse);
+                alert(`Server returned non-JSON response: ${textResponse}`);
+                return;
+            }
+            
             const action = operation === 'create' ? 'created' : 'updated';
             alert(`Enemy ${action} successfully!`);
             console.log('Server response:', result);
             
-            // If this was a new enemy, we might want to reload the data to get the updated list
-            if (operation === 'create') {
-                console.log('New enemy created, consider reloading enemy list');
-                // Optionally reload the enemies and effects data
-                // loadEnemiesAndEffects();
+            // Update local enemies array instead of reloading everything
+            if (result.success && result.id) {
+                await updateLocalEnemiesArray(enemy, result, operation);
             }
             
             resetForm();
@@ -649,8 +687,57 @@ async function sendToServer(enemy, operation) {
         // Restore button state
         const saveBtn = document.getElementById('saveBtn');
         saveBtn.disabled = false;
-        saveBtn.textContent = 'Save Enemy';
     }
+}
+
+// Update local enemies array with new/updated enemy data
+async function updateLocalEnemiesArray(enemy, serverResponse, operation) {
+    console.log('=== UPDATING LOCAL ENEMIES ARRAY ===');
+    console.log('Operation:', operation);
+    console.log('Server response:', serverResponse);
+    console.log('Enemy data:', enemy);
+    
+    // Create the updated enemy object with server response data
+    const updatedEnemy = {
+        id: serverResponse.id,
+        name: enemy.name,
+        description: enemy.description,
+        stats: enemy.stats,
+        effects: enemy.effects,
+        assetID: serverResponse.assetID,
+        icon: serverResponse.signedURL || '', // Use signed URL from server
+        messages: enemy.messages
+    };
+    
+    console.log('Created updated enemy object:', updatedEnemy);
+    
+    if (operation === 'create') {
+        // Add new enemy to global enemies array
+        console.log('Adding new enemy to local array:', updatedEnemy.name);
+        addEnemyToGlobal(updatedEnemy);
+        
+        // Update the enemy name datalist
+        const enemies = getEnemies();
+        populateEnemyDatalist(enemies);
+        
+        // Recreate asset gallery if it has assets
+        createAssetGallery();
+        
+    } else if (operation === 'update') {
+        // Update existing enemy in global enemies array
+        console.log('Updating existing enemy in local array:', updatedEnemy.name, 'ID:', updatedEnemy.id);
+        updateEnemyInGlobal(updatedEnemy);
+        
+        // Update the enemy name datalist
+        const enemies = getEnemies();
+        populateEnemyDatalist(enemies);
+        
+        // Recreate asset gallery in case asset changed
+        createAssetGallery();
+    }
+    
+    console.log('✅ Local enemies array updated successfully');
+    console.log('=== END UPDATING LOCAL ENEMIES ARRAY ===');
 }
 
 // Force reload data from server (useful after saving new enemies)
@@ -1022,6 +1109,10 @@ async function selectExistingAsset(enemy) {
 async function selectExistingEnemy(enemy) {
     console.log('Selected existing enemy:', enemy.name, 'ID:', enemy.id, 'AssetID:', enemy.assetID);
     
+    // Set the current enemy ID and update display
+    currentEnemyID = enemy.id;
+    updateEnemyIDDisplay();
+    
     try {
         // Load the enemy's icon if available
         if (enemy.icon) {
@@ -1074,22 +1165,17 @@ async function selectExistingEnemy(enemy) {
         // Load all enemy data into the form
         loadEnemyIntoForm(enemy);
         
+        // Set currentEnemyData to enable update detection in saveEnemy
+        currentEnemyData = enemy;
+        console.log('🔄 Set currentEnemyData for update detection:', enemy.id);
+        
     } catch (error) {
         console.error('Error loading enemy data:', error);
         alert('Failed to load the selected enemy. Please try again.');
         return;
     }
     
-    // Close the asset gallery overlay
-    toggleAssetGallery();
-    
-    // Add visual feedback in the gallery
-    const allAssetItems = document.querySelectorAll('.asset-item');
-    allAssetItems.forEach(item => item.classList.remove('selected'));
-    const selectedItem = document.querySelector(`[data-asset-id="${enemy.assetID}"]`);
-    if (selectedItem) {
-        selectedItem.classList.add('selected');
-    }
+    // DO NOT close the asset gallery overlay here - we're not in the asset gallery
     
     console.log('✅ Enemy loaded into form successfully');
 }
@@ -1167,6 +1253,9 @@ async function initEnemyDesigner() {
     setupEnemyNameHandler();
     initializeEffectOptions();
     setupMessageHandlers();
+    
+    // Initialize enemy ID display for new enemy
+    updateEnemyIDDisplay();
     
     // Wait for global data to be loaded, then populate dropdowns and create asset gallery
     try {

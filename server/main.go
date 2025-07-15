@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -168,11 +167,9 @@ func main() {
 	http.HandleFunc("/static/", corsHandler(handleStatic))
 	// Enemy designer endpoints (now in enemy.go)
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
-	http.HandleFunc("/api/updateEnemy", corsHandler(handleUpdateEnemy))
+	http.HandleFunc("/api/updateEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
 	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
-	http.HandleFunc("/api/getEnemyAssets", corsHandler(handleGetEnemyAssets))
-	http.HandleFunc("/api/getSignedUrl", corsHandler(handleGetSignedUrl))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
@@ -183,8 +180,6 @@ func main() {
 	fmt.Println("  POST /api/updateEnemy - Update existing enemy (authenticated)")
 	fmt.Println("  GET /api/getEnemies - Get enemies and effects (authenticated)")
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
-	fmt.Println("  GET /api/getEnemyAssets - Get all enemy assets with signed URLs (authenticated)")
-	fmt.Println("  POST /api/getSignedUrl - Get signed URL for S3 file (authenticated)")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
@@ -509,78 +504,4 @@ func uploadImageToS3WithCustomKey(imageData, contentType, customKey string) (str
 
 	log.Printf("Image uploaded to S3 with custom key: %s", filename)
 	return filename, nil // Return S3 key instead of signed URL
-}
-
-func handleGetSignedUrl(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("GET SIGNED URL DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
-	var requestData map[string]interface{}
-	if err := json.Unmarshal(body, &requestData); err != nil {
-		log.Printf("Error parsing JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	key, ok := requestData["key"].(string)
-	if !ok || key == "" {
-		log.Printf("Missing or invalid key in request")
-		http.Error(w, "Missing key", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("GET SIGNED URL REQUEST for key: %s", key)
-
-	// Generate signed URL for S3 object
-	presignResult, err := s3Presigner.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(S3_BUCKET_NAME),
-		Key:    aws.String(key),
-	}, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Duration(15 * time.Minute) // URL expires in 15 minutes
-	})
-
-	if err != nil {
-		log.Printf("Error generating signed URL: %v", err)
-		http.Error(w, "Failed to generate signed URL", http.StatusInternalServerError)
-		return
-	}
-
-	response := map[string]interface{}{
-		"success": true,
-		"url":     presignResult.URL,
-		"expires": time.Now().Add(15 * time.Minute).Unix(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("GET SIGNED URL SUCCESS for key: %s", key)
 }

@@ -305,6 +305,50 @@ function isGlobalDataLoaded() {
     return GlobalData.isLoaded;
 }
 
+/**
+ * Add a new enemy to the global enemies array
+ * @param {Object} enemy - The enemy object to add
+ */
+function addEnemyToGlobal(enemy) {
+    if (!GlobalData.isLoaded) {
+        console.warn('Global data not loaded yet. Call initializeGlobalData() first.');
+        return;
+    }
+    
+    console.log('Adding enemy to global data:', enemy.name, 'ID:', enemy.id);
+    GlobalData.enemies.push(enemy);
+    console.log('✅ Enemy added. Total enemies:', GlobalData.enemies.length);
+}
+
+/**
+ * Update an existing enemy in the global enemies array
+ * @param {Object} updatedEnemy - The updated enemy object
+ */
+function updateEnemyInGlobal(updatedEnemy) {
+    if (!GlobalData.isLoaded) {
+        console.warn('Global data not loaded yet. Call initializeGlobalData() first.');
+        return;
+    }
+    
+    console.log('Updating enemy in global data:', updatedEnemy.name, 'ID:', updatedEnemy.id);
+    console.log('Current enemies count:', GlobalData.enemies.length);
+    
+    // Find and replace the enemy with matching ID (convert both to string for comparison)
+    const targetId = String(updatedEnemy.id);
+    const index = GlobalData.enemies.findIndex(enemy => String(enemy.id) === targetId);
+    
+    if (index !== -1) {
+        console.log('Found enemy at index:', index, 'Old enemy:', GlobalData.enemies[index].name);
+        GlobalData.enemies[index] = updatedEnemy;
+        console.log('✅ Enemy updated in global data at index:', index, 'New enemy:', updatedEnemy.name);
+        console.log('Updated enemy icon URL:', updatedEnemy.icon ? 'Present' : 'Missing');
+    } else {
+        console.warn('Enemy not found for update (ID:', targetId, '), available IDs:', GlobalData.enemies.map(e => String(e.id)));
+        console.warn('Adding as new enemy instead:', updatedEnemy.name);
+        GlobalData.enemies.push(updatedEnemy);
+    }
+}
+
 // === INITIALIZATION ===
 
 /**

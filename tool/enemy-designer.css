@@ -1,9 +1,10 @@
 /* Enemy Designer Specific Styles - Updated */
 
 .enemy-form {
+    position: relative;
     background-size: 300px 300px;
     border: 3px solid #8b4513;
-    padding: 2rem;
+    padding: 4rem 2rem 2rem 2rem; /* Added top padding for action buttons */
     border-radius: 15px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
     margin-bottom: 2rem;
@@ -32,6 +33,37 @@
 .form-group {
     margin-bottom: 1.5rem;
     max-width: 400px;
+}
+
+/* Name and ID side by side */
+.name-id-group {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    max-width: 600px;
+}
+
+.name-id-group .form-group {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.name-id-group .form-group:first-child {
+    flex: 2; /* Name field takes more space */
+}
+
+.name-id-group .form-group:last-child {
+    flex: 1; /* ID field takes less space */
+}
+
+/* Read-only styling for ID field */
+#enemyID {
+    background: rgba(150, 120, 80, 0.8) !important;
+    cursor: not-allowed;
+    color: #2c1810 !important;
+    font-weight: bold;
+    font-style: italic;
+    text-align: center;
 }
 
 .form-group label {
@@ -290,7 +322,21 @@
     background: rgba(244, 228, 188, 1);
 }
 
-/* Effects List */
+/* Effects Container - Two Column Layout */
+.effects-container {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.effects-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Legacy effects-list for backwards compatibility */
 .effects-list {
     display: flex;
     flex-direction: column;
@@ -366,6 +412,16 @@
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 2px solid #8b4513;
+}
+
+/* Top positioned action buttons */
+.action-buttons-top {
+    position: absolute;
+    top: 2rem;
+    right: 2rem;
+    display: flex;
+    gap: 1rem;
+    z-index: 10;
 }
 
 .save-btn {
@@ -555,7 +611,7 @@
     border: 3px solid #8b4513;
     border-radius: 15px;
     padding: 2rem;
-    max-width: 60vw; /* Changed from 80vw to 60vw */
+    min-width: 60vw; /* Increased from 60vw to 80vw for better grid layout */
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
@@ -606,8 +662,7 @@
     gap: 15px;
     padding: 1rem;
     min-height: 200px;
-    width: 60%; /* Make the grid 60% of the gallery width */
-    margin: 0 auto; /* Center the grid */
+    width: 100%; /* Use full gallery width instead of 60% */
 }
 
 .asset-item {

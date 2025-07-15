@@ -130,17 +130,32 @@
         <div id="enemies-content" class="page-content" style="display: none;">
             <div class="enemy-form">
                 <form id="enemyForm">
+                    <!-- Action Buttons (Top Right) -->
+                    <div class="action-buttons-top">
+                        <button type="button" id="saveBtn" class="save-btn">Save Enemy</button>
+                        <button type="button" id="resetBtn" class="reset-btn">Reset Form</button>
+                    </div>
+
                     <!-- Name Section -->
                     <div class="form-section">
-                        <div class="form-group">
-                            <label for="enemyName">Enemy Name</label>
-                            <div class="input-with-hint">
-                                <input type="text" id="enemyName" name="enemyName" placeholder="Type to search or create new enemy..." required list="existingEnemies">
-                                <small class="input-hint">💡 Start typing to see existing enemies, or enter a new name</small>
+                        <div class="name-id-group">
+                            <div class="form-group">
+                                <label for="enemyName">Enemy Name</label>
+                                <div class="input-with-hint">
+                                    <input type="text" id="enemyName" name="enemyName" placeholder="Type to search or create new enemy..." required list="existingEnemies">
+                                    <small class="input-hint">💡 Start typing to see existing enemies, or enter a new name</small>
+                                </div>
+                                <datalist id="existingEnemies">
+                                    <!-- Options will be populated by JavaScript -->
+                                </datalist>
                             </div>
-                            <datalist id="existingEnemies">
-                                <!-- Options will be populated by JavaScript -->
-                            </datalist>
+                            <div class="form-group">
+                                <label for="enemyID">Enemy ID</label>
+                                <div class="input-with-hint">
+                                    <input type="text" id="enemyID" name="enemyID" placeholder="0 (new enemy)" readonly>
+                                    <small class="input-hint">📄 Displays "0" for new enemies, or the database ID for existing ones</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -194,76 +209,80 @@
                     <!-- Effects Section -->
                     <div class="form-section">
                         <h3>Effects</h3>
-                        <div class="effects-list">
-                            <div class="effect-row">
-                                <select id="effect1" name="effect1" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor1" name="factor1" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description1">Select an effect to see description</span>
+                        <div class="effects-container">
+                            <div class="effects-column">
+                                <div class="effect-row">
+                                    <select id="effect1" name="effect1" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor1" name="factor1" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description1">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect2" name="effect2" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor2" name="factor2" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description2">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect3" name="effect3" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor3" name="factor3" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description3">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect4" name="effect4" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor4" name="factor4" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description4">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect5" name="effect5" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor5" name="factor5" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description5">Select an effect to see description</span>
+                                </div>
                             </div>
-                            <div class="effect-row">
-                                <select id="effect2" name="effect2" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor2" name="factor2" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description2">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect3" name="effect3" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor3" name="factor3" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description3">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect4" name="effect4" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor4" name="factor4" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description4">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect5" name="effect5" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor5" name="factor5" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description5">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect6" name="effect6" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor6" name="factor6" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description6">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect7" name="effect7" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor7" name="factor7" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description7">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect8" name="effect8" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor8" name="factor8" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description8">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect9" name="effect9" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor9" name="factor9" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description9">Select an effect to see description</span>
-                            </div>
-                            <div class="effect-row">
-                                <select id="effect10" name="effect10" class="effect-select">
-                                    <!-- Options will be populated by JavaScript -->
-                                </select>
-                                <input type="number" id="factor10" name="factor10" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                <span class="effect-description" id="description10">Select an effect to see description</span>
+                            <div class="effects-column">
+                                <div class="effect-row">
+                                    <select id="effect6" name="effect6" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor6" name="factor6" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description6">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect7" name="effect7" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor7" name="factor7" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description7">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect8" name="effect8" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor8" name="factor8" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description8">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect9" name="effect9" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor9" name="factor9" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description9">Select an effect to see description</span>
+                                </div>
+                                <div class="effect-row">
+                                    <select id="effect10" name="effect10" class="effect-select">
+                                        <!-- Options will be populated by JavaScript -->
+                                    </select>
+                                    <input type="number" id="factor10" name="factor10" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
+                                    <span class="effect-description" id="description10">Select an effect to see description</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -280,12 +299,6 @@
                             <div id="defeat-messages-list" class="messages-list"></div>
                             <button type="button" id="add-defeat-message" class="add-message-btn">+ Add Defeat Message</button>
                         </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="action-buttons">
-                        <button type="button" id="saveBtn" class="save-btn">Save Enemy</button>
-                        <button type="button" id="resetBtn" class="reset-btn">Reset Form</button>
                     </div>
                 </form>
             </div>
