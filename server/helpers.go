@@ -13,6 +13,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+// Effect represents the database structure for effects
+type Effect struct {
+	ID          int    `json:"id" db:"id"`
+	Name        string `json:"name" db:"name"`
+	Description string `json:"description" db:"description"`
+}
+
 // getNextAssetID returns the next available assetID from the database
 func getNextAssetID() (int, error) {
 	if db == nil {
@@ -92,4 +99,45 @@ func uploadImageToS3WithCustomKey(imageData, contentType, customKey string) (str
 
 	log.Printf("Image uploaded to S3 with custom key: %s", filename)
 	return filename, nil // Return S3 key instead of signed URL
+}
+
+// getAllEffects retrieves all effects from the database
+func getAllEffects() ([]Effect, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database not available")
+	}
+
+	query := `SELECT "id", "name", "description" FROM "Effects" ORDER BY "id"`
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying effects: %v", err)
+	}
+	defer rows.Close()
+
+	var effects []Effect
+	for rows.Next() {
+		var effect Effect
+		var description *string
+
+		err := rows.Scan(&effect.ID, &effect.Name, &description)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning effect row: %v", err)
+		}
+
+		// Handle nullable description
+		if description != nil {
+			effect.Description = *description
+		} else {
+			effect.Description = ""
+		}
+
+		effects = append(effects, effect)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating effect rows: %v", err)
+	}
+
+	log.Printf("Successfully retrieved %d effects from database", len(effects))
+	return effects, nil
 }

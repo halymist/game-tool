@@ -296,18 +296,13 @@ function setupEnemyNameHandler() {
         console.error('Enemy name input not found');
         return;
     }
-
-    console.log('Setting up enemy name handler');
-
-    // Create custom dropdown
     createCustomDropdown(nameInput);
 
     // Listen for when user types in the input
     nameInput.addEventListener('input', async (e) => {
         const inputValue = e.target.value;
         console.log('User typed:', inputValue);
-        
-        // Update custom dropdown
+ 
         updateCustomDropdown(nameInput, inputValue);
         
         // Check if this matches an existing enemy exactly
@@ -407,7 +402,6 @@ function initializeEffectOptions() {
             select.appendChild(defaultOption);
         }
     }
-    console.log('Effect dropdowns initialized - waiting for server data');
 }
 
 function validateName(name) {
@@ -553,13 +547,12 @@ async function sendToServer(enemy, operation) {
         saveBtn.disabled = true;
         saveBtn.textContent = 'Saving...';
 
-        // Determine endpoint based on operation
-        const endpoint = operation === 'create' ? 
-            'http://localhost:8080/api/createEnemy' : 
-            'http://localhost:8080/api/updateEnemy';
+        // Both create and update use the same endpoint - the server determines based on enemy.id
+        const endpoint = 'http://localhost:8080/api/createEnemy';
 
         console.log('=== SENDING ENEMY STRUCT TO SERVER ===');
         console.log('Enemy struct being sent:', enemy);
+        console.log('Operation type:', operation);
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -849,22 +842,13 @@ function populateEffectDropdowns(effects) {
 function populateEnemyDatalist(enemies) {
     const datalist = document.getElementById('existingEnemies');
     if (datalist) {
-        console.log('Found datalist element, populating with enemies:', enemies);
-        
-        // Clear existing options
         datalist.innerHTML = '';
-        
-        // Add enemy options
         enemies.forEach(enemy => {
             const option = document.createElement('option');
             option.value = enemy.name;
             option.textContent = enemy.name;
             datalist.appendChild(option);
-            console.log('Added enemy option:', enemy.name);
         });
-
-        console.log('Enemy datalist populated with', enemies.length, 'enemies');
-        console.log('Datalist now has', datalist.children.length, 'options');
     } else {
         console.error('Could not find datalist with id "existingEnemies"');
     }

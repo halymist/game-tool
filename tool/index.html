@@ -471,7 +471,6 @@
             const targetElement = document.getElementById(page.element);
             if (targetElement) {
                 targetElement.style.display = 'block';
-                console.log('Showing element:', page.element);
                 
                 // If showing the enemy designer, load data
                 if (pageName === 'enemies' && window.enemyDesigner) {
@@ -514,16 +513,10 @@
         });
 
         // Initialize page navigation
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing page navigation');
-            
+        document.addEventListener('DOMContentLoaded', function() {           
             const hash = window.location.hash.substring(1);
             const initialPage = hash && pages[hash] ? hash : 'dashboard';
-            
-            // Small delay to ensure all elements are ready
-            setTimeout(() => {
-                showPage(initialPage);
-            }, 100);
+            showPage(initialPage);
         });
 
         // Prevent default link behavior for tool cards

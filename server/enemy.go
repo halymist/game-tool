@@ -20,17 +20,23 @@ type EnemyMessage struct {
 	Message string `json:"message"`
 }
 
+// EnemyEffect represents an effect applied to an enemy with its factor
+type EnemyEffect struct {
+	Type   int `json:"type"`   // Effect ID (0 for empty/no effect)
+	Factor int `json:"factor"` // Effect factor/multiplier
+}
+
 // Enemy struct for full enemy data
 // Adjust field types as needed for your app
 type Enemy struct {
-	ID          interface{}              `json:"id,omitempty"`
-	Name        string                   `json:"name"`
-	Description string                   `json:"description"`
-	Stats       map[string]int           `json:"stats"`
-	Effects     []map[string]interface{} `json:"effects"`
-	Icon        string                   `json:"icon,omitempty"`
-	AssetID     int                      `json:"assetID,omitempty"`
-	Messages    []EnemyMessage           `json:"messages,omitempty"`
+	ID          interface{}    `json:"id,omitempty"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Stats       map[string]int `json:"stats"`
+	Effects     []EnemyEffect  `json:"effects"`
+	Icon        string         `json:"icon,omitempty"`
+	AssetID     int            `json:"assetID,omitempty"`
+	Messages    []EnemyMessage `json:"messages,omitempty"`
 }
 
 func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
@@ -122,26 +128,15 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 				if i <= len(enemy.Effects) {
 					effect := enemy.Effects[i-1]
 
-					// Handle effect type as integer (0 for empty, actual ID for real effects)
-					var effectType int
-					if typeVal, ok := effect["type"].(float64); ok {
-						effectType = int(typeVal)
-					} else if typeInt, ok := effect["type"].(int); ok {
-						effectType = typeInt
-					} else {
-						effectType = 0 // Default to 0 for invalid types
-					}
-
-					effectFactor, _ := effect["factor"].(float64)
-					if effectFactor == 0 {
-						effectFactor = 1
-					}
+					// Use effect struct fields directly
+					effectType := effect.Type
+					effectFactor := effect.Factor
 
 					// Use NULL for effect_id when effectType is 0 (empty)
 					if effectType == 0 {
-						values = append(values, nil, int(effectFactor))
+						values = append(values, nil, effectFactor)
 					} else {
-						values = append(values, effectType, int(effectFactor))
+						values = append(values, effectType, effectFactor)
 					}
 				} else {
 					values = append(values, nil, 1) // Use nil for empty effects
@@ -196,26 +191,15 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 				if i <= len(enemy.Effects) {
 					effect := enemy.Effects[i-1]
 
-					// Handle effect type as integer (0 for empty, actual ID for real effects)
-					var effectType int
-					if typeVal, ok := effect["type"].(float64); ok {
-						effectType = int(typeVal)
-					} else if typeInt, ok := effect["type"].(int); ok {
-						effectType = typeInt
-					} else {
-						effectType = 0 // Default to 0 for invalid types
-					}
-
-					effectFactor, _ := effect["factor"].(float64)
-					if effectFactor == 0 {
-						effectFactor = 1
-					}
+					// Use effect struct fields directly
+					effectType := effect.Type
+					effectFactor := effect.Factor
 
 					// Use NULL for effect_id when effectType is 0 (empty)
 					if effectType == 0 {
-						values = append(values, nil, int(effectFactor))
+						values = append(values, nil, effectFactor)
 					} else {
-						values = append(values, effectType, int(effectFactor))
+						values = append(values, effectType, effectFactor)
 					}
 				} else {
 					values = append(values, nil, 1) // Use nil for empty effects
@@ -348,26 +332,15 @@ func UpdateEnemy(w http.ResponseWriter, enemy Enemy) {
 		if i <= len(enemy.Effects) {
 			effect := enemy.Effects[i-1]
 
-			// Handle effect type as integer (0 for empty, actual ID for real effects)
-			var effectType int
-			if typeVal, ok := effect["type"].(float64); ok {
-				effectType = int(typeVal)
-			} else if typeInt, ok := effect["type"].(int); ok {
-				effectType = typeInt
-			} else {
-				effectType = 0 // Default to 0 for invalid types
-			}
-
-			effectFactor, _ := effect["factor"].(float64)
-			if effectFactor == 0 {
-				effectFactor = 1
-			}
+			// Use effect struct fields directly
+			effectType := effect.Type
+			effectFactor := effect.Factor
 
 			// Use NULL for effect_id when effectType is 0 (empty)
 			if effectType == 0 {
-				values = append(values, nil, int(effectFactor))
+				values = append(values, nil, effectFactor)
 			} else {
-				values = append(values, effectType, int(effectFactor))
+				values = append(values, effectType, effectFactor)
 			}
 		} else {
 			values = append(values, nil, 1) // Use nil for empty effects
@@ -545,7 +518,7 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Process effects
-			enemy.Effects = make([]map[string]interface{}, 10)
+			enemy.Effects = make([]EnemyEffect, 10)
 			for i := 0; i < 10; i++ {
 				effectType := 0
 				effectFactor := 1.0
@@ -557,9 +530,9 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 					effectFactor = *effectFactors[i]
 				}
 
-				enemy.Effects[i] = map[string]interface{}{
-					"type":   effectType,
-					"factor": int(effectFactor), // Convert to int for client compatibility
+				enemy.Effects[i] = EnemyEffect{
+					Type:   effectType,
+					Factor: int(effectFactor), // Convert to int for client compatibility
 				}
 			}
 

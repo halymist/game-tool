@@ -167,6 +167,9 @@ func main() {
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
 	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
 
+	// Perk designer endpoints (now in perk.go)
+	http.HandleFunc("/api/getPerks", corsHandler(getPerksHandler))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
@@ -175,6 +178,7 @@ func main() {
 	fmt.Println("  POST /api/createEnemy - Create new enemy (authenticated)")
 	fmt.Println("  GET /api/getEnemies - Get enemies and effects (authenticated)")
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
+	fmt.Println("  GET /api/getPerks - Get perks and effects (authenticated)")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

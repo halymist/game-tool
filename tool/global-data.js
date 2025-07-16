@@ -4,7 +4,8 @@
 // === GLOBAL DATA STORAGE ===
 const GlobalData = {
     effects: [],           // Array of all effects from database
-    enemies: []            // Array of all complete enemy data with signed URLs
+    enemies: [],           // Array of all complete enemy data with signed URLs
+    perks: []              // Array of all complete perk data with signed URLs
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -14,6 +15,22 @@ const Effect = {
         id: id,                    // Effect ID from database - JSON: "id"
         name: name,               // Effect name - JSON: "name"
         description: description  // Effect description - JSON: "description"
+    })
+};
+
+// === PERK DATA STRUCTURE ===
+// Matches server-side database structure
+const Perk = {
+    create: (id, assetID, name, description = "", effect1_id = null, effect1_factor = null, effect2_id = null, effect2_factor = null) => ({
+        id: id,                           // Perk ID from database - JSON: "id"
+        assetID: assetID,                 // Asset ID from database - JSON: "assetID"
+        name: name,                       // Perk name - JSON: "name"
+        description: description,         // Perk description - JSON: "description"
+        effect1_id: effect1_id,          // First effect ID - JSON: "effect1_id"
+        effect1_factor: effect1_factor,   // First effect factor - JSON: "effect1_factor"
+        effect2_id: effect2_id,          // Second effect ID - JSON: "effect2_id"
+        effect2_factor: effect2_factor,   // Second effect factor - JSON: "effect2_factor"
+        icon: ""                         // Signed URL for perk icon - JSON: "icon"
     })
 };
 
@@ -44,13 +61,7 @@ async function loadEffectsData() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('=== EFFECTS DATA LOADED ===');
-            console.log('Success:', data.success);
-            console.log('Effects count:', data.effects ? data.effects.length : 0);
-            
-            // Store the loaded effects
             GlobalData.effects = data.effects || [];
-            
             console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
             return GlobalData.effects;
             
@@ -91,12 +102,7 @@ async function loadEnemiesData() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('=== ENEMIES DATA LOADED ===');
-            console.log('Success:', data.success);
-            console.log('Effects count from enemies endpoint:', data.effects ? data.effects.length : 0);
             console.log('Enemies count:', data.enemies ? data.enemies.length : 0);
-            
-            // Store the loaded enemies data
             GlobalData.enemies = data.enemies || [];
             // Store effects if not already loaded
             if (data.effects && GlobalData.effects.length === 0) {
@@ -115,6 +121,59 @@ async function loadEnemiesData() {
 
     } catch (error) {
         console.error('Error loading enemies data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load all perks data from the server
+ * @returns {Promise<Array>} Promise that resolves to array of complete perk data
+ */
+async function loadPerksData() {
+    try {
+        // Get current access token
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            console.error('Authentication required to load perks data');
+            throw new Error('Authentication required');
+        }
+
+        console.log('Loading perks data from server...');
+
+        const response = await fetch('http://localhost:8080/api/getPerks', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('=== PERKS DATA LOADED ===');
+            console.log('Success:', data.success);
+            console.log('Effects count from perks endpoint:', data.effects ? data.effects.length : 0);
+            console.log('Perks count:', data.perks ? data.perks.length : 0);
+            
+            // Store the loaded perks data
+            GlobalData.perks = data.perks || [];
+            // Store effects if not already loaded
+            if (data.effects && GlobalData.effects.length === 0) {
+                GlobalData.effects = data.effects;
+                console.log('Effects data also loaded from perks endpoint');
+            }
+            
+            console.log('✅ Perks data loaded successfully:', GlobalData.perks.length, 'perks');
+            return GlobalData.perks;
+            
+        } else {
+            const error = await response.text();
+            console.error('Failed to load perks data:', error);
+            throw new Error(`Server error: ${error}`);
+        }
+
+    } catch (error) {
+        console.error('Error loading perks data:', error);
         throw error;
     }
 }
@@ -260,6 +319,119 @@ function updateEnemyInGlobal(updatedEnemy) {
  */
 function getAssetUsageCount(assetID) {
     return GlobalData.enemies.filter(enemy => enemy.assetID === assetID).length;
+}
+
+/**
+ * Get all perks data
+ * @returns {Array} Array of complete perk data
+ */
+function getPerks() {
+    return GlobalData.perks;
+}
+
+/**
+ * Get perk by ID
+ * @param {number|string} perkId - The perk ID to find
+ * @returns {Object|null} Perk object or null if not found
+ */
+function getPerkById(perkId) {
+    const id = parseInt(perkId);
+    return GlobalData.perks.find(perk => perk.id === id) || null;
+}
+
+/**
+ * Get perk by assetID
+ * @param {number|string} assetID - The asset ID to find
+ * @returns {Object|null} Perk object or null if not found
+ */
+function getPerkByAssetID(assetID) {
+    const id = parseInt(assetID);
+    return GlobalData.perks.find(perk => perk.assetID === id) || null;
+}
+
+/**
+ * Get all unique perks with assets (for gallery display)
+ * Returns only one perk per unique assetID to avoid showing duplicate textures
+ * @returns {Array} Array of unique perks that have icons
+ */
+function getPerksWithAssets() {
+    const perksWithAssets = GlobalData.perks.filter(perk => perk.icon && perk.assetID > 0);
+    
+    // Create a map to store unique assets by assetID
+    const uniqueAssets = new Map();
+    
+    // Keep only the first perk found for each unique assetID
+    perksWithAssets.forEach(perk => {
+        if (!uniqueAssets.has(perk.assetID)) {
+            uniqueAssets.set(perk.assetID, perk);
+        }
+    });
+    
+    // Convert map values back to array
+    return Array.from(uniqueAssets.values());
+}
+
+/**
+ * Get texture URL by assetID (useful for displaying perk asset images)
+ * @param {number|string} assetID - The asset ID
+ * @returns {string} Texture URL or empty string if not found
+ */
+function getPerkAssetTexture(assetID) {
+    const perk = getPerkByAssetID(assetID);
+    return perk ? perk.icon : '';
+}
+
+/**
+ * Add a new perk to the global perks array
+ * @param {Object} perk - The perk object to add
+ */
+function addPerkToGlobal(perk) {
+    console.log('Adding perk to global data:', perk.name, 'ID:', perk.id);
+    GlobalData.perks.push(perk);
+    console.log('✅ Perk added. Total perks:', GlobalData.perks.length);
+}
+
+/**
+ * Update an existing perk in the global perks array
+ * @param {Object} updatedPerk - The updated perk object
+ */
+function updatePerkInGlobal(updatedPerk) {
+    console.log('Updating perk in global data:', updatedPerk.name, 'ID:', updatedPerk.id);
+    console.log('Current perks count:', GlobalData.perks.length);
+    
+    // Find and replace the perk with matching ID (convert both to string for comparison)
+    const targetId = String(updatedPerk.id);
+    const index = GlobalData.perks.findIndex(perk => String(perk.id) === targetId);
+    
+    if (index !== -1) {
+        console.log('Found perk at index:', index, 'Old perk:', GlobalData.perks[index].name);
+        GlobalData.perks[index] = updatedPerk;
+        console.log('✅ Perk updated in global data at index:', index, 'New perk:', updatedPerk.name);
+        console.log('Updated perk icon URL:', updatedPerk.icon ? 'Present' : 'Missing');
+    } else {
+        console.warn('Perk not found for update (ID:', targetId, '), available IDs:', GlobalData.perks.map(p => String(p.id)));
+        console.warn('Adding as new perk instead:', updatedPerk.name);
+        GlobalData.perks.push(updatedPerk);
+    }
+}
+
+/**
+ * Get count of perks using a specific assetID
+ * @param {number} assetID - The asset ID to count
+ * @returns {number} Number of perks using this asset
+ */
+function getPerkAssetUsageCount(assetID) {
+    return GlobalData.perks.filter(perk => perk.assetID === assetID).length;
+}
+
+/**
+ * Get all available perk assetIDs
+ * @returns {Array<number>} Array of all available perk asset IDs
+ */
+function getAvailablePerkAssetIDs() {
+    return GlobalData.perks
+        .filter(perk => perk.assetID > 0)
+        .map(perk => perk.assetID);
 }
 
 // === IMAGE HANDLING HELPERS ===
