@@ -4,9 +4,7 @@
 // === GLOBAL DATA STORAGE ===
 const GlobalData = {
     effects: [],           // Array of all effects from database
-    enemies: [],           // Array of all complete enemy data with signed URLs
-    isLoaded: false,       // Flag to track if data has been loaded
-    loadPromise: null      // Promise to prevent multiple simultaneous loads
+    enemies: []            // Array of all complete enemy data with signed URLs
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -49,11 +47,9 @@ async function loadEffectsData() {
             console.log('=== EFFECTS DATA LOADED ===');
             console.log('Success:', data.success);
             console.log('Effects count:', data.effects ? data.effects.length : 0);
-            console.log('Effects data:', data.effects);
             
             // Store the loaded effects
             GlobalData.effects = data.effects || [];
-            GlobalData.isLoaded = true;
             
             console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
             return GlobalData.effects;
@@ -99,11 +95,10 @@ async function loadEnemiesData() {
             console.log('Success:', data.success);
             console.log('Effects count from enemies endpoint:', data.effects ? data.effects.length : 0);
             console.log('Enemies count:', data.enemies ? data.enemies.length : 0);
-            console.log('Enemies data:', data.enemies);
             
             // Store the loaded enemies data
             GlobalData.enemies = data.enemies || [];
-            // Don't override effects data if already loaded separately
+            // Store effects if not already loaded
             if (data.effects && GlobalData.effects.length === 0) {
                 GlobalData.effects = data.effects;
                 console.log('Effects data also loaded from enemies endpoint');
@@ -124,62 +119,6 @@ async function loadEnemiesData() {
     }
 }
 
-/**
- * Initialize global data - loads all necessary data from server
- * @returns {Promise<void>} Promise that resolves when all data is loaded
- */
-async function initializeGlobalData() {
-    // Prevent multiple simultaneous loads
-    if (GlobalData.loadPromise) {
-        return GlobalData.loadPromise;
-    }
-
-    // Return existing data if already loaded
-    if (GlobalData.isLoaded) {
-        console.log('Global data already loaded, skipping reload');
-        return Promise.resolve();
-    }
-
-    // Create load promise
-    GlobalData.loadPromise = (async () => {
-        try {
-            console.log('=== INITIALIZING GLOBAL DATA ===');
-            
-            // Load effects data first, then enemies data
-            await loadEffectsData();
-            await loadEnemiesData();
-            
-            GlobalData.isLoaded = true;
-            
-            console.log('=== GLOBAL DATA INITIALIZATION COMPLETE ===');
-            console.log('Effects loaded:', GlobalData.effects.length);
-            console.log('Enemies loaded:', GlobalData.enemies.length);
-            
-        } catch (error) {
-            console.error('Failed to initialize global data:', error);
-            // Reset load promise so it can be retried
-            GlobalData.loadPromise = null;
-            throw error;
-        }
-    })();
-
-    return GlobalData.loadPromise;
-}
-
-/**
- * Force reload all global data from server
- * @returns {Promise<void>} Promise that resolves when data is reloaded
- */
-async function reloadGlobalData() {
-    console.log('Force reloading global data...');
-    GlobalData.isLoaded = false;
-    GlobalData.loadPromise = null;
-    GlobalData.effects = [];
-    GlobalData.enemies = [];
-    
-    return await initializeGlobalData();
-}
-
 // === DATA ACCESS FUNCTIONS ===
 
 /**
@@ -187,10 +126,6 @@ async function reloadGlobalData() {
  * @returns {Array} Array of effects
  */
 function getEffects() {
-    if (!GlobalData.isLoaded) {
-        console.warn('Effects data not loaded yet. Call initializeGlobalData() first.');
-        return [];
-    }
     return GlobalData.effects;
 }
 
@@ -200,11 +135,6 @@ function getEffects() {
  * @returns {Object|null} Effect object or null if not found
  */
 function getEffectById(effectId) {
-    if (!GlobalData.isLoaded) {
-        console.warn('Effects data not loaded yet. Call initializeGlobalData() first.');
-        return null;
-    }
-    
     const id = parseInt(effectId);
     return GlobalData.effects.find(effect => effect.id === id) || null;
 }
@@ -224,10 +154,6 @@ function getEffectName(effectId) {
  * @returns {Array} Array of complete enemy data
  */
 function getEnemies() {
-    if (!GlobalData.isLoaded) {
-        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
-        return [];
-    }
     return GlobalData.enemies;
 }
 
@@ -237,11 +163,6 @@ function getEnemies() {
  * @returns {Object|null} Enemy object or null if not found
  */
 function getEnemyById(enemyId) {
-    if (!GlobalData.isLoaded) {
-        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
-        return null;
-    }
-    
     const id = parseInt(enemyId);
     return GlobalData.enemies.find(enemy => enemy.id === id) || null;
 }
@@ -252,11 +173,6 @@ function getEnemyById(enemyId) {
  * @returns {Object|null} Enemy object or null if not found
  */
 function getEnemyByAssetID(assetID) {
-    if (!GlobalData.isLoaded) {
-        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
-        return null;
-    }
-    
     const id = parseInt(assetID);
     return GlobalData.enemies.find(enemy => enemy.assetID === id) || null;
 }
@@ -267,11 +183,6 @@ function getEnemyByAssetID(assetID) {
  * @returns {Array} Array of unique enemies that have icons
  */
 function getEnemiesWithAssets() {
-    if (!GlobalData.isLoaded) {
-        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
-        return [];
-    }
-    
     const enemiesWithAssets = GlobalData.enemies.filter(enemy => enemy.icon && enemy.assetID > 0);
     
     // Create a map to store unique assets by assetID
@@ -303,21 +214,9 @@ function getEnemyAssetTexture(assetID) {
  * @returns {Array<number>} Array of all available asset IDs
  */
 function getAvailableAssetIDs() {
-    if (!GlobalData.isLoaded) {
-        console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
-        return [];
-    }
     return GlobalData.enemies
         .filter(enemy => enemy.assetID > 0)
         .map(enemy => enemy.assetID);
-}
-
-/**
- * Check if global data is loaded and ready
- * @returns {boolean} True if data is loaded
- */
-function isGlobalDataLoaded() {
-    return GlobalData.isLoaded;
 }
 
 /**
@@ -325,11 +224,6 @@ function isGlobalDataLoaded() {
  * @param {Object} enemy - The enemy object to add
  */
 function addEnemyToGlobal(enemy) {
-    if (!GlobalData.isLoaded) {
-        console.warn('Global data not loaded yet. Call initializeGlobalData() first.');
-        return;
-    }
-    
     console.log('Adding enemy to global data:', enemy.name, 'ID:', enemy.id);
     GlobalData.enemies.push(enemy);
     console.log('✅ Enemy added. Total enemies:', GlobalData.enemies.length);
@@ -340,11 +234,6 @@ function addEnemyToGlobal(enemy) {
  * @param {Object} updatedEnemy - The updated enemy object
  */
 function updateEnemyInGlobal(updatedEnemy) {
-    if (!GlobalData.isLoaded) {
-        console.warn('Global data not loaded yet. Call initializeGlobalData() first.');
-        return;
-    }
-    
     console.log('Updating enemy in global data:', updatedEnemy.name, 'ID:', updatedEnemy.id);
     console.log('Current enemies count:', GlobalData.enemies.length);
     
@@ -364,39 +253,14 @@ function updateEnemyInGlobal(updatedEnemy) {
     }
 }
 
-// === INITIALIZATION ===
-
 /**
- * Auto-initialize global data when this script loads
- * This will be called automatically after successful login
+ * Get count of enemies using a specific assetID
+ * @param {number} assetID - The asset ID to count
+ * @returns {number} Number of enemies using this asset
  */
-function autoInitializeGlobalData() {
-    // Check if we're authenticated before trying to load data
-    if (typeof getCurrentAccessToken === 'function') {
-        getCurrentAccessToken().then(token => {
-            if (token) {
-                console.log('Authentication detected, auto-initializing global data...');
-                initializeGlobalData().catch(error => {
-                    console.error('Auto-initialization failed:', error);
-                });
-            } else {
-                console.log('No authentication found, skipping auto-initialization');
-            }
-        }).catch(error => {
-            console.log('Authentication check failed, skipping auto-initialization:', error);
-        });
-    } else {
-        console.log('getCurrentAccessToken not available, skipping auto-initialization');
-    }
+function getAssetUsageCount(assetID) {
+    return GlobalData.enemies.filter(enemy => enemy.assetID === assetID).length;
 }
-
-// Auto-initialize when DOM is ready (if not already initialized)
-document.addEventListener('DOMContentLoaded', function() {
-    // Delay auto-initialization to ensure other scripts are loaded
-    setTimeout(autoInitializeGlobalData, 1000);
-});
-
-console.log('🌍 Global Data Manager loaded - ready to load effects and enemies data from server');
 
 // === IMAGE HANDLING HELPERS ===
 
@@ -429,37 +293,34 @@ function setupDragAndDrop(uploadArea, handleFileUpload) {
 }
 
 /**
- * Convert image to WebP format at specified size with quality compression
+ * Convert image to WebP format at specified dimensions with quality compression
  * @param {File} file - The image file to convert
- * @param {number} maxSize - Maximum width/height in pixels (default: 256)
+ * @param {number} width - Target width in pixels (default: 256)
+ * @param {number} height - Target height in pixels (default: same as width)
  * @param {number} quality - Quality compression 0-1 (default: 0.7)
  * @returns {Promise<Blob>} Promise that resolves to WebP blob
  */
-async function convertImageToWebP(file, maxSize = 256, quality = 0.7) {
+async function convertImageToWebP(file, width = 256, height = null, quality = 0.7) {
+    // If height not specified, use width (square)
+    if (height === null) {
+        height = width;
+    }
+    
     return new Promise((resolve, reject) => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
         
         img.onload = () => {
-            // Set canvas to desired size
-            canvas.width = maxSize;
-            canvas.height = maxSize;
+            // Set canvas to desired dimensions
+            canvas.width = width;
+            canvas.height = height;
             
             // Clear canvas with transparent background
-            ctx.clearRect(0, 0, maxSize, maxSize);
+            ctx.clearRect(0, 0, width, height);
             
-            // Calculate scaling to maintain aspect ratio while fitting in square
-            const scale = Math.min(maxSize / img.width, maxSize / img.height);
-            const scaledWidth = img.width * scale;
-            const scaledHeight = img.height * scale;
-            
-            // Center the image in the canvas
-            const x = (maxSize - scaledWidth) / 2;
-            const y = (maxSize - scaledHeight) / 2;
-            
-            // Draw and resize image
-            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+            // Draw and stretch image to fill entire canvas
+            ctx.drawImage(img, 0, 0, width, height);
             
             // Convert to WebP with quality compression
             canvas.toBlob(
@@ -497,14 +358,4 @@ function blobToBase64(blob) {
     });
 }
 
-/**
- * Get count of enemies using a specific assetID
- * @param {number} assetID - The asset ID to count
- * @returns {number} Number of enemies using this asset
- */
-function getAssetUsageCount(assetID) {
-    if (!GlobalData.isLoaded) {
-        return 0;
-    }
-    return GlobalData.enemies.filter(enemy => enemy.assetID === assetID).length;
-}
+console.log('🌍 Global Data Manager loaded - ready to load effects and enemies data from server');

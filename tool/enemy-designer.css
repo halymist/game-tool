@@ -250,71 +250,71 @@ datalist option:hover {
     background: linear-gradient(135deg, #A0522D, #CD853F);
 }
 
-/* Icon, Stats, and Description Layout */
+/* Icon, Stats, and Description Layout - Equal Heights */
 .icon-stats-wrapper {
     display: flex;
-    gap: 3rem; /* Increased from 2rem to 3rem for more spacing */
-    align-items: flex-start; /* Align all columns to the top */
-    min-height: 400px; /* Match the icon height */
+    gap: 2rem;
+    align-items: stretch; /* Changed from flex-start to stretch for equal heights */
+    min-height: 450px; /* Set a consistent minimum height */
 }
 
 .icon-container {
-    flex: 0 0 auto;
+    flex: 0 0 300px; /* Fixed width of 300px */
     display: flex;
-    flex-direction: column; /* Stack items vertically */
-    align-items: flex-start;
+    flex-direction: column;
+    height: 100%; /* Take full height of wrapper */
 }
 
 .stats-container {
-    flex: 0 0 auto;
-    min-width: 200px;
-    max-width: 250px;
-    margin-right: 2rem; /* Additional spacing after stats */
+    flex: 0 0 200px; /* Fixed width of 200px */
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Take full height of wrapper */
 }
 
 .stats-container h3 {
     margin-top: 0;
     margin-bottom: 1rem;
+    flex-shrink: 0; /* Prevent title from shrinking */
 }
 
 .description-container {
-    flex: 1.8; /* Increased from 1.5 to 1.8 to make it even wider */
-    min-width: 400px; /* Increased from 350px to 400px */
+    flex: 1; /* Take remaining space */
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 100%; /* Take full height of wrapper */
 }
 
 .description-container h3 {
     margin-top: 0;
     margin-bottom: 1rem;
+    flex-shrink: 0; /* Prevent title from shrinking */
 }
 
 .description-container .form-group {
-    flex: 1;
+    flex: 1; /* Take remaining space */
     margin-bottom: 0;
     display: flex;
     flex-direction: column;
 }
 
 .description-container textarea {
-    flex: 1;
-    min-height: 300px;
-    max-height: 400px; /* Prevent vertical expansion beyond container */
-    resize: vertical; /* Only vertical resize to prevent breaking layout */
+    flex: 1; /* Take all available space in the form group */
+    min-height: 350px; /* Minimum height to ensure good usability */
+    resize: none;
     font-family: 'Crimson Text', serif;
-    width: 100%; /* Ensure it stays within container */
-    box-sizing: border-box; /* Include padding/border in width calculation */
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .icon-upload-area {
     /* Extends shared upload-area styles */
-    width: 256px;              /* Match WebP output size */
-    height: 256px;             /* Match WebP output size */
+    width: 300px;              /* Container width */
+    height: 400px;             /* Container height */
     
     border: 3px dashed #8b4513;
     border-radius: 15px;
-    padding: 0;                /* Remove padding for full image display */
+    padding: 0;
     text-align: center;
     background: rgba(244, 228, 188, 0.1);
     transition: all 0.3s ease;
@@ -343,10 +343,10 @@ datalist option:hover {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100%;            
+    height: 100%;          
     border: none;
-    border-radius: 12px; /* Match the upload area border radius */
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -355,9 +355,10 @@ datalist option:hover {
 }
 
 .icon-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: stretch;    /* This will stretch to fill the square completely */
+    width: 100%;             /* Fill container width */
+    height: 100%;            /* Fill container height */
+    object-fit: stretch;     /* Stretch to fill completely */
+    border-radius: 12px;
 }
 
 .icon-placeholder {
@@ -395,11 +396,13 @@ datalist option:hover {
     filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.3));
 }
 
-/* Stats Grid */
+/* Stats container adjustments */
 .stats-grid {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 1rem;
+    flex: 1; /* Take remaining space in stats container */
+    justify-content: flex-start; /* Align stats to top */
 }
 
 .stat-group {
@@ -619,7 +622,7 @@ datalist option:hover {
     flex: 1;
     min-height: 60px;
     max-height: 120px;
-    resize: vertical;
+    resize: none; /* Remove resizing capability */
     padding: 0.75rem;
     background: rgba(244, 228, 188, 0.1);
     border: 2px solid #8b4513;
@@ -651,7 +654,7 @@ datalist option:hover {
     border-radius: 8px;
     background: rgba(244, 228, 188, 0.05);
     color: #e8dcc0;
-    resize: vertical;
+    resize: none; /* Remove resizing capability */
     font-family: 'Crimson Text', serif;
     font-size: 1rem;
     box-sizing: border-box;
@@ -732,7 +735,7 @@ datalist option:hover {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     transition: all 0.3s ease;
     margin-top: 0.5rem;
-    width: 256px; /* Match icon area width */
+    width: 300px; /* Match icon container width */
     font-size: 0.9rem;
     display: block; /* Ensure it's positioned properly below the upload area */
 }

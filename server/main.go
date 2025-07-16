@@ -164,7 +164,6 @@ func main() {
 	http.HandleFunc("/static/", corsHandler(handleStatic))
 	// Enemy designer endpoints (now in enemy.go)
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
-	http.HandleFunc("/api/updateEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
 	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
 
@@ -174,7 +173,6 @@ func main() {
 	fmt.Println("  GET /dashboard - Dashboard")
 	fmt.Println("  GET /static/ - Static files (CSS/JS public, others protected)")
 	fmt.Println("  POST /api/createEnemy - Create new enemy (authenticated)")
-	fmt.Println("  POST /api/updateEnemy - Update existing enemy (authenticated)")
 	fmt.Println("  GET /api/getEnemies - Get enemies and effects (authenticated)")
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
 

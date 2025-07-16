@@ -228,9 +228,9 @@ async function handleFileUpload(file) {
     try {
         console.log('Converting image to WebP format...');
         console.log('Original file:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB');
-        
-        // Convert to WebP 256x256 with 70% quality
-        const webpBlob = await convertImageToWebP(file, 256, 0.7);
+
+        // Convert to WebP 400x300 with 70% quality
+        const webpBlob = await convertImageToWebP(file, 400, 300, 0.7);
         console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
         console.log('Compression ratio:', ((1 - webpBlob.size / file.size) * 100).toFixed(1) + '% reduction');
         
@@ -779,7 +779,7 @@ async function getSignedUrl(key) {
 // Populate effect dropdowns using global effects data
 function populateEffectDropdownsFromGlobal() {
     // Check if global data is loaded
-    if (!isGlobalDataLoaded()) {
+    if (GlobalData.effects.length === 0) {
         console.warn('Global effects data not loaded yet, cannot populate dropdowns');
         return;
     }
@@ -877,7 +877,7 @@ function populateEnemyDatalist(enemies) {
  */
 function createAssetGallery() {
     // Check if global data is loaded
-    if (!isGlobalDataLoaded()) {
+    if (GlobalData.enemies.length === 0) {
         console.warn('Global data not loaded yet, cannot create asset gallery');
         return;
     }
@@ -1277,9 +1277,12 @@ async function initEnemyDesigner() {
     
     // Wait for global data to be loaded, then populate dropdowns and create asset gallery
     try {
-        if (!isGlobalDataLoaded()) {
-            console.log('Waiting for global data to load...');
-            await initializeGlobalData();
+        if (GlobalData.effects.length === 0 || GlobalData.enemies.length === 0) {
+            console.log('Loading global data...');
+            await Promise.all([
+                loadEffectsData(),
+                loadEnemiesData()
+            ]);
         }
         
         // Populate effect dropdowns with global data
