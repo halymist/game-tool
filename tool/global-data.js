@@ -262,15 +262,30 @@ function getEnemyByAssetID(assetID) {
 }
 
 /**
- * Get all enemies with assets (for gallery display)
- * @returns {Array} Array of enemies that have icons
+ * Get all unique enemies with assets (for gallery display)
+ * Returns only one enemy per unique assetID to avoid showing duplicate textures
+ * @returns {Array} Array of unique enemies that have icons
  */
 function getEnemiesWithAssets() {
     if (!GlobalData.isLoaded) {
         console.warn('Enemies data not loaded yet. Call initializeGlobalData() first.');
         return [];
     }
-    return GlobalData.enemies.filter(enemy => enemy.icon && enemy.assetID > 0);
+    
+    const enemiesWithAssets = GlobalData.enemies.filter(enemy => enemy.icon && enemy.assetID > 0);
+    
+    // Create a map to store unique assets by assetID
+    const uniqueAssets = new Map();
+    
+    // Keep only the first enemy found for each unique assetID
+    enemiesWithAssets.forEach(enemy => {
+        if (!uniqueAssets.has(enemy.assetID)) {
+            uniqueAssets.set(enemy.assetID, enemy);
+        }
+    });
+    
+    // Convert map values back to array
+    return Array.from(uniqueAssets.values());
 }
 
 /**
@@ -382,3 +397,114 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('🌍 Global Data Manager loaded - ready to load effects and enemies data from server');
+
+// === IMAGE HANDLING HELPERS ===
+
+/**
+ * Setup drag and drop functionality for an upload area
+ * @param {HTMLElement} uploadArea - The element to setup drag and drop on
+ * @param {Function} handleFileUpload - Callback function to handle file upload
+ */
+function setupDragAndDrop(uploadArea, handleFileUpload) {
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+}
+
+/**
+ * Convert image to WebP format at specified size with quality compression
+ * @param {File} file - The image file to convert
+ * @param {number} maxSize - Maximum width/height in pixels (default: 256)
+ * @param {number} quality - Quality compression 0-1 (default: 0.7)
+ * @returns {Promise<Blob>} Promise that resolves to WebP blob
+ */
+async function convertImageToWebP(file, maxSize = 256, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+            // Set canvas to desired size
+            canvas.width = maxSize;
+            canvas.height = maxSize;
+            
+            // Clear canvas with transparent background
+            ctx.clearRect(0, 0, maxSize, maxSize);
+            
+            // Calculate scaling to maintain aspect ratio while fitting in square
+            const scale = Math.min(maxSize / img.width, maxSize / img.height);
+            const scaledWidth = img.width * scale;
+            const scaledHeight = img.height * scale;
+            
+            // Center the image in the canvas
+            const x = (maxSize - scaledWidth) / 2;
+            const y = (maxSize - scaledHeight) / 2;
+            
+            // Draw and resize image
+            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+            
+            // Convert to WebP with quality compression
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to convert image to WebP'));
+                    }
+                }, 
+                'image/webp', 
+                quality
+            );
+        };
+        
+        img.onerror = () => {
+            reject(new Error('Failed to load image'));
+        };
+        
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+/**
+ * Convert a blob to base64 string
+ * @param {Blob} blob - The blob to convert
+ * @returns {Promise<string>} Promise that resolves to base64 string
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
+ * Get count of enemies using a specific assetID
+ * @param {number} assetID - The asset ID to count
+ * @returns {number} Number of enemies using this asset
+ */
+function getAssetUsageCount(assetID) {
+    if (!GlobalData.isLoaded) {
+        return 0;
+    }
+    return GlobalData.enemies.filter(enemy => enemy.assetID === assetID).length;
+}

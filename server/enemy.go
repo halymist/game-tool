@@ -81,7 +81,7 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 
 	// Check if this is an update or create based on the presence of ID
 	if enemy.ID != nil && enemy.ID != "" {
-		handleUpdateEnemyWithData(w, enemy)
+		UpdateEnemy(w, enemy)
 		return
 	}
 
@@ -102,9 +102,19 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// === STEP 1: Insert enemy into database to get new assetID ===
-			query := `INSERT INTO "Enemies" ("name", "description", "strength", "stamina", "agility", "luck", "armor"`
-			values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"]}
+			// === STEP 1: Get next available assetID ===
+			nextAssetID, assetErr := getNextAssetID()
+			if assetErr != nil {
+				log.Printf("Failed to get next asset ID: %v", assetErr)
+				http.Error(w, "Failed to generate asset ID", http.StatusInternalServerError)
+				return
+			}
+			finalAssetID = nextAssetID
+			log.Printf("Using next available assetID: %d", finalAssetID)
+
+			// === STEP 2: Insert enemy into database with explicit assetID ===
+			query := `INSERT INTO "Enemies" ("name", "description", "strength", "stamina", "agility", "luck", "armor", "assetID"`
+			values := []interface{}{enemy.Name, enemy.Description, enemy.Stats["strength"], enemy.Stats["stamina"], enemy.Stats["agility"], enemy.Stats["luck"], enemy.Stats["armor"], finalAssetID}
 
 			// Add effect columns dynamically based on the effects array
 			for i := 1; i <= 10; i++ {
@@ -146,18 +156,18 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 				}
 				query += fmt.Sprintf("$%d", i+1)
 			}
-			query += `) RETURNING "id", "assetID"`
+			query += `) RETURNING "id"`
 
-			err := db.QueryRow(query, values...).Scan(&enemyID, &finalAssetID)
+			err := db.QueryRow(query, values...).Scan(&enemyID)
 			if err != nil {
 				log.Printf("Failed to insert enemy: %v", err)
 				http.Error(w, "Failed to create enemy", http.StatusInternalServerError)
 				return
 			}
 
-			log.Printf("Enemy inserted with ID: %d, assetID: %d", enemyID, finalAssetID)
+			log.Printf("Enemy inserted with ID: %d, using assetID: %d", enemyID, finalAssetID)
 
-			// === STEP 2: Upload icon to S3 using assetID as key ===
+			// === STEP 3: Upload icon to S3 using assetID as key ===
 			log.Printf("Uploading enemy icon to S3 with assetID: %d", finalAssetID)
 			iconKey, err := uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
 			if err != nil {
@@ -272,7 +282,7 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUpdateEnemyWithData handles updating an existing enemy with complete data
-func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
+func UpdateEnemy(w http.ResponseWriter, enemy Enemy) {
 	if db == nil {
 		log.Printf("UPDATE ENEMY ERROR: Database not available")
 		http.Error(w, "Database not available", http.StatusInternalServerError)
@@ -304,31 +314,28 @@ func handleUpdateEnemyWithData(w http.ResponseWriter, enemy Enemy) {
 	// Determine if we need to upload a new image or use existing asset
 	if enemy.Icon != "" && !strings.HasPrefix(enemy.Icon, "https://") {
 		// We have base64 icon data - this means new/changed image
+		// Always generate a new assetID for new image uploads
 
-		if enemy.AssetID > 0 {
-			// Use the provided assetID for existing asset reuse
-			finalAssetID = enemy.AssetID
-		} else {
-			// Generate new assetID from database sequence
-			newAssetID, err := getNextAssetID()
-			if err != nil {
-				log.Printf("Error getting next assetID: %v", err)
-				http.Error(w, "Failed to generate asset ID", http.StatusInternalServerError)
-				return
-			}
-			finalAssetID = newAssetID
+		newAssetID, err := getNextAssetID()
+		if err != nil {
+			log.Printf("Error getting next assetID: %v", err)
+			http.Error(w, "Failed to generate asset ID", http.StatusInternalServerError)
+			return
+		}
+		finalAssetID = newAssetID
+		log.Printf("Generated new assetID for update: %d", finalAssetID)
 
-			// Upload to S3 with new assetID
-			_, err = uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
-			if err != nil {
-				log.Printf("Error uploading image to S3: %v", err)
-				http.Error(w, "Failed to upload image", http.StatusInternalServerError)
-				return
-			}
+		// Upload to S3 with new assetID
+		_, err = uploadImageToS3WithCustomKey(enemy.Icon, "image/webp", fmt.Sprintf("%d", finalAssetID))
+		if err != nil {
+			log.Printf("Error uploading image to S3: %v", err)
+			http.Error(w, "Failed to upload image", http.StatusInternalServerError)
+			return
 		}
 	} else {
 		// No new image data - preserve existing assetID
 		finalAssetID = enemy.AssetID
+		log.Printf("Preserving existing assetID: %d", finalAssetID)
 	}
 
 	// Update enemy in database
@@ -711,101 +718,4 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("GET EFFECTS SUCCESS - returned %d effects", len(effects))
-}
-
-func handleGetEnemyAssets(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET requests
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// PREVENT ALL CACHING
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Printf("GET ENEMY ASSETS DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("GET ENEMY ASSETS REQUEST")
-
-	var assets []map[string]interface{}
-
-	if db != nil {
-		log.Printf("Querying distinct assetIDs from Enemies table...")
-
-		// Query distinct assetIDs from the database where assetID is not null
-		rows, err := db.Query(`SELECT DISTINCT "assetID" FROM "Enemies" WHERE "assetID" IS NOT NULL ORDER BY "assetID"`)
-		if err != nil {
-			log.Printf("ERROR: Failed to query enemy assets: %v", err)
-			http.Error(w, "Failed to load enemy assets", http.StatusInternalServerError)
-			return
-		}
-		defer rows.Close()
-
-		// Process each row and generate signed URLs
-		for rows.Next() {
-			var assetID int
-
-			err := rows.Scan(&assetID)
-			if err != nil {
-				log.Printf("ERROR: Failed to scan assetID row: %v", err)
-				continue
-			}
-
-			// Generate S3 key from assetID
-			s3Key := fmt.Sprintf("images/enemies/%d.webp", assetID)
-
-			// Generate signed URL for this asset
-			signedURL, err := generateSignedURL(s3Key, 60*time.Minute) // 60 minute expiration
-			if err != nil {
-				log.Printf("WARNING: Failed to generate signed URL for assetID %d: %v", assetID, err)
-				// Skip this asset if we can't generate signed URL
-				continue
-			}
-
-			// Create asset object
-			asset := map[string]interface{}{
-				"assetID": assetID,
-				"texture": signedURL,
-			}
-
-			assets = append(assets, asset)
-		}
-
-		// Check for row iteration errors
-		if err = rows.Err(); err != nil {
-			log.Printf("ERROR: Row iteration error: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("SUCCESS: Loaded %d enemy assets from database", len(assets))
-
-	} else {
-		log.Printf("WARNING: Database not available, returning empty assets")
-		// Return empty array when database is not available
-		assets = []map[string]interface{}{}
-	}
-
-	// Return response
-	w.Header().Set("Content-Type", "application/json")
-	response := map[string]interface{}{
-		"success": true,
-		"assets":  assets,
-		"count":   len(assets),
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Error encoding response: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	log.Printf("GET ENEMY ASSETS SUCCESS - returned %d assets", len(assets))
 }

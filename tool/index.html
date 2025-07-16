@@ -141,9 +141,9 @@
                         <div class="name-id-group">
                             <div class="form-group">
                                 <label for="enemyName">Enemy Name</label>
-                                <div class="input-with-hint">
+                                <div class="input-with-dropdown">
                                     <input type="text" id="enemyName" name="enemyName" placeholder="Type to search or create new enemy..." required list="existingEnemies">
-                                    <small class="input-hint">💡 Start typing to see existing enemies, or enter a new name</small>
+                                    <button type="button" class="dropdown-button" id="nameDropdownBtn">▼</button>
                                 </div>
                                 <datalist id="existingEnemies">
                                     <!-- Options will be populated by JavaScript -->
@@ -151,10 +151,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="enemyID">Enemy ID</label>
-                                <div class="input-with-hint">
-                                    <input type="text" id="enemyID" name="enemyID" placeholder="0 (new enemy)" readonly>
-                                    <small class="input-hint">📄 Displays "0" for new enemies, or the database ID for existing ones</small>
-                                </div>
+                                <input type="text" id="enemyID" name="enemyID" placeholder="New enemy" readonly>
                             </div>
                         </div>
                     </div>

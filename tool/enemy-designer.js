@@ -144,7 +144,7 @@ function updateEnemyIDDisplay() {
     
     if (enemyIDInput) {
         if (currentEnemyID === null || currentEnemyID === 0) {
-            enemyIDInput.value = '0 (new enemy)';
+            enemyIDInput.value = 'New enemy';
         } else {
             enemyIDInput.value = currentEnemyID.toString();
         }
@@ -183,6 +183,7 @@ function addMessageField(listElem, type, value = '') {
     
     const clone = template.content.cloneNode(true);
     const textarea = clone.querySelector('.message-textarea');
+    textarea.classList.add('custom-scrollbar'); // Add shared scrollbar styling
     textarea.placeholder = type === 'victory' ? 'Victory message...' : 'Defeat message...';
     textarea.value = value;
     
@@ -208,74 +209,7 @@ function setupIconUpload() {
     });
 
     // Drag and drop
-    uploadArea.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        uploadArea.classList.add('dragover');
-    });
-
-    uploadArea.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-    });
-
-    uploadArea.addEventListener('drop', (e) => {
-        e.preventDefault();
-        uploadArea.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            handleFileUpload(files[0]);
-        }
-    });
-}
-
-// Convert image to WebP format at 256x256 with 70% quality
-async function convertImageToWebP(file, maxSize = 256, quality = 0.7) {
-    return new Promise((resolve, reject) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        img.onload = () => {
-            // Set canvas to desired size
-            canvas.width = maxSize;
-            canvas.height = maxSize;
-            
-            // Clear canvas with transparent background
-            ctx.clearRect(0, 0, maxSize, maxSize);
-            
-            // Calculate scaling to maintain aspect ratio while fitting in square
-            const scale = Math.min(maxSize / img.width, maxSize / img.height);
-            const scaledWidth = img.width * scale;
-            const scaledHeight = img.height * scale;
-            
-            // Center the image in the canvas
-            const x = (maxSize - scaledWidth) / 2;
-            const y = (maxSize - scaledHeight) / 2;
-            
-            // Draw and resize image
-            ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
-            
-            // Convert to WebP with quality compression
-            canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to convert image to WebP'));
-                    }
-                }, 
-                'image/webp', 
-                quality
-            );
-        };
-        
-        img.onerror = () => {
-            reject(new Error('Failed to load image'));
-        };
-        
-        img.src = URL.createObjectURL(file);
-    });
+    setupDragAndDrop(uploadArea, handleFileUpload);
 }
 
 async function handleFileUpload(file) {
@@ -301,31 +235,24 @@ async function handleFileUpload(file) {
         console.log('Compression ratio:', ((1 - webpBlob.size / file.size) * 100).toFixed(1) + '% reduction');
         
         // Convert WebP blob to base64 for storage
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const iconPreview = document.getElementById('iconPreview');
-            const uploadContent = document.querySelector('.upload-content');
-            
-            // Store the WebP base64 data
-            currentIcon = e.target.result;
-            currentAssetID = 0; // Clear any selected existing asset
-            
-            // Show preview
-            iconPreview.innerHTML = `<img src="${e.target.result}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
-            
-            // Hide upload text when image is loaded
-            if (uploadContent) {
-                uploadContent.style.display = 'none';
-            }
-            
-            console.log('✅ WebP image ready for upload (256x256, 70% quality)');
-        };
+        const base64Data = await blobToBase64(webpBlob);
         
-        reader.onerror = () => {
-            alert('Failed to process converted image');
-        };
+        const iconPreview = document.getElementById('iconPreview');
+        const uploadContent = document.querySelector('.upload-content');
         
-        reader.readAsDataURL(webpBlob);
+        // Store the WebP base64 data
+        currentIcon = base64Data;
+        currentAssetID = 0; // Clear any selected existing asset
+        
+        // Show preview
+        iconPreview.innerHTML = `<img src="${base64Data}" alt="Enemy Icon" style="width: 100%; height: 100%; object-fit: stretch;">`;
+        
+        // Hide upload text when image is loaded
+        if (uploadContent) {
+            uploadContent.style.display = 'none';
+        }
+        
+        console.log('✅ WebP image ready for upload (256x256, 70% quality)');
         
     } catch (error) {
         console.error('Error converting image:', error);
@@ -372,10 +299,16 @@ function setupEnemyNameHandler() {
 
     console.log('Setting up enemy name handler');
 
+    // Create custom dropdown
+    createCustomDropdown(nameInput);
+
     // Listen for when user types in the input
     nameInput.addEventListener('input', async (e) => {
         const inputValue = e.target.value;
         console.log('User typed:', inputValue);
+        
+        // Update custom dropdown
+        updateCustomDropdown(nameInput, inputValue);
         
         // Check if this matches an existing enemy exactly
         const enemies = getEnemies(); // Get enemies from global data
@@ -401,33 +334,10 @@ function setupEnemyNameHandler() {
         }
     });
 
-    // Add focus event to help users discover the datalist
+    // Show dropdown on focus
     nameInput.addEventListener('focus', (e) => {
         console.log('Name input focused');
-        
-        // Show a hint if there are loaded enemies
-        const enemies = getEnemies();
-        if (enemies.length > 0) {
-            const hint = document.querySelector('.input-hint');
-            if (hint) {
-                // Show max 3 enemy names, then "..."
-                const maxNames = 3;
-                const enemyNames = enemies.map(e => e.name);
-                let displayText;
-                
-                if (enemyNames.length <= maxNames) {
-                    displayText = `💡 Available enemies: ${enemyNames.join(', ')}`;
-                } else {
-                    const firstNames = enemyNames.slice(0, maxNames).join(', ');
-                    displayText = `💡 Available enemies: ${firstNames}, ...`;
-                }
-                
-                hint.textContent = displayText;
-                setTimeout(() => {
-                    hint.textContent = '💡 Start typing to see existing enemies, or enter a new name';
-                }, 3000);
-            }
-        }
+        showCustomDropdown(nameInput);
     });
 }
 
@@ -1000,15 +910,20 @@ function createAssetGallery() {
     // Populate asset grid
     const assetGrid = document.getElementById('assetGrid');
     if (assetGrid) {
+        assetGrid.classList.add('custom-scrollbar'); // Add shared scrollbar styling
         assetGrid.innerHTML = ''; // Clear existing content
 
         enemies.forEach(enemy => {
             const assetItem = document.createElement('div');
             assetItem.className = 'asset-item';
             assetItem.dataset.assetId = enemy.assetID;
+            
+            const usageCount = getAssetUsageCount(enemy.assetID);
+            const usageText = usageCount > 1 ? `Used by ${usageCount} enemies` : 'Used by 1 enemy';
+            
             assetItem.innerHTML = `
-                <img src="${enemy.icon}" alt="${enemy.name}" class="asset-thumbnail">
-                <div class="asset-label">${enemy.name} (ID: ${enemy.assetID})</div>
+                <img src="${enemy.icon}" alt="Asset ${enemy.assetID}" class="asset-thumbnail">
+                <div class="asset-label">Asset ID: ${enemy.assetID}<br><small>${usageText}</small></div>
             `;
             
             // Add click handler to select only the asset (not the full enemy data)
@@ -1245,6 +1160,96 @@ function loadEnemyIntoForm(enemy) {
     }
     
     console.log('✅ All enemy data loaded into form');
+}
+
+// Custom dropdown functionality to replace native datalist
+function createCustomDropdown(input) {
+    // Remove existing datalist attribute and hide the datalist element
+    input.removeAttribute('list');
+    const datalist = document.getElementById('existingEnemies');
+    if (datalist) {
+        datalist.style.display = 'none';
+    }
+    
+    // Create custom dropdown container
+    const dropdown = document.createElement('div');
+    dropdown.className = 'custom-dropdown';
+    dropdown.id = 'customEnemyDropdown';
+    
+    // Insert dropdown after the input's parent container
+    const inputContainer = input.closest('.input-with-dropdown');
+    inputContainer.style.position = 'relative';
+    inputContainer.appendChild(dropdown);
+    
+    // Hide dropdown initially
+    dropdown.style.display = 'none';
+    
+    // Add dropdown button functionality
+    const dropdownBtn = document.getElementById('nameDropdownBtn');
+    if (dropdownBtn) {
+        dropdownBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (dropdown.style.display === 'block') {
+                hideCustomDropdown(input);
+            } else {
+                showCustomDropdown(input);
+                input.focus();
+            }
+        });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!inputContainer.contains(e.target)) {
+            hideCustomDropdown(input);
+        }
+    });
+}
+
+function updateCustomDropdown(input, filterText = '') {
+    const dropdown = document.getElementById('customEnemyDropdown');
+    if (!dropdown) return;
+    
+    const enemies = getEnemies();
+    const filtered = enemies.filter(enemy => 
+        enemy.name.toLowerCase().includes(filterText.toLowerCase())
+    );
+    
+    dropdown.innerHTML = '';
+    
+    if (filtered.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    
+    filtered.forEach(enemy => {
+        const option = document.createElement('div');
+        option.className = 'dropdown-option';
+        option.textContent = enemy.name;
+        option.addEventListener('click', async () => {
+            input.value = enemy.name;
+            hideCustomDropdown(input);
+            await selectExistingEnemy(enemy);
+        });
+        dropdown.appendChild(option);
+    });
+}
+
+function showCustomDropdown(input) {
+    updateCustomDropdown(input, input.value);
+    const dropdown = document.getElementById('customEnemyDropdown');
+    if (dropdown && dropdown.children.length > 0) {
+        dropdown.style.display = 'block';
+    }
+}
+
+function hideCustomDropdown(input) {
+    const dropdown = document.getElementById('customEnemyDropdown');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
 }
 
 // Keyboard support for asset gallery overlay

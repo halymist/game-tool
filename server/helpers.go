@@ -1,8 +1,16 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
 	"fmt"
 	"log"
+	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // getNextAssetID returns the next available assetID from the database
@@ -19,4 +27,69 @@ func getNextAssetID() (int, error) {
 	}
 
 	return maxAssetID, nil
+}
+
+// generateSignedURL generates a signed URL for private S3 object access
+func generateSignedURL(key string, expiration time.Duration) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized")
+	}
+
+	presignClient := s3.NewPresignClient(s3Client)
+	request, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = expiration
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to generate signed URL: %v", err)
+	}
+
+	return request.URL, nil
+}
+
+// uploadImageToS3WithCustomKey uploads an image to S3 with a specified key/filename
+func uploadImageToS3WithCustomKey(imageData, contentType, customKey string) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized - AWS credentials not configured. Check server startup logs for setup instructions")
+	}
+
+	log.Printf("S3 client is available, proceeding with upload using custom key: %s", customKey)
+
+	// Decode base64 image data
+	// Remove data URL prefix if present (data:image/png;base64,...)
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %v", err)
+	}
+
+	// Use custom key with proper path structure and WebP extension
+	filename := fmt.Sprintf("images/enemies/%s.webp", customKey)
+
+	// Create S3 upload input (private bucket)
+	uploadInput := &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(filename),
+		Body:        bytes.NewReader(imageBytes),
+		ContentType: aws.String(contentType), // Use the provided content type (image/webp)
+		// Remove ACL to keep bucket private
+	}
+
+	// Upload to S3
+	_, err = s3Client.PutObject(context.TODO(), uploadInput)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %v", err)
+	}
+
+	log.Printf("Image uploaded to S3 with custom key: %s", filename)
+	return filename, nil // Return S3 key instead of signed URL
 }

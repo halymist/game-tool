@@ -124,49 +124,130 @@
     color: #ffd700;
 }
 
-/* Datalist dropdown styling */
-input[list]::-webkit-list-button {
-    color: #8b4513;
-    font-size: 1rem;
-}
-
-/* Custom styling for enemy name input with datalist */
+/* Custom styling for enemy name input - uses shared datalist styles */
 #enemyName {
     position: relative;
 }
 
-/* Style the dropdown options - Note: Limited browser support for datalist styling */
-datalist {
-    position: absolute;
-    background: rgba(244, 228, 188, 0.98);
+/* Enhanced datalist styling for enemy name input */
+#enemyName {
+    background: linear-gradient(135deg, rgba(244, 228, 188, 0.95) 0%, rgba(234, 218, 178, 0.95) 100%);
+    color: #2c1810;
+    position: relative;
+}
+
+/* Style the datalist dropdown */
+#existingEnemies {
+    background: rgba(44, 24, 16, 0.98);
     border: 2px solid #8b4513;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     max-height: 200px;
     overflow-y: auto;
+}
+
+/* Style individual datalist options (limited browser support) */
+#existingEnemies option {
+    background: rgba(44, 24, 16, 0.95);
+    color: #f4e4bc;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(139, 69, 19, 0.3);
+    font-family: 'Crimson Text', serif;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+#existingEnemies option:hover,
+#existingEnemies option:focus {
+    background: rgba(139, 69, 19, 0.7);
+    color: #ffd700;
+}
+
+#existingEnemies option:checked {
+    background: rgba(212, 175, 55, 0.8);
+    color: #2c1810;
+    font-weight: 600;
+}
+
+/* General datalist styling fallback */
+datalist {
+    background: rgba(44, 24, 16, 0.98);
+    border: 2px solid #8b4513;
+    border-radius: 8px;
+    color: #f4e4bc;
+    font-family: 'Crimson Text', serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+datalist option {
+    background: rgba(44, 24, 16, 0.95);
+    color: #f4e4bc;
+    padding: 0.5rem;
+    border-bottom: 1px solid rgba(139, 69, 19, 0.3);
+    font-family: 'Crimson Text', serif;
+}
+
+datalist option:hover {
+    background: rgba(139, 69, 19, 0.7);
+    color: #ffd700;
+}
+
+/* Custom dropdown styling to replace native datalist */
+.custom-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #3D2817, #4A2E1A);
+    border: 2px solid #8B4513;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #8B4513 #2C1810;
 }
 
-/* Firefox datalist styling */
-@-moz-document url-prefix() {
-    datalist {
-        background: rgba(244, 228, 188, 0.98) !important;
-        border: 2px solid #8b4513 !important;
-        color: #2c1810 !important;
-    }
+.custom-dropdown::-webkit-scrollbar {
+    width: 8px;
 }
 
-/* Enhanced styling for inputs with datalist */
-input[list] {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23%238b4513' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px;
-    padding-right: 40px;
+.custom-dropdown::-webkit-scrollbar-track {
+    background: #2C1810;
+    border-radius: 4px;
 }
 
-input[list]:focus {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23%23d4af37' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+.custom-dropdown::-webkit-scrollbar-thumb {
+    background: #8B4513;
+    border-radius: 4px;
+}
+
+.custom-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #A0522D;
+}
+
+.dropdown-option {
+    padding: 0.75rem 1rem;
+    color: #E6D5C3;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid rgba(139, 69, 19, 0.3);
+    font-family: 'Crimson Text', serif;
+}
+
+.dropdown-option:last-child {
+    border-bottom: none;
+}
+
+.dropdown-option:hover {
+    background: linear-gradient(135deg, #8B4513, #A0522D);
+    color: #FFD700;
+}
+
+.dropdown-option:active {
+    background: linear-gradient(135deg, #A0522D, #CD853F);
 }
 
 /* Icon, Stats, and Description Layout */
@@ -197,8 +278,8 @@ input[list]:focus {
 }
 
 .description-container {
-    flex: 1.5; /* Increased from 1 to 1.5 to make it wider */
-    min-width: 350px; /* Increased from 250px to 350px */
+    flex: 1.8; /* Increased from 1.5 to 1.8 to make it even wider */
+    min-width: 400px; /* Increased from 350px to 400px */
     display: flex;
     flex-direction: column;
     height: 100%;
@@ -219,11 +300,15 @@ input[list]:focus {
 .description-container textarea {
     flex: 1;
     min-height: 300px;
-    resize: vertical;
+    max-height: 400px; /* Prevent vertical expansion beyond container */
+    resize: vertical; /* Only vertical resize to prevent breaking layout */
     font-family: 'Crimson Text', serif;
+    width: 100%; /* Ensure it stays within container */
+    box-sizing: border-box; /* Include padding/border in width calculation */
 }
 
 .icon-upload-area {
+    /* Extends shared upload-area styles */
     width: 256px;              /* Match WebP output size */
     height: 256px;             /* Match WebP output size */
     
@@ -241,7 +326,6 @@ input[list]:focus {
     align-items: center;
     justify-content: center;
 }
-
 
 .icon-upload-area:hover {
     border-color: #d4af37;
@@ -558,24 +642,31 @@ input[list]:focus {
     font-style: italic;
 }
 
-/* Custom scrollbar for message textareas */
-.message-textarea::-webkit-scrollbar {
-    width: 8px;
+/* Message textareas use shared custom-scrollbar class */
+.message-textarea {
+    width: 100%;
+    height: 100px;
+    padding: 1rem;
+    border: 2px solid #8b4513;
+    border-radius: 8px;
+    background: rgba(244, 228, 188, 0.05);
+    color: #e8dcc0;
+    resize: vertical;
+    font-family: 'Crimson Text', serif;
+    font-size: 1rem;
+    box-sizing: border-box;
 }
 
-.message-textarea::-webkit-scrollbar-track {
-    background: rgba(139, 69, 19, 0.2);
-    border-radius: 4px;
+.message-textarea:focus {
+    outline: none;
+    border-color: #d4af37;
+    background: rgba(244, 228, 188, 0.1);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
 }
 
-.message-textarea::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
-    border-radius: 4px;
-    border: 1px solid #654321;
-}
-
-.message-textarea::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, #a0522d 0%, #b8651f 100%);
+.message-textarea::placeholder {
+    color: #999;
+    font-style: italic;
 }
 
 .remove-message-btn {
@@ -781,25 +872,19 @@ input[list]:focus {
     text-align: center;
     font-family: 'Cinzel', serif;
     font-weight: 600;
+    line-height: 1.3;
 }
 
+.asset-label small {
+    color: #e8dcc0;
+    font-size: 0.7rem;
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Asset gallery uses shared custom-scrollbar class with custom width */
 .asset-gallery::-webkit-scrollbar {
     width: 12px;
-}
-
-.asset-gallery::-webkit-scrollbar-track {
-    background: rgba(20, 10, 0, 0.5);
-    border-radius: 6px;
-}
-
-.asset-gallery::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #8b4513, #6d3410);
-    border-radius: 6px;
-    border: 2px solid #5a2b0d;
-}
-
-.asset-gallery::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #a0521a, #8b4513);
 }
 
 /* Asset gallery loading/empty states */
@@ -928,4 +1013,84 @@ input[list]:focus {
     .factor-input {
         font-size: 0.9rem;
     }
+}
+
+/* Custom scrollbar styling for all textareas */
+textarea,
+.message-textarea {
+    /* Firefox scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: #8B4513 #2C1810;
+}
+
+textarea::-webkit-scrollbar,
+.message-textarea::-webkit-scrollbar {
+    width: 12px;
+}
+
+textarea::-webkit-scrollbar-track,
+.message-textarea::-webkit-scrollbar-track {
+    background: #2C1810;
+    border-radius: 8px;
+    border: 1px solid #1A1A1A;
+}
+
+textarea::-webkit-scrollbar-thumb,
+.message-textarea::-webkit-scrollbar-thumb {
+    background: linear-gradient(145deg, #8B4513, #A0522D);
+    border-radius: 8px;
+    border: 1px solid #654321;
+    transition: background 0.3s ease;
+}
+
+textarea::-webkit-scrollbar-thumb:hover,
+.message-textarea::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(145deg, #A0522D, #CD853F);
+}
+
+textarea::-webkit-scrollbar-corner,
+.message-textarea::-webkit-scrollbar-corner {
+    background: #2C1810;
+}
+
+/* Input with dropdown button styling */
+.input-with-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-dropdown input {
+    flex: 1;
+    padding-right: 3rem; /* Make room for the dropdown button */
+}
+
+.dropdown-button {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 2.5rem;
+    background: linear-gradient(135deg, #8B4513, #A0522D);
+    border: 2px solid #8B4513;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    color: #E6D5C3;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dropdown-button:hover {
+    background: linear-gradient(135deg, #A0522D, #CD853F);
+    color: #FFD700;
+    transform: translateY(-1px);
+}
+
+.dropdown-button:active {
+    transform: translateY(0);
+    background: linear-gradient(135deg, #654321, #8B4513);
 }
