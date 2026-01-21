@@ -276,6 +276,12 @@ function switchPerkTab(tab) {
     if (perkList) perkList.style.display = tab === 'game' ? 'block' : 'none';
     if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
     
+    // Show/hide buttons based on tab
+    const newPerkBtn = document.getElementById('newPerkBtn');
+    const mergePerksBtn = document.getElementById('mergePerksBtn');
+    if (newPerkBtn) newPerkBtn.style.display = tab === 'game' ? 'block' : 'none';
+    if (mergePerksBtn) mergePerksBtn.style.display = tab === 'pending' ? 'block' : 'none';
+    
     selectedPerkId = null;
     isViewingPendingPerk = false;
     setPerkFormLocked(false);
@@ -327,6 +333,10 @@ function populatePerkForm(perk) {
     document.getElementById('perkEffect2').value = perk.effect2_id || '';
     document.getElementById('perkFactor2').value = perk.factor2 || '';
     
+    // Update effect descriptions
+    updatePerkEffectDescription(1);
+    updatePerkEffectDescription(2);
+    
     // Update icon preview
     updatePerkIconPreview(perk.assetID);
 }
@@ -342,6 +352,10 @@ function populatePerkFormFromPending(perk) {
     document.getElementById('perkFactor1').value = perk.factor1 || '';
     document.getElementById('perkEffect2').value = perk.effect2_id || '';
     document.getElementById('perkFactor2').value = perk.factor2 || '';
+    
+    // Update effect descriptions
+    updatePerkEffectDescription(1);
+    updatePerkEffectDescription(2);
     
     // Update icon preview
     updatePerkIconPreview(perk.assetID);
@@ -384,6 +398,12 @@ function clearPerkForm() {
     document.getElementById('perkEffect2').value = '';
     document.getElementById('perkFactor2').value = '';
     
+    // Reset effect descriptions
+    const desc1 = document.getElementById('perkEffect1Desc');
+    const desc2 = document.getElementById('perkEffect2Desc');
+    if (desc1) desc1.textContent = 'Select an effect to see description';
+    if (desc2) desc2.textContent = 'Select an effect to see description';
+    
     clearPerkIconPreview();
 }
 
@@ -409,6 +429,26 @@ function populatePerkEffectDropdowns() {
     
     effect1Select.innerHTML = optionsHTML;
     effect2Select.innerHTML = optionsHTML;
+    
+    // Add change listeners for effect descriptions
+    effect1Select.addEventListener('change', () => updatePerkEffectDescription(1));
+    effect2Select.addEventListener('change', () => updatePerkEffectDescription(2));
+}
+
+function updatePerkEffectDescription(effectNum) {
+    const select = document.getElementById(`perkEffect${effectNum}`);
+    const descSpan = document.getElementById(`perkEffect${effectNum}Desc`);
+    if (!select || !descSpan) return;
+    
+    const effectId = parseInt(select.value);
+    if (!effectId) {
+        descSpan.textContent = 'Select an effect to see description';
+        return;
+    }
+    
+    const effects = getEffects();
+    const effect = effects.find(e => e.id === effectId);
+    descSpan.textContent = effect?.description || 'No description available';
 }
 
 async function savePerk(e) {

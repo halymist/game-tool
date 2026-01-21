@@ -367,6 +367,15 @@ input[type="number"] {
     max-width: 80px;
 }
 
+.perk-effect-description {
+    display: block;
+    font-size: 0.8rem;
+    color: #8b4513;
+    font-style: italic;
+    margin-top: 0.25rem;
+    min-height: 1.2em;
+}
+
 /* Form Buttons */
 .perk-form-buttons {
     display: flex;
