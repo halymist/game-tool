@@ -406,13 +406,17 @@
                         <div class="form-section">
                             <div class="form-section-title">Icon</div>
                             <div class="item-icon-section">
-                                <div class="item-icon-preview">
+                                <div class="item-icon-preview" id="itemIconUploadArea">
                                     <img id="itemIconPreview" src="" alt="No icon selected">
-                                    <span id="itemIconPlaceholder">No icon selected</span>
+                                    <span id="itemIconPlaceholder">Click to upload or drag & drop</span>
                                 </div>
+                                <input type="file" id="itemIconFile" accept="image/*" style="display: none;">
                                 <div class="item-icon-info">
                                     <span id="itemAssetIDDisplay">Asset ID: None</span>
-                                    <button type="button" id="itemAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
+                                    <div class="item-icon-buttons">
+                                        <button type="button" id="itemAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
+                                        <button type="button" id="itemUploadNewBtn" class="btn-upload-new">📤 Upload New</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

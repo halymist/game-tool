@@ -787,6 +787,19 @@ textarea {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.item-icon-preview:hover {
+    border-color: #d4af37;
+    background: rgba(60, 40, 25, 0.9);
+}
+
+.item-icon-preview.drag-over {
+    border-color: #7cfc00;
+    background: rgba(60, 80, 30, 0.9);
+    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
 }
 
 .item-icon-preview img {
@@ -813,6 +826,11 @@ textarea {
     gap: 0.5rem;
 }
 
+.item-icon-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
 #itemAssetIDDisplay {
     color: #d4af37;
     font-size: 0.9rem;
@@ -832,6 +850,22 @@ textarea {
 .btn-browse-assets:hover {
     background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
     box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.btn-upload-new {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
+    border: 1px solid #4a7c4a;
+    border-radius: 5px;
+    color: #7cfc00;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-upload-new:hover {
+    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
+    box-shadow: 0 0 10px rgba(124, 252, 0, 0.3);
 }
 
 /* Item Asset Gallery Overlay */

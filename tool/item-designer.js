@@ -98,6 +98,52 @@ function setupEventListeners() {
         });
     }
     
+    // Upload new asset button
+    const uploadNewBtn = document.getElementById('itemUploadNewBtn');
+    if (uploadNewBtn) {
+        uploadNewBtn.addEventListener('click', () => {
+            document.getElementById('itemIconFile').click();
+        });
+    }
+    
+    // File input change handler
+    const fileInput = document.getElementById('itemIconFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleItemIconUpload(file);
+            }
+        });
+    }
+    
+    // Click on icon preview area to upload
+    const iconUploadArea = document.getElementById('itemIconUploadArea');
+    if (iconUploadArea) {
+        iconUploadArea.addEventListener('click', () => {
+            document.getElementById('itemIconFile').click();
+        });
+        
+        // Drag and drop support
+        iconUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            iconUploadArea.classList.add('drag-over');
+        });
+        
+        iconUploadArea.addEventListener('dragleave', () => {
+            iconUploadArea.classList.remove('drag-over');
+        });
+        
+        iconUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            iconUploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handleItemIconUpload(file);
+            }
+        });
+    }
+    
     // Cancel button
     const cancelBtn = document.getElementById('itemCancelBtn');
     if (cancelBtn) {
@@ -747,6 +793,178 @@ function clearIconPreview() {
     if (assetIdDisplay) {
         assetIdDisplay.textContent = 'Asset ID: None';
     }
+}
+
+/**
+ * Handle item icon upload from file input
+ */
+async function handleItemIconUpload(file) {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file');
+        return;
+    }
+
+    // Validate file size (max 10MB for original file)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File size should be less than 10MB');
+        return;
+    }
+
+    try {
+        console.log('Converting item icon to WebP format...');
+        console.log('Original file:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB');
+
+        // Convert to WebP 128x128 with 80% quality (item icons are typically smaller)
+        const webpBlob = await convertImageToWebP(file, 128, 128, 0.8);
+        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
+        
+        // Convert WebP blob to base64 for upload
+        const base64Data = await blobToBase64(webpBlob);
+        
+        // Get next available asset ID
+        const nextAssetID = getNextAvailableItemAssetID();
+        console.log('Next available asset ID:', nextAssetID);
+        
+        // Show preview immediately
+        const preview = document.getElementById('itemIconPreview');
+        const placeholder = document.getElementById('itemIconPlaceholder');
+        const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+        
+        if (preview) {
+            preview.src = base64Data;
+            preview.style.display = 'block';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = `Uploading... (Asset ID: ${nextAssetID})`;
+        }
+        
+        // Upload to S3
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/uploadItemAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                assetID: nextAssetID,
+                imageData: base64Data,
+                contentType: 'image/webp'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Item asset uploaded successfully:', result);
+            
+            // Update state
+            selectedAssetId = result.assetID;
+            selectedAssetIcon = result.icon || base64Data;
+            
+            // Update hidden field
+            document.getElementById('itemAssetID').value = result.assetID;
+            
+            // Update display
+            if (assetIdDisplay) {
+                assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
+            }
+            
+            // Add to local assets list
+            itemAssets.push({
+                assetID: result.assetID,
+                name: result.assetID.toString(),
+                icon: result.icon || base64Data
+            });
+            
+            // Refresh gallery
+            createItemAssetGallery();
+            
+            alert('Item icon uploaded successfully!');
+        } else {
+            alert('Error uploading icon: ' + (result.message || 'Unknown error'));
+            clearIconPreview();
+        }
+        
+    } catch (error) {
+        console.error('Error uploading item icon:', error);
+        alert('Failed to upload icon. Please try again.');
+        clearIconPreview();
+    }
+}
+
+/**
+ * Get next available asset ID for items
+ */
+function getNextAvailableItemAssetID() {
+    if (!itemAssets || itemAssets.length === 0) {
+        return 1;
+    }
+    
+    let maxID = 0;
+    for (const asset of itemAssets) {
+        if (asset.assetID > maxID) {
+            maxID = asset.assetID;
+        }
+    }
+    
+    return maxID + 1;
+}
+
+/**
+ * Convert an image file to WebP format with specified dimensions
+ */
+function convertImageToWebP(file, width, height, quality) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        img.onload = () => {
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw image scaled to fit
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to WebP
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to convert to WebP'));
+                    }
+                },
+                'image/webp',
+                quality
+            );
+        };
+        
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+/**
+ * Convert a Blob to base64 string
+ */
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 // Export for global access

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -759,4 +761,157 @@ func listItemAssets() ([]ItemAsset, error) {
 
 	log.Printf("Found %d item assets in S3 bucket", len(assets))
 	return assets, nil
+}
+
+// handleUploadItemAsset handles POST requests to upload a new item asset to S3
+func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== UPLOAD ITEM ASSET REQUEST ===")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request to upload item asset")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Set headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s3Client == nil {
+		log.Printf("S3 client not available")
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		AssetID     int    `json:"assetID"`
+		ImageData   string `json:"imageData"`
+		ContentType string `json:"contentType"`
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("Error parsing request JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Uploading item asset with ID: %d", req.AssetID)
+
+	// Upload to S3 using custom key for items
+	s3Key, err := uploadItemAssetToS3(req.ImageData, req.ContentType, req.AssetID)
+	if err != nil {
+		log.Printf("Error uploading to S3: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate signed URL for the uploaded asset
+	signedURL, err := generateSignedURL(s3Key, 1*time.Hour)
+	if err != nil {
+		log.Printf("Error generating signed URL: %v", err)
+		// Still return success, just without the signed URL
+		signedURL = ""
+	}
+
+	// Return success response
+	response := map[string]interface{}{
+		"success": true,
+		"assetID": req.AssetID,
+		"s3Key":   s3Key,
+		"icon":    signedURL,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ UPLOAD ITEM ASSET RESPONSE SENT - Asset ID: %d", req.AssetID)
+}
+
+// uploadItemAssetToS3 uploads an item asset to the items folder in S3
+func uploadItemAssetToS3(imageData, contentType string, assetID int) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized")
+	}
+
+	log.Printf("Uploading item asset to S3 with asset ID: %d", assetID)
+
+	// Decode base64 image data
+	// Remove data URL prefix if present (data:image/png;base64,...)
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %v", err)
+	}
+
+	// Use asset ID as filename in the items folder
+	filename := fmt.Sprintf("images/items/%d.webp", assetID)
+
+	// Create S3 upload input
+	uploadInput := &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(filename),
+		Body:        bytes.NewReader(imageBytes),
+		ContentType: aws.String(contentType),
+	}
+
+	// Upload to S3
+	_, err = s3Client.PutObject(context.TODO(), uploadInput)
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %v", err)
+	}
+
+	log.Printf("Item asset uploaded to S3: %s", filename)
+	return filename, nil
+}
+
+// getNextItemAssetID returns the next available asset ID for items
+func getNextItemAssetID() (int, error) {
+	if s3Client == nil {
+		return 1, fmt.Errorf("S3 client not initialized")
+	}
+
+	// List existing item assets to find the highest ID
+	assets, err := listItemAssets()
+	if err != nil {
+		return 1, err
+	}
+
+	maxID := 0
+	for _, asset := range assets {
+		if asset.AssetID > maxID {
+			maxID = asset.AssetID
+		}
+	}
+
+	return maxID + 1, nil
 }

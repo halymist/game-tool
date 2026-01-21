@@ -181,6 +181,7 @@ func main() {
 	http.HandleFunc("/api/toggleApproveItem", corsHandler(handleToggleApproveItem))
 	http.HandleFunc("/api/mergeItems", corsHandler(handleMergeItems))
 	http.HandleFunc("/api/getItemAssets", corsHandler(handleGetItemAssets))
+	http.HandleFunc("/api/uploadItemAsset", corsHandler(handleUploadItemAsset))
 
 	// Enemy endpoints - temporarily disabled for refactor
 	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
