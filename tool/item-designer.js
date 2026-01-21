@@ -17,6 +17,9 @@ let filteredPendingItems = [];
 let selectedItemId = null;
 let activeTab = 'game'; // 'game' or 'pending'
 let isViewingPendingItem = false; // Whether form is showing a pending item (read-only)
+let itemAssets = []; // Available item assets from S3
+let selectedAssetId = null; // Currently selected asset ID
+let selectedAssetIcon = null; // Currently selected asset icon URL
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,6 +76,28 @@ function setupEventListeners() {
         mergeItemsBtn.addEventListener('click', mergeApprovedItems);
     }
     
+    // Item asset gallery button
+    const assetGalleryBtn = document.getElementById('itemAssetGalleryBtn');
+    if (assetGalleryBtn) {
+        assetGalleryBtn.addEventListener('click', toggleItemAssetGallery);
+    }
+    
+    // Item asset gallery close button
+    const assetGalleryClose = document.getElementById('itemAssetGalleryClose');
+    if (assetGalleryClose) {
+        assetGalleryClose.addEventListener('click', toggleItemAssetGallery);
+    }
+    
+    // Close gallery when clicking overlay background
+    const assetGalleryOverlay = document.getElementById('itemAssetGalleryOverlay');
+    if (assetGalleryOverlay) {
+        assetGalleryOverlay.addEventListener('click', (e) => {
+            if (e.target === assetGalleryOverlay) {
+                toggleItemAssetGallery();
+            }
+        });
+    }
+    
     // Cancel button
     const cancelBtn = document.getElementById('itemCancelBtn');
     if (cancelBtn) {
@@ -107,9 +132,14 @@ async function loadItemsAndEffects() {
         filteredItems = [...allItems];
         filteredPendingItems = [...allPendingItems];
         
+        // Load item assets from S3
+        await loadItemAssets();
+        itemAssets = getItemAssets();
+        createItemAssetGallery();
+        
         renderItemList();
         renderPendingItemList();
-        console.log('✅ Items data loaded:', allItems.length, 'items,', allPendingItems.length, 'pending');
+        console.log('✅ Items data loaded:', allItems.length, 'items,', allPendingItems.length, 'pending,', itemAssets.length, 'assets');
         
     } catch (error) {
         console.error('Error loading items data:', error);
@@ -352,6 +382,9 @@ function populateFormFromPending(item) {
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
     
+    // Update icon preview by assetID
+    updateIconPreview(item.assetID);
+    
     // Toggle weapon stats visibility
     toggleWeaponStats();
 }
@@ -399,6 +432,21 @@ function populateForm(item) {
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
     
+    // Update icon preview - use item.icon if available, otherwise look up by assetID
+    if (item.icon) {
+        const preview = document.getElementById('itemIconPreview');
+        const placeholder = document.getElementById('itemIconPlaceholder');
+        const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+        if (preview) {
+            preview.src = item.icon;
+            preview.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${item.assetID}`;
+    } else {
+        updateIconPreview(item.assetID);
+    }
+    
     // Toggle weapon stats visibility
     toggleWeaponStats();
 }
@@ -435,6 +483,9 @@ function clearForm() {
     // Effect
     document.getElementById('itemEffect').value = '';
     document.getElementById('itemEffectFactor').value = '';
+    
+    // Clear icon preview
+    clearIconPreview();
     
     // Hide weapon stats
     toggleWeaponStats();
@@ -575,6 +626,129 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// === ITEM ASSET GALLERY FUNCTIONS ===
+
+/**
+ * Create the item asset gallery with available assets from S3
+ */
+function createItemAssetGallery() {
+    if (itemAssets.length === 0) {
+        console.log('No item assets available for gallery');
+        return;
+    }
+    
+    console.log('Creating item asset gallery with', itemAssets.length, 'assets');
+    
+    const assetGrid = document.getElementById('itemAssetGrid');
+    if (!assetGrid) return;
+    
+    assetGrid.innerHTML = itemAssets.map(asset => `
+        <div class="item-asset-item" data-asset-id="${asset.assetID}" onclick="selectItemAsset(${asset.assetID}, '${asset.icon}')">
+            <img src="${asset.icon}" alt="Asset ${asset.assetID}" class="item-asset-thumbnail">
+            <div class="item-asset-label">ID: ${asset.assetID}</div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Toggle the item asset gallery overlay visibility
+ */
+function toggleItemAssetGallery() {
+    const overlay = document.getElementById('itemAssetGalleryOverlay');
+    if (overlay) {
+        overlay.classList.toggle('hidden');
+    }
+}
+
+/**
+ * Select an asset from the gallery
+ */
+function selectItemAsset(assetId, iconUrl) {
+    console.log('Selected asset:', assetId);
+    
+    selectedAssetId = assetId;
+    selectedAssetIcon = iconUrl;
+    
+    // Update hidden field
+    document.getElementById('itemAssetID').value = assetId;
+    
+    // Update preview
+    const preview = document.getElementById('itemIconPreview');
+    const placeholder = document.getElementById('itemIconPlaceholder');
+    const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+    
+    if (preview) {
+        preview.src = iconUrl;
+        preview.style.display = 'block';
+    }
+    if (placeholder) {
+        placeholder.style.display = 'none';
+    }
+    if (assetIdDisplay) {
+        assetIdDisplay.textContent = `Asset ID: ${assetId}`;
+    }
+    
+    // Close gallery
+    toggleItemAssetGallery();
+}
+
+/**
+ * Update the icon preview based on current asset ID
+ */
+function updateIconPreview(assetId) {
+    const asset = itemAssets.find(a => a.assetID === assetId);
+    const preview = document.getElementById('itemIconPreview');
+    const placeholder = document.getElementById('itemIconPlaceholder');
+    const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+    
+    if (asset) {
+        if (preview) {
+            preview.src = asset.icon;
+            preview.style.display = 'block';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = `Asset ID: ${assetId}`;
+        }
+    } else {
+        if (preview) {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'block';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = assetId ? `Asset ID: ${assetId} (not found)` : 'Asset ID: None';
+        }
+    }
+}
+
+/**
+ * Clear the icon preview
+ */
+function clearIconPreview() {
+    selectedAssetId = null;
+    selectedAssetIcon = null;
+    
+    const preview = document.getElementById('itemIconPreview');
+    const placeholder = document.getElementById('itemIconPlaceholder');
+    const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+    
+    if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+    }
+    if (placeholder) {
+        placeholder.style.display = 'block';
+    }
+    if (assetIdDisplay) {
+        assetIdDisplay.textContent = 'Asset ID: None';
+    }
+}
+
 // Export for global access
 window.itemDesigner = {
     loadItemsAndEffects: loadItemsAndEffects
@@ -584,5 +758,6 @@ window.itemDesigner = {
 window.selectItem = selectItem;
 window.selectPendingItem = selectPendingItem;
 window.toggleApproval = toggleApproval;
+window.selectItemAsset = selectItemAsset;
 
 console.log('📦 Item Designer script loaded');

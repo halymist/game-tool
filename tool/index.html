@@ -394,14 +394,26 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label for="itemAssetID">Asset ID</label>
-                                    <input type="number" id="itemAssetID" value="1" min="1">
-                                </div>
-                                <div>
                                     <label for="itemSilver">Silver Cost</label>
                                     <input type="number" id="itemSilver" value="10" min="0">
                                 </div>
                                 <input type="hidden" id="itemId">
+                                <input type="hidden" id="itemAssetID" value="1">
+                            </div>
+                        </div>
+
+                        <!-- Icon Section -->
+                        <div class="form-section">
+                            <div class="form-section-title">Icon</div>
+                            <div class="item-icon-section">
+                                <div class="item-icon-preview">
+                                    <img id="itemIconPreview" src="" alt="No icon selected">
+                                    <span id="itemIconPlaceholder">No icon selected</span>
+                                </div>
+                                <div class="item-icon-info">
+                                    <span id="itemAssetIDDisplay">Asset ID: None</span>
+                                    <button type="button" id="itemAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
+                                </div>
                             </div>
                         </div>
 
@@ -482,6 +494,19 @@
                             <button type="submit" class="btn-save-item">Save Item</button>
                         </div>
                     </form>
+                </div>
+            </div>
+            
+            <!-- Item Asset Gallery Overlay -->
+            <div id="itemAssetGalleryOverlay" class="item-asset-gallery-overlay hidden">
+                <div class="item-asset-gallery">
+                    <div class="item-asset-gallery-header">
+                        <h3>🎨 Select Item Asset</h3>
+                        <button type="button" id="itemAssetGalleryClose" class="asset-gallery-close">✕</button>
+                    </div>
+                    <div id="itemAssetGrid" class="item-asset-grid custom-scrollbar">
+                        <!-- Asset items will be populated by JavaScript -->
+                    </div>
                 </div>
             </div>
         </div>

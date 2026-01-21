@@ -7,7 +7,8 @@ const GlobalData = {
     enemies: [],           // Array of all complete enemy data with signed URLs
     perks: [],             // Array of all complete perk data with signed URLs
     items: [],             // Array of all complete item data with signed URLs
-    pendingItems: []       // Array of pending items from tooling.items
+    pendingItems: [],      // Array of pending items from tooling.items
+    itemAssets: []         // Array of available item assets from S3
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -287,6 +288,54 @@ async function loadItemsData() {
  */
 function getPendingItems() {
     return GlobalData.pendingItems;
+}
+
+/**
+ * Load all item assets from S3 bucket
+ * @returns {Promise<Array>} Promise that resolves to array of item assets
+ */
+async function loadItemAssets() {
+    try {
+        // Get current access token
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            console.error('Authentication required to load item assets');
+            throw new Error('Authentication required');
+        }
+
+        console.log('Loading item assets from S3...');
+
+        const response = await fetch('http://localhost:8080/api/getItemAssets', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            GlobalData.itemAssets = data.assets || [];
+            console.log('✅ Item assets loaded successfully:', GlobalData.itemAssets.length, 'assets');
+            return GlobalData.itemAssets;
+        } else {
+            const error = await response.text();
+            console.error('Failed to load item assets:', error);
+            throw new Error(`Server error: ${error}`);
+        }
+
+    } catch (error) {
+        console.error('Error loading item assets:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get item assets data
+ * @returns {Array} Array of item assets
+ */
+function getItemAssets() {
+    return GlobalData.itemAssets;
 }
 
 // === DATA ACCESS FUNCTIONS ===

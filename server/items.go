@@ -1,12 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // Item represents the database structure for items (game.items)
@@ -629,4 +636,127 @@ func handleMergeItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✅ MERGE ITEMS RESPONSE SENT")
+}
+
+// ItemAsset represents an available item asset from S3
+type ItemAsset struct {
+	AssetID int    `json:"assetID"`
+	Name    string `json:"name"`
+	Icon    string `json:"icon"` // Signed URL
+}
+
+// handleGetItemAssets handles GET requests to list available item assets from S3
+func handleGetItemAssets(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== GET ITEM ASSETS REQUEST ===")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request to get item assets")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Set headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s3Client == nil {
+		log.Printf("S3 client not available")
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
+		return
+	}
+
+	// List objects in the items folder
+	assets, err := listItemAssets()
+	if err != nil {
+		log.Printf("Error listing item assets: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to list item assets: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Found %d item assets in S3", len(assets))
+
+	// Return success response
+	response := map[string]interface{}{
+		"success": true,
+		"assets":  assets,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ GET ITEM ASSETS RESPONSE SENT")
+}
+
+// listItemAssets lists all item assets from S3 bucket (images/items/)
+func listItemAssets() ([]ItemAsset, error) {
+	if s3Client == nil {
+		return nil, fmt.Errorf("S3 client not initialized")
+	}
+
+	prefix := "images/items/"
+
+	input := &s3.ListObjectsV2Input{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Prefix: aws.String(prefix),
+	}
+
+	result, err := s3Client.ListObjectsV2(context.TODO(), input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list S3 objects: %v", err)
+	}
+
+	var assets []ItemAsset
+	for _, obj := range result.Contents {
+		key := *obj.Key
+
+		// Skip if not an image file
+		ext := strings.ToLower(filepath.Ext(key))
+		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp" && ext != ".gif" {
+			continue
+		}
+
+		// Extract filename without extension to get assetID
+		filename := filepath.Base(key)
+		nameWithoutExt := strings.TrimSuffix(filename, ext)
+
+		// Try to parse as integer for assetID
+		assetID, err := strconv.Atoi(nameWithoutExt)
+		if err != nil {
+			// If not a number, use the filename as name and generate an ID
+			log.Printf("Non-numeric asset filename: %s, skipping", filename)
+			continue
+		}
+
+		// Generate signed URL for the asset
+		signedURL, err := generateSignedURL(key, 1*time.Hour)
+		if err != nil {
+			log.Printf("Failed to generate signed URL for %s: %v", key, err)
+			continue
+		}
+
+		assets = append(assets, ItemAsset{
+			AssetID: assetID,
+			Name:    nameWithoutExt,
+			Icon:    signedURL,
+		})
+	}
+
+	log.Printf("Found %d item assets in S3 bucket", len(assets))
+	return assets, nil
 }
