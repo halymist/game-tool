@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/shared-styles.css">
     <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -56,6 +57,16 @@
                         </div>
                         <div class="tool-card-body">
                             <p class="tool-card-description">Create weapons, armor, accessories, and other items for your game.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('perks'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">✨</span>
+                            <h4 class="tool-card-title">Perk Designer</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create and manage perks with effects for your game characters.</p>
                         </div>
                     </a>
 
@@ -515,6 +526,132 @@
             </div>
         </div>
 
+        <!-- Perk Designer Section -->
+        <div id="perks-content" class="page-content" style="display: none;">
+            <div class="perks-designer-container">
+                <!-- Left Sidebar - Perk Lists -->
+                <div class="perk-list-sidebar">
+                    <div class="perk-list-controls">
+                        <div class="perk-tab-toggle">
+                            <button type="button" id="gamePerksTab" class="tab-btn active">🎮 Game Perks</button>
+                            <button type="button" id="pendingPerksTab" class="tab-btn">⏳ Pending</button>
+                        </div>
+                        <input type="text" id="perkSearch" placeholder="Search perks...">
+                    </div>
+                    
+                    <!-- Perk List (shows either game or pending based on tab) -->
+                    <div id="perkListContainer" class="perk-list-container">
+                        <div id="perkList"></div>
+                        <div id="pendingPerkList" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="perk-list-buttons">
+                        <button type="button" id="newPerkBtn">+ New Perk</button>
+                        <button type="button" id="mergePerksBtn" class="btn-merge" style="display: none;">🔄 Merge Approved</button>
+                    </div>
+                </div>
+
+                <!-- Right Panel - Perk Editor -->
+                <div class="perk-editor-panel">
+                    <h2 id="perkEditorTitle">Create New Perk</h2>
+                    
+                    <form id="perkForm">
+                        <!-- Basic Info Section -->
+                        <div class="perk-form-section">
+                            <div class="perk-form-section-title">Basic Information</div>
+                            <div class="perk-basic-info">
+                                <div>
+                                    <label for="perkName">Perk Name</label>
+                                    <input type="text" id="perkName" placeholder="Enter perk name" required>
+                                </div>
+                                <input type="hidden" id="perkId">
+                                <input type="hidden" id="perkAssetID" value="1">
+                            </div>
+                        </div>
+
+                        <!-- Icon Section -->
+                        <div class="perk-form-section">
+                            <div class="perk-form-section-title">Icon</div>
+                            <div class="perk-icon-section">
+                                <div class="perk-icon-preview" id="perkIconUploadArea">
+                                    <img id="perkIconPreview" src="" alt="No icon selected">
+                                    <span id="perkIconPlaceholder">Click to upload or drag & drop</span>
+                                </div>
+                                <input type="file" id="perkIconFile" accept="image/*" style="display: none;">
+                                <div class="perk-icon-info">
+                                    <span id="perkAssetIDDisplay">Asset ID: None</span>
+                                    <div class="perk-icon-buttons">
+                                        <button type="button" id="perkAssetGalleryBtn" class="btn-browse-perk-assets">🎨 Browse Assets</button>
+                                        <button type="button" id="perkUploadNewBtn" class="btn-upload-perk-new">📤 Upload New</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Effects Section -->
+                        <div class="perk-form-section">
+                            <div class="perk-form-section-title">Effects</div>
+                            <div class="perk-effects-grid">
+                                <div class="perk-effect-row">
+                                    <div>
+                                        <label for="perkEffect1">Effect 1</label>
+                                        <select id="perkEffect1">
+                                            <option value="">-- No Effect --</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="perkFactor1">Factor 1</label>
+                                        <input type="number" id="perkFactor1" min="0" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="perk-effect-row">
+                                    <div>
+                                        <label for="perkEffect2">Effect 2</label>
+                                        <select id="perkEffect2">
+                                            <option value="">-- No Effect --</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="perkFactor2">Factor 2</label>
+                                        <input type="number" id="perkFactor2" min="0" placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Description Section -->
+                        <div class="perk-form-section">
+                            <div class="perk-form-section-title">Description</div>
+                            <div class="perk-basic-info">
+                                <div style="grid-column: span 2;">
+                                    <textarea id="perkDescription" rows="4" placeholder="Enter perk description..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Buttons -->
+                        <div class="perk-form-buttons">
+                            <button type="button" id="perkCancelBtn" class="btn-cancel-perk">Cancel</button>
+                            <button type="submit" class="btn-save-perk">Save Perk</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Perk Asset Gallery Overlay -->
+            <div id="perkAssetGalleryOverlay" class="perk-asset-gallery-overlay hidden">
+                <div class="perk-asset-gallery">
+                    <div class="perk-asset-gallery-header">
+                        <h3>🎨 Select Perk Asset</h3>
+                        <button type="button" id="perkAssetGalleryClose" class="perk-asset-gallery-close">✕</button>
+                    </div>
+                    <div id="perkAssetGrid" class="perk-asset-grid custom-scrollbar">
+                        <!-- Asset items will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Dungeon Builder Section -->
         <div id="dungeons-content" class="page-content" style="display: none;">
             <div class="tool-header">
@@ -649,6 +786,7 @@
             'quests': { title: 'Quest Manager', element: 'quests-content' },
             'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
             'items': { title: 'Item Designer', element: 'items-content' },
+            'perks': { title: 'Perk Designer', element: 'perks-content' },
             'dungeons': { title: 'Dungeon Builder', element: 'dungeons-content' },
             'npcs': { title: 'NPC Manager', element: 'npcs-content' },
             'players': { title: 'Player Management', element: 'players-content' },
@@ -689,6 +827,12 @@
                 if (pageName === 'items' && window.itemDesigner) {
                     console.log('Loading items and effects data...');
                     window.itemDesigner.loadItemsAndEffects();
+                }
+                
+                // If showing the perk designer, load data
+                if (pageName === 'perks' && window.perkDesigner) {
+                    console.log('Loading perks and effects data...');
+                    window.perkDesigner.loadPerksAndEffects();
                 }
             } else {
                 console.error('Element not found:', page.element);
@@ -742,5 +886,6 @@
     <script src="http://localhost:8080/static/global-data.js"></script>
     <script src="http://localhost:8080/static/enemy-designer.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
+    <script src="http://localhost:8080/static/perk-designer.js"></script>
 </body>
 </html>

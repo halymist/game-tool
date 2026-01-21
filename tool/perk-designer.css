@@ -1,0 +1,575 @@
+/* Perk Designer Styles */
+
+/* Hide number input spinners/arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Main container with list and editor layout */
+.perks-designer-container {
+    display: flex;
+    gap: 2rem;
+    height: calc(100vh - 200px);
+}
+
+/* Left sidebar - Perk list */
+.perk-list-sidebar {
+    flex: 0 0 350px;
+    background: rgba(30, 20, 15, 0.9);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Tab toggle buttons */
+.perk-tab-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid #8b4513;
+}
+
+.perk-tab-toggle .tab-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    background: rgba(60, 40, 30, 0.8);
+    border: none;
+    color: #8b4513;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.perk-tab-toggle .tab-btn:hover {
+    background: rgba(80, 50, 35, 0.9);
+    color: #d4af37;
+}
+
+.perk-tab-toggle .tab-btn.active {
+    background: linear-gradient(135deg, #8b4513 0%, #5c2c0a 100%);
+    color: #d4af37;
+}
+
+.perk-list-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.perk-list-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+#perkSearch {
+    padding: 0.5rem;
+    background: rgba(60, 40, 30, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+#perkSearch::placeholder {
+    color: #8b4513;
+}
+
+.perk-list-item {
+    background: rgba(60, 40, 30, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.perk-list-item:hover {
+    background: rgba(100, 60, 30, 0.9);
+    border-color: #d4af37;
+}
+
+.perk-list-item.selected {
+    background: rgba(139, 69, 19, 0.8);
+    border-color: #d4af37;
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.perk-name {
+    color: #d4af37;
+    font-weight: bold;
+}
+
+.perk-list-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#newPerkBtn {
+    flex: 1;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
+    border: 1px solid #4a7c4a;
+    border-radius: 5px;
+    color: #7cfc00;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#newPerkBtn:hover {
+    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
+    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
+}
+
+#mergePerksBtn {
+    flex: 1;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #5a2d5a 0%, #3a1a3a 100%);
+    border: 1px solid #7c4a7c;
+    border-radius: 5px;
+    color: #da70d6;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: none;
+}
+
+#mergePerksBtn:hover {
+    background: linear-gradient(135deg, #7a3d7a 0%, #5a2a5a 100%);
+    box-shadow: 0 0 15px rgba(218, 112, 214, 0.3);
+}
+
+#mergePerksBtn.visible {
+    display: block;
+}
+
+.loading-text {
+    color: #8b4513;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+/* Right side - Perk editor */
+.perk-editor-panel {
+    flex: 1;
+    background: rgba(30, 20, 15, 0.9);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+#perkEditorTitle {
+    color: #d4af37;
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid #8b4513;
+    padding-bottom: 0.5rem;
+}
+
+#perkForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.perk-form-section {
+    background: rgba(40, 25, 15, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.perk-form-section-title {
+    color: #d4af37;
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #5c3d2e;
+}
+
+.perk-basic-info {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.perk-basic-info label {
+    color: #b8860b;
+    font-size: 0.9rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.perk-basic-info input,
+.perk-basic-info textarea {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(60, 40, 30, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+.perk-basic-info textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Perk Icon Section */
+.perk-icon-section {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.perk-icon-preview {
+    width: 80px;
+    height: 80px;
+    background: rgba(40, 25, 15, 0.9);
+    border: 2px solid #8b4513;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.perk-icon-preview:hover {
+    border-color: #d4af37;
+    background: rgba(60, 40, 25, 0.9);
+}
+
+.perk-icon-preview.drag-over {
+    border-color: #7cfc00;
+    background: rgba(60, 80, 30, 0.9);
+    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
+}
+
+.perk-icon-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: none;
+}
+
+.perk-icon-preview img[src]:not([src=""]) {
+    display: block;
+}
+
+#perkIconPlaceholder {
+    color: #8b4513;
+    font-size: 0.7rem;
+    text-align: center;
+    padding: 0.5rem;
+}
+
+.perk-icon-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.perk-icon-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#perkAssetIDDisplay {
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+.btn-browse-perk-assets {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #8b4513 0%, #5c2c0a 100%);
+    border: 1px solid #d4af37;
+    border-radius: 5px;
+    color: #d4af37;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-browse-perk-assets:hover {
+    background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.btn-upload-perk-new {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
+    border: 1px solid #4a7c4a;
+    border-radius: 5px;
+    color: #7cfc00;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-upload-perk-new:hover {
+    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
+    box-shadow: 0 0 10px rgba(124, 252, 0, 0.3);
+}
+
+/* Effects Section */
+.perk-effects-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.perk-effect-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.perk-effect-row > div {
+    flex: 1;
+}
+
+.perk-effect-row label {
+    color: #b8860b;
+    font-size: 0.85rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.perk-effect-row select,
+.perk-effect-row input {
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(60, 40, 30, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #d4af37;
+    font-size: 0.9rem;
+}
+
+.perk-effect-row input {
+    max-width: 80px;
+}
+
+/* Form Buttons */
+.perk-form-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid #8b4513;
+}
+
+.btn-cancel-perk {
+    padding: 0.75rem 1.5rem;
+    background: rgba(60, 40, 30, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #b8860b;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-cancel-perk:hover {
+    background: rgba(80, 50, 35, 0.9);
+    border-color: #d4af37;
+}
+
+.btn-save-perk {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
+    border: 1px solid #4a7c4a;
+    border-radius: 5px;
+    color: #7cfc00;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-save-perk:hover {
+    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
+    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
+}
+
+/* Pending Perks Styles */
+.pending-perk {
+    background: rgba(80, 50, 20, 0.8);
+    border: 1px solid #ffa500;
+}
+
+.pending-perk:hover {
+    background: rgba(100, 70, 30, 0.9);
+    border-color: #ffcc00;
+}
+
+.pending-perk.selected {
+    background: rgba(139, 100, 19, 0.8);
+    border-color: #ffcc00;
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+}
+
+.pending-perk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.perk-action {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.perk-action.insert {
+    background: rgba(46, 125, 50, 0.8);
+    color: #90ee90;
+    border: 1px solid #4caf50;
+}
+
+.perk-action.update {
+    background: rgba(25, 118, 210, 0.8);
+    color: #90caf9;
+    border: 1px solid #2196f3;
+}
+
+.pending-perk-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(139, 69, 19, 0.5);
+}
+
+/* Locked form state */
+#perkForm.form-locked::before {
+    content: '🔒 Read Only - Pending Approval';
+    display: block;
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.9) 0%, rgba(60, 30, 15, 0.9) 100%);
+    border: 1px solid #ffa500;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    color: #ffa500;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+#perkForm.form-locked input:disabled,
+#perkForm.form-locked select:disabled,
+#perkForm.form-locked textarea:disabled {
+    background: rgba(40, 25, 15, 0.9) !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Perk Asset Gallery Overlay */
+.perk-asset-gallery-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.perk-asset-gallery-overlay.hidden {
+    display: none;
+}
+
+.perk-asset-gallery {
+    background: rgba(30, 20, 15, 0.98);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.perk-asset-gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #8b4513;
+}
+
+.perk-asset-gallery-header h3 {
+    color: #d4af37;
+    margin: 0;
+}
+
+.perk-asset-gallery-close {
+    background: none;
+    border: none;
+    color: #d4af37;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.perk-asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.75rem;
+    overflow-y: auto;
+    max-height: 60vh;
+    padding: 0.5rem;
+}
+
+.perk-asset-grid .asset-item {
+    background: rgba(60, 40, 30, 0.8);
+    border: 2px solid #8b4513;
+    border-radius: 8px;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.perk-asset-grid .asset-item:hover {
+    border-color: #d4af37;
+    background: rgba(100, 60, 30, 0.9);
+}
+
+.perk-asset-grid .asset-item img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+}
+
+.perk-asset-grid .asset-id {
+    color: #8b4513;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}

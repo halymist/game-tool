@@ -1,0 +1,749 @@
+// Perk Designer JavaScript
+
+// Current state
+let allPerks = [];
+let allPendingPerks = [];
+let filteredPerks = [];
+let filteredPendingPerks = [];
+let selectedPerkId = null;
+let activeTab = 'game'; // 'game' or 'pending'
+let isViewingPendingPerk = false;
+let perkAssets = [];
+let selectedAssetId = null;
+let selectedAssetIcon = null;
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('perkForm')) {
+        initPerkDesigner();
+    }
+});
+
+function initPerkDesigner() {
+    console.log('🎨 Initializing Perk Designer...');
+    loadPerksAndEffects();
+    setupPerkEventListeners();
+    console.log('✅ Perk Designer initialized');
+}
+
+function setupPerkEventListeners() {
+    // Tab buttons
+    const gameTab = document.getElementById('gamePerksTab');
+    const pendingTab = document.getElementById('pendingPerksTab');
+    if (gameTab) {
+        gameTab.addEventListener('click', () => switchPerkTab('game'));
+    }
+    if (pendingTab) {
+        pendingTab.addEventListener('click', () => switchPerkTab('pending'));
+    }
+    
+    // Search input
+    const searchInput = document.getElementById('perkSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterPerks);
+    }
+    
+    // New perk button
+    const newPerkBtn = document.getElementById('newPerkBtn');
+    if (newPerkBtn) {
+        newPerkBtn.addEventListener('click', createNewPerk);
+    }
+    
+    // Merge perks button
+    const mergePerksBtn = document.getElementById('mergePerksBtn');
+    if (mergePerksBtn) {
+        mergePerksBtn.addEventListener('click', mergeApprovedPerks);
+    }
+    
+    // Asset gallery button
+    const assetGalleryBtn = document.getElementById('perkAssetGalleryBtn');
+    if (assetGalleryBtn) {
+        assetGalleryBtn.addEventListener('click', togglePerkAssetGallery);
+    }
+    
+    // Asset gallery close button
+    const assetGalleryClose = document.getElementById('perkAssetGalleryClose');
+    if (assetGalleryClose) {
+        assetGalleryClose.addEventListener('click', togglePerkAssetGallery);
+    }
+    
+    // Close gallery when clicking overlay
+    const assetGalleryOverlay = document.getElementById('perkAssetGalleryOverlay');
+    if (assetGalleryOverlay) {
+        assetGalleryOverlay.addEventListener('click', (e) => {
+            if (e.target === assetGalleryOverlay) {
+                togglePerkAssetGallery();
+            }
+        });
+    }
+    
+    // Upload new asset button
+    const uploadNewBtn = document.getElementById('perkUploadNewBtn');
+    if (uploadNewBtn) {
+        uploadNewBtn.addEventListener('click', () => {
+            document.getElementById('perkIconFile').click();
+        });
+    }
+    
+    // File input change handler
+    const fileInput = document.getElementById('perkIconFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handlePerkIconUpload(file);
+            }
+        });
+    }
+    
+    // Click on icon preview to upload
+    const iconUploadArea = document.getElementById('perkIconUploadArea');
+    if (iconUploadArea) {
+        iconUploadArea.addEventListener('click', () => {
+            document.getElementById('perkIconFile').click();
+        });
+        
+        // Drag and drop
+        iconUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            iconUploadArea.classList.add('drag-over');
+        });
+        
+        iconUploadArea.addEventListener('dragleave', () => {
+            iconUploadArea.classList.remove('drag-over');
+        });
+        
+        iconUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            iconUploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handlePerkIconUpload(file);
+            }
+        });
+    }
+    
+    // Cancel button
+    const cancelBtn = document.getElementById('perkCancelBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancelPerkEdit);
+    }
+    
+    // Form submission
+    const perkForm = document.getElementById('perkForm');
+    if (perkForm) {
+        perkForm.addEventListener('submit', savePerk);
+    }
+}
+
+async function loadPerksAndEffects() {
+    console.log('Loading perks and effects data...');
+    
+    try {
+        // Load effects first
+        await loadEffectsData();
+        populatePerkEffectDropdowns();
+        
+        // Load perk assets
+        await loadPerkAssets();
+        createPerkAssetGallery();
+        
+        // Load perks
+        await loadPerksData();
+        allPerks = getPerks();
+        allPendingPerks = getPendingPerks();
+        filteredPerks = [...allPerks];
+        filteredPendingPerks = [...allPendingPerks];
+        
+        renderPerkList();
+        renderPendingPerkList();
+        console.log('✅ Perks data loaded:', allPerks.length, 'perks,', allPendingPerks.length, 'pending');
+        
+    } catch (error) {
+        console.error('Error loading perks data:', error);
+    }
+}
+
+async function loadPerkAssets() {
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        
+        const response = await fetch('http://localhost:8080/api/getPerkAssets', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success && data.assets) {
+            perkAssets = data.assets;
+            console.log('✅ Loaded', perkAssets.length, 'perk assets');
+        }
+    } catch (error) {
+        console.error('Error loading perk assets:', error);
+    }
+}
+
+function createPerkAssetGallery() {
+    const grid = document.getElementById('perkAssetGrid');
+    if (!grid) return;
+    
+    if (perkAssets.length === 0) {
+        grid.innerHTML = '<p class="loading-text">No assets found. Upload a new one!</p>';
+        return;
+    }
+    
+    grid.innerHTML = perkAssets.map(asset => `
+        <div class="asset-item" onclick="selectPerkAsset(${asset.assetID}, '${asset.icon}')">
+            <img src="${asset.icon}" alt="Asset ${asset.assetID}">
+            <span class="asset-id">${asset.assetID}</span>
+        </div>
+    `).join('');
+}
+
+function renderPerkList() {
+    const perkList = document.getElementById('perkList');
+    if (!perkList) return;
+    
+    if (filteredPerks.length === 0) {
+        perkList.innerHTML = '<p class="loading-text">No perks found</p>';
+        return;
+    }
+    
+    perkList.innerHTML = filteredPerks.map(perk => `
+        <div class="perk-list-item ${perk.id === selectedPerkId && activeTab === 'game' ? 'selected' : ''}" 
+             data-id="${perk.id}" onclick="selectPerk(${perk.id})">
+            <div class="perk-name">${escapeHtml(perk.name)}</div>
+        </div>
+    `).join('');
+}
+
+function renderPendingPerkList() {
+    const pendingList = document.getElementById('pendingPerkList');
+    if (!pendingList) return;
+    
+    if (filteredPendingPerks.length === 0) {
+        pendingList.innerHTML = '<p class="loading-text">No pending perks</p>';
+        return;
+    }
+    
+    pendingList.innerHTML = filteredPendingPerks.map(perk => `
+        <div class="perk-list-item pending-perk ${perk.toolingId === selectedPerkId && activeTab === 'pending' ? 'selected' : ''}" 
+             data-id="${perk.toolingId}" onclick="selectPendingPerk(${perk.toolingId})">
+            <div class="pending-perk-header">
+                <span class="perk-name">${escapeHtml(perk.name)}</span>
+                <span class="perk-action ${perk.action}">${perk.action}</span>
+            </div>
+            <div class="pending-perk-footer">
+                <label class="approve-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" ${perk.approved ? 'checked' : ''} 
+                           onchange="togglePerkApproval(${perk.toolingId}, this.checked)">
+                    <span>Approve</span>
+                </label>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterPerks() {
+    const searchTerm = document.getElementById('perkSearch')?.value.toLowerCase() || '';
+    
+    filteredPerks = allPerks.filter(perk => {
+        return perk.name.toLowerCase().includes(searchTerm);
+    });
+    
+    filteredPendingPerks = allPendingPerks.filter(perk => {
+        return perk.name.toLowerCase().includes(searchTerm);
+    });
+    
+    renderPerkList();
+    renderPendingPerkList();
+}
+
+function switchPerkTab(tab) {
+    activeTab = tab;
+    
+    const gameTab = document.getElementById('gamePerksTab');
+    const pendingTab = document.getElementById('pendingPerksTab');
+    if (gameTab) gameTab.classList.toggle('active', tab === 'game');
+    if (pendingTab) pendingTab.classList.toggle('active', tab === 'pending');
+    
+    const perkList = document.getElementById('perkList');
+    const pendingList = document.getElementById('pendingPerkList');
+    if (perkList) perkList.style.display = tab === 'game' ? 'block' : 'none';
+    if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
+    
+    selectedPerkId = null;
+    isViewingPendingPerk = false;
+    setPerkFormLocked(false);
+    clearPerkForm();
+    document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
+}
+
+function selectPerk(perkId) {
+    activeTab = 'game';
+    selectedPerkId = perkId;
+    isViewingPendingPerk = false;
+    const perk = allPerks.find(p => p.id === perkId);
+    
+    if (perk) {
+        populatePerkForm(perk);
+        setPerkFormLocked(false);
+        document.getElementById('perkEditorTitle').textContent = 'Edit Perk';
+    }
+    
+    renderPerkList();
+    renderPendingPerkList();
+}
+
+function selectPendingPerk(toolingId) {
+    activeTab = 'pending';
+    selectedPerkId = toolingId;
+    isViewingPendingPerk = true;
+    const perk = allPendingPerks.find(p => p.toolingId === toolingId);
+    
+    if (perk) {
+        populatePerkFormFromPending(perk);
+        setPerkFormLocked(true);
+        document.getElementById('perkEditorTitle').textContent = `Pending: ${perk.action.toUpperCase()}`;
+    }
+    
+    renderPerkList();
+    renderPendingPerkList();
+}
+
+function populatePerkForm(perk) {
+    document.getElementById('perkId').value = perk.id || '';
+    document.getElementById('perkName').value = perk.name || '';
+    document.getElementById('perkAssetID').value = perk.assetID || 1;
+    document.getElementById('perkDescription').value = perk.description || '';
+    
+    // Effects
+    document.getElementById('perkEffect1').value = perk.effect1_id || '';
+    document.getElementById('perkFactor1').value = perk.factor1 || '';
+    document.getElementById('perkEffect2').value = perk.effect2_id || '';
+    document.getElementById('perkFactor2').value = perk.factor2 || '';
+    
+    // Update icon preview
+    updatePerkIconPreview(perk.assetID);
+}
+
+function populatePerkFormFromPending(perk) {
+    document.getElementById('perkId').value = perk.gameId || '';
+    document.getElementById('perkName').value = perk.name || '';
+    document.getElementById('perkAssetID').value = perk.assetID || 1;
+    document.getElementById('perkDescription').value = perk.description || '';
+    
+    // Effects
+    document.getElementById('perkEffect1').value = perk.effect1_id || '';
+    document.getElementById('perkFactor1').value = perk.factor1 || '';
+    document.getElementById('perkEffect2').value = perk.effect2_id || '';
+    document.getElementById('perkFactor2').value = perk.factor2 || '';
+    
+    // Update icon preview
+    updatePerkIconPreview(perk.assetID);
+}
+
+function setPerkFormLocked(locked) {
+    const form = document.getElementById('perkForm');
+    if (!form) return;
+    
+    const inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.disabled = locked;
+    });
+    
+    const saveBtn = form.querySelector('.btn-save-perk');
+    if (saveBtn) {
+        saveBtn.style.display = locked ? 'none' : 'block';
+    }
+    
+    form.classList.toggle('form-locked', locked);
+}
+
+function createNewPerk() {
+    selectedPerkId = null;
+    isViewingPendingPerk = false;
+    setPerkFormLocked(false);
+    clearPerkForm();
+    document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
+    renderPerkList();
+    renderPendingPerkList();
+}
+
+function clearPerkForm() {
+    document.getElementById('perkId').value = '';
+    document.getElementById('perkName').value = '';
+    document.getElementById('perkAssetID').value = '1';
+    document.getElementById('perkDescription').value = '';
+    document.getElementById('perkEffect1').value = '';
+    document.getElementById('perkFactor1').value = '';
+    document.getElementById('perkEffect2').value = '';
+    document.getElementById('perkFactor2').value = '';
+    
+    clearPerkIconPreview();
+}
+
+function cancelPerkEdit() {
+    selectedPerkId = null;
+    isViewingPendingPerk = false;
+    setPerkFormLocked(false);
+    clearPerkForm();
+    document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
+    renderPerkList();
+    renderPendingPerkList();
+}
+
+function populatePerkEffectDropdowns() {
+    const effect1Select = document.getElementById('perkEffect1');
+    const effect2Select = document.getElementById('perkEffect2');
+    if (!effect1Select || !effect2Select) return;
+    
+    const effects = getEffects();
+    
+    const optionsHTML = '<option value="">-- No Effect --</option>' +
+        effects.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    
+    effect1Select.innerHTML = optionsHTML;
+    effect2Select.innerHTML = optionsHTML;
+}
+
+async function savePerk(e) {
+    e.preventDefault();
+    
+    const perkId = document.getElementById('perkId').value;
+    const isUpdate = !!perkId;
+    
+    const perkData = {
+        id: perkId ? parseInt(perkId) : null,
+        name: document.getElementById('perkName').value,
+        assetID: parseInt(document.getElementById('perkAssetID').value) || 1,
+        description: document.getElementById('perkDescription').value || null,
+        effect1_id: parseIntOrNull(document.getElementById('perkEffect1').value),
+        factor1: parseIntOrNull(document.getElementById('perkFactor1').value),
+        effect2_id: parseIntOrNull(document.getElementById('perkEffect2').value),
+        factor2: parseIntOrNull(document.getElementById('perkFactor2').value)
+    };
+    
+    console.log('Saving perk:', perkData);
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/createPerk', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(perkData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(isUpdate ? 'Perk updated successfully!' : 'Perk created successfully!');
+            loadPerksAndEffects();
+            clearPerkForm();
+            document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
+            selectedPerkId = null;
+        } else {
+            alert('Error saving perk: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error saving perk:', error);
+        alert('Error saving perk: ' + error.message);
+    }
+}
+
+async function togglePerkApproval(toolingId, approved) {
+    console.log(`Toggling approval for perk tooling_id: ${toolingId}`);
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/toggleApprovePerk', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ toolingId: toolingId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Perk approval toggled successfully');
+            const perk = allPendingPerks.find(p => p.toolingId === toolingId);
+            if (perk) {
+                perk.approved = !perk.approved;
+            }
+        } else {
+            alert('Error toggling approval: ' + (result.message || 'Unknown error'));
+            const checkbox = document.querySelector(`input[onchange*="togglePerkApproval(${toolingId}"]`);
+            if (checkbox) checkbox.checked = !approved;
+        }
+    } catch (error) {
+        console.error('Error toggling perk approval:', error);
+        alert('Error toggling approval: ' + error.message);
+    }
+}
+
+async function mergeApprovedPerks() {
+    if (!confirm('Merge all approved pending perks into the game database?')) {
+        return;
+    }
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/mergePerks', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Perks merged successfully!');
+            loadPerksAndEffects();
+        } else {
+            alert('Error merging perks: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error merging perks:', error);
+        alert('Error merging perks: ' + error.message);
+    }
+}
+
+// Asset Gallery Functions
+function togglePerkAssetGallery() {
+    const overlay = document.getElementById('perkAssetGalleryOverlay');
+    if (overlay) {
+        overlay.classList.toggle('hidden');
+    }
+}
+
+function selectPerkAsset(assetId, iconUrl) {
+    console.log('Selected perk asset:', assetId);
+    
+    selectedAssetId = assetId;
+    selectedAssetIcon = iconUrl;
+    
+    document.getElementById('perkAssetID').value = assetId;
+    
+    const preview = document.getElementById('perkIconPreview');
+    const placeholder = document.getElementById('perkIconPlaceholder');
+    const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+    
+    if (preview) {
+        preview.src = iconUrl;
+        preview.style.display = 'block';
+    }
+    if (placeholder) {
+        placeholder.style.display = 'none';
+    }
+    if (assetIdDisplay) {
+        assetIdDisplay.textContent = `Asset ID: ${assetId}`;
+    }
+    
+    togglePerkAssetGallery();
+}
+
+function updatePerkIconPreview(assetId) {
+    const asset = perkAssets.find(a => a.assetID === assetId);
+    const preview = document.getElementById('perkIconPreview');
+    const placeholder = document.getElementById('perkIconPlaceholder');
+    const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+    
+    if (asset) {
+        if (preview) {
+            preview.src = asset.icon;
+            preview.style.display = 'block';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = `Asset ID: ${assetId}`;
+        }
+    } else {
+        if (preview) {
+            preview.src = '';
+            preview.style.display = 'none';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'block';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = assetId ? `Asset ID: ${assetId} (not found)` : 'Asset ID: None';
+        }
+    }
+}
+
+function clearPerkIconPreview() {
+    selectedAssetId = null;
+    selectedAssetIcon = null;
+    
+    const preview = document.getElementById('perkIconPreview');
+    const placeholder = document.getElementById('perkIconPlaceholder');
+    const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+    
+    if (preview) {
+        preview.src = '';
+        preview.style.display = 'none';
+    }
+    if (placeholder) {
+        placeholder.style.display = 'block';
+    }
+    if (assetIdDisplay) {
+        assetIdDisplay.textContent = 'Asset ID: None';
+    }
+}
+
+async function handlePerkIconUpload(file) {
+    if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file');
+        return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File size should be less than 10MB');
+        return;
+    }
+
+    try {
+        console.log('Converting perk icon to WebP format...');
+        
+        const webpBlob = await convertImageToWebP(file, 128, 128, 0.8);
+        const base64Data = await blobToBase64(webpBlob);
+        
+        const nextAssetID = getNextAvailablePerkAssetID();
+        console.log('Next available perk asset ID:', nextAssetID);
+        
+        const preview = document.getElementById('perkIconPreview');
+        const placeholder = document.getElementById('perkIconPlaceholder');
+        const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+        
+        if (preview) {
+            preview.src = base64Data;
+            preview.style.display = 'block';
+        }
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+        if (assetIdDisplay) {
+            assetIdDisplay.textContent = `Uploading... (Asset ID: ${nextAssetID})`;
+        }
+        
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/uploadPerkAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                assetID: nextAssetID,
+                imageData: base64Data,
+                contentType: 'image/webp'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Perk asset uploaded successfully:', result);
+            
+            selectedAssetId = result.assetID;
+            selectedAssetIcon = result.icon || base64Data;
+            
+            document.getElementById('perkAssetID').value = result.assetID;
+            
+            if (assetIdDisplay) {
+                assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
+            }
+            
+            perkAssets.push({
+                assetID: result.assetID,
+                name: result.assetID.toString(),
+                icon: result.icon || base64Data
+            });
+            
+            createPerkAssetGallery();
+            
+            alert('Perk icon uploaded successfully!');
+        } else {
+            alert('Error uploading icon: ' + (result.message || 'Unknown error'));
+            clearPerkIconPreview();
+        }
+        
+    } catch (error) {
+        console.error('Error uploading perk icon:', error);
+        alert('Failed to upload icon. Please try again.');
+        clearPerkIconPreview();
+    }
+}
+
+function getNextAvailablePerkAssetID() {
+    if (!perkAssets || perkAssets.length === 0) {
+        return 1;
+    }
+    
+    let maxID = 0;
+    for (const asset of perkAssets) {
+        if (asset.assetID > maxID) {
+            maxID = asset.assetID;
+        }
+    }
+    
+    return maxID + 1;
+}
+
+// Helper functions (reuse from item-designer if available)
+function parseIntOrNull(value) {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? null : parsed;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Expose functions globally
+window.selectPerk = selectPerk;
+window.selectPendingPerk = selectPendingPerk;
+window.togglePerkApproval = togglePerkApproval;
+window.selectPerkAsset = selectPerkAsset;
+
+console.log('🎭 Perk Designer script loaded');

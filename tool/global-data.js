@@ -6,6 +6,8 @@ const GlobalData = {
     effects: [],           // Array of all effects from database
     enemies: [],           // Array of all complete enemy data with signed URLs
     perks: [],             // Array of all complete perk data with signed URLs
+    pendingPerks: [],      // Array of pending perks from tooling.perks_info
+    perkAssets: [],        // Array of available perk assets from S3
     items: [],             // Array of all complete item data with signed URLs
     pendingItems: [],      // Array of pending items from tooling.items
     itemAssets: []         // Array of available item assets from S3
@@ -203,16 +205,18 @@ async function loadPerksData() {
             console.log('Success:', data.success);
             console.log('Effects count from perks endpoint:', data.effects ? data.effects.length : 0);
             console.log('Perks count:', data.perks ? data.perks.length : 0);
+            console.log('Pending perks count:', data.pendingPerks ? data.pendingPerks.length : 0);
             
             // Store the loaded perks data
             GlobalData.perks = data.perks || [];
+            GlobalData.pendingPerks = data.pendingPerks || [];
             // Store effects if not already loaded
             if (data.effects && GlobalData.effects.length === 0) {
                 GlobalData.effects = data.effects;
                 console.log('Effects data also loaded from perks endpoint');
             }
             
-            console.log('✅ Perks data loaded successfully:', GlobalData.perks.length, 'perks');
+            console.log('✅ Perks data loaded successfully:', GlobalData.perks.length, 'perks,', GlobalData.pendingPerks.length, 'pending');
             return GlobalData.perks;
             
         } else {
@@ -288,6 +292,62 @@ async function loadItemsData() {
  */
 function getPendingItems() {
     return GlobalData.pendingItems;
+}
+
+/**
+ * Get pending perks data
+ * @returns {Array} Array of pending perks
+ */
+function getPendingPerks() {
+    return GlobalData.pendingPerks;
+}
+
+/**
+ * Load all perk assets from S3 bucket
+ * @returns {Promise<Array>} Promise that resolves to array of perk assets
+ */
+async function loadPerkAssets() {
+    try {
+        // Get current access token
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            console.error('Authentication required to load perk assets');
+            throw new Error('Authentication required');
+        }
+
+        console.log('Loading perk assets from S3...');
+
+        const response = await fetch('http://localhost:8080/api/getPerkAssets', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            GlobalData.perkAssets = data.assets || [];
+            console.log('✅ Perk assets loaded successfully:', GlobalData.perkAssets.length, 'assets');
+            return GlobalData.perkAssets;
+        } else {
+            const error = await response.text();
+            console.error('Failed to load perk assets:', error);
+            throw new Error(`Server error: ${error}`);
+        }
+
+    } catch (error) {
+        console.error('Error loading perk assets:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get perk assets data
+ * @returns {Array} Array of perk assets
+ */
+function getPerkAssets() {
+    return GlobalData.perkAssets;
 }
 
 /**
