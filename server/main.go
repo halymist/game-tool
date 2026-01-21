@@ -193,6 +193,8 @@ func main() {
 	// Enemy endpoints - temporarily disabled for refactor
 	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
+	http.HandleFunc("/api/getEnemyAssets", corsHandler(CreateGetAssetsHandler("enemies")))
+	http.HandleFunc("/api/uploadEnemyAsset", corsHandler(CreateUploadAssetHandler("enemies")))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")

@@ -591,32 +591,36 @@
                         <!-- Effects Section -->
                         <div class="perk-form-section">
                             <div class="perk-form-section-title">Effects</div>
-                            <div class="perk-effects-grid">
-                                <div class="perk-effect-row">
-                                    <div>
-                                        <label for="perkEffect1">Effect 1</label>
-                                        <select id="perkEffect1">
-                                            <option value="">-- No Effect --</option>
-                                        </select>
-                                        <span class="perk-effect-description" id="perkEffect1Desc">Select an effect to see description</span>
+                            <div class="perk-effects-list">
+                                <div class="perk-effect-item">
+                                    <div class="perk-effect-inputs">
+                                        <div class="perk-effect-select-wrapper">
+                                            <label for="perkEffect1">Effect 1</label>
+                                            <select id="perkEffect1">
+                                                <option value="">-- No Effect --</option>
+                                            </select>
+                                        </div>
+                                        <div class="perk-factor-wrapper">
+                                            <label for="perkFactor1">Factor</label>
+                                            <input type="number" id="perkFactor1" min="0" placeholder="0">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label for="perkFactor1">Factor 1</label>
-                                        <input type="number" id="perkFactor1" min="0" placeholder="0">
-                                    </div>
+                                    <span class="perk-effect-description" id="perkEffect1Desc">Select an effect to see description</span>
                                 </div>
-                                <div class="perk-effect-row">
-                                    <div>
-                                        <label for="perkEffect2">Effect 2</label>
-                                        <select id="perkEffect2">
-                                            <option value="">-- No Effect --</option>
-                                        </select>
-                                        <span class="perk-effect-description" id="perkEffect2Desc">Select an effect to see description</span>
+                                <div class="perk-effect-item">
+                                    <div class="perk-effect-inputs">
+                                        <div class="perk-effect-select-wrapper">
+                                            <label for="perkEffect2">Effect 2</label>
+                                            <select id="perkEffect2">
+                                                <option value="">-- No Effect --</option>
+                                            </select>
+                                        </div>
+                                        <div class="perk-factor-wrapper">
+                                            <label for="perkFactor2">Factor</label>
+                                            <input type="number" id="perkFactor2" min="0" placeholder="0">
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label for="perkFactor2">Factor 2</label>
-                                        <input type="number" id="perkFactor2" min="0" placeholder="0">
-                                    </div>
+                                    <span class="perk-effect-description" id="perkEffect2Desc">Select an effect to see description</span>
                                 </div>
                             </div>
                         </div>
@@ -886,6 +890,7 @@
         });
     </script>
     <script src="http://localhost:8080/static/global-data.js"></script>
+    <script src="http://localhost:8080/static/designer-base.js"></script>
     <script src="http://localhost:8080/static/enemy-designer.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>

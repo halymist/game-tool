@@ -329,31 +329,38 @@ input[type="number"] {
 }
 
 /* Effects Section */
-.perk-effects-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+.perk-effects-list {
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
 }
 
-.perk-effect-row {
+.perk-effect-item {
     display: flex;
+    flex-direction: column;
     gap: 0.5rem;
+}
+
+.perk-effect-inputs {
+    display: flex;
+    gap: 1rem;
     align-items: flex-end;
 }
 
-.perk-effect-row > div {
+.perk-effect-select-wrapper {
     flex: 1;
 }
 
-.perk-effect-row label {
+.perk-effect-select-wrapper label,
+.perk-factor-wrapper label {
     color: #b8860b;
     font-size: 0.85rem;
     display: block;
     margin-bottom: 0.25rem;
 }
 
-.perk-effect-row select,
-.perk-effect-row input {
+.perk-effect-select-wrapper select,
+.perk-factor-wrapper input {
     width: 100%;
     padding: 0.5rem;
     background: rgba(60, 40, 30, 0.9);
@@ -363,8 +370,8 @@ input[type="number"] {
     font-size: 0.9rem;
 }
 
-.perk-effect-row input {
-    max-width: 80px;
+.perk-factor-wrapper {
+    width: 100px;
 }
 
 .perk-effect-description {
@@ -372,7 +379,7 @@ input[type="number"] {
     font-size: 0.8rem;
     color: #8b4513;
     font-style: italic;
-    margin-top: 0.25rem;
+    padding-left: 0.25rem;
     min-height: 1.2em;
 }
 
