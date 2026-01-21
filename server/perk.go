@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -83,7 +82,7 @@ func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set CORS headers
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 	w.Header().Set("Content-Type", "application/json")
@@ -128,23 +127,12 @@ func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Retrieved %d perks from database", len(perks))
 
-	// Generate signed URLs for perk icons
+	// Generate public URLs for perk icons (S3 bucket is publicly accessible)
 	for i := range perks {
 		if perks[i].AssetID > 0 {
-			// Generate S3 key for perk icon
-			iconKey := fmt.Sprintf("images/perks/%d.webp", perks[i].AssetID)
-
-			// Generate signed URL with 1 hour expiration
-			signedURL, err := generateSignedURL(iconKey, time.Hour)
-			if err != nil {
-				log.Printf("Warning: Failed to generate signed URL for perk %d (assetID: %d): %v",
-					perks[i].ID, perks[i].AssetID, err)
-				// Continue without icon rather than failing the entire request
-				perks[i].Icon = ""
-			} else {
-				perks[i].Icon = signedURL
-				log.Printf("Generated signed URL for perk %d (assetID: %d)", perks[i].ID, perks[i].AssetID)
-			}
+			// Direct public S3 URL
+			perks[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/perks/%d.webp",
+				S3_BUCKET_NAME, S3_REGION, perks[i].AssetID)
 		}
 	}
 
@@ -196,8 +184,8 @@ func getAllPerks() ([]Perk, error) {
 			effect_id_2, 
 			factor_2,
 			description,
-			version
-		FROM perks_info 
+			COALESCE(version, 1) as version
+		FROM game.perks_info 
 		ORDER BY perk_id
 	`
 
@@ -652,17 +640,14 @@ func listPerkAssets() ([]PerkAsset, error) {
 			continue
 		}
 
-		// Generate signed URL for the asset
-		signedURL, err := generateSignedURL(key, 1*time.Hour)
-		if err != nil {
-			log.Printf("Failed to generate signed URL for %s: %v", key, err)
-			continue
-		}
+		// Direct public S3 URL
+		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+			S3_BUCKET_NAME, S3_REGION, key)
 
 		assets = append(assets, PerkAsset{
 			AssetID: assetID,
 			Name:    nameWithoutExt,
-			Icon:    signedURL,
+			Icon:    publicURL,
 		})
 	}
 
@@ -733,19 +718,16 @@ func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate signed URL for the uploaded asset
-	signedURL, err := generateSignedURL(s3Key, 1*time.Hour)
-	if err != nil {
-		log.Printf("Error generating signed URL: %v", err)
-		signedURL = ""
-	}
+	// Generate public URL for the uploaded asset
+	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		S3_BUCKET_NAME, S3_REGION, s3Key)
 
 	// Return success response
 	response := map[string]interface{}{
 		"success": true,
 		"assetID": req.AssetID,
 		"s3Key":   s3Key,
-		"icon":    signedURL,
+		"icon":    publicURL,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

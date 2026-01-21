@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -131,22 +130,12 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Retrieved %d items from database", len(items))
 
-	// Generate signed URLs for item icons
+	// Generate public URLs for item icons (S3 bucket is publicly accessible)
 	for i := range items {
 		if items[i].AssetID > 0 {
-			// Generate S3 key for item icon
-			iconKey := fmt.Sprintf("images/items/%d.webp", items[i].AssetID)
-
-			// Generate signed URL with 1 hour expiration
-			signedURL, err := generateSignedURL(iconKey, time.Hour)
-			if err != nil {
-				log.Printf("Warning: Failed to generate signed URL for item %d (assetID: %d): %v",
-					items[i].ID, items[i].AssetID, err)
-				items[i].Icon = ""
-			} else {
-				items[i].Icon = signedURL
-				log.Printf("Generated signed URL for item %d (assetID: %d)", items[i].ID, items[i].AssetID)
-			}
+			// Direct public S3 URL
+			items[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/items/%d.webp",
+				S3_BUCKET_NAME, S3_REGION, items[i].AssetID)
 		}
 	}
 
@@ -745,17 +734,14 @@ func listItemAssets() ([]ItemAsset, error) {
 			continue
 		}
 
-		// Generate signed URL for the asset
-		signedURL, err := generateSignedURL(key, 1*time.Hour)
-		if err != nil {
-			log.Printf("Failed to generate signed URL for %s: %v", key, err)
-			continue
-		}
+		// Direct public S3 URL
+		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+			S3_BUCKET_NAME, S3_REGION, key)
 
 		assets = append(assets, ItemAsset{
 			AssetID: assetID,
 			Name:    nameWithoutExt,
-			Icon:    signedURL,
+			Icon:    publicURL,
 		})
 	}
 
@@ -826,20 +812,16 @@ func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate signed URL for the uploaded asset
-	signedURL, err := generateSignedURL(s3Key, 1*time.Hour)
-	if err != nil {
-		log.Printf("Error generating signed URL: %v", err)
-		// Still return success, just without the signed URL
-		signedURL = ""
-	}
+	// Generate public URL for the uploaded asset
+	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		S3_BUCKET_NAME, S3_REGION, s3Key)
 
 	// Return success response
 	response := map[string]interface{}{
 		"success": true,
 		"assetID": req.AssetID,
 		"s3Key":   s3Key,
-		"icon":    signedURL,
+		"icon":    publicURL,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

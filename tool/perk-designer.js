@@ -1,16 +1,16 @@
 // Perk Designer JavaScript
 
-// Current state
+// Current state - all variables prefixed with 'perk' to avoid conflicts with other designers
 let allPerks = [];
 let allPendingPerks = [];
 let filteredPerks = [];
 let filteredPendingPerks = [];
 let selectedPerkId = null;
-let activeTab = 'game'; // 'game' or 'pending'
+let perkActiveTab = 'game'; // 'game' or 'pending'
 let isViewingPendingPerk = false;
 let perkAssets = [];
-let selectedAssetId = null;
-let selectedAssetIcon = null;
+let perkSelectedAssetId = null;
+let perkSelectedAssetIcon = null;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -214,7 +214,7 @@ function renderPerkList() {
     }
     
     perkList.innerHTML = filteredPerks.map(perk => `
-        <div class="perk-list-item ${perk.id === selectedPerkId && activeTab === 'game' ? 'selected' : ''}" 
+        <div class="perk-list-item ${perk.id === selectedPerkId && perkActiveTab === 'game' ? 'selected' : ''}" 
              data-id="${perk.id}" onclick="selectPerk(${perk.id})">
             <div class="perk-name">${escapeHtml(perk.name)}</div>
         </div>
@@ -231,7 +231,7 @@ function renderPendingPerkList() {
     }
     
     pendingList.innerHTML = filteredPendingPerks.map(perk => `
-        <div class="perk-list-item pending-perk ${perk.toolingId === selectedPerkId && activeTab === 'pending' ? 'selected' : ''}" 
+        <div class="perk-list-item pending-perk ${perk.toolingId === selectedPerkId && perkActiveTab === 'pending' ? 'selected' : ''}" 
              data-id="${perk.toolingId}" onclick="selectPendingPerk(${perk.toolingId})">
             <div class="pending-perk-header">
                 <span class="perk-name">${escapeHtml(perk.name)}</span>
@@ -264,7 +264,7 @@ function filterPerks() {
 }
 
 function switchPerkTab(tab) {
-    activeTab = tab;
+    perkActiveTab = tab;
     
     const gameTab = document.getElementById('gamePerksTab');
     const pendingTab = document.getElementById('pendingPerksTab');
@@ -284,7 +284,7 @@ function switchPerkTab(tab) {
 }
 
 function selectPerk(perkId) {
-    activeTab = 'game';
+    perkActiveTab = 'game';
     selectedPerkId = perkId;
     isViewingPendingPerk = false;
     const perk = allPerks.find(p => p.id === perkId);
@@ -300,7 +300,7 @@ function selectPerk(perkId) {
 }
 
 function selectPendingPerk(toolingId) {
-    activeTab = 'pending';
+    perkActiveTab = 'pending';
     selectedPerkId = toolingId;
     isViewingPendingPerk = true;
     const perk = allPendingPerks.find(p => p.toolingId === toolingId);
@@ -546,8 +546,8 @@ function togglePerkAssetGallery() {
 function selectPerkAsset(assetId, iconUrl) {
     console.log('Selected perk asset:', assetId);
     
-    selectedAssetId = assetId;
-    selectedAssetIcon = iconUrl;
+    perkSelectedAssetId = assetId;
+    perkSelectedAssetIcon = iconUrl;
     
     document.getElementById('perkAssetID').value = assetId;
     
@@ -601,8 +601,8 @@ function updatePerkIconPreview(assetId) {
 }
 
 function clearPerkIconPreview() {
-    selectedAssetId = null;
-    selectedAssetIcon = null;
+    perkSelectedAssetId = null;
+    perkSelectedAssetIcon = null;
     
     const preview = document.getElementById('perkIconPreview');
     const placeholder = document.getElementById('perkIconPlaceholder');
@@ -679,8 +679,8 @@ async function handlePerkIconUpload(file) {
         if (result.success) {
             console.log('✅ Perk asset uploaded successfully:', result);
             
-            selectedAssetId = result.assetID;
-            selectedAssetIcon = result.icon || base64Data;
+            perkSelectedAssetId = result.assetID;
+            perkSelectedAssetIcon = result.icon || base64Data;
             
             document.getElementById('perkAssetID').value = result.assetID;
             
@@ -745,5 +745,11 @@ window.selectPerk = selectPerk;
 window.selectPendingPerk = selectPendingPerk;
 window.togglePerkApproval = togglePerkApproval;
 window.selectPerkAsset = selectPerkAsset;
+
+// Export module for page navigation
+window.perkDesigner = {
+    loadPerksAndEffects: loadPerksAndEffects,
+    initPerkDesigner: initPerkDesigner
+};
 
 console.log('🎭 Perk Designer script loaded');
