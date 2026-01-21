@@ -6,6 +6,7 @@
     <title>Dashboard</title>
     <link rel="stylesheet" href="http://localhost:8080/static/shared-styles.css">
     <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -45,6 +46,16 @@
                         </div>
                         <div class="tool-card-body">
                             <p class="tool-card-description">Design monsters, bosses, and enemy encounters for your game world.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('items'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">⚔️</span>
+                            <h4 class="tool-card-title">Item Designer</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create weapons, armor, accessories, and other items for your game.</p>
                         </div>
                     </a>
 
@@ -309,6 +320,139 @@
             </div>
         </template>
 
+        <!-- Item Designer Section -->
+        <div id="items-content" class="page-content" style="display: none;">
+            <div class="item-form">
+                <form id="itemForm">
+                    <!-- Action Buttons (Top Right) -->
+                    <div class="item-action-buttons-top">
+                        <button type="button" id="saveItemBtn" class="item-save-btn">Save Item</button>
+                        <button type="button" id="resetItemBtn" class="item-reset-btn">Reset Form</button>
+                    </div>
+
+                    <!-- Name Section -->
+                    <div class="form-section">
+                        <div class="item-name-id-group">
+                            <div class="form-group">
+                                <label for="itemName">Item Name</label>
+                                <div class="item-input-with-dropdown">
+                                    <input type="text" id="itemName" name="itemName" placeholder="Type to search or create new item..." required>
+                                    <button type="button" class="item-dropdown-button" id="itemNameDropdownBtn">▼</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="itemID">Item ID</label>
+                                <input type="text" id="itemID" name="itemID" placeholder="New item" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Layout: Icon, Stats, Description -->
+                    <div class="form-section">
+                        <div class="item-main-layout">
+                            <!-- Icon Container -->
+                            <div class="item-icon-container">
+                                <div class="item-icon-upload-area" id="itemIconUploadArea">
+                                    <div id="itemIconPreview">
+                                        <div class="icon-placeholder">📷</div>
+                                    </div>
+                                </div>
+                                <input type="file" id="itemIconFile" accept="image/*">
+                                <span style="font-size: 0.8rem; color: #d4c5a0;">Click to upload</span>
+                            </div>
+
+                            <!-- Type and Stats Container -->
+                            <div class="item-stats-container">
+                                <!-- Item Type -->
+                                <div class="item-type-container">
+                                    <label for="itemType">Item Type</label>
+                                    <select id="itemType" name="itemType" class="form-control">
+                                        <option value="1">⚔️ Weapon</option>
+                                        <option value="2">🛡️ Armor</option>
+                                        <option value="3">💍 Accessory</option>
+                                        <option value="4">🧪 Consumable</option>
+                                        <option value="5">📦 Material</option>
+                                    </select>
+                                </div>
+
+                                <!-- Stats Grid -->
+                                <h4 style="color: #ffd700; margin: 1rem 0 0.5rem;">Stats</h4>
+                                <div class="item-stats-grid">
+                                    <div class="item-stat-group">
+                                        <label for="itemStrength">Strength</label>
+                                        <input type="number" id="itemStrength" name="itemStrength" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                    </div>
+                                    <div class="item-stat-group">
+                                        <label for="itemStamina">Stamina</label>
+                                        <input type="number" id="itemStamina" name="itemStamina" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                    </div>
+                                    <div class="item-stat-group">
+                                        <label for="itemAgility">Agility</label>
+                                        <input type="number" id="itemAgility" name="itemAgility" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                    </div>
+                                    <div class="item-stat-group">
+                                        <label for="itemLuck">Luck</label>
+                                        <input type="number" id="itemLuck" name="itemLuck" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                    </div>
+                                    <div class="item-stat-group">
+                                        <label for="itemArmor">Armor</label>
+                                        <input type="number" id="itemArmor" name="itemArmor" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                    </div>
+                                </div>
+
+                                <!-- Damage Section (for weapons) -->
+                                <div id="itemDamageSection" class="item-damage-section">
+                                    <h4 style="color: #ffd700; margin-bottom: 0.5rem;">Damage</h4>
+                                    <div class="item-damage-grid">
+                                        <div class="item-stat-group">
+                                            <label for="itemMinDamage">Min Damage</label>
+                                            <input type="number" id="itemMinDamage" name="itemMinDamage" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                        </div>
+                                        <div class="item-stat-group">
+                                            <label for="itemMaxDamage">Max Damage</label>
+                                            <input type="number" id="itemMaxDamage" name="itemMaxDamage" class="item-stat-input" min="0" max="9999" placeholder="-">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Effect Section -->
+                                <div class="item-effect-section">
+                                    <h4 style="color: #ffd700; margin-bottom: 0.5rem;">Effect</h4>
+                                    <div class="item-effect-row">
+                                        <select id="itemEffect" name="itemEffect" class="effect-select">
+                                            <option value="">-- No Effect --</option>
+                                        </select>
+                                        <input type="number" id="itemEffectFactor" name="itemEffectFactor" class="item-stat-input" min="0" max="9999" placeholder="Factor">
+                                    </div>
+                                    <span class="item-effect-description" id="itemEffectDescription">Select an effect to see description</span>
+                                </div>
+
+                                <!-- Other Options -->
+                                <div class="item-options-section">
+                                    <div class="item-options-grid">
+                                        <div class="item-stat-group">
+                                            <label for="itemSilver">Silver Cost</label>
+                                            <input type="number" id="itemSilver" name="itemSilver" class="item-stat-input" min="0" max="99999" value="10">
+                                        </div>
+                                        <div class="item-checkbox-group">
+                                            <input type="checkbox" id="itemSocket" name="itemSocket">
+                                            <label for="itemSocket">Has Socket</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Description Container -->
+                            <div class="item-description-container">
+                                <h3>Notes</h3>
+                                <textarea id="itemNotes" name="itemNotes" placeholder="Enter notes about this item..." rows="15"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <!-- Dungeon Builder Section -->
         <div id="dungeons-content" class="page-content" style="display: none;">
             <div class="tool-header">
@@ -442,6 +586,7 @@
             'dashboard': { title: 'Dashboard', element: 'dashboard-content' },
             'quests': { title: 'Quest Manager', element: 'quests-content' },
             'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
+            'items': { title: 'Item Designer', element: 'items-content' },
             'dungeons': { title: 'Dungeon Builder', element: 'dungeons-content' },
             'npcs': { title: 'NPC Manager', element: 'npcs-content' },
             'players': { title: 'Player Management', element: 'players-content' },
@@ -476,6 +621,12 @@
                 if (pageName === 'enemies' && window.enemyDesigner) {
                     console.log('Loading enemies and effects data...');
                     window.enemyDesigner.loadEnemiesAndEffects();
+                }
+                
+                // If showing the item designer, load data
+                if (pageName === 'items' && window.itemDesigner) {
+                    console.log('Loading items and effects data...');
+                    window.itemDesigner.loadItemsAndEffects();
                 }
             } else {
                 console.error('Element not found:', page.element);
@@ -528,5 +679,6 @@
     </script>
     <script src="http://localhost:8080/static/global-data.js"></script>
     <script src="http://localhost:8080/static/enemy-designer.js"></script>
+    <script src="http://localhost:8080/static/item-designer.js"></script>
 </body>
 </html>

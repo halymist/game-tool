@@ -13,11 +13,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// Effect represents the database structure for effects
+// Effect represents the database structure for effects (game.effects)
 type Effect struct {
-	ID          int    `json:"id" db:"id"`
-	Name        string `json:"name" db:"name"`
-	Description string `json:"description" db:"description"`
+	ID          int     `json:"id" db:"effect_id"`
+	Name        string  `json:"name" db:"name"`
+	Slot        *string `json:"slot" db:"slot"`
+	Factor      int     `json:"factor" db:"factor"`
+	Description string  `json:"description" db:"description"`
 }
 
 // getNextAssetID returns the next available assetID from the database
@@ -101,13 +103,13 @@ func uploadImageToS3WithCustomKey(imageData, contentType, customKey string) (str
 	return filename, nil // Return S3 key instead of signed URL
 }
 
-// getAllEffects retrieves all effects from the database
+// getAllEffects retrieves all effects from the database (game.effects)
 func getAllEffects() ([]Effect, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not available")
 	}
 
-	query := `SELECT "id", "name", "description" FROM "Effects" ORDER BY "id"`
+	query := `SELECT effect_id, name, slot, factor, description FROM effects ORDER BY effect_id`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying effects: %v", err)
@@ -117,19 +119,15 @@ func getAllEffects() ([]Effect, error) {
 	var effects []Effect
 	for rows.Next() {
 		var effect Effect
-		var description *string
+		var slot *string
 
-		err := rows.Scan(&effect.ID, &effect.Name, &description)
+		err := rows.Scan(&effect.ID, &effect.Name, &slot, &effect.Factor, &effect.Description)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning effect row: %v", err)
 		}
 
-		// Handle nullable description
-		if description != nil {
-			effect.Description = *description
-		} else {
-			effect.Description = ""
-		}
+		// Handle nullable slot
+		effect.Slot = slot
 
 		effects = append(effects, effect)
 	}

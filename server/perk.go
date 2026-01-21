@@ -10,22 +10,23 @@ import (
 
 // PerkEffect represents an effect applied to a perk with its factor
 type PerkEffect struct {
-	Type   int     `json:"type"`   // Effect ID (0 for empty/no effect)
-	Factor float64 `json:"factor"` // Effect factor/multiplier
+	Type   int `json:"type"`   // Effect ID (0 for empty/no effect)
+	Factor int `json:"factor"` // Effect factor/multiplier
 }
 
-// Perk represents the database structure for perks
+// Perk represents the database structure for perks (game.perks_info)
 type Perk struct {
-	ID            int          `json:"id" db:"id"`
-	AssetID       int          `json:"assetID" db:"assetID"`
-	Name          string       `json:"name" db:"name"`
-	Description   *string      `json:"description" db:"description"`
-	Effect1ID     *int         `json:"effect1_id" db:"effect1_id"`
-	Effect1Factor *float64     `json:"effect1_factor" db:"effect1_factor"`
-	Effect2ID     *int         `json:"effect2_id" db:"effect2_id"`
-	Effect2Factor *float64     `json:"effect2_factor" db:"effect2_factor"`
-	Effects       []PerkEffect `json:"effects,omitempty"` // Processed effects for client
-	Icon          string       `json:"icon,omitempty"`    // For signed URL
+	ID          int          `json:"id" db:"perk_id"`
+	Name        string       `json:"name" db:"perk_name"`
+	AssetID     int          `json:"assetID" db:"asset_id"`
+	Effect1ID   *int         `json:"effect1_id" db:"effect_id_1"`
+	Factor1     *int         `json:"factor1" db:"factor_1"`
+	Effect2ID   *int         `json:"effect2_id" db:"effect_id_2"`
+	Factor2     *int         `json:"factor2" db:"factor_2"`
+	Description *string      `json:"description" db:"description"`
+	Version     int          `json:"version" db:"version"`
+	Effects     []PerkEffect `json:"effects,omitempty"` // Processed effects for client
+	Icon        string       `json:"icon,omitempty"`    // For signed URL
 }
 
 // PerkResponse represents the JSON response structure for perks
@@ -134,7 +135,7 @@ func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("✅ Perks data sent successfully")
 }
 
-// getAllPerks retrieves all perks from the database
+// getAllPerks retrieves all perks from the database (game.perks_info)
 func getAllPerks() ([]Perk, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database not available")
@@ -142,16 +143,17 @@ func getAllPerks() ([]Perk, error) {
 
 	query := `
 		SELECT 
-			"id", 
-			"assetID", 
-			"name", 
-			"description", 
-			"effect1_id", 
-			"effect1_factor", 
-			"effect2_id", 
-			"effect2_factor"
-		FROM "Perks" 
-		ORDER BY "id"
+			perk_id, 
+			perk_name,
+			asset_id, 
+			effect_id_1, 
+			factor_1, 
+			effect_id_2, 
+			factor_2,
+			description,
+			version
+		FROM perks_info 
+		ORDER BY perk_id
 	`
 
 	rows, err := db.Query(query)
@@ -165,29 +167,30 @@ func getAllPerks() ([]Perk, error) {
 		var perk Perk
 		err := rows.Scan(
 			&perk.ID,
-			&perk.AssetID,
 			&perk.Name,
-			&perk.Description,
+			&perk.AssetID,
 			&perk.Effect1ID,
-			&perk.Effect1Factor,
+			&perk.Factor1,
 			&perk.Effect2ID,
-			&perk.Effect2Factor,
+			&perk.Factor2,
+			&perk.Description,
+			&perk.Version,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning perk row: %v", err)
 		}
 
-		// Process effects into structured format (similar to enemy.go)
+		// Process effects into structured format
 		perk.Effects = make([]PerkEffect, 2)
 
 		// Process Effect 1
 		effectType1 := 0
-		effectFactor1 := 1.0
+		effectFactor1 := 1
 		if perk.Effect1ID != nil {
 			effectType1 = *perk.Effect1ID
 		}
-		if perk.Effect1Factor != nil {
-			effectFactor1 = *perk.Effect1Factor
+		if perk.Factor1 != nil {
+			effectFactor1 = *perk.Factor1
 		}
 		perk.Effects[0] = PerkEffect{
 			Type:   effectType1,
@@ -196,12 +199,12 @@ func getAllPerks() ([]Perk, error) {
 
 		// Process Effect 2
 		effectType2 := 0
-		effectFactor2 := 1.0
+		effectFactor2 := 1
 		if perk.Effect2ID != nil {
 			effectType2 = *perk.Effect2ID
 		}
-		if perk.Effect2Factor != nil {
-			effectFactor2 = *perk.Effect2Factor
+		if perk.Factor2 != nil {
+			effectFactor2 = *perk.Factor2
 		}
 		perk.Effects[1] = PerkEffect{
 			Type:   effectType2,

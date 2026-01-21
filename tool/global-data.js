@@ -5,7 +5,8 @@
 const GlobalData = {
     effects: [],           // Array of all effects from database
     enemies: [],           // Array of all complete enemy data with signed URLs
-    perks: []              // Array of all complete perk data with signed URLs
+    perks: [],             // Array of all complete perk data with signed URLs
+    items: []              // Array of all complete item data with signed URLs
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -31,6 +32,30 @@ const Perk = {
         effect2_id: effect2_id,          // Second effect ID - JSON: "effect2_id"
         effect2_factor: effect2_factor,   // Second effect factor - JSON: "effect2_factor"
         icon: ""                         // Signed URL for perk icon - JSON: "icon"
+    })
+};
+
+// === ITEM DATA STRUCTURE ===
+// Matches server-side database structure (game.items)
+const Item = {
+    create: () => ({
+        id: null,              // Item ID from database - JSON: "id"
+        name: "",              // Item name - JSON: "name"
+        assetID: 0,            // Asset ID from database - JSON: "assetID"
+        type: "weapon",        // Item type (weapon, armor, etc.) - JSON: "type"
+        strength: null,        // Strength stat - JSON: "strength"
+        stamina: null,         // Stamina stat - JSON: "stamina"
+        agility: null,         // Agility stat - JSON: "agility"
+        luck: null,            // Luck stat - JSON: "luck"
+        armor: null,           // Armor stat - JSON: "armor"
+        effectID: null,        // Effect ID - JSON: "effectID"
+        effectFactor: null,    // Effect factor - JSON: "effectFactor"
+        socket: false,         // Has socket - JSON: "socket"
+        silver: 10,            // Silver cost - JSON: "silver"
+        minDamage: null,       // Min damage (weapons) - JSON: "minDamage"
+        maxDamage: null,       // Max damage (weapons) - JSON: "maxDamage"
+        version: 1,            // Version - JSON: "version"
+        icon: ""               // Signed URL for item icon - JSON: "icon"
     })
 };
 
@@ -174,6 +199,59 @@ async function loadPerksData() {
 
     } catch (error) {
         console.error('Error loading perks data:', error);
+        throw error;
+    }
+}
+
+/**
+ * Load all items data from the server
+ * @returns {Promise<Array>} Promise that resolves to array of complete item data
+ */
+async function loadItemsData() {
+    try {
+        // Get current access token
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            console.error('Authentication required to load items data');
+            throw new Error('Authentication required');
+        }
+
+        console.log('Loading items data from server...');
+
+        const response = await fetch('http://localhost:8080/api/getItems', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('=== ITEMS DATA LOADED ===');
+            console.log('Success:', data.success);
+            console.log('Effects count from items endpoint:', data.effects ? data.effects.length : 0);
+            console.log('Items count:', data.items ? data.items.length : 0);
+            
+            // Store the loaded items data
+            GlobalData.items = data.items || [];
+            // Store effects if not already loaded
+            if (data.effects && GlobalData.effects.length === 0) {
+                GlobalData.effects = data.effects;
+                console.log('Effects data also loaded from items endpoint');
+            }
+            
+            console.log('✅ Items data loaded successfully:', GlobalData.items.length, 'items');
+            return GlobalData.items;
+            
+        } else {
+            const error = await response.text();
+            console.error('Failed to load items data:', error);
+            throw new Error(`Server error: ${error}`);
+        }
+
+    } catch (error) {
+        console.error('Error loading items data:', error);
         throw error;
     }
 }
@@ -432,6 +510,121 @@ function getAvailablePerkAssetIDs() {
     return GlobalData.perks
         .filter(perk => perk.assetID > 0)
         .map(perk => perk.assetID);
+}
+
+// === ITEM DATA ACCESS FUNCTIONS ===
+
+/**
+ * Get all items data
+ * @returns {Array} Array of complete item data
+ */
+function getItems() {
+    return GlobalData.items;
+}
+
+/**
+ * Get item by ID
+ * @param {number|string} itemId - The item ID to find
+ * @returns {Object|null} Item object or null if not found
+ */
+function getItemById(itemId) {
+    const id = parseInt(itemId);
+    return GlobalData.items.find(item => item.id === id) || null;
+}
+
+/**
+ * Get item by assetID
+ * @param {number|string} assetID - The asset ID to find
+ * @returns {Object|null} Item object or null if not found
+ */
+function getItemByAssetID(assetID) {
+    const id = parseInt(assetID);
+    return GlobalData.items.find(item => item.assetID === id) || null;
+}
+
+/**
+ * Get all unique items with assets (for gallery display)
+ * Returns only one item per unique assetID to avoid showing duplicate textures
+ * @returns {Array} Array of unique items that have icons
+ */
+function getItemsWithAssets() {
+    const itemsWithAssets = GlobalData.items.filter(item => item.icon && item.assetID > 0);
+    
+    // Create a map to store unique assets by assetID
+    const uniqueAssets = new Map();
+    
+    // Keep only the first item found for each unique assetID
+    itemsWithAssets.forEach(item => {
+        if (!uniqueAssets.has(item.assetID)) {
+            uniqueAssets.set(item.assetID, item);
+        }
+    });
+    
+    // Convert map values back to array
+    return Array.from(uniqueAssets.values());
+}
+
+/**
+ * Get texture URL by assetID (useful for displaying item asset images)
+ * @param {number|string} assetID - The asset ID
+ * @returns {string} Texture URL or empty string if not found
+ */
+function getItemAssetTexture(assetID) {
+    const item = getItemByAssetID(assetID);
+    return item ? item.icon : '';
+}
+
+/**
+ * Add a new item to the global items array
+ * @param {Object} item - The item object to add
+ */
+function addItemToGlobal(item) {
+    console.log('Adding item to global data:', item.name, 'ID:', item.id);
+    GlobalData.items.push(item);
+    console.log('✅ Item added. Total items:', GlobalData.items.length);
+}
+
+/**
+ * Update an existing item in the global items array
+ * @param {Object} updatedItem - The updated item object
+ */
+function updateItemInGlobal(updatedItem) {
+    console.log('Updating item in global data:', updatedItem.name, 'ID:', updatedItem.id);
+    console.log('Current items count:', GlobalData.items.length);
+    
+    // Find and replace the item with matching ID (convert both to string for comparison)
+    const targetId = String(updatedItem.id);
+    const index = GlobalData.items.findIndex(item => String(item.id) === targetId);
+    
+    if (index !== -1) {
+        console.log('Found item at index:', index, 'Old item:', GlobalData.items[index].name);
+        GlobalData.items[index] = updatedItem;
+        console.log('✅ Item updated in global data at index:', index, 'New item:', updatedItem.name);
+        console.log('Updated item icon URL:', updatedItem.icon ? 'Present' : 'Missing');
+    } else {
+        console.warn('Item not found for update (ID:', targetId, '), available IDs:', GlobalData.items.map(i => String(i.id)));
+        console.warn('Adding as new item instead:', updatedItem.name);
+        GlobalData.items.push(updatedItem);
+    }
+}
+
+/**
+ * Get count of items using a specific assetID
+ * @param {number} assetID - The asset ID to count
+ * @returns {number} Number of items using this asset
+ */
+function getItemAssetUsageCount(assetID) {
+    return GlobalData.items.filter(item => item.assetID === assetID).length;
+}
+
+/**
+ * Get all available item assetIDs
+ * @returns {Array<number>} Array of all available item asset IDs
+ */
+function getAvailableItemAssetIDs() {
+    return GlobalData.items
+        .filter(item => item.assetID > 0)
+        .map(item => item.assetID);
 }
 
 // === IMAGE HANDLING HELPERS ===

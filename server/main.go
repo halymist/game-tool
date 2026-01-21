@@ -70,7 +70,7 @@ func init() {
 		DB_PORT = "5432"
 	}
 	if DB_NAME == "" {
-		DB_NAME = "game"
+		DB_NAME = "game_server_2"
 	}
 	if DB_USER == "" {
 		DB_USER = "postgres"
@@ -153,6 +153,14 @@ func init() {
 			db = nil
 		} else {
 			log.Printf("SUCCESS: Connected to PostgreSQL database!")
+
+			// Set search_path to game schema
+			_, schemaErr := db.Exec(`SET search_path TO game, public`)
+			if schemaErr != nil {
+				log.Printf("WARNING: Failed to set search_path to game schema: %v", schemaErr)
+			} else {
+				log.Printf("SUCCESS: Set search_path to game schema")
+			}
 		}
 	}
 }
@@ -162,23 +170,30 @@ func main() {
 	http.HandleFunc("/login", corsHandler(handleLogin))
 	http.HandleFunc("/dashboard", corsHandler(handleDashboard))
 	http.HandleFunc("/static/", corsHandler(handleStatic))
-	// Enemy designer endpoints (now in enemy.go)
-	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
-	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
-	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
 
-	// Perk designer endpoints (now in perk.go)
+	// Read-only endpoints (game schema)
+	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
+	http.HandleFunc("/api/getItems", corsHandler(handleGetItems))
 	http.HandleFunc("/api/getPerks", corsHandler(getPerksHandler))
+
+	// Item endpoints (uses tooling schema)
+	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
+
+	// Enemy endpoints - temporarily disabled for refactor
+	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
+	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
 	fmt.Println("  GET /dashboard - Dashboard")
 	fmt.Println("  GET /static/ - Static files (CSS/JS public, others protected)")
-	fmt.Println("  POST /api/createEnemy - Create new enemy (authenticated)")
-	fmt.Println("  GET /api/getEnemies - Get enemies and effects (authenticated)")
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
+	fmt.Println("  GET /api/getItems - Get all items (authenticated)")
+	fmt.Println("  POST /api/createItem - Create/update item (authenticated)")
 	fmt.Println("  GET /api/getPerks - Get perks and effects (authenticated)")
+	fmt.Println("  GET /api/getEnemies - Get enemies (temporarily read-only)")
+	fmt.Println("  NOTE: createEnemy endpoint disabled during refactor")
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
