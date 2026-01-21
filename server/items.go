@@ -162,7 +162,7 @@ func getAllItems() ([]Item, error) {
 			min_damage,
 			max_damage,
 			version
-		FROM items 
+		FROM game.items 
 		ORDER BY item_id
 	`
 

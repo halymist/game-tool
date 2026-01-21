@@ -61,20 +61,37 @@ const Item = {
 
 // === GLOBAL DATA LOADING FUNCTIONS ===
 
+// Track loading state to prevent duplicate requests
+let effectsLoadingPromise = null;
+
 /**
- * Load all effects data from the server
+ * Load all effects data from the server (loads only once, returns cached data)
  * @returns {Promise<Array>} Promise that resolves to array of effects
  */
 async function loadEffectsData() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load effects data');
-            throw new Error('Authentication required');
-        }
+    // If effects are already loaded, return them immediately
+    if (GlobalData.effects.length > 0) {
+        console.log('✅ Effects already loaded, using cached data:', GlobalData.effects.length, 'effects');
+        return GlobalData.effects;
+    }
+    
+    // If already loading, wait for that request to finish
+    if (effectsLoadingPromise) {
+        console.log('Effects already loading, waiting for existing request...');
+        return effectsLoadingPromise;
+    }
+    
+    // Start new loading request
+    effectsLoadingPromise = (async () => {
+        try {
+            // Get current access token
+            const token = await getCurrentAccessToken();
+            if (!token) {
+                console.error('Authentication required to load effects data');
+                throw new Error('Authentication required');
+            }
 
-        console.log('Loading effects data from server...');
+            console.log('Loading effects data from server...');
 
         const response = await fetch('http://localhost:8080/api/getEffects', {
             method: 'GET',
@@ -84,22 +101,27 @@ async function loadEffectsData() {
             }
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            GlobalData.effects = data.effects || [];
-            console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
-            return GlobalData.effects;
-            
-        } else {
-            const error = await response.text();
-            console.error('Failed to load effects data:', error);
-            throw new Error(`Server error: ${error}`);
-        }
+            if (response.ok) {
+                const data = await response.json();
+                GlobalData.effects = data.effects || [];
+                console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
+                return GlobalData.effects;
+                
+            } else {
+                const error = await response.text();
+                console.error('Failed to load effects data:', error);
+                throw new Error(`Server error: ${error}`);
+            }
 
-    } catch (error) {
-        console.error('Error loading effects data:', error);
-        throw error;
-    }
+        } catch (error) {
+            console.error('Error loading effects data:', error);
+            throw error;
+        } finally {
+            effectsLoadingPromise = null;
+        }
+    })();
+    
+    return effectsLoadingPromise;
 }
 
 /**

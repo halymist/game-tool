@@ -109,7 +109,7 @@ func getAllEffects() ([]Effect, error) {
 		return nil, fmt.Errorf("database not available")
 	}
 
-	query := `SELECT effect_id, name, slot, factor, description FROM effects ORDER BY effect_id`
+	query := `SELECT effect_id, name, slot, factor, description FROM game.effects ORDER BY effect_id`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying effects: %v", err)
