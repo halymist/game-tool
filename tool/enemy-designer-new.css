@@ -343,34 +343,46 @@
 /* Stats Section */
 .enemy-stats-section {
     flex: 1;
+    background: rgba(60, 40, 30, 0.5);
+    border: 1px solid #8b4513;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.enemy-stats-section-title {
+    color: #d4af37;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #8b4513;
 }
 
 .enemy-stats-grid {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 0.75rem;
 }
 
 .enemy-stats-grid .stat-group {
     display: flex;
     flex-direction: column;
-    align-items: center;
     gap: 0.25rem;
 }
 
 .enemy-stats-grid .stat-group label {
-    color: #b8860b;
-    font-size: 0.75rem;
-    font-weight: bold;
+    color: #d4af37;
+    font-size: 0.85rem;
+    font-weight: 500;
 }
 
 .enemy-stats-grid .stat-group input {
-    width: 60px;
-    padding: 0.4rem;
-    background: rgba(40, 25, 15, 0.9);
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(100, 60, 30, 0.8);
     border: 1px solid #8b4513;
     border-radius: 5px;
-    color: #f5deb3;
+    color: #d4af37;
     text-align: center;
     font-size: 0.9rem;
 }
@@ -387,6 +399,7 @@
 
 .damage-range input {
     width: 45px !important;
+    flex: 1;
 }
 
 .damage-range span {
@@ -418,15 +431,19 @@
 
 /* Talent Tree Section */
 .enemy-talent-section {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
 }
 
 .enemy-talent-section h3 {
     color: #f5deb3;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    text-align: center;
 }
 
 .talent-hint {
@@ -437,17 +454,20 @@
 
 .talent-tree-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(7, 70px);
+    gap: 10px;
     background: rgba(20, 15, 10, 0.8);
     border: 2px solid #5d3a1a;
     border-radius: 10px;
-    padding: 1rem;
+    padding: 1.25rem;
+    justify-content: center;
+    width: fit-content;
+    margin: 0 auto;
 }
 
 .talent-cell {
-    aspect-ratio: 1;
-    min-height: 50px;
+    width: 70px;
+    height: 70px;
     background: rgba(40, 25, 15, 0.6);
     border: 2px solid #5d3a1a;
     border-radius: 8px;
@@ -773,4 +793,156 @@
 .approve-checkbox span {
     font-size: 0.8rem;
     color: #b8860b;
+}
+
+/* Talent Upgrade Modal */
+.talent-upgrade-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.talent-upgrade-content {
+    background: linear-gradient(135deg, rgba(40, 25, 15, 0.98) 0%, rgba(30, 20, 15, 0.98) 100%);
+    border: 2px solid #8b4513;
+    border-radius: 12px;
+    padding: 0;
+    min-width: 320px;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.talent-upgrade-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(139, 69, 19, 0.5);
+    background: rgba(139, 69, 19, 0.2);
+    border-radius: 10px 10px 0 0;
+}
+
+.talent-upgrade-header h3 {
+    color: #ffd700;
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.talent-upgrade-header .btn-close {
+    background: transparent;
+    border: none;
+    color: #b8860b;
+    font-size: 1.25rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.talent-upgrade-header .btn-close:hover {
+    color: #ffa500;
+}
+
+.talent-upgrade-body {
+    padding: 1.25rem;
+}
+
+.talent-upgrade-points {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: #f5deb3;
+}
+
+.talent-upgrade-points .current {
+    color: #ffa500;
+    font-weight: bold;
+}
+
+.talent-upgrade-points .max {
+    color: #b8860b;
+}
+
+.talent-upgrade-desc {
+    color: #d4c4a8;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0 0 0.75rem 0;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid rgba(139, 69, 19, 0.3);
+}
+
+.talent-perk-note {
+    color: #ffd700;
+    text-align: center;
+    font-size: 0.85rem;
+    margin: 0;
+    padding: 0.5rem;
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.talent-upgrade-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(139, 69, 19, 0.5);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 10px 10px;
+}
+
+.talent-upgrade-actions .btn-upgrade {
+    padding: 0.6rem 1.25rem;
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border: 1px solid #4caf50;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.talent-upgrade-actions .btn-upgrade:hover {
+    background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
+}
+
+.talent-upgrade-actions .btn-downgrade {
+    padding: 0.6rem 1.25rem;
+    background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%);
+    border: 1px solid #ef5350;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.talent-upgrade-actions .btn-downgrade:hover {
+    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    box-shadow: 0 2px 8px rgba(239, 83, 80, 0.4);
+}
+
+.talent-upgrade-actions .maxed-text {
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1rem;
+    padding: 0.6rem 1.25rem;
+    background: rgba(255, 215, 0, 0.15);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    border-radius: 6px;
 }

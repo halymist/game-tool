@@ -456,3 +456,26 @@ input[list]:focus {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(135deg, #a0522d 0%, #b8651f 100%);
 }
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+/* Generic Asset Gallery Overlay */
+.asset-gallery-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.asset-gallery-overlay.hidden {
+    display: none !important;
+}

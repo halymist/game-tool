@@ -379,7 +379,7 @@ func handleToggleApproveEnemy(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Toggle approve enemy: toolingId=%d", req.ToolingID)
 
-	_, err := db.Exec("SELECT tooling.approve_enemy($1, $2)", req.ToolingID, req.Approved)
+	_, err := db.Exec("SELECT tooling.approve_enemy($1)", req.ToolingID)
 	if err != nil {
 		log.Printf("Error toggling enemy approval: %v", err)
 		json.NewEncoder(w).Encode(ToolingResponse{Success: false, Message: err.Error()})

@@ -201,29 +201,30 @@
 
                             <!-- Stats -->
                             <div class="enemy-stats-section">
+                                <div class="enemy-stats-section-title">Stats</div>
                                 <div class="enemy-stats-grid">
                                     <div class="stat-group">
-                                        <label>STR</label>
+                                        <label>Strength</label>
                                         <input type="number" id="enemyStrength" min="0" max="999" value="0">
                                     </div>
                                     <div class="stat-group">
-                                        <label>STA</label>
+                                        <label>Stamina</label>
                                         <input type="number" id="enemyStamina" min="0" max="999" value="0">
                                     </div>
                                     <div class="stat-group">
-                                        <label>AGI</label>
+                                        <label>Agility</label>
                                         <input type="number" id="enemyAgility" min="0" max="999" value="0">
                                     </div>
                                     <div class="stat-group">
-                                        <label>LCK</label>
+                                        <label>Luck</label>
                                         <input type="number" id="enemyLuck" min="0" max="999" value="0">
                                     </div>
                                     <div class="stat-group">
-                                        <label>ARM</label>
+                                        <label>Armor</label>
                                         <input type="number" id="enemyArmor" min="0" max="999" value="0">
                                     </div>
-                                    <div class="stat-group damage-stat">
-                                        <label>DMG</label>
+                                    <div class="stat-group">
+                                        <label>Damage</label>
                                         <div class="damage-range">
                                             <input type="number" id="enemyMinDamage" min="0" max="999" value="0" placeholder="Min">
                                             <span>-</span>
@@ -238,14 +239,14 @@
                         <div class="enemy-form-row">
                             <div class="enemy-description-section">
                                 <label for="enemyDescription">Description</label>
-                                <textarea id="enemyDescription" rows="3" placeholder="Enemy description..."></textarea>
+                                <textarea id="enemyDescription" rows="2" placeholder="Enemy description..."></textarea>
                             </div>
                         </div>
 
                         <!-- Talent Tree -->
                         <div class="enemy-form-row">
                             <div class="enemy-talent-section">
-                                <h3>Talent Tree <span class="talent-hint">(Left-click to add, Right-click to remove)</span></h3>
+                                <h3>Talent Tree <span class="talent-hint">(Click to upgrade)</span></h3>
                                 <div id="talentTreeGrid" class="talent-tree-grid">
                                     <!-- 7x8 grid will be populated by JS -->
                                 </div>

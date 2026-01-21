@@ -420,10 +420,10 @@ function buildTalentTreeGrid() {
     const grid = document.getElementById('talentTreeGrid');
     if (!grid) return;
     
-    // Create 7x8 grid
+    // Create 7x8 grid (row 0 at bottom, so iterate from 7 down to 0)
     grid.innerHTML = '';
     
-    for (let row = 0; row < 8; row++) {
+    for (let row = 7; row >= 0; row--) {
         for (let col = 0; col < 7; col++) {
             const cell = document.createElement('div');
             cell.className = 'talent-cell';
@@ -445,7 +445,7 @@ function buildTalentTreeGrid() {
                     ${talent.perkSlot > 0 ? '<div class="perk-indicator">⭐</div>' : ''}
                 `;
                 
-                cell.addEventListener('click', () => handleTalentClick(talent));
+                cell.addEventListener('click', () => showTalentUpgradeModal(talent));
                 cell.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     handleTalentRightClick(talent);
@@ -459,27 +459,101 @@ function buildTalentTreeGrid() {
     }
 }
 
-function handleTalentClick(talent) {
+function showTalentUpgradeModal(talent) {
     if (isViewingPendingEnemy) return;
     
     const current = assignedTalents.get(talent.talentId) || { points: 0, talentOrder: 0, perkId: null };
+    const canUpgrade = current.points < talent.maxPoints;
+    
+    // Build description text with factor
+    let descText = talent.description || 'No description';
+    if (talent.factor) {
+        descText = `${descText} ${talent.factor}%`;
+    }
+    
+    const modal = document.createElement('div');
+    modal.className = 'talent-upgrade-modal';
+    modal.innerHTML = `
+        <div class="talent-upgrade-content">
+            <div class="talent-upgrade-header">
+                <h3>${escapeHtml(talent.talentName)}</h3>
+                <button type="button" class="btn-close" onclick="closeTalentUpgradeModal()">✕</button>
+            </div>
+            <div class="talent-upgrade-body">
+                <div class="talent-upgrade-points">
+                    <span class="current">${current.points}</span> / <span class="max">${talent.maxPoints}</span> points
+                </div>
+                <p class="talent-upgrade-desc">${escapeHtml(descText)}</p>
+                ${talent.perkSlot > 0 ? '<p class="talent-perk-note">⭐ This talent has a perk slot when maxed</p>' : ''}
+            </div>
+            <div class="talent-upgrade-actions">
+                ${canUpgrade ? `<button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})">⬆️ Add Point</button>` : '<span class="maxed-text">MAXED</span>'}
+                ${current.points > 0 ? `<button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">⬇️ Remove Point</button>` : ''}
+            </div>
+        </div>
+    `;
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeTalentUpgradeModal();
+    });
+    
+    document.body.appendChild(modal);
+}
+
+function closeTalentUpgradeModal() {
+    const modal = document.querySelector('.talent-upgrade-modal');
+    if (modal) modal.remove();
+}
+
+function upgradeTalent(talentId) {
+    const talent = allTalents.find(t => t.talentId === talentId);
+    if (!talent) return;
+    
+    const current = assignedTalents.get(talentId) || { points: 0, talentOrder: 0, perkId: null };
     
     if (current.points < talent.maxPoints) {
-        // Add a point
         currentTalentOrder++;
-        assignedTalents.set(talent.talentId, {
+        assignedTalents.set(talentId, {
             points: current.points + 1,
             talentOrder: currentTalentOrder,
             perkId: current.perkId
         });
         
-        updateTalentCellDisplay(talent.talentId);
+        updateTalentCellDisplay(talentId);
+        closeTalentUpgradeModal();
         
         // If max points reached and has perk slot, prompt for perk
         if (current.points + 1 === talent.maxPoints && talent.perkSlot > 0) {
             showPerkSelectionModal(talent);
         }
     }
+}
+
+function downgradeTalent(talentId) {
+    const talent = allTalents.find(t => t.talentId === talentId);
+    if (!talent) return;
+    
+    const current = assignedTalents.get(talentId);
+    if (!current || current.points === 0) return;
+    
+    const newPoints = current.points - 1;
+    if (newPoints === 0) {
+        assignedTalents.delete(talentId);
+    } else {
+        assignedTalents.set(talentId, {
+            points: newPoints,
+            talentOrder: current.talentOrder,
+            perkId: newPoints < talent.maxPoints ? null : current.perkId
+        });
+    }
+    
+    updateTalentCellDisplay(talentId);
+    closeTalentUpgradeModal();
+}
+
+function handleTalentClick(talent) {
+    // Legacy - now handled by showTalentUpgradeModal
+    showTalentUpgradeModal(talent);
 }
 
 function handleTalentRightClick(talent) {
@@ -806,10 +880,13 @@ async function handleEnemyIconUpload(file) {
     }
     
     try {
-        const { blob, dataUrl } = await DesignerBase.convertImageToWebP(file, 256, 0.85);
-        const base64 = await DesignerBase.blobToBase64(blob);
+        // Use global functions from global-data.js
+        const webpBlob = await convertImageToWebP(file, 256, 256, 0.85);
+        const base64 = await blobToBase64(webpBlob);
         
-        const newAssetId = DesignerBase.getNextAssetID(enemyAssets);
+        // Calculate next asset ID
+        const maxId = enemyAssets.reduce((max, a) => Math.max(max, a.assetID || 0), 0);
+        const newAssetId = maxId + 1;
         
         const token = await getCurrentAccessToken();
         const response = await fetch('http://localhost:8080/api/uploadEnemyAsset', {
