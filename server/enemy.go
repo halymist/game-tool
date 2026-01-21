@@ -6,8 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	"github.com/lib/pq"
+	"strings"
 )
 
 // ==================== TYPES ====================
@@ -300,40 +299,61 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 		action = "update"
 	}
 
-	// Build talents array for PostgreSQL
-	var talentsArray interface{}
+	// Build talents array for PostgreSQL as a properly formatted string
+	var talentsArrayStr *string
 	if len(req.Talents) > 0 {
-		// Convert talents to PostgreSQL array format
-		talentStrings := make([]string, len(req.Talents))
+		// Convert talents to PostgreSQL array of composite type format
+		// Format: ARRAY[ROW(talent_id, talent_order, perk_id), ...]::game.talent_input[]
+		talentParts := make([]string, len(req.Talents))
 		for i, t := range req.Talents {
-			perkIdStr := "NULL"
 			if t.PerkID != nil {
-				perkIdStr = fmt.Sprintf("%d", *t.PerkID)
+				talentParts[i] = fmt.Sprintf("ROW(%d,%d,%d)", t.TalentID, t.TalentOrder, *t.PerkID)
+			} else {
+				talentParts[i] = fmt.Sprintf("ROW(%d,%d,NULL)", t.TalentID, t.TalentOrder)
 			}
-			talentStrings[i] = fmt.Sprintf("(%d,%d,%s)", t.TalentID, t.TalentOrder, perkIdStr)
 		}
-		talentsArray = pq.Array(talentStrings)
+		arrayStr := "ARRAY[" + strings.Join(talentParts, ",") + "]::game.talent_input[]"
+		talentsArrayStr = &arrayStr
 	}
 
 	// Call tooling.create_enemy stored procedure
 	var toolingID int
-	query := `SELECT tooling.create_enemy($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::game.talent_input[])`
+	var query string
 
-	err = db.QueryRow(query,
-		req.GameID,
-		action,
-		req.EnemyName,
-		req.Strength,
-		req.Stamina,
-		req.Agility,
-		req.Luck,
-		req.Armor,
-		req.MinDamage,
-		req.MaxDamage,
-		req.AssetID,
-		req.Description,
-		talentsArray,
-	).Scan(&toolingID)
+	if talentsArrayStr != nil {
+		// Use a query that embeds the talents array directly (since it's a complex type)
+		query = fmt.Sprintf(`SELECT tooling.create_enemy($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, %s)`, *talentsArrayStr)
+		err = db.QueryRow(query,
+			req.GameID,
+			action,
+			req.EnemyName,
+			req.Strength,
+			req.Stamina,
+			req.Agility,
+			req.Luck,
+			req.Armor,
+			req.MinDamage,
+			req.MaxDamage,
+			req.AssetID,
+			req.Description,
+		).Scan(&toolingID)
+	} else {
+		query = `SELECT tooling.create_enemy($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL)`
+		err = db.QueryRow(query,
+			req.GameID,
+			action,
+			req.EnemyName,
+			req.Strength,
+			req.Stamina,
+			req.Agility,
+			req.Luck,
+			req.Armor,
+			req.MinDamage,
+			req.MaxDamage,
+			req.AssetID,
+			req.Description,
+		).Scan(&toolingID)
+	}
 
 	if err != nil {
 		log.Printf("Error creating enemy: %v", err)
