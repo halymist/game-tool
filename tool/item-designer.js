@@ -228,11 +228,18 @@ function renderPendingItemList() {
             </div>
             <div class="pending-item-footer">
                 <span class="item-type">${item.type || 'Unknown'}</span>
-                <label class="approve-checkbox" onclick="event.stopPropagation()">
-                    <input type="checkbox" ${item.approved ? 'checked' : ''} 
-                           onchange="toggleApproval(${item.toolingId}, this.checked)">
-                    <span>Approve</span>
-                </label>
+                <div class="pending-item-actions" onclick="event.stopPropagation()">
+                    <label class="approve-checkbox">
+                        <input type="checkbox" ${item.approved ? 'checked' : ''} 
+                               onchange="toggleApproval(${item.toolingId}, this.checked)">
+                        <span>Approve</span>
+                    </label>
+                    <button class="btn-remove-pending" onclick="removePendingItem(${item.toolingId})" title="Remove pending item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     `).join('');
@@ -295,6 +302,55 @@ async function toggleApproval(toolingId, approved) {
     } catch (error) {
         console.error('Error toggling approval:', error);
         alert('Error toggling approval: ' + error.message);
+    }
+}
+
+async function removePendingItem(toolingId) {
+    const item = allPendingItems.find(i => i.toolingId === toolingId);
+    const itemName = item ? item.name : `ID ${toolingId}`;
+    
+    if (!confirm(`Remove pending item "${itemName}"? This cannot be undone.`)) {
+        return;
+    }
+    
+    console.log(`Removing pending item: ${toolingId}`);
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/removePendingItem', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ toolingId: toolingId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Pending item removed successfully');
+            // Remove from local state
+            allPendingItems = allPendingItems.filter(i => i.toolingId !== toolingId);
+            filteredPendingItems = filteredPendingItems.filter(i => i.toolingId !== toolingId);
+            
+            // Clear form if this item was selected
+            if (selectedItemId === toolingId && isViewingPendingItem) {
+                clearItemForm();
+            }
+            
+            renderPendingItemList();
+        } else {
+            alert('Error removing pending item: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error removing pending item:', error);
+        alert('Error removing pending item: ' + error.message);
     }
 }
 

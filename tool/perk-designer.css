@@ -477,6 +477,36 @@ input[type="number"] {
     border-top: 1px solid rgba(139, 69, 19, 0.5);
 }
 
+.pending-perk-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pending-perk-footer .btn-remove-pending {
+    background: transparent;
+    border: 1px solid rgba(255, 87, 87, 0.5);
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    color: #ff5757;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pending-perk-footer .btn-remove-pending svg {
+    width: 14px;
+    height: 14px;
+}
+
+.pending-perk-footer .btn-remove-pending:hover {
+    background: rgba(255, 87, 87, 0.2);
+    border-color: #ff5757;
+    color: #ff7777;
+}
+
 /* Locked form state */
 #perkForm.form-locked::before {
     content: '🔒 Read Only - Pending Approval';

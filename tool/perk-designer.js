@@ -238,11 +238,18 @@ function renderPendingPerkList() {
                 <span class="perk-action ${perk.action}">${perk.action}</span>
             </div>
             <div class="pending-perk-footer">
-                <label class="approve-checkbox" onclick="event.stopPropagation()">
-                    <input type="checkbox" ${perk.approved ? 'checked' : ''} 
-                           onchange="togglePerkApproval(${perk.toolingId}, this.checked)">
-                    <span>Approve</span>
-                </label>
+                <div class="pending-perk-actions" onclick="event.stopPropagation()">
+                    <label class="approve-checkbox">
+                        <input type="checkbox" ${perk.approved ? 'checked' : ''} 
+                               onchange="togglePerkApproval(${perk.toolingId}, this.checked)">
+                        <span>Approve</span>
+                    </label>
+                    <button class="btn-remove-pending" onclick="removePendingPerk(${perk.toolingId})" title="Remove pending perk">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     `).join('');
@@ -538,6 +545,55 @@ async function togglePerkApproval(toolingId, approved) {
     } catch (error) {
         console.error('Error toggling perk approval:', error);
         alert('Error toggling approval: ' + error.message);
+    }
+}
+
+async function removePendingPerk(toolingId) {
+    const perk = allPendingPerks.find(p => p.toolingId === toolingId);
+    const perkName = perk ? perk.name : `ID ${toolingId}`;
+    
+    if (!confirm(`Remove pending perk "${perkName}"? This cannot be undone.`)) {
+        return;
+    }
+    
+    console.log(`Removing pending perk: ${toolingId}`);
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/removePendingPerk', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ toolingId: toolingId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Pending perk removed successfully');
+            // Remove from local state
+            allPendingPerks = allPendingPerks.filter(p => p.toolingId !== toolingId);
+            filteredPendingPerks = filteredPendingPerks.filter(p => p.toolingId !== toolingId);
+            
+            // Clear form if this perk was selected
+            if (selectedPerkId === toolingId && isViewingPendingPerk) {
+                clearPerkForm();
+            }
+            
+            renderPendingPerkList();
+        } else {
+            alert('Error removing pending perk: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error removing pending perk:', error);
+        alert('Error removing pending perk: ' + error.message);
     }
 }
 

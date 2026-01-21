@@ -182,6 +182,7 @@ func main() {
 	http.HandleFunc("/api/mergeItems", corsHandler(handleMergeItems))
 	http.HandleFunc("/api/getItemAssets", corsHandler(handleGetItemAssets))
 	http.HandleFunc("/api/uploadItemAsset", corsHandler(handleUploadItemAsset))
+	http.HandleFunc("/api/removePendingItem", corsHandler(CreateRemovePendingHandler("tooling.remove_item_pending", "item")))
 
 	// Perk endpoints (uses tooling schema)
 	http.HandleFunc("/api/createPerk", corsHandler(handleCreatePerk))
@@ -189,6 +190,7 @@ func main() {
 	http.HandleFunc("/api/mergePerks", corsHandler(handleMergePerks))
 	http.HandleFunc("/api/getPerkAssets", corsHandler(handleGetPerkAssets))
 	http.HandleFunc("/api/uploadPerkAsset", corsHandler(handleUploadPerkAsset))
+	http.HandleFunc("/api/removePendingPerk", corsHandler(CreateRemovePendingHandler("tooling.remove_perk_pending", "perk")))
 
 	// Enemy endpoints - temporarily disabled for refactor
 	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))

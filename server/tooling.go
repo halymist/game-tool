@@ -406,3 +406,74 @@ func GeneratePublicURL(folder string, assetID int) string {
 	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/%s/%d.webp",
 		S3_BUCKET_NAME, S3_REGION, folder, assetID)
 }
+
+// ==================== REMOVE PENDING HANDLER ====================
+
+// RemovePendingRequest is the request body for removing a pending item
+type RemovePendingRequest struct {
+	ToolingID int `json:"toolingId"`
+}
+
+// CreateRemovePendingHandler creates a handler for removing pending items
+// functionName should be the stored procedure name (e.g., "tooling.remove_item_pending")
+func CreateRemovePendingHandler(functionName string, entityName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("=== REMOVE PENDING %s REQUEST (using %s) ===", strings.ToUpper(entityName), functionName)
+
+		if !isAuthenticated(r) {
+			log.Println("Unauthorized request")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Content-Type", "application/json")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req RemovePendingRequest
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Error reading request body: %v", err)
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+
+		if err := json.Unmarshal(body, &req); err != nil {
+			log.Printf("Error parsing request JSON: %v", err)
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		log.Printf("Remove pending %s: toolingId=%d", entityName, req.ToolingID)
+
+		// Call the stored procedure
+		query := fmt.Sprintf("SELECT %s($1)", functionName)
+		_, err = db.Exec(query, req.ToolingID)
+		if err != nil {
+			log.Printf("Error removing pending %s: %v", entityName, err)
+			json.NewEncoder(w).Encode(ToolingResponse{
+				Success: false,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(ToolingResponse{
+			Success: true,
+			Message: fmt.Sprintf("Pending %s removed successfully", entityName),
+		})
+
+		log.Printf("✅ REMOVE PENDING %s RESPONSE SENT", strings.ToUpper(entityName))
+	}
+}

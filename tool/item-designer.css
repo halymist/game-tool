@@ -715,6 +715,36 @@ textarea {
     border-top: 1px solid rgba(139, 69, 19, 0.5);
 }
 
+.pending-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.btn-remove-pending {
+    background: transparent;
+    border: 1px solid rgba(255, 87, 87, 0.5);
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    color: #ff5757;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove-pending svg {
+    width: 14px;
+    height: 14px;
+}
+
+.btn-remove-pending:hover {
+    background: rgba(255, 87, 87, 0.2);
+    border-color: #ff5757;
+    color: #ff7777;
+}
+
 .approve-checkbox {
     display: flex;
     align-items: center;
