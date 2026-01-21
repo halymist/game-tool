@@ -572,3 +572,61 @@ func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("✅ TOGGLE APPROVE RESPONSE SENT")
 }
+
+// handleMergeItems handles POST requests to merge approved items into game.items
+func handleMergeItems(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== MERGE ITEMS REQUEST ===")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request to merge items")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Set headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if db == nil {
+		log.Printf("Database not available")
+		http.Error(w, "Database not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Call tooling.merge_items function
+	_, err := db.Exec(`SELECT tooling.merge_items()`)
+	if err != nil {
+		log.Printf("Error calling tooling.merge_items: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to merge items: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ Items merged successfully")
+
+	// Return success response
+	response := map[string]interface{}{
+		"success": true,
+		"message": "Approved items merged successfully",
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ MERGE ITEMS RESPONSE SENT")
+}

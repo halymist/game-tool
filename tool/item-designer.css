@@ -153,6 +153,23 @@ input[type="number"] {
     box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
 }
 
+#mergeItemsBtn, .btn-merge {
+    flex: 1;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
+    border: 1px solid #42a5f5;
+    border-radius: 5px;
+    color: #90caf9;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#mergeItemsBtn:hover, .btn-merge:hover {
+    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    box-shadow: 0 0 15px rgba(66, 165, 245, 0.4);
+}
+
 .loading-text {
     color: #8b4513;
     text-align: center;

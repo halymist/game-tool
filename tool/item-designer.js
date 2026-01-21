@@ -67,6 +67,12 @@ function setupEventListeners() {
         newItemBtn.addEventListener('click', createNewItem);
     }
     
+    // Merge items button
+    const mergeItemsBtn = document.getElementById('mergeItemsBtn');
+    if (mergeItemsBtn) {
+        mergeItemsBtn.addEventListener('click', mergeApprovedItems);
+    }
+    
     // Cancel button
     const cancelBtn = document.getElementById('itemCancelBtn');
     if (cancelBtn) {
@@ -216,6 +222,51 @@ async function toggleApproval(toolingId, approved) {
     }
 }
 
+async function mergeApprovedItems() {
+    // Check if there are any approved items
+    const approvedCount = allPendingItems.filter(i => i.approved).length;
+    
+    if (approvedCount === 0) {
+        alert('No approved items to merge. Please approve items first.');
+        return;
+    }
+    
+    if (!confirm(`Merge ${approvedCount} approved item(s) into the game database?`)) {
+        return;
+    }
+    
+    console.log('Merging approved items...');
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/mergeItems', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Items merged successfully!');
+            // Reload data to reflect changes
+            await loadItemsAndEffects();
+        } else {
+            alert('Error merging items: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error merging items:', error);
+        alert('Error merging items: ' + error.message);
+    }
+}
+
 function switchTab(tab) {
     activeTab = tab;
     
@@ -230,6 +281,12 @@ function switchTab(tab) {
     const pendingList = document.getElementById('pendingItemList');
     if (itemList) itemList.style.display = tab === 'game' ? 'block' : 'none';
     if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
+    
+    // Show/hide buttons based on tab
+    const newItemBtn = document.getElementById('newItemBtn');
+    const mergeItemsBtn = document.getElementById('mergeItemsBtn');
+    if (newItemBtn) newItemBtn.style.display = tab === 'game' ? 'block' : 'none';
+    if (mergeItemsBtn) mergeItemsBtn.style.display = tab === 'pending' ? 'block' : 'none';
     
     // Clear selection when switching tabs
     selectedItemId = null;

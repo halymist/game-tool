@@ -179,6 +179,7 @@ func main() {
 	// Item endpoints (uses tooling schema)
 	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
 	http.HandleFunc("/api/toggleApproveItem", corsHandler(handleToggleApproveItem))
+	http.HandleFunc("/api/mergeItems", corsHandler(handleMergeItems))
 
 	// Enemy endpoints - temporarily disabled for refactor
 	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
