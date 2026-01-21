@@ -11,8 +11,12 @@ const WEAPON_TYPES = ['weapon', 'hammer'];
 
 // Current state
 let allItems = [];
+let allPendingItems = [];
 let filteredItems = [];
+let filteredPendingItems = [];
 let selectedItemId = null;
+let activeTab = 'game'; // 'game' or 'pending'
+let isViewingPendingItem = false; // Whether form is showing a pending item (read-only)
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -35,6 +39,16 @@ function initItemDesigner() {
 }
 
 function setupEventListeners() {
+    // Tab buttons
+    const gameTab = document.getElementById('gameItemsTab');
+    const pendingTab = document.getElementById('pendingItemsTab');
+    if (gameTab) {
+        gameTab.addEventListener('click', () => switchTab('game'));
+    }
+    if (pendingTab) {
+        pendingTab.addEventListener('click', () => switchTab('pending'));
+    }
+    
     // Search input
     const searchInput = document.getElementById('itemSearch');
     if (searchInput) {
@@ -80,13 +94,16 @@ async function loadItemsAndEffects() {
         await loadEffectsData();
         populateEffectDropdown();
         
-        // Then load items
+        // Then load items (this also loads pending items)
         await loadItemsData();
         allItems = getItems();
+        allPendingItems = getPendingItems();
         filteredItems = [...allItems];
+        filteredPendingItems = [...allPendingItems];
         
         renderItemList();
-        console.log('✅ Items data loaded:', allItems.length, 'items');
+        renderPendingItemList();
+        console.log('✅ Items data loaded:', allItems.length, 'items,', allPendingItems.length, 'pending');
         
     } catch (error) {
         console.error('Error loading items data:', error);
@@ -103,10 +120,38 @@ function renderItemList() {
     }
     
     itemList.innerHTML = filteredItems.map(item => `
-        <div class="item-list-item ${item.id === selectedItemId ? 'selected' : ''}" 
+        <div class="item-list-item ${item.id === selectedItemId && activeTab === 'game' ? 'selected' : ''}" 
              data-id="${item.id}" onclick="selectItem(${item.id})">
             <div class="item-name">${escapeHtml(item.name)}</div>
             <div class="item-type">${item.type || 'Unknown'}</div>
+        </div>
+    `).join('');
+}
+
+function renderPendingItemList() {
+    const pendingList = document.getElementById('pendingItemList');
+    if (!pendingList) return;
+    
+    if (filteredPendingItems.length === 0) {
+        pendingList.innerHTML = '<p class="loading-text">No pending items</p>';
+        return;
+    }
+    
+    pendingList.innerHTML = filteredPendingItems.map(item => `
+        <div class="item-list-item pending-item ${item.toolingId === selectedItemId && activeTab === 'pending' ? 'selected' : ''}" 
+             data-id="${item.toolingId}" onclick="selectPendingItem(${item.toolingId})">
+            <div class="pending-item-header">
+                <span class="item-name">${escapeHtml(item.name)}</span>
+                <span class="item-action ${item.action}">${item.action}</span>
+            </div>
+            <div class="pending-item-footer">
+                <span class="item-type">${item.type || 'Unknown'}</span>
+                <label class="approve-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" ${item.approved ? 'checked' : ''} 
+                           onchange="toggleApproval(${item.toolingId}, this.checked)">
+                    <span>Approve</span>
+                </label>
+            </div>
         </div>
     `).join('');
 }
@@ -121,19 +166,157 @@ function filterItems() {
         return matchesSearch && matchesType;
     });
     
+    filteredPendingItems = allPendingItems.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchTerm);
+        const matchesType = !typeFilter || item.type === typeFilter;
+        return matchesSearch && matchesType;
+    });
+    
     renderItemList();
+    renderPendingItemList();
+}
+
+async function toggleApproval(toolingId, approved) {
+    console.log(`Toggling approval for tooling_id: ${toolingId}`);
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+        
+        const response = await fetch('http://localhost:8080/api/toggleApproveItem', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ toolingId: toolingId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Approval toggled successfully');
+            // Update local state
+            const item = allPendingItems.find(i => i.toolingId === toolingId);
+            if (item) {
+                item.approved = !item.approved;
+            }
+        } else {
+            alert('Error toggling approval: ' + (result.message || 'Unknown error'));
+            // Revert checkbox
+            const checkbox = document.querySelector(`input[onchange*="toggleApproval(${toolingId}"]`);
+            if (checkbox) checkbox.checked = !approved;
+        }
+    } catch (error) {
+        console.error('Error toggling approval:', error);
+        alert('Error toggling approval: ' + error.message);
+    }
+}
+
+function switchTab(tab) {
+    activeTab = tab;
+    
+    // Update tab buttons
+    const gameTab = document.getElementById('gameItemsTab');
+    const pendingTab = document.getElementById('pendingItemsTab');
+    if (gameTab) gameTab.classList.toggle('active', tab === 'game');
+    if (pendingTab) pendingTab.classList.toggle('active', tab === 'pending');
+    
+    // Show/hide lists
+    const itemList = document.getElementById('itemList');
+    const pendingList = document.getElementById('pendingItemList');
+    if (itemList) itemList.style.display = tab === 'game' ? 'block' : 'none';
+    if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
+    
+    // Clear selection when switching tabs
+    selectedItemId = null;
+    isViewingPendingItem = false;
+    setFormLocked(false);
+    clearForm();
+    document.getElementById('itemEditorTitle').textContent = 'Create New Item';
 }
 
 function selectItem(itemId) {
+    activeTab = 'game';
     selectedItemId = itemId;
+    isViewingPendingItem = false;
     const item = allItems.find(i => i.id === itemId);
     
     if (item) {
         populateForm(item);
+        setFormLocked(false);
         document.getElementById('itemEditorTitle').textContent = 'Edit Item';
     }
     
     renderItemList();
+    renderPendingItemList();
+}
+
+function selectPendingItem(toolingId) {
+    activeTab = 'pending';
+    selectedItemId = toolingId;
+    isViewingPendingItem = true;
+    const item = allPendingItems.find(i => i.toolingId === toolingId);
+    
+    if (item) {
+        populateFormFromPending(item);
+        setFormLocked(true);
+        document.getElementById('itemEditorTitle').textContent = `Pending: ${item.action.toUpperCase()}`;
+    }
+    
+    renderItemList();
+    renderPendingItemList();
+}
+
+function populateFormFromPending(item) {
+    // Pending items have same structure as regular items
+    document.getElementById('itemId').value = item.gameId || '';
+    document.getElementById('itemName').value = item.name || '';
+    document.getElementById('itemType').value = item.type || '';
+    document.getElementById('itemAssetID').value = item.assetID || 1;
+    document.getElementById('itemSilver').value = item.silver || 10;
+    
+    // Stats
+    document.getElementById('itemStrength').value = item.strength || '';
+    document.getElementById('itemStamina').value = item.stamina || '';
+    document.getElementById('itemAgility').value = item.agility || '';
+    document.getElementById('itemLuck').value = item.luck || '';
+    document.getElementById('itemArmor').value = item.armor || '';
+    document.getElementById('itemSocket').checked = item.socket || false;
+    
+    // Weapon stats
+    document.getElementById('itemMinDamage').value = item.minDamage || '';
+    document.getElementById('itemMaxDamage').value = item.maxDamage || '';
+    
+    // Effect
+    document.getElementById('itemEffect').value = item.effectID || '';
+    document.getElementById('itemEffectFactor').value = item.effectFactor || '';
+    
+    // Toggle weapon stats visibility
+    toggleWeaponStats();
+}
+
+function setFormLocked(locked) {
+    const form = document.getElementById('itemForm');
+    if (!form) return;
+    
+    // Get all inputs, selects, textareas in the form
+    const inputs = form.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.disabled = locked;
+    });
+    
+    // Hide/show save button
+    const saveBtn = form.querySelector('.btn-save-item');
+    if (saveBtn) {
+        saveBtn.style.display = locked ? 'none' : 'block';
+    }
+    
+    // Update form visual state
+    form.classList.toggle('form-locked', locked);
 }
 
 function populateForm(item) {
@@ -165,9 +348,12 @@ function populateForm(item) {
 
 function createNewItem() {
     selectedItemId = null;
+    isViewingPendingItem = false;
+    setFormLocked(false);
     clearForm();
     document.getElementById('itemEditorTitle').textContent = 'Create New Item';
     renderItemList();
+    renderPendingItemList();
 }
 
 function clearForm() {
@@ -199,9 +385,12 @@ function clearForm() {
 
 function cancelEdit() {
     selectedItemId = null;
+    isViewingPendingItem = false;
+    setFormLocked(false);
     clearForm();
     document.getElementById('itemEditorTitle').textContent = 'Create New Item';
     renderItemList();
+    renderPendingItemList();
 }
 
 function toggleWeaponStats() {
@@ -215,6 +404,9 @@ function toggleWeaponStats() {
             weaponSection.style.display = 'none';
         }
     }
+    
+    // Also update effect dropdown based on type
+    populateEffectDropdown();
 }
 
 function populateEffectDropdown() {
@@ -222,16 +414,32 @@ function populateEffectDropdown() {
     if (!effectSelect) return;
     
     const effects = getEffects();
-    console.log('Populating item effect dropdown with', effects.length, 'effects');
+    const selectedType = document.getElementById('itemType')?.value || '';
+    
+    // Save current selection
+    const currentValue = effectSelect.value;
+    
+    console.log('Populating item effect dropdown with', effects.length, 'effects for type:', selectedType);
     
     effectSelect.innerHTML = '<option value="">-- No Effect --</option>';
     
+    // Filter effects: slot must match item type OR slot is null (applicable to all)
     effects.forEach(effect => {
-        const option = document.createElement('option');
-        option.value = effect.id;
-        option.textContent = effect.name;
-        effectSelect.appendChild(option);
+        // Include effect if:
+        // 1. effect.slot is null/undefined (applies to all item types)
+        // 2. effect.slot matches the selected item type
+        if (!effect.slot || effect.slot === selectedType) {
+            const option = document.createElement('option');
+            option.value = effect.id;
+            option.textContent = effect.name + (effect.slot ? ` (${effect.slot})` : ' (all)');
+            effectSelect.appendChild(option);
+        }
     });
+    
+    // Restore selection if still valid
+    if (currentValue) {
+        effectSelect.value = currentValue;
+    }
 }
 
 async function saveItem(e) {
@@ -314,5 +522,10 @@ function escapeHtml(text) {
 window.itemDesigner = {
     loadItemsAndEffects: loadItemsAndEffects
 };
+
+// Expose functions used in onclick handlers
+window.selectItem = selectItem;
+window.selectPendingItem = selectPendingItem;
+window.toggleApproval = toggleApproval;
 
 console.log('📦 Item Designer script loaded');

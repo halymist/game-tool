@@ -6,7 +6,8 @@ const GlobalData = {
     effects: [],           // Array of all effects from database
     enemies: [],           // Array of all complete enemy data with signed URLs
     perks: [],             // Array of all complete perk data with signed URLs
-    items: []              // Array of all complete item data with signed URLs
+    items: [],             // Array of all complete item data with signed URLs
+    pendingItems: []       // Array of pending items from tooling.items
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -254,16 +255,18 @@ async function loadItemsData() {
             console.log('Success:', data.success);
             console.log('Effects count from items endpoint:', data.effects ? data.effects.length : 0);
             console.log('Items count:', data.items ? data.items.length : 0);
+            console.log('Pending items count:', data.pendingItems ? data.pendingItems.length : 0);
             
             // Store the loaded items data
             GlobalData.items = data.items || [];
+            GlobalData.pendingItems = data.pendingItems || [];
             // Store effects if not already loaded
             if (data.effects && GlobalData.effects.length === 0) {
                 GlobalData.effects = data.effects;
                 console.log('Effects data also loaded from items endpoint');
             }
             
-            console.log('✅ Items data loaded successfully:', GlobalData.items.length, 'items');
+            console.log('✅ Items data loaded successfully:', GlobalData.items.length, 'items,', GlobalData.pendingItems.length, 'pending');
             return GlobalData.items;
             
         } else {
@@ -276,6 +279,14 @@ async function loadItemsData() {
         console.error('Error loading items data:', error);
         throw error;
     }
+}
+
+/**
+ * Get pending items data
+ * @returns {Array} Array of pending items
+ */
+function getPendingItems() {
+    return GlobalData.pendingItems;
 }
 
 // === DATA ACCESS FUNCTIONS ===

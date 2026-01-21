@@ -178,6 +178,7 @@ func main() {
 
 	// Item endpoints (uses tooling schema)
 	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
+	http.HandleFunc("/api/toggleApproveItem", corsHandler(handleToggleApproveItem))
 
 	// Enemy endpoints - temporarily disabled for refactor
 	// http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
@@ -191,6 +192,7 @@ func main() {
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
 	fmt.Println("  GET /api/getItems - Get all items (authenticated)")
 	fmt.Println("  POST /api/createItem - Create/update item (authenticated)")
+	fmt.Println("  POST /api/toggleApproveItem - Toggle item approval (authenticated)")
 	fmt.Println("  GET /api/getPerks - Get perks and effects (authenticated)")
 	fmt.Println("  GET /api/getEnemies - Get enemies (temporarily read-only)")
 	fmt.Println("  NOTE: createEnemy endpoint disabled during refactor")

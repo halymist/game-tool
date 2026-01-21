@@ -323,9 +323,13 @@
         <!-- Item Designer Section -->
         <div id="items-content" class="page-content" style="display: none;">
             <div class="items-designer-container">
-                <!-- Left Sidebar - Item List -->
+                <!-- Left Sidebar - Item Lists -->
                 <div class="item-list-sidebar">
                     <div class="item-list-controls">
+                        <div class="item-tab-toggle">
+                            <button type="button" id="gameItemsTab" class="tab-btn active">🎮 Game Items</button>
+                            <button type="button" id="pendingItemsTab" class="tab-btn">⏳ Pending</button>
+                        </div>
                         <input type="text" id="itemSearch" placeholder="Search items...">
                         <select id="itemTypeFilter">
                             <option value="">All Types</option>
@@ -344,7 +348,13 @@
                             <option value="potion">Potion</option>
                         </select>
                     </div>
-                    <div id="itemList"></div>
+                    
+                    <!-- Item List (shows either game or pending based on tab) -->
+                    <div id="itemListContainer" class="item-list-container">
+                        <div id="itemList"></div>
+                        <div id="pendingItemList" style="display: none;"></div>
+                    </div>
+                    
                     <div class="item-list-buttons">
                         <button type="button" id="newItemBtn">+ New Item</button>
                     </div>

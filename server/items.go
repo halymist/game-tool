@@ -30,12 +30,36 @@ type Item struct {
 	Icon         string `json:"icon,omitempty"` // For signed URL
 }
 
+// PendingItem represents the database structure for pending items (tooling.items)
+type PendingItem struct {
+	ToolingID    int    `json:"toolingId" db:"tooling_id"`
+	GameID       *int   `json:"gameId" db:"game_id"`
+	Action       string `json:"action" db:"action"`
+	Version      int    `json:"version" db:"version"`
+	Name         string `json:"name" db:"item_name"`
+	AssetID      int    `json:"assetID" db:"asset_id"`
+	Type         string `json:"type" db:"type"`
+	Strength     *int   `json:"strength" db:"strength"`
+	Stamina      *int   `json:"stamina" db:"stamina"`
+	Agility      *int   `json:"agility" db:"agility"`
+	Luck         *int   `json:"luck" db:"luck"`
+	Armor        *int   `json:"armor" db:"armor"`
+	EffectID     *int   `json:"effectID" db:"effect_id"`
+	EffectFactor *int   `json:"effectFactor" db:"effect_factor"`
+	Socket       bool   `json:"socket" db:"socket"`
+	Silver       int    `json:"silver" db:"silver"`
+	MinDamage    *int   `json:"minDamage" db:"min_damage"`
+	MaxDamage    *int   `json:"maxDamage" db:"max_damage"`
+	Approved     bool   `json:"approved" db:"approved"`
+}
+
 // ItemsResponse represents the JSON response structure for items
 type ItemsResponse struct {
-	Success bool     `json:"success"`
-	Message string   `json:"message,omitempty"`
-	Effects []Effect `json:"effects,omitempty"`
-	Items   []Item   `json:"items,omitempty"`
+	Success      bool          `json:"success"`
+	Message      string        `json:"message,omitempty"`
+	Effects      []Effect      `json:"effects,omitempty"`
+	Items        []Item        `json:"items,omitempty"`
+	PendingItems []PendingItem `json:"pendingItems,omitempty"`
 }
 
 // handleGetItems handles GET requests to retrieve all items with signed URLs
@@ -117,16 +141,28 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get pending items from tooling.items
+	pendingItems, err := getPendingItems()
+	if err != nil {
+		log.Printf("Warning: Error getting pending items: %v", err)
+		// Don't fail the whole request, just log the warning
+		pendingItems = []PendingItem{}
+	}
+
+	log.Printf("Retrieved %d pending items from tooling.items", len(pendingItems))
+
 	// Create response
 	response := ItemsResponse{
-		Success: true,
-		Effects: effects,
-		Items:   items,
+		Success:      true,
+		Effects:      effects,
+		Items:        items,
+		PendingItems: pendingItems,
 	}
 
 	log.Printf("=== SENDING ITEMS RESPONSE ===")
 	log.Printf("Effects count: %d", len(effects))
 	log.Printf("Items count: %d", len(items))
+	log.Printf("Pending items count: %d", len(pendingItems))
 
 	// Send response
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -213,7 +249,7 @@ type CreateItemRequest struct {
 	ID           *int   `json:"id"`
 	Name         string `json:"name"`
 	AssetID      int    `json:"assetID"`
-	Type         int    `json:"type"`
+	Type         string `json:"type"`
 	Strength     *int   `json:"strength"`
 	Stamina      *int   `json:"stamina"`
 	Agility      *int   `json:"agility"`
@@ -226,6 +262,23 @@ type CreateItemRequest struct {
 	MinDamage    *int   `json:"minDamage"`
 	MaxDamage    *int   `json:"maxDamage"`
 	Icon         string `json:"icon,omitempty"`
+}
+
+// Valid item types (matches item_type enum in database)
+var validItemTypes = map[string]bool{
+	"head":   true,
+	"chest":  true,
+	"hands":  true,
+	"feet":   true,
+	"belt":   true,
+	"legs":   true,
+	"back":   true,
+	"amulet": true,
+	"weapon": true,
+	"hammer": true,
+	"gem":    true,
+	"scroll": true,
+	"potion": true,
 }
 
 // handleCreateItem handles POST requests to create or update items via tooling.create_item
@@ -274,12 +327,19 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	log.Printf("CREATE ITEM REQUEST:")
 	log.Printf("  ID: %v", req.ID)
 	log.Printf("  Name: %s", req.Name)
-	log.Printf("  Type: %d", req.Type)
+	log.Printf("  Type: %s", req.Type)
 	log.Printf("  AssetID: %d", req.AssetID)
 
 	if db == nil {
 		log.Printf("Database not available")
 		http.Error(w, "Database not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate item type
+	if !validItemTypes[req.Type] {
+		log.Printf("Invalid item type: %s", req.Type)
+		http.Error(w, fmt.Sprintf("Invalid item type: %s", req.Type), http.StatusBadRequest)
 		return
 	}
 
@@ -292,13 +352,14 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call tooling.create_item function
+	// Note: We pass the type as text and cast it to item_type enum in the query
 	query := `
 		SELECT tooling.create_item(
 			$1,  -- p_game_id (NULL for insert, item_id for update)
 			$2,  -- p_action ('insert' or 'update')
 			$3,  -- p_item_name
 			$4,  -- p_asset_id
-			$5,  -- p_type
+			$5::item_type,  -- p_type (cast text to item_type enum)
 			$6,  -- p_strength
 			$7,  -- p_stamina
 			$8,  -- p_agility
@@ -357,4 +418,157 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✅ CREATE ITEM RESPONSE SENT")
+}
+
+// getPendingItems retrieves all pending items from tooling.items
+func getPendingItems() ([]PendingItem, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database not available")
+	}
+
+	query := `
+		SELECT 
+			tooling_id,
+			game_id,
+			action,
+			COALESCE(version, 1) as version,
+			item_name,
+			asset_id,
+			type,
+			strength,
+			stamina,
+			agility,
+			luck,
+			armor,
+			effect_id,
+			effect_factor,
+			socket,
+			silver,
+			min_damage,
+			max_damage,
+			COALESCE(approved, false) as approved
+		FROM tooling.items 
+		ORDER BY tooling_id DESC
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying pending items: %v", err)
+	}
+	defer rows.Close()
+
+	var items []PendingItem
+	for rows.Next() {
+		var item PendingItem
+		err := rows.Scan(
+			&item.ToolingID,
+			&item.GameID,
+			&item.Action,
+			&item.Version,
+			&item.Name,
+			&item.AssetID,
+			&item.Type,
+			&item.Strength,
+			&item.Stamina,
+			&item.Agility,
+			&item.Luck,
+			&item.Armor,
+			&item.EffectID,
+			&item.EffectFactor,
+			&item.Socket,
+			&item.Silver,
+			&item.MinDamage,
+			&item.MaxDamage,
+			&item.Approved,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning pending item row: %v", err)
+		}
+		items = append(items, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating pending item rows: %v", err)
+	}
+
+	log.Printf("Successfully retrieved %d pending items from database", len(items))
+	return items, nil
+}
+
+// handleToggleApproveItem handles POST requests to toggle item approval status
+func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== TOGGLE APPROVE ITEM REQUEST ===")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request to toggle item approval")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Set headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	// Parse JSON
+	var req struct {
+		ToolingID int `json:"toolingId"`
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("Error parsing JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Toggle approval for tooling_id: %d", req.ToolingID)
+
+	if db == nil {
+		log.Printf("Database not available")
+		http.Error(w, "Database not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Call tooling.toggle_approve_item function
+	_, err = db.Exec(`SELECT tooling.toggle_approve_item($1)`, req.ToolingID)
+	if err != nil {
+		log.Printf("Error calling tooling.toggle_approve_item: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to toggle approval: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ Item approval toggled successfully for tooling_id: %d", req.ToolingID)
+
+	// Return success response
+	response := map[string]interface{}{
+		"success": true,
+		"message": "Item approval toggled successfully",
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("✅ TOGGLE APPROVE RESPONSE SENT")
 }

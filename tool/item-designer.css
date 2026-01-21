@@ -1,5 +1,16 @@
 /* Item Designer Styles */
 
+/* Hide number input spinners/arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
 /* Main container with list and editor layout */
 .items-designer-container {
     display: flex;
@@ -9,7 +20,7 @@
 
 /* Left sidebar - Item list */
 .item-list-sidebar {
-    flex: 0 0 300px;
+    flex: 0 0 400px;
     background: rgba(30, 20, 15, 0.9);
     border: 2px solid #8b4513;
     border-radius: 10px;
@@ -18,6 +29,41 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+/* Tab toggle buttons */
+.item-tab-toggle {
+    display: flex;
+    gap: 0;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid #8b4513;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    background: rgba(60, 40, 30, 0.8);
+    border: none;
+    color: #8b4513;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background: rgba(80, 50, 35, 0.9);
+    color: #d4af37;
+}
+
+.tab-btn.active {
+    background: linear-gradient(135deg, #8b4513 0%, #5c2c0a 100%);
+    color: #d4af37;
+}
+
+.item-list-container {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .item-list-controls {
@@ -565,4 +611,144 @@ textarea {
 
 .item-dropdown-button:hover {
     background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%);
+}
+
+/* Item List Sections */
+.item-list-section {
+    margin-bottom: 1.5rem;
+}
+
+.item-list-section h3 {
+    color: #d4af37;
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #8b4513;
+}
+
+.item-list-section.pending-section h3 {
+    color: #ffa500;
+}
+
+/* Pending Item Styles */
+.pending-item {
+    background: rgba(80, 50, 20, 0.8);
+    border: 1px solid #ffa500;
+    border-radius: 5px;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.pending-item:hover {
+    background: rgba(100, 70, 30, 0.9);
+    border-color: #ffcc00;
+}
+
+.pending-item.selected {
+    background: rgba(139, 100, 19, 0.8);
+    border-color: #ffcc00;
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+}
+
+.pending-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
+}
+
+.pending-item-name {
+    color: #ffa500;
+    font-weight: bold;
+}
+
+.item-action {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.item-action.insert {
+    background: rgba(46, 125, 50, 0.8);
+    color: #90ee90;
+    border: 1px solid #4caf50;
+}
+
+.item-action.update {
+    background: rgba(25, 118, 210, 0.8);
+    color: #90caf9;
+    border: 1px solid #2196f3;
+}
+
+.pending-item-type {
+    color: #b8860b;
+    font-size: 0.8rem;
+}
+
+.pending-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(139, 69, 19, 0.5);
+}
+
+.approve-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.approve-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #4caf50;
+}
+
+.approve-checkbox span {
+    font-size: 0.8rem;
+    color: #b8860b;
+}
+
+.approve-checkbox:hover span {
+    color: #ffa500;
+}
+
+/* Locked form state (for viewing pending items) */
+.form-locked {
+    position: relative;
+}
+
+.form-locked::before {
+    content: '🔒 Read Only - Pending Approval';
+    display: block;
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.9) 0%, rgba(60, 30, 15, 0.9) 100%);
+    border: 1px solid #ffa500;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    color: #ffa500;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+.form-locked input:disabled,
+.form-locked select:disabled,
+.form-locked textarea:disabled {
+    background: rgba(40, 25, 15, 0.9) !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.form-locked input[type="checkbox"]:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
