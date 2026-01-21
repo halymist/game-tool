@@ -11,7 +11,7 @@ let isViewingPendingEnemy = false;
 
 // Reference data
 let allTalents = []; // Talent tree template (game.talents_info)
-let allPerks = [];   // Available perks for perk slots
+let enemyPerks = [];   // Available perks for perk slots (renamed to avoid conflict with perk-designer.js)
 let enemyAssets = [];
 let enemySelectedAssetId = null;
 let enemySelectedAssetIcon = null;
@@ -140,7 +140,7 @@ async function loadEnemiesData() {
         
         // Store reference data
         allTalents = data.talents || [];
-        allPerks = data.perks || [];
+        enemyPerks = data.perks || [];
         window.effectsData = data.effects || [];
         
         // Store enemies
@@ -158,7 +158,7 @@ async function loadEnemiesData() {
         createEnemyAssetGallery();
         buildTalentTreeGrid();
         
-        console.log(`✅ Loaded: ${allEnemies.length} enemies, ${allPendingEnemies.length} pending, ${allTalents.length} talents, ${allPerks.length} perks`);
+        console.log(`✅ Loaded: ${allEnemies.length} enemies, ${allPendingEnemies.length} pending, ${allTalents.length} talents, ${enemyPerks.length} perks`);
         
     } catch (error) {
         console.error('Error loading enemies:', error);
@@ -566,7 +566,7 @@ function showPerkSelectionModal(talent) {
             <h3>Select Perk for ${escapeHtml(talent.talentName)}</h3>
             <select id="perkSelect">
                 <option value="">-- No Perk --</option>
-                ${allPerks.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+                ${enemyPerks.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
             </select>
             <div class="perk-selection-buttons">
                 <button type="button" class="btn-confirm" onclick="confirmPerkSelection(${talent.talentId})">Confirm</button>

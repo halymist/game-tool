@@ -17,9 +17,9 @@ type TalentInfo struct {
 	TalentID    int     `json:"talentId" db:"talent_id"`
 	TalentName  string  `json:"talentName" db:"talent_name"`
 	MaxPoints   int     `json:"maxPoints" db:"max_points"`
-	PerkSlot    int     `json:"perkSlot" db:"perk_slot"`
-	EffectID    int     `json:"effectId" db:"effect_id"`
-	Factor      int     `json:"factor" db:"factor"`
+	PerkSlot    *int    `json:"perkSlot" db:"perk_slot"`
+	EffectID    *int    `json:"effectId" db:"effect_id"`
+	Factor      *int    `json:"factor" db:"factor"`
 	Description *string `json:"description" db:"description"`
 	Row         int     `json:"row" db:"row"`
 	Col         int     `json:"col" db:"col"`
