@@ -1,0 +1,776 @@
+/* Enemy Designer Styles */
+
+/* Container Layout */
+.enemy-designer-container {
+    display: flex;
+    gap: 1.5rem;
+    height: calc(100vh - 200px);
+    min-height: 600px;
+}
+
+/* Left Sidebar - Enemy List */
+.enemy-list-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: rgba(30, 20, 15, 0.95);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.enemy-list-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(139, 69, 19, 0.5);
+}
+
+.enemy-tab-toggle {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.enemy-tab-toggle .tab-btn {
+    flex: 1;
+    padding: 0.5rem;
+    background: rgba(60, 30, 15, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #b8860b;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.enemy-tab-toggle .tab-btn.active {
+    background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+    color: #fff;
+    border-color: #cd853f;
+}
+
+.enemy-list-controls input {
+    padding: 0.5rem;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #f5deb3;
+    font-size: 0.9rem;
+}
+
+.enemy-list-controls .btn-new,
+.enemy-list-controls .btn-merge {
+    padding: 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.enemy-list-controls .btn-new {
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border: 1px solid #4caf50;
+    color: #fff;
+}
+
+.enemy-list-controls .btn-merge {
+    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+    border: 1px solid #2196f3;
+    color: #fff;
+}
+
+/* Enemy List */
+.enemy-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.enemy-list-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(60, 30, 15, 0.6);
+    border: 1px solid rgba(139, 69, 19, 0.5);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.enemy-list-item:hover {
+    background: rgba(139, 69, 19, 0.4);
+    border-color: #cd853f;
+}
+
+.enemy-list-item.selected {
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.6) 0%, rgba(60, 30, 15, 0.8) 100%);
+    border-color: #ffa500;
+    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+}
+
+.enemy-list-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.enemy-list-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.enemy-list-icon .no-icon {
+    color: #8b4513;
+    font-size: 1.5rem;
+}
+
+.enemy-list-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    overflow: hidden;
+}
+
+.enemy-list-info .enemy-name {
+    color: #f5deb3;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.enemy-list-info .enemy-stats {
+    color: #b8860b;
+    font-size: 0.75rem;
+}
+
+/* Pending Enemy List Item */
+.enemy-list-item.pending-enemy {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.pending-enemy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.enemy-action {
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.enemy-action.insert {
+    background: rgba(46, 125, 50, 0.8);
+    color: #a5d6a7;
+    border: 1px solid #4caf50;
+}
+
+.enemy-action.update {
+    background: rgba(25, 118, 210, 0.8);
+    color: #90caf9;
+    border: 1px solid #2196f3;
+}
+
+.pending-enemy-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(139, 69, 19, 0.5);
+}
+
+.pending-enemy-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.pending-enemy-footer .btn-remove-pending {
+    background: transparent;
+    border: 1px solid rgba(255, 87, 87, 0.5);
+    border-radius: 4px;
+    padding: 4px 6px;
+    cursor: pointer;
+    color: #ff5757;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.pending-enemy-footer .btn-remove-pending svg {
+    width: 14px;
+    height: 14px;
+}
+
+.pending-enemy-footer .btn-remove-pending:hover {
+    background: rgba(255, 87, 87, 0.2);
+    border-color: #ff5757;
+}
+
+/* Main Form Container */
+.enemy-form-container {
+    flex: 1;
+    background: rgba(30, 20, 15, 0.95);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.enemy-form-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Icon Section */
+.enemy-icon-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.enemy-icon-upload-area {
+    width: 120px;
+    height: 120px;
+    border: 2px dashed #8b4513;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.enemy-icon-upload-area:hover {
+    border-color: #ffa500;
+    background: rgba(139, 69, 19, 0.2);
+}
+
+.enemy-icon-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #8b4513;
+}
+
+.enemy-icon-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.enemy-icon-preview .upload-icon {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 0.5rem;
+}
+
+.enemy-icon-preview span {
+    font-size: 0.75rem;
+}
+
+.btn-gallery {
+    padding: 0.4rem 0.75rem;
+    background: rgba(60, 30, 15, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #b8860b;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.btn-gallery:hover {
+    background: rgba(139, 69, 19, 0.6);
+    color: #ffa500;
+}
+
+/* Name Section */
+.enemy-name-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 200px;
+}
+
+.enemy-name-section .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.enemy-name-section label {
+    color: #b8860b;
+    font-size: 0.85rem;
+}
+
+.enemy-name-section input {
+    padding: 0.5rem;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #f5deb3;
+}
+
+.enemy-name-section input[readonly] {
+    background: rgba(30, 20, 15, 0.9);
+    color: #888;
+}
+
+/* Stats Section */
+.enemy-stats-section {
+    flex: 1;
+}
+
+.enemy-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.75rem;
+}
+
+.enemy-stats-grid .stat-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.enemy-stats-grid .stat-group label {
+    color: #b8860b;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.enemy-stats-grid .stat-group input {
+    width: 60px;
+    padding: 0.4rem;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #f5deb3;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.damage-stat {
+    grid-column: span 1;
+}
+
+.damage-range {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.damage-range input {
+    width: 45px !important;
+}
+
+.damage-range span {
+    color: #8b4513;
+}
+
+/* Description Section */
+.enemy-description-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.enemy-description-section label {
+    color: #b8860b;
+    font-size: 0.85rem;
+}
+
+.enemy-description-section textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #f5deb3;
+    resize: vertical;
+}
+
+/* Talent Tree Section */
+.enemy-talent-section {
+    flex: 1;
+}
+
+.enemy-talent-section h3 {
+    color: #f5deb3;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.talent-hint {
+    font-size: 0.75rem;
+    color: #8b4513;
+    font-weight: normal;
+}
+
+.talent-tree-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    background: rgba(20, 15, 10, 0.8);
+    border: 2px solid #5d3a1a;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.talent-cell {
+    aspect-ratio: 1;
+    min-height: 50px;
+    background: rgba(40, 25, 15, 0.6);
+    border: 2px solid #5d3a1a;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.talent-cell.empty {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+}
+
+.talent-cell:not(.empty):hover {
+    border-color: #cd853f;
+    background: rgba(139, 69, 19, 0.4);
+}
+
+.talent-cell.has-points {
+    border-color: #ffa500;
+    background: rgba(139, 69, 19, 0.6);
+}
+
+.talent-cell.maxed {
+    border-color: #ffd700;
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.8) 0%, rgba(184, 134, 11, 0.6) 100%);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.talent-cell.disabled {
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.talent-icon {
+    width: 32px;
+    height: 32px;
+    background: rgba(30, 20, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+
+.talent-abbrev {
+    color: #b8860b;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+
+.talent-points {
+    font-size: 0.65rem;
+    color: #b8860b;
+}
+
+.talent-points .current-points {
+    color: #ffa500;
+    font-weight: bold;
+}
+
+.talent-cell.maxed .talent-points .current-points {
+    color: #ffd700;
+}
+
+.perk-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 0.6rem;
+    opacity: 0.5;
+}
+
+.perk-indicator.assigned {
+    opacity: 1;
+    color: #ffd700;
+}
+
+/* Form Actions */
+.enemy-form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(139, 69, 19, 0.5);
+}
+
+.enemy-form-actions .btn-save {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border: 1px solid #4caf50;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.enemy-form-actions .btn-save:hover {
+    background: linear-gradient(135deg, #388e3c 0%, #2e7d32 100%);
+}
+
+.enemy-form-actions .btn-cancel {
+    padding: 0.75rem 1.5rem;
+    background: rgba(60, 30, 15, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #b8860b;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.enemy-form-actions .btn-cancel:hover {
+    background: rgba(139, 69, 19, 0.6);
+}
+
+/* Locked form state */
+#enemyForm.form-locked::before {
+    content: '🔒 Read Only - Pending Approval';
+    display: block;
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.9) 0%, rgba(60, 30, 15, 0.9) 100%);
+    border: 1px solid #ffa500;
+    border-radius: 5px;
+    padding: 0.5rem 1rem;
+    color: #ffa500;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+#enemyForm.form-locked input:disabled,
+#enemyForm.form-locked select:disabled,
+#enemyForm.form-locked textarea:disabled {
+    background: rgba(40, 25, 15, 0.9) !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Perk Selection Modal */
+.perk-selection-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.perk-selection-content {
+    background: rgba(30, 20, 15, 0.98);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1.5rem;
+    min-width: 300px;
+}
+
+.perk-selection-content h3 {
+    color: #f5deb3;
+    margin-bottom: 1rem;
+}
+
+.perk-selection-content select {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(40, 25, 15, 0.9);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #f5deb3;
+    margin-bottom: 1rem;
+}
+
+.perk-selection-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.perk-selection-buttons .btn-confirm {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+    border: 1px solid #4caf50;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.perk-selection-buttons .btn-cancel {
+    padding: 0.5rem 1rem;
+    background: rgba(60, 30, 15, 0.8);
+    border: 1px solid #8b4513;
+    border-radius: 5px;
+    color: #b8860b;
+    cursor: pointer;
+}
+
+/* Enemy Asset Gallery (reuse from items/perks) */
+#enemyAssetGalleryOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+#enemyAssetGalleryOverlay .asset-gallery {
+    background: rgba(30, 20, 15, 0.98);
+    border: 2px solid #8b4513;
+    border-radius: 10px;
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#enemyAssetGalleryOverlay .asset-gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+#enemyAssetGalleryOverlay .asset-gallery-header h3 {
+    color: #f5deb3;
+}
+
+#enemyAssetGalleryOverlay .btn-close {
+    background: transparent;
+    border: none;
+    color: #b8860b;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+#enemyAssetGalleryOverlay .asset-gallery-actions {
+    margin-bottom: 1rem;
+}
+
+#enemyAssetGalleryOverlay .btn-upload {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #1976d2 0%, #0d47a1 100%);
+    border: 1px solid #2196f3;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+}
+
+#enemyAssetGalleryOverlay .asset-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 1rem;
+    overflow-y: auto;
+    max-height: 400px;
+}
+
+#enemyAssetGalleryOverlay .asset-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem;
+    background: rgba(60, 30, 15, 0.6);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#enemyAssetGalleryOverlay .asset-item:hover {
+    border-color: #cd853f;
+}
+
+#enemyAssetGalleryOverlay .asset-item.selected {
+    border-color: #ffa500;
+    background: rgba(139, 69, 19, 0.6);
+}
+
+#enemyAssetGalleryOverlay .asset-item img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+#enemyAssetGalleryOverlay .asset-item span {
+    font-size: 0.7rem;
+    color: #b8860b;
+}
+
+/* Approve checkbox */
+.approve-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.approve-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #4caf50;
+}
+
+.approve-checkbox span {
+    font-size: 0.8rem;
+    color: #b8860b;
+}

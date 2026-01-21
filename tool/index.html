@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="http://localhost:8080/static/shared-styles.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer-new.css">
     <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
     <!-- AWS Cognito SDK for token management -->
@@ -150,186 +150,131 @@
 
         <!-- Enemy Designer Section -->
         <div id="enemies-content" class="page-content" style="display: none;">
-            <div class="enemy-form">
-                <form id="enemyForm">
-                    <!-- Action Buttons (Top Right) -->
-                    <div class="action-buttons-top">
-                        <button type="button" id="saveBtn" class="save-btn">Save Enemy</button>
-                        <button type="button" id="resetBtn" class="reset-btn">Reset Form</button>
-                    </div>
-
-                    <!-- Name Section -->
-                    <div class="form-section">
-                        <div class="name-id-group">
-                            <div class="form-group">
-                                <label for="enemyName">Enemy Name</label>
-                                <div class="input-with-dropdown">
-                                    <input type="text" id="enemyName" name="enemyName" placeholder="Type to search or create new enemy..." required list="existingEnemies">
-                                    <button type="button" class="dropdown-button" id="nameDropdownBtn">▼</button>
-                                </div>
-                                <datalist id="existingEnemies">
-                                    <!-- Options will be populated by JavaScript -->
-                                </datalist>
-                            </div>
-                            <div class="form-group">
-                                <label for="enemyID">Enemy ID</label>
-                                <input type="text" id="enemyID" name="enemyID" placeholder="New enemy" readonly>
-                            </div>
+            <div class="enemy-designer-container">
+                <!-- Left Sidebar - Enemy Lists -->
+                <div class="enemy-list-sidebar">
+                    <div class="enemy-list-controls">
+                        <div class="enemy-tab-toggle">
+                            <button type="button" id="gameEnemiesTab" class="tab-btn active">🎮 Game</button>
+                            <button type="button" id="pendingEnemiesTab" class="tab-btn">⏳ Pending</button>
                         </div>
+                        <input type="text" id="enemySearch" placeholder="Search enemies...">
+                        <button type="button" id="newEnemyBtn" class="btn-new">+ New Enemy</button>
+                        <button type="button" id="mergeEnemiesBtn" class="btn-merge" style="display: none;">🔀 Merge Approved</button>
                     </div>
+                    <div id="enemyList" class="enemy-list"></div>
+                    <div id="pendingEnemyList" class="enemy-list" style="display: none;"></div>
+                </div>
 
-                    <!-- Icon, Stats, and Description Section -->
-                    <div class="form-section">
-                        <div class="icon-stats-wrapper">
-                            <div class="icon-container">
-                                <div class="icon-upload-area" id="iconUploadArea">
-                                    <div class="icon-preview" id="iconPreview">
-                                        <div class="icon-placeholder">📷</div>
-                                    </div>
-                                    <div class="upload-text">Click or drag image</div>
-                                    <div class="upload-hint">Max 5MB</div>
-                                </div>
-                                <input type="file" id="iconFile" accept="image/*">
-                                <button type="button" id="assetGalleryToggle" class="asset-gallery-toggle">🎨 Browse Existing Assets</button>
-                            </div>
-                            <div class="stats-container">
-                                <div class="stats-grid">
-                                    <div class="stat-group">
-                                        <label for="strength">Strength</label>
-                                        <input type="number" id="strength" name="strength" class="stat-input" min="0" max="999" value="10">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label for="stamina">Stamina</label>
-                                        <input type="number" id="stamina" name="stamina" class="stat-input" min="0" max="999" value="10">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label for="agility">Agility</label>
-                                        <input type="number" id="agility" name="agility" class="stat-input" min="0" max="999" value="10">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label for="luck">Luck</label>
-                                        <input type="number" id="luck" name="luck" class="stat-input" min="0" max="999" value="10">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label for="armor">Armor</label>
-                                        <input type="number" id="armor" name="armor" class="stat-input" min="0" max="999" value="10">
+                <!-- Main Content - Enemy Form -->
+                <div class="enemy-form-container">
+                    <form id="enemyForm">
+                        <!-- Top Row: Basic Info -->
+                        <div class="enemy-form-row">
+                            <!-- Icon -->
+                            <div class="enemy-icon-section">
+                                <div class="enemy-icon-upload-area" id="enemyIconUploadArea">
+                                    <div class="enemy-icon-preview" id="enemyIconPreview">
+                                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                            <polyline points="17 8 12 3 7 8"/>
+                                            <line x1="12" y1="3" x2="12" y2="15"/>
+                                        </svg>
+                                        <span>Drop image here</span>
                                     </div>
                                 </div>
+                                <input type="file" id="enemyIconFile" accept="image/*" style="display: none;">
+                                <button type="button" id="enemyAssetGalleryBtn" class="btn-gallery">📁 Browse Assets</button>
                             </div>
-                            <div class="description-container">
-                                <h3>Description</h3>
+
+                            <!-- Name & ID -->
+                            <div class="enemy-name-section">
                                 <div class="form-group">
-                                    <textarea id="enemyDescription" name="enemyDescription" placeholder="Enter a description for this enemy..." rows="15"></textarea>
+                                    <label for="enemyId">ID</label>
+                                    <input type="text" id="enemyId" readonly value="New">
+                                </div>
+                                <div class="form-group">
+                                    <label for="enemyName">Name</label>
+                                    <input type="text" id="enemyName" required placeholder="Enemy name...">
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Effects Section -->
-                    <div class="form-section">
-                        <h3>Effects</h3>
-                        <div class="effects-container">
-                            <div class="effects-column">
-                                <div class="effect-row">
-                                    <select id="effect1" name="effect1" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor1" name="factor1" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description1">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect2" name="effect2" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor2" name="factor2" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description2">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect3" name="effect3" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor3" name="factor3" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description3">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect4" name="effect4" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor4" name="factor4" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description4">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect5" name="effect5" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor5" name="factor5" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description5">Select an effect to see description</span>
-                                </div>
-                            </div>
-                            <div class="effects-column">
-                                <div class="effect-row">
-                                    <select id="effect6" name="effect6" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor6" name="factor6" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description6">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect7" name="effect7" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor7" name="factor7" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description7">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect8" name="effect8" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor8" name="factor8" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description8">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect9" name="effect9" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor9" name="factor9" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description9">Select an effect to see description</span>
-                                </div>
-                                <div class="effect-row">
-                                    <select id="effect10" name="effect10" class="effect-select">
-                                        <!-- Options will be populated by JavaScript -->
-                                    </select>
-                                    <input type="number" id="factor10" name="factor10" class="factor-input" min="0" max="999" value="1" placeholder="Factor">
-                                    <span class="effect-description" id="description10">Select an effect to see description</span>
+                            <!-- Stats -->
+                            <div class="enemy-stats-section">
+                                <div class="enemy-stats-grid">
+                                    <div class="stat-group">
+                                        <label>STR</label>
+                                        <input type="number" id="enemyStrength" min="0" max="999" value="0">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label>STA</label>
+                                        <input type="number" id="enemyStamina" min="0" max="999" value="0">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label>AGI</label>
+                                        <input type="number" id="enemyAgility" min="0" max="999" value="0">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label>LCK</label>
+                                        <input type="number" id="enemyLuck" min="0" max="999" value="0">
+                                    </div>
+                                    <div class="stat-group">
+                                        <label>ARM</label>
+                                        <input type="number" id="enemyArmor" min="0" max="999" value="0">
+                                    </div>
+                                    <div class="stat-group damage-stat">
+                                        <label>DMG</label>
+                                        <div class="damage-range">
+                                            <input type="number" id="enemyMinDamage" min="0" max="999" value="0" placeholder="Min">
+                                            <span>-</span>
+                                            <input type="number" id="enemyMaxDamage" min="0" max="999" value="0" placeholder="Max">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Victory/Defeat Messages Section - Two Column Layout -->
-                    <div class="messages-container">
-                        <div class="form-section">
-                            <h3>Victory Messages</h3>
-                            <div id="victory-messages-list" class="messages-list"></div>
-                            <button type="button" id="add-victory-message" class="add-message-btn">+ Add Victory Message</button>
+                        <!-- Description -->
+                        <div class="enemy-form-row">
+                            <div class="enemy-description-section">
+                                <label for="enemyDescription">Description</label>
+                                <textarea id="enemyDescription" rows="3" placeholder="Enemy description..."></textarea>
+                            </div>
                         </div>
-                        <div class="form-section">
-                            <h3>Defeat Messages</h3>
-                            <div id="defeat-messages-list" class="messages-list"></div>
-                            <button type="button" id="add-defeat-message" class="add-message-btn">+ Add Defeat Message</button>
+
+                        <!-- Talent Tree -->
+                        <div class="enemy-form-row">
+                            <div class="enemy-talent-section">
+                                <h3>Talent Tree <span class="talent-hint">(Left-click to add, Right-click to remove)</span></h3>
+                                <div id="talentTreeGrid" class="talent-tree-grid">
+                                    <!-- 7x8 grid will be populated by JS -->
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Form Actions -->
+                        <div class="enemy-form-actions">
+                            <button type="submit" id="enemySaveBtn" class="btn-save">💾 Save to Pending</button>
+                            <button type="button" id="enemyCancelBtn" class="btn-cancel">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Enemy Asset Gallery Overlay -->
+            <div id="enemyAssetGalleryOverlay" class="asset-gallery-overlay" style="display: none;">
+                <div class="asset-gallery">
+                    <div class="asset-gallery-header">
+                        <h3>Enemy Assets</h3>
+                        <button type="button" id="enemyAssetGalleryClose" class="btn-close">✕</button>
                     </div>
-                </form>
+                    <div class="asset-gallery-actions">
+                        <button type="button" id="enemyUploadNewBtn" class="btn-upload">📤 Upload New</button>
+                    </div>
+                    <div id="enemyAssetGrid" class="asset-gallery-grid"></div>
+                </div>
             </div>
         </div>
-
-        <!-- Message Field Template (Hidden) -->
-        <template id="message-field-template">
-            <div class="message-field-wrapper">
-                <textarea class="message-textarea" placeholder="Enter message..."></textarea>
-                <button type="button" class="remove-message-btn" onclick="this.parentElement.remove()">✕</button>
-            </div>
-        </template>
 
         <!-- Item Designer Section -->
         <div id="items-content" class="page-content" style="display: none;">
@@ -891,7 +836,7 @@
     </script>
     <script src="http://localhost:8080/static/global-data.js"></script>
     <script src="http://localhost:8080/static/designer-base.js"></script>
-    <script src="http://localhost:8080/static/enemy-designer.js"></script>
+    <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
 </body>
