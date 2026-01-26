@@ -62,6 +62,8 @@ function initExpeditionDesigner() {
     // Button events
     document.getElementById('addSlideBtn')?.addEventListener('click', addSlide);
     document.getElementById('resetViewBtn')?.addEventListener('click', resetView);
+    document.getElementById('zoomInBtn')?.addEventListener('click', () => changeZoom(0.1));
+    document.getElementById('zoomOutBtn')?.addEventListener('click', () => changeZoom(-0.1));
     
     // Modal events - use onclick for more reliable binding
     const cancelBtn = document.getElementById('optionModalCancel');
@@ -376,15 +378,15 @@ function populateDropdownsOnce() {
             enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No enemies loaded yet</p>';
         } else {
             enemies.forEach((enemy, idx) => {
-                console.log(`Enemy ${idx}:`, { id: enemy.id, name: enemy.name, imageUrl: enemy.imageUrl, signedUrl: enemy.signedUrl });
+                console.log(`Enemy ${idx}:`, { id: enemy.enemyId, name: enemy.enemyName, signedUrl: enemy.signedUrl });
                 const item = document.createElement('div');
                 item.className = 'enemy-picker-item';
-                item.dataset.enemyId = enemy.id;
+                item.dataset.enemyId = enemy.enemyId;
                 item.innerHTML = `
-                    <img src="${enemy.signedUrl || enemy.imageUrl || ''}" alt="${enemy.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
-                    <span>${enemy.name || 'Enemy #' + enemy.id}</span>
+                    <img src="${enemy.signedUrl || enemy.imageUrl || ''}" alt="${enemy.enemyName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+                    <span>${enemy.enemyName || 'Enemy #' + enemy.enemyId}</span>
                 `;
-                item.addEventListener('click', () => selectEnemyForOption(enemy.id));
+                item.addEventListener('click', () => selectEnemyForOption(enemy.enemyId));
                 enemyGrid.appendChild(item);
             });
         }
@@ -668,6 +670,23 @@ function resetView() {
     
     const indicator = document.getElementById('zoomIndicator');
     if (indicator) indicator.textContent = '100%';
+    
+    renderConnections();
+}
+
+function changeZoom(delta) {
+    const newZoom = Math.max(0.3, Math.min(2, expeditionState.zoom + delta));
+    expeditionState.zoom = newZoom;
+    
+    const container = document.getElementById('slidesContainer');
+    if (container) {
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+    }
+    
+    const indicator = document.getElementById('zoomIndicator');
+    if (indicator) {
+        indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
+    }
     
     renderConnections();
 }
