@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -276,6 +277,111 @@ func CreateUploadAssetHandler(folder string) http.HandlerFunc {
 
 		log.Printf("✅ UPLOAD %s ASSET RESPONSE SENT - Asset ID: %d", strings.ToUpper(folder), req.AssetID)
 	}
+}
+
+// handleGenericUploadAsset handles multipart form uploads to any folder
+func handleGenericUploadAsset(w http.ResponseWriter, r *http.Request) {
+	log.Printf("=== GENERIC UPLOAD ASSET REQUEST ===")
+
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s3Client == nil {
+		log.Printf("S3 client not available")
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		log.Printf("Error parsing multipart form: %v", err)
+		http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		return
+	}
+
+	folder := r.FormValue("folder")
+	if folder == "" {
+		folder = "uploads"
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		log.Printf("Error getting file from form: %v", err)
+		http.Error(w, "No file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Read file content
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		log.Printf("Error reading file: %v", err)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	// Determine content type
+	contentType := handler.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/png"
+	}
+
+	// Generate unique filename
+	timestamp := time.Now().UnixNano()
+	ext := ".png"
+	if strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "jpg") {
+		ext = ".jpg"
+	} else if strings.Contains(contentType, "webp") {
+		ext = ".webp"
+	}
+	filename := fmt.Sprintf("%d%s", timestamp, ext)
+	s3Key := fmt.Sprintf("%s/%s", folder, filename)
+
+	log.Printf("Uploading to S3: %s", s3Key)
+
+	// Upload to S3
+	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(s3Key),
+		Body:        bytes.NewReader(fileBytes),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		log.Printf("Error uploading to S3: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Generate public URL
+	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		S3_BUCKET_NAME, S3_REGION, s3Key)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"url":     publicURL,
+		"key":     s3Key,
+	})
+
+	log.Printf("✅ GENERIC UPLOAD ASSET SUCCESS - URL: %s", publicURL)
 }
 
 // ==================== GENERIC TOOLING HANDLERS ====================

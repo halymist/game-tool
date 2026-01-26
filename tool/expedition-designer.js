@@ -474,6 +474,7 @@ function renderConnections() {
 
 // ==================== BACKGROUND PICKER ====================
 let bgPickerSlideId = null;
+let expeditionAssets = [];
 
 function openBgPicker(slideId) {
     bgPickerSlideId = slideId;
@@ -490,41 +491,47 @@ function loadBgAssets() {
     const grid = document.getElementById('bgAssetsGrid');
     if (!grid) return;
     
-    grid.innerHTML = '<p style="color:#888;text-align:center;">Loading assets...</p>';
+    grid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">Loading assets...</p>';
     
-    // Try to fetch expedition assets from S3
+    // Fetch expedition assets from S3
     const token = localStorage.getItem('accessToken');
     fetch('http://localhost:8080/api/getExpeditionAssets', {
         headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(r => r.json())
     .then(data => {
-        if (data.assets && data.assets.length > 0) {
-            grid.innerHTML = data.assets.map(url => `
-                <div class="bg-asset-item" data-url="${url}">
-                    <img src="${url}" alt="Asset">
-                </div>
-            `).join('');
-            
-            grid.querySelectorAll('.bg-asset-item').forEach(item => {
-                item.addEventListener('click', () => selectBgAsset(item.dataset.url));
-            });
-        } else {
-            grid.innerHTML = `
-                <p style="color:#888;text-align:center;grid-column:1/-1;">
-                    No assets found.<br>
-                    <small>Enter URL below or upload assets to S3 expeditions folder.</small>
-                </p>
-            `;
-        }
+        expeditionAssets = data.assets || [];
+        renderBgAssetsGrid();
     })
     .catch(err => {
         console.log('Could not load assets:', err);
+        expeditionAssets = [];
+        renderBgAssetsGrid();
+    });
+}
+
+function renderBgAssetsGrid() {
+    const grid = document.getElementById('bgAssetsGrid');
+    if (!grid) return;
+    
+    if (expeditionAssets.length === 0) {
         grid.innerHTML = `
             <p style="color:#888;text-align:center;grid-column:1/-1;">
-                Enter image URL below:
+                No assets in S3 expeditions folder.<br>
+                <small>Upload from device or enter URL below.</small>
             </p>
         `;
+        return;
+    }
+    
+    grid.innerHTML = expeditionAssets.map(url => `
+        <div class="bg-asset-item" data-url="${url}">
+            <img src="${url}" alt="Asset" onerror="this.parentElement.style.display='none'">
+        </div>
+    `).join('');
+    
+    grid.querySelectorAll('.bg-asset-item').forEach(item => {
+        item.addEventListener('click', () => selectBgAsset(item.dataset.url));
     });
 }
 
@@ -557,6 +564,47 @@ function clearSlideBg() {
     closeBgPicker();
 }
 
+function uploadSlideBgFromDevice() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const uploadStatus = document.getElementById('bgUploadStatus');
+        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'expeditions');
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch('http://localhost:8080/api/uploadAsset', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            
+            const result = await response.json();
+            if (result.url) {
+                if (uploadStatus) uploadStatus.textContent = 'Uploaded!';
+                // Add to local cache and select it
+                expeditionAssets.unshift(result.url);
+                renderBgAssetsGrid();
+                selectBgAsset(result.url);
+            } else {
+                if (uploadStatus) uploadStatus.textContent = 'Upload failed';
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            if (uploadStatus) uploadStatus.textContent = 'Upload failed';
+        }
+    };
+    input.click();
+}
+
 // ==================== UTILS ====================
 function updateCounter() {
     const counter = document.getElementById('slideCounter');
@@ -576,5 +624,8 @@ window.addExpeditionSlide = addSlide;
 window.closeBgPicker = closeBgPicker;
 window.applyBgUrl = applyBgUrl;
 window.clearSlideBg = clearSlideBg;
+window.closeOptionModal = closeOptionModal;
+window.saveOptionFromModal = saveOptionFromModal;
+window.uploadSlideBgFromDevice = uploadSlideBgFromDevice;
 
 console.log('✅ expedition-designer.js READY');

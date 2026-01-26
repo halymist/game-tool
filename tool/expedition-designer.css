@@ -273,11 +273,12 @@
     border: 1px solid transparent;
     border-radius: 6px;
     color: #fff;
-    font-size: 0.85rem;
-    line-height: 1.4;
-    padding: 10px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 12px;
     resize: none;
     font-family: inherit;
+    text-align: center;
     transition: border-color 0.2s, background 0.2s;
 }
 

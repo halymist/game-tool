@@ -201,6 +201,10 @@ func main() {
 	http.HandleFunc("/api/getEnemyAssets", corsHandler(CreateGetAssetsHandler("enemies")))
 	http.HandleFunc("/api/uploadEnemyAsset", corsHandler(CreateUploadAssetHandler("enemies")))
 
+	// Expedition endpoints
+	http.HandleFunc("/api/getExpeditionAssets", corsHandler(CreateGetAssetsHandler("expeditions")))
+	http.HandleFunc("/api/uploadAsset", corsHandler(handleGenericUploadAsset))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
