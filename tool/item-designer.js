@@ -341,7 +341,7 @@ async function removePendingItem(toolingId) {
             
             // Clear form if this item was selected
             if (selectedItemId === toolingId && isViewingPendingItem) {
-                clearItemForm();
+                clearForm();
             }
             
             renderPendingItemList();

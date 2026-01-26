@@ -264,19 +264,20 @@ type CreateItemRequest struct {
 
 // Valid item types (matches item_type enum in database)
 var validItemTypes = map[string]bool{
-	"head":   true,
-	"chest":  true,
-	"hands":  true,
-	"feet":   true,
-	"belt":   true,
-	"legs":   true,
-	"back":   true,
-	"amulet": true,
-	"weapon": true,
-	"hammer": true,
-	"gem":    true,
-	"scroll": true,
-	"potion": true,
+	"head":       true,
+	"chest":      true,
+	"hands":      true,
+	"feet":       true,
+	"belt":       true,
+	"legs":       true,
+	"back":       true,
+	"amulet":     true,
+	"weapon":     true,
+	"hammer":     true,
+	"gem":        true,
+	"scroll":     true,
+	"potion":     true,
+	"ingredient": true,
 }
 
 // handleCreateItem handles POST requests to create or update items via tooling.create_item
@@ -350,14 +351,14 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call tooling.create_item function
-	// Note: We pass the type as text and cast it to item_type enum in the query
+	// Note: We pass the type as text and cast it to game.item_type enum in the query
 	query := `
 		SELECT tooling.create_item(
 			$1,  -- p_game_id (NULL for insert, item_id for update)
 			$2,  -- p_action ('insert' or 'update')
 			$3,  -- p_item_name
 			$4,  -- p_asset_id
-			$5::item_type,  -- p_type (cast text to item_type enum)
+			$5::game.item_type,  -- p_type (cast text to game.item_type enum)
 			$6,  -- p_strength
 			$7,  -- p_stamina
 			$8,  -- p_agility

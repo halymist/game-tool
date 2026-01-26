@@ -530,6 +530,37 @@ input[type="number"] {
     opacity: 0.7;
 }
 
+/* Blessing Checkbox */
+.perk-blessing-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: rgba(255, 215, 0, 0.05);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.perk-blessing-checkbox:hover {
+    background: rgba(255, 215, 0, 0.1);
+    border-color: rgba(255, 215, 0, 0.5);
+}
+
+.perk-blessing-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #ffd700;
+}
+
+.perk-blessing-checkbox span {
+    color: #ffd700;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
 /* Perk Asset Gallery Overlay */
 .perk-asset-gallery-overlay {
     position: fixed;

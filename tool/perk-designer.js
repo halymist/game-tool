@@ -333,6 +333,7 @@ function populatePerkForm(perk) {
     document.getElementById('perkName').value = perk.name || '';
     document.getElementById('perkAssetID').value = perk.assetID || 1;
     document.getElementById('perkDescription').value = perk.description || '';
+    document.getElementById('perkIsBlessing').checked = perk.is_blessing || false;
     
     // Effects
     document.getElementById('perkEffect1').value = perk.effect1_id || '';
@@ -353,6 +354,7 @@ function populatePerkFormFromPending(perk) {
     document.getElementById('perkName').value = perk.name || '';
     document.getElementById('perkAssetID').value = perk.assetID || 1;
     document.getElementById('perkDescription').value = perk.description || '';
+    document.getElementById('perkIsBlessing').checked = perk.is_blessing || false;
     
     // Effects
     document.getElementById('perkEffect1').value = perk.effect1_id || '';
@@ -404,6 +406,7 @@ function clearPerkForm() {
     document.getElementById('perkFactor1').value = '';
     document.getElementById('perkEffect2').value = '';
     document.getElementById('perkFactor2').value = '';
+    document.getElementById('perkIsBlessing').checked = false;
     
     // Reset effect descriptions
     const desc1 = document.getElementById('perkEffect1Desc');
@@ -472,7 +475,8 @@ async function savePerk(e) {
         effect1_id: parseIntOrNull(document.getElementById('perkEffect1').value),
         factor1: parseIntOrNull(document.getElementById('perkFactor1').value),
         effect2_id: parseIntOrNull(document.getElementById('perkEffect2').value),
-        factor2: parseIntOrNull(document.getElementById('perkFactor2').value)
+        factor2: parseIntOrNull(document.getElementById('perkFactor2').value),
+        is_blessing: document.getElementById('perkIsBlessing').checked
     };
     
     console.log('Saving perk:', perkData);

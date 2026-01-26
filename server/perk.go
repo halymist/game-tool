@@ -353,6 +353,7 @@ func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 		Effect2ID   *int    `json:"effect2_id"`
 		Factor2     *int    `json:"factor2"`
 		Description *string `json:"description"`
+		IsBlessing  bool    `json:"is_blessing"`
 	}
 
 	body, err := io.ReadAll(r.Body)
@@ -391,10 +392,11 @@ func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 			$6::smallint,
 			$7::smallint,
 			$8::smallint,
-			$9::varchar
+			$9::varchar,
+			$10::boolean
 		)
 	`, req.ID, action, req.Name, req.AssetID,
-		req.Effect1ID, req.Factor1, req.Effect2ID, req.Factor2, req.Description).Scan(&toolingID)
+		req.Effect1ID, req.Factor1, req.Effect2ID, req.Factor2, req.Description, req.IsBlessing).Scan(&toolingID)
 
 	if err != nil {
 		log.Printf("Error calling tooling.create_perk: %v", err)

@@ -348,6 +348,8 @@
                                         <option value="gem">Gem</option>
                                         <option value="scroll">Scroll</option>
                                         <option value="potion">Potion</option>
+                                        <option value="elixir">Elixir</option>
+                                        <option value="ingredient">Ingredient</option>
                                     </select>
                                 </div>
                                 <div>
@@ -436,7 +438,7 @@
                                 </div>
                                 <div>
                                     <label for="itemEffectFactor">Factor</label>
-                                    <input type="number" id="itemEffectFactor" min="0" placeholder="0">
+                                    <input type="number" id="itemEffectFactor" placeholder="0">
                                 </div>
                             </div>
                         </div>
@@ -548,7 +550,7 @@
                                         </div>
                                         <div class="perk-factor-wrapper">
                                             <label for="perkFactor1">Factor</label>
-                                            <input type="number" id="perkFactor1" min="0" placeholder="0">
+                                            <input type="number" id="perkFactor1" placeholder="0">
                                         </div>
                                     </div>
                                     <span class="perk-effect-description" id="perkEffect1Desc">Select an effect to see description</span>
@@ -563,7 +565,7 @@
                                         </div>
                                         <div class="perk-factor-wrapper">
                                             <label for="perkFactor2">Factor</label>
-                                            <input type="number" id="perkFactor2" min="0" placeholder="0">
+                                            <input type="number" id="perkFactor2" placeholder="0">
                                         </div>
                                     </div>
                                     <span class="perk-effect-description" id="perkEffect2Desc">Select an effect to see description</span>
@@ -577,6 +579,18 @@
                             <div class="perk-basic-info">
                                 <div style="grid-column: span 2;">
                                     <textarea id="perkDescription" rows="4" placeholder="Enter perk description..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Blessing Section -->
+                        <div class="perk-form-section">
+                            <div class="perk-basic-info">
+                                <div style="grid-column: span 2;">
+                                    <label class="perk-blessing-checkbox">
+                                        <input type="checkbox" id="perkIsBlessing">
+                                        <span>⭐ Is Blessing (Special Perk)</span>
+                                    </label>
                                 </div>
                             </div>
                         </div>
