@@ -678,6 +678,27 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Background Picker Modal -->
+            <div id="bgPickerModal" class="option-modal">
+                <div class="option-modal-content" style="width:500px;">
+                    <h3>Select Background Image</h3>
+                    <div id="bgAssetsGrid" class="bg-assets-grid">
+                        <p style="color:#888;text-align:center;">Loading...</p>
+                    </div>
+                    <div class="modal-field" style="margin-top:16px;">
+                        <label>Or enter image URL:</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="bgUrlInput" placeholder="https://..." style="flex:1;">
+                            <button class="btn-primary" onclick="applyBgUrl()">Apply</button>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn-cancel" onclick="clearSlideBg()">Clear Background</button>
+                        <button class="btn-cancel" onclick="closeBgPicker()">Cancel</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- NPC Manager Section -->

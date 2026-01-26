@@ -34,9 +34,33 @@ function initExpeditionDesigner() {
     document.getElementById('addSlideBtn')?.addEventListener('click', addSlide);
     document.getElementById('resetViewBtn')?.addEventListener('click', resetView);
     
-    // Modal events
-    document.getElementById('optionModalCancel')?.addEventListener('click', closeOptionModal);
-    document.getElementById('optionModalSave')?.addEventListener('click', saveOptionFromModal);
+    // Modal events - use onclick for more reliable binding
+    const cancelBtn = document.getElementById('optionModalCancel');
+    const saveBtn = document.getElementById('optionModalSave');
+    
+    if (cancelBtn) {
+        cancelBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeOptionModal();
+        };
+    }
+    
+    if (saveBtn) {
+        saveBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            saveOptionFromModal();
+        };
+    }
+    
+    // Close modal on backdrop click
+    const modal = document.getElementById('optionModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeOptionModal();
+        });
+    }
     
     updateCounter();
     console.log('✅ Expedition Designer ready');
@@ -88,11 +112,6 @@ function renderSlide(slide) {
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
     
-    if (slide.assetUrl) {
-        el.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url(${slide.assetUrl})`;
-        el.style.backgroundSize = 'cover';
-    }
-    
     const optionsHtml = slide.options.map((opt, i) => `
         <div class="slide-option" data-slide="${slide.id}" data-option="${i}">
             <span class="option-type-badge ${opt.type}">${getTypeIcon(opt.type)}</span>
@@ -105,6 +124,12 @@ function renderSlide(slide) {
         </div>
     `).join('');
     
+    // Build background style for slide body
+    const bodyBgStyle = slide.assetUrl 
+        ? `style="background-image: url(${slide.assetUrl});"` 
+        : '';
+    const bodyClass = slide.assetUrl ? 'slide-body has-bg' : 'slide-body';
+    
     el.innerHTML = `
         <div class="slide-header">
             <span class="slide-id">#${slide.id}</span>
@@ -112,10 +137,11 @@ function renderSlide(slide) {
                 <input type="checkbox" ${slide.isStart ? 'checked' : ''} data-slide="${slide.id}">
                 <span>START</span>
             </label>
+            <button class="slide-bg-btn" data-slide="${slide.id}" title="Set background">🖼️</button>
             <button class="slide-delete-btn" data-slide="${slide.id}" title="Delete slide">🗑️</button>
         </div>
         <div class="slide-input-connector" title="Input">●</div>
-        <div class="slide-body">
+        <div class="${bodyClass}" ${bodyBgStyle}>
             <textarea class="slide-text-input" data-slide="${slide.id}" placeholder="Enter slide text...">${escapeHtml(slide.text)}</textarea>
         </div>
         <div class="slide-options">
@@ -138,27 +164,12 @@ function bindSlideEvents(el, slide) {
     });
     textArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
-    // Start checkbox
+    // Start checkbox - allow multiple start slides
     const startCb = el.querySelector('.start-checkbox input');
     startCb?.addEventListener('change', (e) => {
         e.stopPropagation();
-        if (e.target.checked) {
-            // Uncheck all others
-            expeditionState.slides.forEach((s, id) => {
-                if (id !== slide.id) {
-                    s.isStart = false;
-                    const otherEl = document.getElementById(`slide-${id}`);
-                    const otherCb = otherEl?.querySelector('.start-checkbox input');
-                    if (otherCb) otherCb.checked = false;
-                    otherEl?.classList.remove('start-slide');
-                }
-            });
-            slide.isStart = true;
-            el.classList.add('start-slide');
-        } else {
-            slide.isStart = false;
-            el.classList.remove('start-slide');
-        }
+        slide.isStart = e.target.checked;
+        el.classList.toggle('start-slide', slide.isStart);
     });
     
     // Delete slide
@@ -167,7 +178,12 @@ function bindSlideEvents(el, slide) {
         deleteSlide(slide.id);
     });
     
-    // Add option button
+    // Background image button
+    el.querySelector('.slide-bg-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openBgPicker(slide.id);
+    });
+        // Add option button
     el.querySelector('.add-option-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         openOptionModal(slide.id, -1);
@@ -456,6 +472,91 @@ function renderConnections() {
     });
 }
 
+// ==================== BACKGROUND PICKER ====================
+let bgPickerSlideId = null;
+
+function openBgPicker(slideId) {
+    bgPickerSlideId = slideId;
+    document.getElementById('bgPickerModal').classList.add('open');
+    loadBgAssets();
+}
+
+function closeBgPicker() {
+    document.getElementById('bgPickerModal').classList.remove('open');
+    bgPickerSlideId = null;
+}
+
+function loadBgAssets() {
+    const grid = document.getElementById('bgAssetsGrid');
+    if (!grid) return;
+    
+    grid.innerHTML = '<p style="color:#888;text-align:center;">Loading assets...</p>';
+    
+    // Try to fetch expedition assets from S3
+    const token = localStorage.getItem('accessToken');
+    fetch('http://localhost:8080/api/getExpeditionAssets', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.assets && data.assets.length > 0) {
+            grid.innerHTML = data.assets.map(url => `
+                <div class="bg-asset-item" data-url="${url}">
+                    <img src="${url}" alt="Asset">
+                </div>
+            `).join('');
+            
+            grid.querySelectorAll('.bg-asset-item').forEach(item => {
+                item.addEventListener('click', () => selectBgAsset(item.dataset.url));
+            });
+        } else {
+            grid.innerHTML = `
+                <p style="color:#888;text-align:center;grid-column:1/-1;">
+                    No assets found.<br>
+                    <small>Enter URL below or upload assets to S3 expeditions folder.</small>
+                </p>
+            `;
+        }
+    })
+    .catch(err => {
+        console.log('Could not load assets:', err);
+        grid.innerHTML = `
+            <p style="color:#888;text-align:center;grid-column:1/-1;">
+                Enter image URL below:
+            </p>
+        `;
+    });
+}
+
+function selectBgAsset(url) {
+    const slide = expeditionState.slides.get(bgPickerSlideId);
+    if (slide) {
+        slide.assetUrl = url;
+        renderSlide(slide);
+        renderConnections();
+    }
+    closeBgPicker();
+}
+
+function applyBgUrl() {
+    const input = document.getElementById('bgUrlInput');
+    const url = input?.value?.trim();
+    if (url && bgPickerSlideId) {
+        selectBgAsset(url);
+        input.value = '';
+    }
+}
+
+function clearSlideBg() {
+    const slide = expeditionState.slides.get(bgPickerSlideId);
+    if (slide) {
+        slide.assetUrl = null;
+        renderSlide(slide);
+        renderConnections();
+    }
+    closeBgPicker();
+}
+
 // ==================== UTILS ====================
 function updateCounter() {
     const counter = document.getElementById('slideCounter');
@@ -472,5 +573,8 @@ function escapeHtml(str) {
 // ==================== EXPOSE GLOBALLY ====================
 window.initExpeditionDesigner = initExpeditionDesigner;
 window.addExpeditionSlide = addSlide;
+window.closeBgPicker = closeBgPicker;
+window.applyBgUrl = applyBgUrl;
+window.clearSlideBg = clearSlideBg;
 
 console.log('✅ expedition-designer.js READY');
