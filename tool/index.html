@@ -683,8 +683,11 @@
                     <!-- Effect Check Fields -->
                     <div id="optionEffectFields" class="modal-field-row" style="display:none;">
                         <div class="modal-field">
-                            <label>Effect ID</label>
-                            <input type="number" id="optionEffectId" placeholder="Effect ID" min="1">
+                            <label>Effect</label>
+                            <select id="optionEffectId">
+                                <option value="">Select effect...</option>
+                                <!-- Populated dynamically from global effects array -->
+                            </select>
                         </div>
                         <div class="modal-field">
                             <label>Required Amount</label>

@@ -154,10 +154,10 @@ function renderSlide(slide) {
         <div class="slide-input-connector" title="Input">●</div>
         <div class="${bodyClass}" ${bodyBgStyle}>
             <textarea class="slide-text-input" data-slide="${slide.id}" placeholder="Enter slide text...">${escapeHtml(slide.text)}</textarea>
-        </div>
-        <div class="slide-options">
-            ${optionsHtml}
-            <button class="add-option-btn" data-slide="${slide.id}">+ Add Option</button>
+            <div class="slide-options">
+                ${optionsHtml}
+                <button class="add-option-btn" data-slide="${slide.id}">+ Add Option</button>
+            </div>
         </div>
     `;
     
@@ -237,6 +237,12 @@ function bindSlideEvents(el, slide) {
                 optionIndex: parseInt(conn.dataset.option)
             };
             document.body.style.cursor = 'crosshair';
+            // Highlight all slides as potential targets
+            document.querySelectorAll('.expedition-slide').forEach(s => {
+                if (s.id !== `slide-${conn.dataset.slide}`) {
+                    s.classList.add('connection-target');
+                }
+            });
         });
     });
     
@@ -329,11 +335,36 @@ function populateEnemyDropdown() {
     
     // Get enemies from GlobalData
     const enemies = typeof getEnemies === 'function' ? getEnemies() : [];
+    console.log('Populating enemy dropdown with', enemies.length, 'enemies:', enemies);
     
     enemies.forEach(enemy => {
         const option = document.createElement('option');
         option.value = enemy.id;
-        option.textContent = enemy.name || `Enemy #${enemy.id}`;
+        // Show icon and name
+        option.textContent = `⚔️ ${enemy.name || `Enemy #${enemy.id}`}`;
+        // Store image URL for potential preview
+        if (enemy.imageUrl || enemy.signedUrl) {
+            option.dataset.image = enemy.imageUrl || enemy.signedUrl;
+        }
+        select.appendChild(option);
+    });
+}
+
+function populateEffectsDropdown() {
+    const select = document.getElementById('optionEffectId');
+    if (!select) return;
+    
+    // Clear existing options except the first placeholder
+    select.innerHTML = '<option value="">Select effect...</option>';
+    
+    // Get effects from GlobalData
+    const effects = typeof getEffects === 'function' ? getEffects() : [];
+    console.log('Populating effects dropdown with', effects.length, 'effects');
+    
+    effects.forEach(effect => {
+        const option = document.createElement('option');
+        option.value = effect.id;
+        option.textContent = `✨ #${effect.id} - ${effect.name || 'Unnamed effect'}`;
         select.appendChild(option);
     });
 }
@@ -345,8 +376,9 @@ function openOptionModal(slideId, optionIndex) {
     const slide = expeditionState.slides.get(slideId);
     if (!slide) return;
     
-    // Populate enemy dropdown first
+    // Populate enemy and effects dropdowns
     populateEnemyDropdown();
+    populateEffectsDropdown();
     
     const isEdit = optionIndex >= 0;
     const opt = isEdit ? slide.options[optionIndex] : { 
@@ -496,6 +528,10 @@ function onCanvasMouseUp(e) {
         expeditionState.connectionStart = null;
         document.body.style.cursor = 'default';
         document.getElementById('connectionPreview')?.setAttribute('style', 'display:none');
+        // Remove target highlighting
+        document.querySelectorAll('.expedition-slide.connection-target').forEach(s => {
+            s.classList.remove('connection-target');
+        });
     }
 }
 
@@ -729,5 +765,6 @@ window.clearSlideBg = clearSlideBg;
 window.closeOptionModal = closeOptionModal;
 window.saveOptionFromModal = saveOptionFromModal;
 window.uploadSlideBgFromDevice = uploadSlideBgFromDevice;
+window.updateOptionModalFields = updateOptionModalFields;
 
 console.log('✅ expedition-designer.js READY');
