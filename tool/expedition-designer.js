@@ -32,8 +32,21 @@ function initExpeditionDesigner() {
     canvas.addEventListener('mouseup', onCanvasMouseUp);
     canvas.addEventListener('mouseleave', onCanvasMouseUp);
     
-    // Zoom with mouse wheel
-    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+    // Zoom with mouse wheel - use document-level capture to prevent browser interference
+    document.addEventListener('wheel', function(e) {
+        const canvas = document.getElementById('expeditionCanvas');
+        if (!canvas) return;
+        
+        // Check if mouse is over the canvas
+        const rect = canvas.getBoundingClientRect();
+        if (e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            e.preventDefault();
+            e.stopPropagation();
+            onCanvasWheel(e);
+        }
+    }, { passive: false, capture: true });
+    console.log('✅ Wheel event listener attached to document (capture phase)');
     
     // Populate dropdowns after data loads - retry a few times
     let retryCount = 0;
@@ -210,7 +223,8 @@ function bindSlideEvents(el, slide) {
         e.stopPropagation();
         openBgPicker(slide.id);
     });
-        // Add option button
+    
+    // Add option button
     el.querySelector('.add-option-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         openOptionModal(slide.id, -1);
@@ -243,36 +257,17 @@ function bindSlideEvents(el, slide) {
         });
     });
     
-    // Option connectors - start connection
+    // Option connectors - start drag connection
     el.querySelectorAll('.option-connector').forEach(conn => {
         conn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            expeditionState.isConnecting = true;
-            expeditionState.connectionStart = {
-                slideId: parseInt(conn.dataset.slide),
-                optionIndex: parseInt(conn.dataset.option)
-            };
-            document.body.style.cursor = 'crosshair';
-            const canvas = document.getElementById('expeditionCanvas');
-            if (canvas) canvas.classList.add('connecting');
-            // Highlight all slides as potential targets
-            document.querySelectorAll('.expedition-slide').forEach(s => {
-                if (s.id !== `slide-${conn.dataset.slide}`) {
-                    s.classList.add('connection-target');
-                }
-            });
+            startConnectionDrag(parseInt(conn.dataset.slide), parseInt(conn.dataset.option), e);
         });
     });
     
-    // Drag slide - but not when connecting
+    // Drag slide
     el.addEventListener('mousedown', (e) => {
-        // Don't start drag if we're in connecting mode (clicking on a target)
-        if (expeditionState.isConnecting) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-        }
         if (e.target.closest('input, textarea, button, .option-connector, .start-checkbox')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
@@ -359,10 +354,10 @@ let modalContext = { slideId: null, optionIndex: -1 };
 function populateDropdownsOnce() {
     if (expeditionState.dropdownsPopulated) return;
     
-    // Populate enemy dropdown - try multiple sources
-    const enemySelect = document.getElementById('optionEnemyId');
-    if (enemySelect) {
-        enemySelect.innerHTML = '<option value="">Select enemy...</option>';
+    // Populate enemy grid picker
+    const enemyGrid = document.getElementById('enemyPickerGrid');
+    if (enemyGrid) {
+        enemyGrid.innerHTML = '';
         
         // Try different sources for enemies
         let enemies = [];
@@ -374,17 +369,23 @@ function populateDropdownsOnce() {
             enemies = GlobalData.enemies;
         }
         
-        console.log('Populating enemy dropdown with', enemies.length, 'enemies from available source');
+        console.log('Populating enemy grid with', enemies.length, 'enemies');
         
-        enemies.forEach(enemy => {
-            const option = document.createElement('option');
-            option.value = enemy.id;
-            option.textContent = `⚔️ ${enemy.name || `Enemy #${enemy.id}`}`;
-            if (enemy.imageUrl || enemy.signedUrl) {
-                option.dataset.image = enemy.imageUrl || enemy.signedUrl;
-            }
-            enemySelect.appendChild(option);
-        });
+        if (enemies.length === 0) {
+            enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No enemies loaded yet</p>';
+        } else {
+            enemies.forEach(enemy => {
+                const item = document.createElement('div');
+                item.className = 'enemy-picker-item';
+                item.dataset.enemyId = enemy.id;
+                item.innerHTML = `
+                    <img src="${enemy.signedUrl || enemy.imageUrl || ''}" alt="${enemy.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+                    <span>${enemy.name || 'Enemy #' + enemy.id}</span>
+                `;
+                item.addEventListener('click', () => selectEnemyForOption(enemy.id));
+                enemyGrid.appendChild(item);
+            });
+        }
     }
     
     // Populate effects dropdown - try multiple sources
@@ -402,7 +403,7 @@ function populateDropdownsOnce() {
             effects = GlobalData.effects;
         }
         
-        console.log('Populating effects dropdown with', effects.length, 'effects from available source');
+        console.log('Populating effects dropdown with', effects.length, 'effects');
         
         effects.forEach(effect => {
             const option = document.createElement('option');
@@ -412,10 +413,23 @@ function populateDropdownsOnce() {
         });
     }
     
-    if ((enemySelect && enemySelect.options.length > 1) || (effectSelect && effectSelect.options.length > 1)) {
+    const hasEnemies = enemyGrid && enemyGrid.children.length > 0 && !enemyGrid.querySelector('p');
+    const hasEffects = effectSelect && effectSelect.options.length > 1;
+    
+    if (hasEnemies || hasEffects) {
         expeditionState.dropdownsPopulated = true;
         console.log('✅ Dropdowns populated');
     }
+}
+
+function selectEnemyForOption(enemyId) {
+    // Update hidden input
+    document.getElementById('optionEnemyId').value = enemyId;
+    
+    // Update selection visual
+    document.querySelectorAll('.enemy-picker-item').forEach(item => {
+        item.classList.toggle('selected', item.dataset.enemyId == enemyId);
+    });
 }
 
 function openOptionModal(slideId, optionIndex) {
@@ -453,8 +467,9 @@ function openOptionModal(slideId, optionIndex) {
     document.getElementById('optionEffectId').value = opt.effectId || '';
     document.getElementById('optionEffectAmount').value = opt.effectAmount || '';
     
-    // Combat field
+    // Combat field - update hidden input and visual selection
     document.getElementById('optionEnemyId').value = opt.enemyId || '';
+    selectEnemyForOption(opt.enemyId || null);
     
     // Show/hide relevant fields based on type
     updateOptionModalFields(opt.type || 'dialogue');
@@ -556,35 +571,87 @@ function onCanvasMouseMove(e) {
 function onCanvasMouseUp(e) {
     expeditionState.isDragging = false;
     
-    if (expeditionState.isConnecting) {
-        const target = e.target.closest('.expedition-slide');
-        if (target && expeditionState.connectionStart) {
-            const toId = parseInt(target.id.replace('slide-', ''));
+    // If clicking on empty canvas while connecting, cancel connection
+    if (expeditionState.isConnecting && !e.target.closest('.expedition-slide')) {
+        cancelConnection();
+    }
+}
+
+// ==================== CONNECTION DRAG FUNCTIONS ====================
+function startConnectionDrag(slideId, optionIndex, e) {
+    console.log('Starting connection drag from slide', slideId, 'option', optionIndex);
+    expeditionState.isConnecting = true;
+    expeditionState.connectionStart = { slideId, optionIndex };
+    
+    document.body.style.cursor = 'crosshair';
+    const canvas = document.getElementById('expeditionCanvas');
+    if (canvas) canvas.classList.add('connecting');
+    
+    // Highlight all slides as potential targets
+    document.querySelectorAll('.expedition-slide').forEach(s => {
+        if (s.id !== `slide-${slideId}`) {
+            s.classList.add('connection-target');
+        }
+    });
+    
+    // Track mouse movement on document level
+    const onMouseMove = (ev) => {
+        updateConnectionPreview(ev);
+    };
+    
+    const onMouseUp = (ev) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        
+        // Check if we dropped on a slide
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        const slideEl = target?.closest('.expedition-slide');
+        
+        if (slideEl && expeditionState.connectionStart) {
+            const toId = parseInt(slideEl.id.replace('slide-', ''));
             if (toId !== expeditionState.connectionStart.slideId) {
-                // Remove existing connection from this option
+                // Remove existing connection from this option (only one connection per option)
                 expeditionState.connections = expeditionState.connections.filter(c => 
                     !(c.from === expeditionState.connectionStart.slideId && c.option === expeditionState.connectionStart.optionIndex)
                 );
+                
                 // Add new connection
                 expeditionState.connections.push({
                     from: expeditionState.connectionStart.slideId,
                     option: expeditionState.connectionStart.optionIndex,
                     to: toId
                 });
-                renderConnections();
+                
+                console.log('Connection created:', expeditionState.connections);
             }
         }
-        expeditionState.isConnecting = false;
-        expeditionState.connectionStart = null;
-        document.body.style.cursor = 'default';
-        const canvas = document.getElementById('expeditionCanvas');
-        if (canvas) canvas.classList.remove('connecting');
-        document.getElementById('connectionPreview')?.setAttribute('style', 'display:none');
-        // Remove target highlighting
-        document.querySelectorAll('.expedition-slide.connection-target').forEach(s => {
-            s.classList.remove('connection-target');
-        });
-    }
+        
+        // Clean up
+        cancelConnectionDrag();
+        renderConnections();
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    
+    // Initial preview
+    updateConnectionPreview(e);
+}
+
+function cancelConnectionDrag() {
+    expeditionState.isConnecting = false;
+    expeditionState.connectionStart = null;
+    document.body.style.cursor = 'default';
+    
+    const canvas = document.getElementById('expeditionCanvas');
+    if (canvas) canvas.classList.remove('connecting');
+    
+    document.getElementById('connectionPreview')?.setAttribute('style', 'display:none');
+    
+    // Remove target highlighting
+    document.querySelectorAll('.expedition-slide.connection-target').forEach(s => {
+        s.classList.remove('connection-target');
+    });
 }
 
 function resetView() {
@@ -600,13 +667,15 @@ function resetView() {
 }
 
 function onCanvasWheel(e) {
-    e.preventDefault();
+    // Note: preventDefault and stopPropagation are called in the document-level handler
+    console.log('Wheel event, deltaY:', e.deltaY, 'current zoom:', expeditionState.zoom);
     
     const zoomSpeed = 0.1;
     const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
     const newZoom = Math.max(0.3, Math.min(2, expeditionState.zoom + delta));
     
     expeditionState.zoom = newZoom;
+    console.log('New zoom:', expeditionState.zoom);
     
     const container = document.getElementById('slidesContainer');
     if (container) {
@@ -620,6 +689,7 @@ function onCanvasWheel(e) {
     }
     
     renderConnections();
+    return false;
 }
 
 // ==================== CONNECTIONS ====================
@@ -645,7 +715,12 @@ function updateConnectionPreview(e) {
 function renderConnections() {
     const svg = document.getElementById('connectionsSvg');
     const canvas = document.getElementById('expeditionCanvas');
-    if (!svg || !canvas) return;
+    if (!svg || !canvas) {
+        console.log('renderConnections: svg or canvas not found');
+        return;
+    }
+    
+    console.log('renderConnections: drawing', expeditionState.connections.length, 'connections');
     
     const rect = canvas.getBoundingClientRect();
     

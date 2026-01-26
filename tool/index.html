@@ -698,11 +698,11 @@
                     
                     <!-- Combat Fields -->
                     <div id="optionCombatFields" class="modal-field" style="display:none;">
-                        <label>Enemy</label>
-                        <select id="optionEnemyId">
-                            <option value="">Select enemy...</option>
-                            <!-- Populated dynamically from global enemies array -->
-                        </select>
+                        <label>Select Enemy</label>
+                        <input type="hidden" id="optionEnemyId" value="">
+                        <div id="enemyPickerGrid" class="enemy-picker-grid">
+                            <!-- Populated dynamically with enemy icons -->
+                        </div>
                     </div>
                     
                     <div class="modal-buttons">
