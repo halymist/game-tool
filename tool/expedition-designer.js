@@ -117,7 +117,8 @@ function addSlide() {
         x: (rect.width / 2) - expeditionState.canvasOffset.x - 180,
         y: (rect.height / 2) - expeditionState.canvasOffset.y - 120,
         options: [],
-        assetUrl: null
+        assetUrl: null,
+        reward: null
     };
     
     expeditionState.slides.set(id, slide);
@@ -140,6 +141,23 @@ function renderSlide(slide) {
     el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}`;
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
+    
+    // Build reward display
+    let rewardHtml = '';
+    if (slide.reward && slide.reward.type) {
+        const rewardIcon = getRewardIcon(slide.reward.type);
+        const rewardLabel = getRewardLabel(slide.reward);
+        rewardHtml = `
+            <div class="slide-reward" data-slide="${slide.id}">
+                <span class="reward-icon">${rewardIcon}</span>
+                <span class="reward-label">${rewardLabel}</span>
+                <button class="reward-edit-btn" data-slide="${slide.id}" title="Edit reward">⚙️</button>
+                <button class="reward-delete-btn" data-slide="${slide.id}" title="Remove reward">×</button>
+            </div>
+        `;
+    } else {
+        rewardHtml = `<button class="add-reward-btn" data-slide="${slide.id}">+ Add Reward</button>`;
+    }
     
     const optionsHtml = slide.options.map((opt, i) => {
         // Build details badge based on option type
@@ -183,6 +201,9 @@ function renderSlide(slide) {
         <div class="slide-input-connector" title="Input">●</div>
         <div class="${bodyClass}" ${bodyBgStyle}>
             <textarea class="slide-text-input" data-slide="${slide.id}" placeholder="Enter slide text...">${escapeHtml(slide.text)}</textarea>
+            <div class="slide-reward-section">
+                ${rewardHtml}
+            </div>
             <div class="slide-options">
                 ${optionsHtml}
                 <button class="add-option-btn" data-slide="${slide.id}">+ Add Option</button>
@@ -228,6 +249,25 @@ function bindSlideEvents(el, slide) {
     el.querySelector('.add-option-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         openOptionModal(slide.id, -1);
+    });
+    
+    // Add reward button
+    el.querySelector('.add-reward-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openRewardModal(slide.id);
+    });
+    
+    // Edit reward button
+    el.querySelector('.reward-edit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openRewardModal(slide.id);
+    });
+    
+    // Delete reward button
+    el.querySelector('.reward-delete-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        slide.reward = null;
+        renderSlide(slide);
     });
     
     // Option text inputs
@@ -347,6 +387,124 @@ function deleteOption(slideId, optionIndex) {
 function getTypeIcon(type) {
     return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒' }[type] || '💬';
 }
+
+function getRewardIcon(type) {
+    const icons = {
+        stat: '📊',
+        talent: '⭐',
+        item: '🎒',
+        perk: '🔮',
+        blessing: '✨',
+        potion: '🧪'
+    };
+    return icons[type] || '🎁';
+}
+
+function getRewardLabel(reward) {
+    if (!reward || !reward.type) return 'No reward';
+    switch (reward.type) {
+        case 'stat':
+            return `+${reward.amount || '?'} ${reward.statType || 'stat'}`;
+        case 'talent':
+            return 'Talent Point';
+        case 'item':
+            return `Item #${reward.itemId || '?'}`;
+        case 'perk':
+            return `Perk #${reward.perkId || '?'}`;
+        case 'blessing':
+            return `Blessing #${reward.blessingId || '?'}`;
+        case 'potion':
+            return `Potion #${reward.potionId || '?'}`;
+        default:
+            return 'Unknown reward';
+    }
+}
+
+// ==================== REWARD MODAL ====================
+let rewardModalContext = { slideId: null };
+
+function openRewardModal(slideId) {
+    rewardModalContext = { slideId };
+    const slide = expeditionState.slides.get(slideId);
+    if (!slide) return;
+    
+    const reward = slide.reward || { type: 'stat', statType: 'strength', amount: 1 };
+    
+    document.getElementById('rewardModalType').value = reward.type || 'stat';
+    document.getElementById('rewardStatType').value = reward.statType || 'strength';
+    document.getElementById('rewardStatAmount').value = reward.amount || 1;
+    document.getElementById('rewardItemId').value = reward.itemId || '';
+    document.getElementById('rewardPerkId').value = reward.perkId || '';
+    document.getElementById('rewardBlessingId').value = reward.blessingId || '';
+    document.getElementById('rewardPotionId').value = reward.potionId || '';
+    
+    updateRewardModalFields(reward.type || 'stat');
+    document.getElementById('rewardModal').classList.add('open');
+}
+window.openRewardModal = openRewardModal;
+
+function updateRewardModalFields(type) {
+    const fields = {
+        stat: document.getElementById('rewardStatFields'),
+        item: document.getElementById('rewardItemFields'),
+        perk: document.getElementById('rewardPerkFields'),
+        blessing: document.getElementById('rewardBlessingFields'),
+        potion: document.getElementById('rewardPotionFields')
+    };
+    
+    // Hide all
+    Object.values(fields).forEach(f => { if (f) f.style.display = 'none'; });
+    
+    // Show relevant one
+    if (type === 'stat' && fields.stat) fields.stat.style.display = 'block';
+    if (type === 'item' && fields.item) fields.item.style.display = 'block';
+    if (type === 'perk' && fields.perk) fields.perk.style.display = 'block';
+    if (type === 'blessing' && fields.blessing) fields.blessing.style.display = 'block';
+    if (type === 'potion' && fields.potion) fields.potion.style.display = 'block';
+}
+window.updateRewardModalFields = updateRewardModalFields;
+
+function closeRewardModal() {
+    document.getElementById('rewardModal').classList.remove('open');
+    rewardModalContext = { slideId: null };
+}
+window.closeRewardModal = closeRewardModal;
+
+function saveRewardFromModal() {
+    const slide = expeditionState.slides.get(rewardModalContext.slideId);
+    if (!slide) return;
+    
+    const type = document.getElementById('rewardModalType').value;
+    
+    const reward = { type };
+    
+    switch (type) {
+        case 'stat':
+            reward.statType = document.getElementById('rewardStatType').value;
+            reward.amount = parseInt(document.getElementById('rewardStatAmount').value) || 1;
+            break;
+        case 'talent':
+            // No extra fields needed
+            break;
+        case 'item':
+            reward.itemId = parseInt(document.getElementById('rewardItemId').value) || null;
+            break;
+        case 'perk':
+            reward.perkId = parseInt(document.getElementById('rewardPerkId').value) || null;
+            break;
+        case 'blessing':
+            reward.blessingId = parseInt(document.getElementById('rewardBlessingId').value) || null;
+            break;
+        case 'potion':
+            reward.potionId = parseInt(document.getElementById('rewardPotionId').value) || null;
+            break;
+    }
+    
+    slide.reward = reward;
+    renderSlide(slide);
+    closeRewardModal();
+}
+window.saveRewardFromModal = saveRewardFromModal;
 
 // ==================== OPTION MODAL ====================
 let modalContext = { slideId: null, optionIndex: -1 };
@@ -674,7 +832,7 @@ function resetView() {
 }
 
 function changeZoom(delta) {
-    const newZoom = Math.max(0.3, Math.min(2, expeditionState.zoom + delta));
+    const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
     expeditionState.zoom = newZoom;
     
     const container = document.getElementById('slidesContainer');
@@ -697,7 +855,7 @@ function onCanvasWheel(e) {
     
     const zoomSpeed = 0.1;
     const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
-    const newZoom = Math.max(0.3, Math.min(2, expeditionState.zoom + delta));
+    const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
     
     expeditionState.zoom = newZoom;
     console.log('New zoom:', expeditionState.zoom);

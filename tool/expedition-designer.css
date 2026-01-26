@@ -379,6 +379,71 @@
     margin-top: auto;
 }
 
+/* Slide Reward Section - above options */
+.slide-reward-section {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+}
+
+.slide-reward {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    border-radius: 8px;
+    position: relative;
+}
+
+.reward-icon {
+    font-size: 1.2rem;
+}
+
+.reward-label {
+    flex: 1;
+    color: #a5d6a7;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.reward-edit-btn,
+.reward-delete-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.reward-edit-btn:hover {
+    color: #4ecdc4;
+}
+
+.reward-delete-btn:hover {
+    color: #e94560;
+}
+
+.add-reward-btn {
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px dashed rgba(76, 175, 80, 0.4);
+    color: #81c784;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.add-reward-btn:hover {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.6);
+}
+
 .slide-option {
     display: flex;
     align-items: center;

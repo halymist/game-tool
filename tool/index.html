@@ -738,6 +738,67 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Reward Modal -->
+            <div id="rewardModal" class="option-modal">
+                <div class="option-modal-content">
+                    <h3>Slide Reward</h3>
+                    <div class="modal-field">
+                        <label>Reward Type</label>
+                        <select id="rewardModalType" onchange="window.updateRewardModalFields && window.updateRewardModalFields(this.value)">
+                            <option value="stat">📊 Stat Bonus</option>
+                            <option value="talent">⭐ Talent Point</option>
+                            <option value="item">🎒 Item</option>
+                            <option value="perk">🔮 Perk</option>
+                            <option value="blessing">✨ Blessing</option>
+                            <option value="potion">🧪 Potion</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Stat Bonus Fields -->
+                    <div id="rewardStatFields" class="modal-field">
+                        <label>Stat Type</label>
+                        <select id="rewardStatType">
+                            <option value="strength">💪 Strength</option>
+                            <option value="stamina">❤️ Stamina</option>
+                            <option value="agility">🏃 Agility</option>
+                            <option value="luck">🍀 Luck</option>
+                            <option value="armor">🛡️ Armor</option>
+                        </select>
+                        <label style="margin-top:8px;">Amount</label>
+                        <input type="number" id="rewardStatAmount" value="1" min="1" max="100">
+                    </div>
+                    
+                    <!-- Item Fields -->
+                    <div id="rewardItemFields" class="modal-field" style="display:none;">
+                        <label>Item ID</label>
+                        <input type="number" id="rewardItemId" placeholder="Enter item ID...">
+                    </div>
+                    
+                    <!-- Perk Fields -->
+                    <div id="rewardPerkFields" class="modal-field" style="display:none;">
+                        <label>Perk ID</label>
+                        <input type="number" id="rewardPerkId" placeholder="Enter perk ID...">
+                    </div>
+                    
+                    <!-- Blessing Fields -->
+                    <div id="rewardBlessingFields" class="modal-field" style="display:none;">
+                        <label>Blessing ID</label>
+                        <input type="number" id="rewardBlessingId" placeholder="Enter blessing ID...">
+                    </div>
+                    
+                    <!-- Potion Fields -->
+                    <div id="rewardPotionFields" class="modal-field" style="display:none;">
+                        <label>Potion ID</label>
+                        <input type="number" id="rewardPotionId" placeholder="Enter potion ID...">
+                    </div>
+                    
+                    <div class="modal-buttons">
+                        <button class="btn-cancel" onclick="window.closeRewardModal()">Cancel</button>
+                        <button class="btn-primary" onclick="window.saveRewardFromModal()">Save Reward</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- NPC Manager Section -->
