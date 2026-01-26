@@ -628,9 +628,9 @@
                         <h2>🗺️ Expedition Designer</h2>
                         <span id="slideCounter">0 slides</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
-                            <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out">−</button>
+                            <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out" onclick="window.changeZoom(-0.1)">−</button>
                             <span id="zoomIndicator" class="zoom-indicator">100%</span>
-                            <button id="zoomInBtn" class="zoom-btn" title="Zoom In">+</button>
+                            <button id="zoomInBtn" class="zoom-btn" title="Zoom In" onclick="window.changeZoom(0.1)">+</button>
                         </div>
                     </div>
                     <div class="toolbar-right">

@@ -62,8 +62,6 @@ function initExpeditionDesigner() {
     // Button events
     document.getElementById('addSlideBtn')?.addEventListener('click', addSlide);
     document.getElementById('resetViewBtn')?.addEventListener('click', resetView);
-    document.getElementById('zoomInBtn')?.addEventListener('click', () => changeZoom(0.1));
-    document.getElementById('zoomOutBtn')?.addEventListener('click', () => changeZoom(-0.1));
     
     // Modal events - use onclick for more reliable binding
     const cancelBtn = document.getElementById('optionModalCancel');
@@ -378,12 +376,13 @@ function populateDropdownsOnce() {
             enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No enemies loaded yet</p>';
         } else {
             enemies.forEach((enemy, idx) => {
-                console.log(`Enemy ${idx}:`, { id: enemy.enemyId, name: enemy.enemyName, signedUrl: enemy.signedUrl });
+                const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+                console.log(`Enemy ${idx}:`, { id: enemy.enemyId, name: enemy.enemyName, assetId: enemy.assetId, icon: iconUrl });
                 const item = document.createElement('div');
                 item.className = 'enemy-picker-item';
                 item.dataset.enemyId = enemy.enemyId;
                 item.innerHTML = `
-                    <img src="${enemy.signedUrl || enemy.imageUrl || ''}" alt="${enemy.enemyName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+                    <img src="${iconUrl}" alt="${enemy.enemyName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
                     <span>${enemy.enemyName || 'Enemy #' + enemy.enemyId}</span>
                 `;
                 item.addEventListener('click', () => selectEnemyForOption(enemy.enemyId));
@@ -690,6 +689,7 @@ function changeZoom(delta) {
     
     renderConnections();
 }
+window.changeZoom = changeZoom;
 
 function onCanvasWheel(e) {
     // Note: preventDefault and stopPropagation are called in the document-level handler
