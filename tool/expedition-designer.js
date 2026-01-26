@@ -370,11 +370,13 @@ function populateDropdownsOnce() {
         }
         
         console.log('Populating enemy grid with', enemies.length, 'enemies');
+        console.log('Enemy data sample:', enemies[0]); // Debug: see what properties are available
         
         if (enemies.length === 0) {
             enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No enemies loaded yet</p>';
         } else {
-            enemies.forEach(enemy => {
+            enemies.forEach((enemy, idx) => {
+                console.log(`Enemy ${idx}:`, { id: enemy.id, name: enemy.name, imageUrl: enemy.imageUrl, signedUrl: enemy.signedUrl });
                 const item = document.createElement('div');
                 item.className = 'enemy-picker-item';
                 item.dataset.enemyId = enemy.id;
@@ -610,17 +612,21 @@ function startConnectionDrag(slideId, optionIndex, e) {
         if (slideEl && expeditionState.connectionStart) {
             const toId = parseInt(slideEl.id.replace('slide-', ''));
             if (toId !== expeditionState.connectionStart.slideId) {
-                // Remove existing connection from this option (only one connection per option)
-                expeditionState.connections = expeditionState.connections.filter(c => 
-                    !(c.from === expeditionState.connectionStart.slideId && c.option === expeditionState.connectionStart.optionIndex)
+                // Check if this exact connection already exists
+                const exists = expeditionState.connections.some(c => 
+                    c.from === expeditionState.connectionStart.slideId && 
+                    c.option === expeditionState.connectionStart.optionIndex &&
+                    c.to === toId
                 );
                 
-                // Add new connection
-                expeditionState.connections.push({
-                    from: expeditionState.connectionStart.slideId,
-                    option: expeditionState.connectionStart.optionIndex,
-                    to: toId
-                });
+                // Only add if it doesn't already exist (prevent duplicates)
+                if (!exists) {
+                    expeditionState.connections.push({
+                        from: expeditionState.connectionStart.slideId,
+                        option: expeditionState.connectionStart.optionIndex,
+                        to: toId
+                    });
+                }
                 
                 console.log('Connection created:', expeditionState.connections);
             }
