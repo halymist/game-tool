@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer-new.css">
     <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -72,11 +73,11 @@
 
                     <a href="#" onclick="showPage('dungeons'); return false;" class="tool-card">
                         <div class="tool-card-header">
-                            <span class="tool-card-icon">🏰</span>
-                            <h4 class="tool-card-title">Dungeon Builder</h4>
+                            <span class="tool-card-icon">🗺️</span>
+                            <h4 class="tool-card-title">Expeditions</h4>
                         </div>
                         <div class="tool-card-body">
-                            <p class="tool-card-description">Create dungeons, raids, and special areas with custom layouts and mechanics.</p>
+                            <p class="tool-card-description">Create branching expeditions with slides, options, and outcomes.</p>
                         </div>
                     </a>
 
@@ -618,12 +619,64 @@
             </div>
         </div>
 
-        <!-- Dungeon Builder Section -->
+        <!-- Expedition Designer Section -->
         <div id="dungeons-content" class="page-content" style="display: none;">
-            <div class="tool-header">
-                <div class="tool-icon">🏰</div>
-                <h1>Dungeon Builder</h1>
-                <p>Create dungeons, raids, and special areas with custom layouts and mechanics.</p>
+            <div class="expedition-designer-container">
+                <!-- Toolbar -->
+                <div class="expedition-toolbar">
+                    <div class="toolbar-left">
+                        <h2>🗺️ Expedition Designer</h2>
+                        <span id="slideCounter">0 slides</span>
+                    </div>
+                    <div class="toolbar-right">
+                        <button id="addSlideBtn" class="btn-primary" onclick="addExpeditionSlide()">+ Add Slide</button>
+                        <button id="resetViewBtn" class="btn-secondary">Reset View</button>
+                    </div>
+                </div>
+                
+                <!-- Canvas -->
+                <div id="expeditionCanvas" class="expedition-canvas">
+                    <svg id="connectionsSvg" class="connections-svg">
+                        <path id="connectionPreview" class="connection-preview" style="display:none"></path>
+                    </svg>
+                    <div id="slidesContainer" class="slides-container"></div>
+                </div>
+            </div>
+            
+            <!-- Option Modal -->
+            <div id="optionModal" class="option-modal">
+                <div class="option-modal-content">
+                    <h3 id="optionModalTitle">Add Option</h3>
+                    <div class="modal-field">
+                        <label>Option Text</label>
+                        <input type="text" id="optionModalText" placeholder="Enter option text...">
+                    </div>
+                    <div class="modal-field-row">
+                        <div class="modal-field">
+                            <label>Type</label>
+                            <select id="optionModalType">
+                                <option value="dialogue">💬 Dialogue</option>
+                                <option value="combat">⚔️ Combat</option>
+                                <option value="skill">🎯 Skill Check</option>
+                                <option value="item">🎒 Item Required</option>
+                            </select>
+                        </div>
+                        <div class="modal-field">
+                            <label>Stat Requirement</label>
+                            <select id="optionModalStat">
+                                <option value="">None</option>
+                                <option value="strength">Strength</option>
+                                <option value="agility">Agility</option>
+                                <option value="stamina">Stamina</option>
+                                <option value="luck">Luck</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button id="optionModalCancel" class="btn-cancel">Cancel</button>
+                        <button id="optionModalSave" class="btn-primary">Save</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -753,7 +806,7 @@
             'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
             'items': { title: 'Item Designer', element: 'items-content' },
             'perks': { title: 'Perk Designer', element: 'perks-content' },
-            'dungeons': { title: 'Dungeon Builder', element: 'dungeons-content' },
+            'dungeons': { title: 'Expeditions', element: 'dungeons-content' },
             'npcs': { title: 'NPC Manager', element: 'npcs-content' },
             'players': { title: 'Player Management', element: 'players-content' },
             'servers': { title: 'Server Management', element: 'servers-content' },
@@ -854,5 +907,6 @@
     <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
+    <script src="http://localhost:8080/static/expedition-designer.js"></script>
 </body>
 </html>
