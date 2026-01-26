@@ -771,26 +771,38 @@
                     
                     <!-- Item Fields -->
                     <div id="rewardItemFields" class="modal-field" style="display:none;">
-                        <label>Item ID</label>
-                        <input type="number" id="rewardItemId" placeholder="Enter item ID...">
+                        <label>Select Item</label>
+                        <input type="hidden" id="rewardItemId" value="">
+                        <div id="rewardItemPickerGrid" class="item-picker-grid">
+                            <!-- Populated dynamically -->
+                        </div>
                     </div>
                     
                     <!-- Perk Fields -->
                     <div id="rewardPerkFields" class="modal-field" style="display:none;">
-                        <label>Perk ID</label>
-                        <input type="number" id="rewardPerkId" placeholder="Enter perk ID...">
+                        <label>Select Perk</label>
+                        <select id="rewardPerkId">
+                            <option value="">-- Select a perk --</option>
+                            <!-- Populated dynamically -->
+                        </select>
                     </div>
                     
                     <!-- Blessing Fields -->
                     <div id="rewardBlessingFields" class="modal-field" style="display:none;">
-                        <label>Blessing ID</label>
-                        <input type="number" id="rewardBlessingId" placeholder="Enter blessing ID...">
+                        <label>Select Blessing</label>
+                        <select id="rewardBlessingId">
+                            <option value="">-- Select a blessing --</option>
+                            <!-- Populated dynamically -->
+                        </select>
                     </div>
                     
                     <!-- Potion Fields -->
                     <div id="rewardPotionFields" class="modal-field" style="display:none;">
-                        <label>Potion ID</label>
-                        <input type="number" id="rewardPotionId" placeholder="Enter potion ID...">
+                        <label>Select Potion</label>
+                        <input type="hidden" id="rewardPotionId" value="">
+                        <div id="rewardPotionPickerGrid" class="item-picker-grid">
+                            <!-- Populated dynamically -->
+                        </div>
                     </div>
                     
                     <div class="modal-buttons">

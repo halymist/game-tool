@@ -32,6 +32,15 @@ function initExpeditionDesigner() {
     canvas.addEventListener('mouseup', onCanvasMouseUp);
     canvas.addEventListener('mouseleave', onCanvasMouseUp);
     
+    // Prevent context menu on middle click
+    canvas.addEventListener('auxclick', (e) => {
+        if (e.button === 1) e.preventDefault();
+    });
+    canvas.addEventListener('contextmenu', (e) => {
+        // Allow right-click menu but prevent it during panning
+        if (expeditionState.isDragging) e.preventDefault();
+    });
+    
     // Zoom with mouse wheel - use document-level capture to prevent browser interference
     document.addEventListener('wheel', function(e) {
         const canvas = document.getElementById('expeditionCanvas');
@@ -430,6 +439,9 @@ function openRewardModal(slideId) {
     
     const reward = slide.reward || { type: 'stat', statType: 'strength', amount: 1 };
     
+    // Populate pickers
+    populateRewardPickers();
+    
     document.getElementById('rewardModalType').value = reward.type || 'stat';
     document.getElementById('rewardStatType').value = reward.statType || 'strength';
     document.getElementById('rewardStatAmount').value = reward.amount || 1;
@@ -438,10 +450,124 @@ function openRewardModal(slideId) {
     document.getElementById('rewardBlessingId').value = reward.blessingId || '';
     document.getElementById('rewardPotionId').value = reward.potionId || '';
     
+    // Highlight selected items in grids
+    selectRewardItem(reward.itemId || null);
+    selectRewardPotion(reward.potionId || null);
+    
     updateRewardModalFields(reward.type || 'stat');
     document.getElementById('rewardModal').classList.add('open');
 }
 window.openRewardModal = openRewardModal;
+
+function populateRewardPickers() {
+    // Get items data
+    let items = [];
+    if (typeof getItems === 'function') {
+        items = getItems() || [];
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.items) {
+        items = GlobalData.items;
+    }
+    
+    // Get perks data
+    let perks = [];
+    if (typeof getPerks === 'function') {
+        perks = getPerks() || [];
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.perks) {
+        perks = GlobalData.perks;
+    }
+    
+    console.log('Populating reward pickers with', items.length, 'items and', perks.length, 'perks');
+    
+    // Populate item grid (all items except potions)
+    const itemGrid = document.getElementById('rewardItemPickerGrid');
+    if (itemGrid) {
+        itemGrid.innerHTML = '';
+        const nonPotionItems = items.filter(item => item.type !== 'potion');
+        if (nonPotionItems.length === 0) {
+            itemGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No items loaded</p>';
+        } else {
+            nonPotionItems.forEach(item => {
+                const iconUrl = item.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/items/${item.assetID}.webp`;
+                const div = document.createElement('div');
+                div.className = 'item-picker-item';
+                div.dataset.itemId = item.id;
+                div.innerHTML = `
+                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎒</text></svg>'">
+                    <span>${item.name || 'Item #' + item.id}</span>
+                `;
+                div.addEventListener('click', () => selectRewardItem(item.id));
+                itemGrid.appendChild(div);
+            });
+        }
+    }
+    
+    // Populate potion grid (items where type = 'potion')
+    const potionGrid = document.getElementById('rewardPotionPickerGrid');
+    if (potionGrid) {
+        potionGrid.innerHTML = '';
+        const potions = items.filter(item => item.type === 'potion');
+        if (potions.length === 0) {
+            potionGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No potions loaded</p>';
+        } else {
+            potions.forEach(item => {
+                const iconUrl = item.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/items/${item.assetID}.webp`;
+                const div = document.createElement('div');
+                div.className = 'item-picker-item';
+                div.dataset.potionId = item.id;
+                div.innerHTML = `
+                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧪</text></svg>'">
+                    <span>${item.name || 'Potion #' + item.id}</span>
+                `;
+                div.addEventListener('click', () => selectRewardPotion(item.id));
+                potionGrid.appendChild(div);
+            });
+        }
+    }
+    
+    // Populate perk dropdown (non-blessings)
+    const perkSelect = document.getElementById('rewardPerkId');
+    if (perkSelect) {
+        const currentVal = perkSelect.value;
+        perkSelect.innerHTML = '<option value="">-- Select a perk --</option>';
+        const regularPerks = perks.filter(p => !p.is_blessing);
+        regularPerks.forEach(perk => {
+            const opt = document.createElement('option');
+            opt.value = perk.id;
+            opt.textContent = `🔮 #${perk.id} - ${perk.name || 'Unnamed'}`;
+            perkSelect.appendChild(opt);
+        });
+        if (currentVal) perkSelect.value = currentVal;
+    }
+    
+    // Populate blessing dropdown (perks where is_blessing = true)
+    const blessingSelect = document.getElementById('rewardBlessingId');
+    if (blessingSelect) {
+        const currentVal = blessingSelect.value;
+        blessingSelect.innerHTML = '<option value="">-- Select a blessing --</option>';
+        const blessings = perks.filter(p => p.is_blessing);
+        blessings.forEach(perk => {
+            const opt = document.createElement('option');
+            opt.value = perk.id;
+            opt.textContent = `✨ #${perk.id} - ${perk.name || 'Unnamed'}`;
+            blessingSelect.appendChild(opt);
+        });
+        if (currentVal) blessingSelect.value = currentVal;
+    }
+}
+
+function selectRewardItem(itemId) {
+    document.getElementById('rewardItemId').value = itemId || '';
+    document.querySelectorAll('#rewardItemPickerGrid .item-picker-item').forEach(item => {
+        item.classList.toggle('selected', item.dataset.itemId == itemId);
+    });
+}
+
+function selectRewardPotion(potionId) {
+    document.getElementById('rewardPotionId').value = potionId || '';
+    document.querySelectorAll('#rewardPotionPickerGrid .item-picker-item').forEach(item => {
+        item.classList.toggle('selected', item.dataset.potionId == potionId);
+    });
+}
 
 function updateRewardModalFields(type) {
     const fields = {
@@ -702,10 +828,26 @@ function saveOptionFromModal() {
 
 // ==================== CANVAS PAN ====================
 function onCanvasMouseDown(e) {
-    if (e.target.closest('.expedition-slide')) return;
-    if (e.button === 0) {
+    // Middle mouse button (button 1) always pans
+    if (e.button === 1) {
+        e.preventDefault();
         expeditionState.isDragging = true;
         expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
+        return;
+    }
+    
+    // Left click - only pan if clicking directly on canvas background
+    if (e.button === 0) {
+        // Check if clicking on a slide or interactive element
+        const clickedSlide = e.target.closest('.expedition-slide');
+        const clickedInteractive = e.target.closest('button, input, textarea, select, .option-connector');
+        
+        // Only start panning if clicking on canvas background (not on slides or their children)
+        if (!clickedSlide && !clickedInteractive && (e.target.id === 'expeditionCanvas' || e.target.closest('.connections-svg') || e.target.id === 'slidesContainer')) {
+            expeditionState.isDragging = true;
+            expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
+            e.target.style.cursor = 'grabbing';
+        }
     }
 }
 
@@ -730,7 +872,11 @@ function onCanvasMouseMove(e) {
 }
 
 function onCanvasMouseUp(e) {
-    expeditionState.isDragging = false;
+    if (expeditionState.isDragging) {
+        expeditionState.isDragging = false;
+        const canvas = document.getElementById('expeditionCanvas');
+        if (canvas) canvas.style.cursor = 'grab';
+    }
     
     // If clicking on empty canvas while connecting, cancel connection
     if (expeditionState.isConnecting && !e.target.closest('.expedition-slide')) {
