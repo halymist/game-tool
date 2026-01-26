@@ -3,9 +3,11 @@
 .expedition-designer-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 80px);
+    height: 100%;
+    width: 100%;
     background: #1a1a2e;
     position: relative;
+    overflow: hidden;
 }
 
 /* Toolbar */
@@ -34,6 +36,15 @@
 #slideCounter {
     color: #888;
     font-size: 0.9rem;
+}
+
+.zoom-indicator {
+    color: #4ecdc4;
+    font-size: 0.85rem;
+    background: rgba(78, 205, 196, 0.1);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 500;
 }
 
 .toolbar-right {
@@ -86,6 +97,14 @@
 
 .expedition-canvas:active {
     cursor: grabbing;
+}
+
+.expedition-canvas.connecting {
+    cursor: crosshair !important;
+}
+
+.expedition-canvas.connecting * {
+    cursor: crosshair !important;
 }
 
 .connections-svg {

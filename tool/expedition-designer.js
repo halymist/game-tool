@@ -8,10 +8,12 @@ const expeditionState = {
     selectedSlide: null,
     nextSlideId: 1,
     canvasOffset: { x: 0, y: 0 },
+    zoom: 1,
     isDragging: false,
     lastMouse: { x: 0, y: 0 },
     isConnecting: false,
-    connectionStart: null
+    connectionStart: null,
+    dropdownsPopulated: false
 };
 
 // ==================== INITIALIZATION ====================
@@ -29,6 +31,20 @@ function initExpeditionDesigner() {
     canvas.addEventListener('mousemove', onCanvasMouseMove);
     canvas.addEventListener('mouseup', onCanvasMouseUp);
     canvas.addEventListener('mouseleave', onCanvasMouseUp);
+    
+    // Zoom with mouse wheel
+    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
+    
+    // Populate dropdowns after data loads - retry a few times
+    let retryCount = 0;
+    const tryPopulateDropdowns = () => {
+        populateDropdownsOnce();
+        if (!expeditionState.dropdownsPopulated && retryCount < 5) {
+            retryCount++;
+            setTimeout(tryPopulateDropdowns, 2000);
+        }
+    };
+    setTimeout(tryPopulateDropdowns, 1500);
     
     // Button events
     document.getElementById('addSlideBtn')?.addEventListener('click', addSlide);
@@ -231,12 +247,15 @@ function bindSlideEvents(el, slide) {
     el.querySelectorAll('.option-connector').forEach(conn => {
         conn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             expeditionState.isConnecting = true;
             expeditionState.connectionStart = {
                 slideId: parseInt(conn.dataset.slide),
                 optionIndex: parseInt(conn.dataset.option)
             };
             document.body.style.cursor = 'crosshair';
+            const canvas = document.getElementById('expeditionCanvas');
+            if (canvas) canvas.classList.add('connecting');
             // Highlight all slides as potential targets
             document.querySelectorAll('.expedition-slide').forEach(s => {
                 if (s.id !== `slide-${conn.dataset.slide}`) {
@@ -246,8 +265,14 @@ function bindSlideEvents(el, slide) {
         });
     });
     
-    // Drag slide
+    // Drag slide - but not when connecting
     el.addEventListener('mousedown', (e) => {
+        // Don't start drag if we're in connecting mode (clicking on a target)
+        if (expeditionState.isConnecting) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         if (e.target.closest('input, textarea, button, .option-connector, .start-checkbox')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
@@ -256,9 +281,14 @@ function bindSlideEvents(el, slide) {
         
         const startX = e.clientX - slide.x;
         const startY = e.clientY - slide.y;
-        el.classList.add('dragging');
+        
+        let hasMoved = false;
         
         const onMove = (ev) => {
+            // Don't move if connecting started
+            if (expeditionState.isConnecting) return;
+            hasMoved = true;
+            el.classList.add('dragging');
             slide.x = ev.clientX - startX;
             slide.y = ev.clientY - startY;
             el.style.left = `${slide.x}px`;
@@ -326,47 +356,66 @@ function getTypeIcon(type) {
 // ==================== OPTION MODAL ====================
 let modalContext = { slideId: null, optionIndex: -1 };
 
-function populateEnemyDropdown() {
-    const select = document.getElementById('optionEnemyId');
-    if (!select) return;
+function populateDropdownsOnce() {
+    if (expeditionState.dropdownsPopulated) return;
     
-    // Clear existing options except the first placeholder
-    select.innerHTML = '<option value="">Select enemy...</option>';
-    
-    // Get enemies from GlobalData
-    const enemies = typeof getEnemies === 'function' ? getEnemies() : [];
-    console.log('Populating enemy dropdown with', enemies.length, 'enemies:', enemies);
-    
-    enemies.forEach(enemy => {
-        const option = document.createElement('option');
-        option.value = enemy.id;
-        // Show icon and name
-        option.textContent = `⚔️ ${enemy.name || `Enemy #${enemy.id}`}`;
-        // Store image URL for potential preview
-        if (enemy.imageUrl || enemy.signedUrl) {
-            option.dataset.image = enemy.imageUrl || enemy.signedUrl;
+    // Populate enemy dropdown - try multiple sources
+    const enemySelect = document.getElementById('optionEnemyId');
+    if (enemySelect) {
+        enemySelect.innerHTML = '<option value="">Select enemy...</option>';
+        
+        // Try different sources for enemies
+        let enemies = [];
+        if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+            enemies = allEnemies; // From enemy-designer-new.js
+        } else if (typeof getEnemies === 'function') {
+            enemies = getEnemies(); // From global-data.js
+        } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+            enemies = GlobalData.enemies;
         }
-        select.appendChild(option);
-    });
-}
-
-function populateEffectsDropdown() {
-    const select = document.getElementById('optionEffectId');
-    if (!select) return;
+        
+        console.log('Populating enemy dropdown with', enemies.length, 'enemies from available source');
+        
+        enemies.forEach(enemy => {
+            const option = document.createElement('option');
+            option.value = enemy.id;
+            option.textContent = `⚔️ ${enemy.name || `Enemy #${enemy.id}`}`;
+            if (enemy.imageUrl || enemy.signedUrl) {
+                option.dataset.image = enemy.imageUrl || enemy.signedUrl;
+            }
+            enemySelect.appendChild(option);
+        });
+    }
     
-    // Clear existing options except the first placeholder
-    select.innerHTML = '<option value="">Select effect...</option>';
+    // Populate effects dropdown - try multiple sources
+    const effectSelect = document.getElementById('optionEffectId');
+    if (effectSelect) {
+        effectSelect.innerHTML = '<option value="">Select effect...</option>';
+        
+        // Try different sources for effects
+        let effects = [];
+        if (typeof window.effectsData !== 'undefined' && window.effectsData.length > 0) {
+            effects = window.effectsData; // From enemy-designer-new.js
+        } else if (typeof getEffects === 'function') {
+            effects = getEffects(); // From global-data.js
+        } else if (typeof GlobalData !== 'undefined' && GlobalData.effects) {
+            effects = GlobalData.effects;
+        }
+        
+        console.log('Populating effects dropdown with', effects.length, 'effects from available source');
+        
+        effects.forEach(effect => {
+            const option = document.createElement('option');
+            option.value = effect.id;
+            option.textContent = `✨ #${effect.id} - ${effect.name || 'Unnamed effect'}`;
+            effectSelect.appendChild(option);
+        });
+    }
     
-    // Get effects from GlobalData
-    const effects = typeof getEffects === 'function' ? getEffects() : [];
-    console.log('Populating effects dropdown with', effects.length, 'effects');
-    
-    effects.forEach(effect => {
-        const option = document.createElement('option');
-        option.value = effect.id;
-        option.textContent = `✨ #${effect.id} - ${effect.name || 'Unnamed effect'}`;
-        select.appendChild(option);
-    });
+    if ((enemySelect && enemySelect.options.length > 1) || (effectSelect && effectSelect.options.length > 1)) {
+        expeditionState.dropdownsPopulated = true;
+        console.log('✅ Dropdowns populated');
+    }
 }
 
 function openOptionModal(slideId, optionIndex) {
@@ -376,9 +425,10 @@ function openOptionModal(slideId, optionIndex) {
     const slide = expeditionState.slides.get(slideId);
     if (!slide) return;
     
-    // Populate enemy and effects dropdowns
-    populateEnemyDropdown();
-    populateEffectsDropdown();
+    // Ensure dropdowns are populated (in case init didn't catch them)
+    if (!expeditionState.dropdownsPopulated) {
+        populateDropdownsOnce();
+    }
     
     const isEdit = optionIndex >= 0;
     const opt = isEdit ? slide.options[optionIndex] : { 
@@ -493,7 +543,7 @@ function onCanvasMouseMove(e) {
         
         const container = document.getElementById('slidesContainer');
         if (container) {
-            container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px)`;
+            container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
         }
         renderConnections();
     }
@@ -527,6 +577,8 @@ function onCanvasMouseUp(e) {
         expeditionState.isConnecting = false;
         expeditionState.connectionStart = null;
         document.body.style.cursor = 'default';
+        const canvas = document.getElementById('expeditionCanvas');
+        if (canvas) canvas.classList.remove('connecting');
         document.getElementById('connectionPreview')?.setAttribute('style', 'display:none');
         // Remove target highlighting
         document.querySelectorAll('.expedition-slide.connection-target').forEach(s => {
@@ -537,8 +589,36 @@ function onCanvasMouseUp(e) {
 
 function resetView() {
     expeditionState.canvasOffset = { x: 0, y: 0 };
+    expeditionState.zoom = 1;
     const container = document.getElementById('slidesContainer');
-    if (container) container.style.transform = 'translate(0, 0)';
+    if (container) container.style.transform = 'translate(0, 0) scale(1)';
+    
+    const indicator = document.getElementById('zoomIndicator');
+    if (indicator) indicator.textContent = '100%';
+    
+    renderConnections();
+}
+
+function onCanvasWheel(e) {
+    e.preventDefault();
+    
+    const zoomSpeed = 0.1;
+    const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
+    const newZoom = Math.max(0.3, Math.min(2, expeditionState.zoom + delta));
+    
+    expeditionState.zoom = newZoom;
+    
+    const container = document.getElementById('slidesContainer');
+    if (container) {
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+    }
+    
+    // Update zoom indicator
+    const indicator = document.getElementById('zoomIndicator');
+    if (indicator) {
+        indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
+    }
+    
     renderConnections();
 }
 
@@ -766,5 +846,6 @@ window.closeOptionModal = closeOptionModal;
 window.saveOptionFromModal = saveOptionFromModal;
 window.uploadSlideBgFromDevice = uploadSlideBgFromDevice;
 window.updateOptionModalFields = updateOptionModalFields;
+window.populateExpeditionDropdowns = populateDropdownsOnce;
 
 console.log('✅ expedition-designer.js READY');

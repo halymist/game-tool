@@ -9,14 +9,20 @@
     box-sizing: border-box;
 }
 
+html, body {
+    height: 100%;
+    overflow: hidden;
+}
+
 body {
     font-family: 'Crimson Text', serif;
     background: #2c1810;
     background-image: 
         radial-gradient(circle at 25% 25%, #3d2817 0%, transparent 50%),
         radial-gradient(circle at 75% 75%, #4a3322 0%, transparent 50%);
-    min-height: 100vh;
     color: #e8dcc0;
+    display: flex;
+    flex-direction: column;
 }
 
 .header {
@@ -98,11 +104,7 @@ body {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-.main-content {
-    padding: 2rem;
-    max-width: 1400px;
-    margin: 0 auto;
-}
+/* Main content moved to bottom of file for proper layout */
 
 .tool-header {
     background: linear-gradient(135deg, #3d2817 0%, #2c1810 100%);
@@ -292,9 +294,28 @@ body {
     border: 1px solid #e9ecef;
 }
 
+.main-content {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Page Content Styles */
 .page-content {
     width: 100%;
+    height: 100%;
+    overflow: auto;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Expedition page specific - full height canvas */
+#dungeons-content {
+    padding: 0 !important;
+    overflow: hidden;
+    max-width: none !important;
 }
 
 .page-header {
