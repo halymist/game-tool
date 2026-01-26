@@ -33,6 +33,7 @@ type Perk struct {
 	Effect2ID   *int         `json:"effect2_id" db:"effect_id_2"`
 	Factor2     *int         `json:"factor2" db:"factor_2"`
 	Description *string      `json:"description" db:"description"`
+	IsBlessing  bool         `json:"is_blessing" db:"is_blessing"`
 	Version     int          `json:"version" db:"version"`
 	Effects     []PerkEffect `json:"effects,omitempty"` // Processed effects for client
 	Icon        string       `json:"icon,omitempty"`    // For signed URL
@@ -61,6 +62,7 @@ type PendingPerk struct {
 	Effect2ID   *int    `json:"effect2_id" db:"effect_id_2"`
 	Factor2     *int    `json:"factor2" db:"factor_2"`
 	Description *string `json:"description" db:"description"`
+	IsBlessing  bool    `json:"is_blessing" db:"is_blessing"`
 }
 
 // PerkAsset represents an available perk asset from S3
