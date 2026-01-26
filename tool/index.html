@@ -651,27 +651,56 @@
                         <label>Option Text</label>
                         <input type="text" id="optionModalText" placeholder="Enter option text...">
                     </div>
-                    <div class="modal-field-row">
+                    <div class="modal-field">
+                        <label>Type</label>
+                        <select id="optionModalType" onchange="window.updateOptionModalFields && window.updateOptionModalFields(this.value)">
+                            <option value="dialogue">💬 Dialogue (no check)</option>
+                            <option value="skill">🎯 Skill Check (stat requirement)</option>
+                            <option value="effect">✨ Effect Check (effect requirement)</option>
+                            <option value="combat">⚔️ Combat (enemy encounter)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Skill Check Fields -->
+                    <div id="optionStatFields" class="modal-field-row" style="display:none;">
                         <div class="modal-field">
-                            <label>Type</label>
-                            <select id="optionModalType">
-                                <option value="dialogue">💬 Dialogue</option>
-                                <option value="combat">⚔️ Combat</option>
-                                <option value="skill">🎯 Skill Check</option>
-                                <option value="item">🎒 Item Required</option>
-                            </select>
-                        </div>
-                        <div class="modal-field">
-                            <label>Stat Requirement</label>
-                            <select id="optionModalStat">
-                                <option value="">None</option>
+                            <label>Stat Type</label>
+                            <select id="optionStatType">
+                                <option value="">Select stat...</option>
                                 <option value="strength">Strength</option>
                                 <option value="agility">Agility</option>
                                 <option value="stamina">Stamina</option>
                                 <option value="luck">Luck</option>
+                                <option value="armor">Armor</option>
                             </select>
                         </div>
+                        <div class="modal-field">
+                            <label>Required Amount</label>
+                            <input type="number" id="optionStatRequired" placeholder="e.g. 50" min="1">
+                        </div>
                     </div>
+                    
+                    <!-- Effect Check Fields -->
+                    <div id="optionEffectFields" class="modal-field-row" style="display:none;">
+                        <div class="modal-field">
+                            <label>Effect ID</label>
+                            <input type="number" id="optionEffectId" placeholder="Effect ID" min="1">
+                        </div>
+                        <div class="modal-field">
+                            <label>Required Amount</label>
+                            <input type="number" id="optionEffectAmount" placeholder="e.g. 10" min="1">
+                        </div>
+                    </div>
+                    
+                    <!-- Combat Fields -->
+                    <div id="optionCombatFields" class="modal-field" style="display:none;">
+                        <label>Enemy</label>
+                        <select id="optionEnemyId">
+                            <option value="">Select enemy...</option>
+                            <!-- Populated dynamically from global enemies array -->
+                        </select>
+                    </div>
+                    
                     <div class="modal-buttons">
                         <button id="optionModalCancel" class="btn-cancel" onclick="window.closeOptionModal()">Cancel</button>
                         <button id="optionModalSave" class="btn-primary" onclick="window.saveOptionFromModal()">Save</button>

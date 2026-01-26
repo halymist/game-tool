@@ -326,6 +326,7 @@
 
 .option-type-badge.combat { color: #ff6b6b; }
 .option-type-badge.skill { color: #4ecdc4; }
+.option-type-badge.effect { color: #c77dff; }
 .option-type-badge.item { color: #ffe66d; }
 .option-type-badge.dialogue { color: #a8dadc; }
 
@@ -344,13 +345,27 @@
     color: #fff;
 }
 
-.option-stat-badge {
-    background: #0f3460;
-    color: #4ecdc4;
-    font-size: 0.65rem;
-    padding: 2px 6px;
+.option-detail-badge {
+    font-size: 0.6rem;
+    padding: 2px 5px;
     border-radius: 4px;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+.option-detail-badge.skill {
+    background: rgba(78, 205, 196, 0.2);
+    color: #4ecdc4;
+}
+
+.option-detail-badge.effect {
+    background: rgba(199, 125, 255, 0.2);
+    color: #c77dff;
+}
+
+.option-detail-badge.combat {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
 }
 
 .option-edit-btn,

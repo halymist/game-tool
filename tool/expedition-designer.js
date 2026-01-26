@@ -112,17 +112,28 @@ function renderSlide(slide) {
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
     
-    const optionsHtml = slide.options.map((opt, i) => `
+    const optionsHtml = slide.options.map((opt, i) => {
+        // Build details badge based on option type
+        let detailsBadge = '';
+        if (opt.type === 'skill' && opt.statType) {
+            detailsBadge = `<span class="option-detail-badge skill">${opt.statType.slice(0,3).toUpperCase()}:${opt.statRequired || '?'}</span>`;
+        } else if (opt.type === 'effect' && opt.effectId) {
+            detailsBadge = `<span class="option-detail-badge effect">E#${opt.effectId}:${opt.effectAmount || '?'}</span>`;
+        } else if (opt.type === 'combat' && opt.enemyId) {
+            detailsBadge = `<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`;
+        }
+        
+        return `
         <div class="slide-option" data-slide="${slide.id}" data-option="${i}">
             <span class="option-type-badge ${opt.type}">${getTypeIcon(opt.type)}</span>
             <input type="text" class="option-text-input" value="${escapeHtml(opt.text || '')}" 
                    data-slide="${slide.id}" data-option="${i}" placeholder="Option text...">
-            ${opt.stat ? `<span class="option-stat-badge">${opt.stat.toUpperCase()}</span>` : ''}
+            ${detailsBadge}
             <button class="option-edit-btn" data-slide="${slide.id}" data-option="${i}" title="Edit option">⚙️</button>
             <button class="option-delete-btn" data-slide="${slide.id}" data-option="${i}" title="Delete option">×</button>
             <div class="option-connector" data-slide="${slide.id}" data-option="${i}" title="Drag to connect">●</div>
         </div>
-    `).join('');
+    `}).join('');
     
     // Build background style for slide body
     const bodyBgStyle = slide.assetUrl 
@@ -303,48 +314,128 @@ function deleteOption(slideId, optionIndex) {
 }
 
 function getTypeIcon(type) {
-    return { combat: '⚔️', skill: '🎯', item: '🎒' }[type] || '💬';
+    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒' }[type] || '💬';
 }
 
 // ==================== OPTION MODAL ====================
 let modalContext = { slideId: null, optionIndex: -1 };
 
+function populateEnemyDropdown() {
+    const select = document.getElementById('optionEnemyId');
+    if (!select) return;
+    
+    // Clear existing options except the first placeholder
+    select.innerHTML = '<option value="">Select enemy...</option>';
+    
+    // Get enemies from GlobalData
+    const enemies = typeof getEnemies === 'function' ? getEnemies() : [];
+    
+    enemies.forEach(enemy => {
+        const option = document.createElement('option');
+        option.value = enemy.id;
+        option.textContent = enemy.name || `Enemy #${enemy.id}`;
+        select.appendChild(option);
+    });
+}
+
 function openOptionModal(slideId, optionIndex) {
+    console.log('openOptionModal called', slideId, optionIndex);
     modalContext = { slideId, optionIndex };
     
     const slide = expeditionState.slides.get(slideId);
     if (!slide) return;
     
+    // Populate enemy dropdown first
+    populateEnemyDropdown();
+    
     const isEdit = optionIndex >= 0;
-    const opt = isEdit ? slide.options[optionIndex] : { text: '', type: 'dialogue', stat: '' };
+    const opt = isEdit ? slide.options[optionIndex] : { 
+        text: '', 
+        type: 'dialogue', 
+        statType: null, 
+        statRequired: null,
+        effectId: null,
+        effectAmount: null,
+        enemyId: null
+    };
     
     document.getElementById('optionModalTitle').textContent = isEdit ? 'Edit Option' : 'Add Option';
     document.getElementById('optionModalText').value = opt.text || '';
     document.getElementById('optionModalType').value = opt.type || 'dialogue';
-    document.getElementById('optionModalStat').value = opt.stat || '';
+    
+    // Stat fields
+    document.getElementById('optionStatType').value = opt.statType || '';
+    document.getElementById('optionStatRequired').value = opt.statRequired || '';
+    
+    // Effect fields
+    document.getElementById('optionEffectId').value = opt.effectId || '';
+    document.getElementById('optionEffectAmount').value = opt.effectAmount || '';
+    
+    // Combat field
+    document.getElementById('optionEnemyId').value = opt.enemyId || '';
+    
+    // Show/hide relevant fields based on type
+    updateOptionModalFields(opt.type || 'dialogue');
     
     document.getElementById('optionModal').classList.add('open');
 }
 
+function updateOptionModalFields(type) {
+    const statFields = document.getElementById('optionStatFields');
+    const effectFields = document.getElementById('optionEffectFields');
+    const combatFields = document.getElementById('optionCombatFields');
+    
+    // Hide all
+    if (statFields) statFields.style.display = 'none';
+    if (effectFields) effectFields.style.display = 'none';
+    if (combatFields) combatFields.style.display = 'none';
+    
+    // Show relevant
+    if (type === 'skill' && statFields) {
+        statFields.style.display = 'flex';
+    } else if (type === 'effect' && effectFields) {
+        effectFields.style.display = 'flex';
+    } else if (type === 'combat' && combatFields) {
+        combatFields.style.display = 'block';
+    }
+}
+
 function closeOptionModal() {
+    console.log('closeOptionModal called');
     document.getElementById('optionModal').classList.remove('open');
     modalContext = { slideId: null, optionIndex: -1 };
 }
 
 function saveOptionFromModal() {
+    console.log('saveOptionFromModal called');
     const slide = expeditionState.slides.get(modalContext.slideId);
-    if (!slide) return;
+    if (!slide) {
+        console.log('No slide found');
+        return;
+    }
     
     const text = document.getElementById('optionModalText').value || 'New option';
     const type = document.getElementById('optionModalType').value;
-    const stat = document.getElementById('optionModalStat').value || null;
+    
+    const option = { text, type };
+    
+    // Get type-specific fields
+    if (type === 'skill') {
+        option.statType = document.getElementById('optionStatType').value || null;
+        option.statRequired = parseInt(document.getElementById('optionStatRequired').value) || null;
+    } else if (type === 'effect') {
+        option.effectId = parseInt(document.getElementById('optionEffectId').value) || null;
+        option.effectAmount = parseInt(document.getElementById('optionEffectAmount').value) || null;
+    } else if (type === 'combat') {
+        option.enemyId = parseInt(document.getElementById('optionEnemyId').value) || null;
+    }
     
     if (modalContext.optionIndex >= 0) {
         // Edit existing
-        slide.options[modalContext.optionIndex] = { text, type, stat };
+        slide.options[modalContext.optionIndex] = option;
     } else {
         // Add new
-        slide.options.push({ text, type, stat });
+        slide.options.push(option);
     }
     
     renderSlide(slide);
@@ -493,20 +584,26 @@ function loadBgAssets() {
     
     grid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">Loading assets...</p>';
     
-    // Fetch expedition assets from S3
-    const token = localStorage.getItem('accessToken');
-    fetch('http://localhost:8080/api/getExpeditionAssets', {
-        headers: { 'Authorization': `Bearer ${token}` }
-    })
-    .then(r => r.json())
-    .then(data => {
-        expeditionAssets = data.assets || [];
-        renderBgAssetsGrid();
-    })
-    .catch(err => {
-        console.log('Could not load assets:', err);
-        expeditionAssets = [];
-        renderBgAssetsGrid();
+    // Fetch expedition assets from S3 using proper auth
+    getCurrentAccessToken().then(token => {
+        if (!token) {
+            grid.innerHTML = '<p style="color:#f66;text-align:center;grid-column:1/-1;">Auth required</p>';
+            return;
+        }
+        
+        fetch('http://localhost:8080/api/getExpeditionAssets', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(r => r.json())
+        .then(data => {
+            expeditionAssets = data.assets || [];
+            renderBgAssetsGrid();
+        })
+        .catch(err => {
+            console.log('Could not load assets:', err);
+            expeditionAssets = [];
+            renderBgAssetsGrid();
+        });
     });
 }
 
@@ -580,7 +677,12 @@ function uploadSlideBgFromDevice() {
         formData.append('folder', 'expeditions');
         
         try {
-            const token = localStorage.getItem('accessToken');
+            const token = await getCurrentAccessToken();
+            if (!token) {
+                if (uploadStatus) uploadStatus.textContent = 'Auth required';
+                return;
+            }
+            
             const response = await fetch('http://localhost:8080/api/uploadAsset', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
