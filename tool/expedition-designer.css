@@ -306,6 +306,17 @@
     box-shadow: 0 8px 32px rgba(34, 211, 238, 0.3), 0 8px 32px rgba(74, 222, 128, 0.2);
 }
 
+/* Modified slides (existing server slides with unsaved changes) - orange glow */
+.expedition-slide.modified-slide {
+    border-color: #f59e0b;
+    box-shadow: 0 8px 32px rgba(245, 158, 11, 0.35);
+}
+
+.expedition-slide.modified-slide.start-slide {
+    border-color: #f59e0b;
+    box-shadow: 0 8px 32px rgba(245, 158, 11, 0.35), 0 8px 32px rgba(74, 222, 128, 0.2);
+}
+
 .expedition-slide.dragging {
     opacity: 0.9;
     z-index: 1000;

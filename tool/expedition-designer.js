@@ -17,7 +17,10 @@ const expeditionState = {
     // Track which slides are from server (by their toolingId)
     serverSlides: new Map(), // localId -> toolingId
     serverOptions: new Map(), // "localSlideId-optionIndex" -> toolingId
-    serverOutcomes: new Set() // Set of "optionToolingId-targetToolingId" keys
+    serverOutcomes: new Set(), // Set of "optionToolingId-targetToolingId" keys
+    // Track original values for change detection
+    originalSlides: new Map(), // localId -> { text, assetId, effectId, effectFactor, isStart, reward, ... }
+    originalOptions: new Map() // "localSlideId-optionIndex" -> { text, type, statType, statRequired, ... }
 };
 
 // ==================== INITIALIZATION ====================
@@ -166,7 +169,8 @@ function renderSlide(slide) {
     const el = document.createElement('div');
     el.id = `slide-${slide.id}`;
     const isNewSlide = !expeditionState.serverSlides.has(slide.id);
-    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}${isNewSlide ? ' new-slide' : ''}`;
+    const isModified = !isNewSlide && isSlideModified(slide.id);
+    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}${isNewSlide ? ' new-slide' : ''}${isModified ? ' modified-slide' : ''}`;
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
     
@@ -269,6 +273,7 @@ function bindSlideEvents(el, slide) {
     const textArea = el.querySelector('.slide-text-input');
     textArea?.addEventListener('input', (e) => {
         slide.text = e.target.value;
+        checkAndUpdateModifiedState(el, slide);
     });
     textArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -278,6 +283,7 @@ function bindSlideEvents(el, slide) {
         e.stopPropagation();
         slide.isStart = e.target.checked;
         el.classList.toggle('start-slide', slide.isStart);
+        checkAndUpdateModifiedState(el, slide);
     });
     
     // Delete slide
@@ -341,6 +347,7 @@ function bindSlideEvents(el, slide) {
         input.addEventListener('input', (e) => {
             const idx = parseInt(e.target.dataset.option);
             slide.options[idx].text = e.target.value;
+            checkAndUpdateModifiedState(el, slide);
         });
         input.addEventListener('mousedown', (e) => e.stopPropagation());
     });
@@ -1558,6 +1565,142 @@ function escapeHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ==================== MODIFICATION DETECTION ====================
+// Check if a slide has been modified from its original server values
+function isSlideModified(localId) {
+    if (!expeditionState.serverSlides.has(localId)) return false; // New slides aren't "modified"
+    
+    const original = expeditionState.originalSlides.get(localId);
+    if (!original) return false;
+    
+    const slide = expeditionState.slides.get(localId);
+    if (!slide) return false;
+    
+    // Check slide-level changes
+    if (slide.text !== original.text) return true;
+    if (slide.isStart !== original.isStart) return true;
+    if (getAssetIdFromUrl(slide.assetUrl) !== original.assetId) return true;
+    
+    // Check effect changes
+    const slideEffectId = slide.effect?.effectId || null;
+    const slideEffectFactor = slide.effect?.effectFactor || null;
+    if (slideEffectId !== original.effectId) return true;
+    if (slideEffectFactor !== original.effectFactor) return true;
+    
+    // Check reward changes
+    if (!rewardsEqual(slide.reward, original.reward)) return true;
+    
+    // Check option-level changes
+    for (let i = 0; i < slide.options.length; i++) {
+        const optKey = `${localId}-${i}`;
+        if (expeditionState.serverOptions.has(optKey)) {
+            if (isOptionModified(localId, i)) return true;
+        }
+    }
+    
+    return false;
+}
+
+// Check if an option has been modified
+function isOptionModified(localId, optIdx) {
+    const optKey = `${localId}-${optIdx}`;
+    if (!expeditionState.serverOptions.has(optKey)) return false; // New options aren't "modified"
+    
+    const original = expeditionState.originalOptions.get(optKey);
+    if (!original) return false;
+    
+    const slide = expeditionState.slides.get(localId);
+    if (!slide || !slide.options[optIdx]) return false;
+    
+    const opt = slide.options[optIdx];
+    
+    if (opt.text !== original.text) return true;
+    if (opt.type !== original.type) return true;
+    if (opt.statType !== original.statType) return true;
+    if (opt.statRequired !== original.statRequired) return true;
+    if (opt.effectId !== original.effectId) return true;
+    if (opt.effectAmount !== original.effectAmount) return true;
+    if (opt.enemyId !== original.enemyId) return true;
+    
+    return false;
+}
+
+// Helper to compare rewards
+function rewardsEqual(r1, r2) {
+    if (!r1 && !r2) return true;
+    if (!r1 || !r2) return false;
+    if (r1.type !== r2.type) return false;
+    
+    switch (r1.type) {
+        case 'stat':
+            return r1.statType === r2.statType && r1.amount === r2.amount;
+        case 'item':
+            return r1.itemId === r2.itemId;
+        case 'perk':
+            return r1.perkId === r2.perkId;
+        case 'blessing':
+            return r1.blessingId === r2.blessingId;
+        case 'potion':
+            return r1.potionId === r2.potionId;
+        case 'talent':
+            return true;
+        default:
+            return true;
+    }
+}
+
+// Helper to extract asset ID from URL
+function getAssetIdFromUrl(url) {
+    if (!url) return null;
+    const match = url.match(/\/(\d+)\.webp/);
+    return match ? parseInt(match[1]) : null;
+}
+
+// Update modified state on element without full re-render
+function checkAndUpdateModifiedState(el, slide) {
+    const isNewSlide = !expeditionState.serverSlides.has(slide.id);
+    if (isNewSlide) return; // New slides don't need modification highlighting
+    
+    const isModified = isSlideModified(slide.id);
+    el.classList.toggle('modified-slide', isModified);
+}
+
+// Get all modified slides
+function getModifiedSlides() {
+    const modified = [];
+    expeditionState.slides.forEach((slide, localId) => {
+        if (expeditionState.serverSlides.has(localId) && isSlideModified(localId)) {
+            modified.push({
+                localId,
+                toolingId: expeditionState.serverSlides.get(localId),
+                slide
+            });
+        }
+    });
+    return modified;
+}
+
+// Get all modified options
+function getModifiedOptions() {
+    const modified = [];
+    expeditionState.slides.forEach((slide, localId) => {
+        if (!expeditionState.serverSlides.has(localId)) return; // Skip new slides
+        
+        slide.options.forEach((opt, optIdx) => {
+            const optKey = `${localId}-${optIdx}`;
+            if (expeditionState.serverOptions.has(optKey) && isOptionModified(localId, optIdx)) {
+                modified.push({
+                    localId,
+                    optIdx,
+                    optionToolingId: expeditionState.serverOptions.get(optKey),
+                    option: opt
+                });
+            }
+        });
+    });
+    return modified;
+}
+
 // ==================== SAVE EXPEDITION ====================
 async function saveExpedition() {
     if (expeditionState.slides.size === 0) {
@@ -1750,8 +1893,55 @@ async function saveExpedition() {
             });
         });
 
+        // Build updates for modified slides
+        const modifiedSlides = getModifiedSlides();
+        const slideUpdates = modifiedSlides.map(({ localId, toolingId, slide }) => {
+            // Build reward fields
+            let rewardStatType = null, rewardStatAmount = null, rewardTalent = null;
+            let rewardItem = null, rewardPerk = null, rewardBlessing = null, rewardPotion = null;
+            
+            if (slide.reward) {
+                switch (slide.reward.type) {
+                    case 'stat':
+                        rewardStatType = slide.reward.statType || null;
+                        rewardStatAmount = slide.reward.amount || null;
+                        break;
+                    case 'talent': rewardTalent = true; break;
+                    case 'item': rewardItem = slide.reward.itemId || null; break;
+                    case 'perk': rewardPerk = slide.reward.perkId || null; break;
+                    case 'blessing': rewardBlessing = slide.reward.blessingId || null; break;
+                    case 'potion': rewardPotion = slide.reward.potionId || null; break;
+                }
+            }
+            
+            return {
+                toolingId: toolingId,
+                text: slide.text || '',
+                assetId: getAssetIdFromUrl(slide.assetUrl),
+                effectId: slide.effect?.effectId || null,
+                effectFactor: slide.effect?.effectFactor || null,
+                isStart: slide.isStart || false,
+                rewardStatType, rewardStatAmount, rewardTalent,
+                rewardItem, rewardPerk, rewardBlessing, rewardPotion,
+                posX: slide.x || 100,
+                posY: slide.y || 100
+            };
+        });
+        
+        // Build updates for modified options
+        const modifiedOptions = getModifiedOptions();
+        const optionUpdates = modifiedOptions.map(({ optionToolingId, option }) => ({
+            toolingId: optionToolingId,
+            text: option.text || '',
+            statType: option.type === 'skill' ? option.statType : null,
+            statRequired: option.type === 'skill' ? option.statRequired : null,
+            effectId: option.type === 'effect' ? option.effectId : null,
+            effectAmount: option.type === 'effect' ? option.effectAmount : null,
+            enemyId: option.type === 'combat' ? option.enemyId : null
+        }));
+
         // Check if there's anything to save
-        if (slides.length === 0 && newOptions.length === 0 && newConnections.length === 0) {
+        if (slides.length === 0 && newOptions.length === 0 && newConnections.length === 0 && slideUpdates.length === 0 && optionUpdates.length === 0) {
             alert('No changes to save. All slides, options, and connections are already on the server.');
             return;
         }
@@ -1760,6 +1950,8 @@ async function saveExpedition() {
         console.log(`  - ${slides.length} new slides`);
         console.log(`  - ${newOptions.length} new options on existing slides`);
         console.log(`  - ${newConnections.length} new connections on existing options`);
+        console.log(`  - ${slideUpdates.length} updated slides`);
+        console.log(`  - ${optionUpdates.length} updated options`);
 
         // Get auth token
         const token = await getCurrentAccessToken();
@@ -1778,6 +1970,8 @@ async function saveExpedition() {
                 slides: slides,
                 newOptions: newOptions,
                 newConnections: newConnections,
+                slideUpdates: slideUpdates,
+                optionUpdates: optionUpdates,
                 settlementId: null // Could add settlement selector later
             })
         });
@@ -1795,16 +1989,57 @@ async function saveExpedition() {
                 for (const [localIdStr, toolingId] of Object.entries(result.slideMapping)) {
                     const localId = parseInt(localIdStr);
                     expeditionState.serverSlides.set(localId, toolingId);
+                    
+                    // Store original values for newly saved slides
+                    const slide = expeditionState.slides.get(localId);
+                    if (slide) {
+                        expeditionState.originalSlides.set(localId, {
+                            text: slide.text || '',
+                            isStart: slide.isStart || false,
+                            assetId: getAssetIdFromUrl(slide.assetUrl),
+                            effectId: slide.effect?.effectId || null,
+                            effectFactor: slide.effect?.effectFactor || null,
+                            reward: slide.reward ? JSON.parse(JSON.stringify(slide.reward)) : null
+                        });
+                    }
                 }
             }
             
-            // Re-render slides to update visual (remove new-slide highlight)
+            // Update original values for modified slides (so they're no longer marked as modified)
+            for (const { localId, slide } of modifiedSlides) {
+                expeditionState.originalSlides.set(localId, {
+                    text: slide.text || '',
+                    isStart: slide.isStart || false,
+                    assetId: getAssetIdFromUrl(slide.assetUrl),
+                    effectId: slide.effect?.effectId || null,
+                    effectFactor: slide.effect?.effectFactor || null,
+                    reward: slide.reward ? JSON.parse(JSON.stringify(slide.reward)) : null
+                });
+            }
+            
+            // Update original values for modified options
+            for (const { localId, optIdx, option } of modifiedOptions) {
+                const optKey = `${localId}-${optIdx}`;
+                expeditionState.originalOptions.set(optKey, {
+                    text: option.text || '',
+                    type: option.type || 'dialogue',
+                    statType: option.statType || null,
+                    statRequired: option.statRequired || null,
+                    effectId: option.effectId || null,
+                    effectAmount: option.effectAmount || null,
+                    enemyId: option.enemyId || null
+                });
+            }
+            
+            // Re-render slides to update visual (remove new-slide/modified-slide highlight)
             expeditionState.slides.forEach(slide => renderSlide(slide));
             
             const parts = [];
             if (slides.length > 0) parts.push(`${slides.length} new slides`);
             if (newOptions.length > 0) parts.push(`${newOptions.length} new options`);
             if (newConnections.length > 0) parts.push(`${newConnections.length} new connections`);
+            if (slideUpdates.length > 0) parts.push(`${slideUpdates.length} updated slides`);
+            if (optionUpdates.length > 0) parts.push(`${optionUpdates.length} updated options`);
             
             alert(`✅ Expedition saved successfully!\n\n${parts.join(', ')} saved to database.\n\nNote: Items are pending approval.`);
             console.log('Save result:', result);
@@ -1863,6 +2098,8 @@ async function loadExpedition() {
         expeditionState.serverSlides.clear();
         expeditionState.serverOptions.clear();
         expeditionState.serverOutcomes.clear();
+        expeditionState.originalSlides.clear();
+        expeditionState.originalOptions.clear();
 
         // Clear the canvas
         const container = document.getElementById('slidesContainer');
@@ -1893,6 +2130,16 @@ async function loadExpedition() {
             
             // Track this as a server slide
             expeditionState.serverSlides.set(localId, serverSlide.toolingId);
+            
+            // Store original values for change detection
+            expeditionState.originalSlides.set(localId, {
+                text: serverSlide.text || '',
+                isStart: serverSlide.isStart || false,
+                assetId: serverSlide.assetId || null,
+                effectId: serverSlide.effectId || null,
+                effectFactor: serverSlide.effectFactor || null,
+                reward: buildRewardFromServer(serverSlide)
+            });
             
             expeditionState.slides.set(localId, slide);
             localId++;
@@ -1931,6 +2178,17 @@ async function loadExpedition() {
                 // Track this as a server option
                 const optionKey = `${slideLocalId}-${optIdx}`;
                 expeditionState.serverOptions.set(optionKey, serverOpt.toolingId);
+                
+                // Store original option values for change detection
+                expeditionState.originalOptions.set(optionKey, {
+                    text: serverOpt.text || '',
+                    type: optType,
+                    statType: serverOpt.statType || null,
+                    statRequired: serverOpt.statRequired || null,
+                    effectId: serverOpt.effectId || null,
+                    effectAmount: serverOpt.effectAmount || null,
+                    enemyId: serverOpt.enemyId || null
+                });
 
                 // Third pass: create connections from outcomes
                 if (serverOpt.outcomes) {

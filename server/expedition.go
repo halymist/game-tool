@@ -76,11 +76,43 @@ type NewConnectionForExistingOption struct {
 	Weight             int  `json:"weight"`
 }
 
+// SlideUpdate represents updates to an existing slide
+type SlideUpdate struct {
+	ToolingID      int     `json:"toolingId"`
+	Text           string  `json:"text"`
+	AssetID        *int    `json:"assetId"`
+	EffectID       *int    `json:"effectId"`
+	EffectFactor   *int    `json:"effectFactor"`
+	IsStart        bool    `json:"isStart"`
+	RewardStatType *string `json:"rewardStatType"`
+	RewardStatAmt  *int    `json:"rewardStatAmount"`
+	RewardTalent   *bool   `json:"rewardTalent"`
+	RewardItem     *int    `json:"rewardItem"`
+	RewardPerk     *int    `json:"rewardPerk"`
+	RewardBlessing *int    `json:"rewardBlessing"`
+	RewardPotion   *int    `json:"rewardPotion"`
+	PosX           float64 `json:"posX"`
+	PosY           float64 `json:"posY"`
+}
+
+// OptionUpdate represents updates to an existing option
+type OptionUpdate struct {
+	ToolingID    int     `json:"toolingId"`
+	Text         string  `json:"text"`
+	StatType     *string `json:"statType"`
+	StatRequired *int    `json:"statRequired"`
+	EffectID     *int    `json:"effectId"`
+	EffectAmount *int    `json:"effectAmount"`
+	EnemyID      *int    `json:"enemyId"`
+}
+
 // SaveExpeditionRequest is the request body for saving an expedition
 type SaveExpeditionRequest struct {
 	Slides         []ExpeditionSlide                `json:"slides"`
 	NewOptions     []NewOptionForExistingSlide      `json:"newOptions"`     // New options for existing slides
 	NewConnections []NewConnectionForExistingOption `json:"newConnections"` // New connections for existing options
+	SlideUpdates   []SlideUpdate                    `json:"slideUpdates"`   // Updates to existing slides
+	OptionUpdates  []OptionUpdate                   `json:"optionUpdates"`  // Updates to existing options
 	SettlementID   *int                             `json:"settlementId"`
 }
 
@@ -368,6 +400,55 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Inserted new connection: existing option:%d -> slide:%d", newConn.OptionToolingID, targetSlideToolingID)
+	}
+
+	// Step 6: Update existing slides
+	for _, update := range req.SlideUpdates {
+		assetID := 0
+		if update.AssetID != nil {
+			assetID = *update.AssetID
+		}
+
+		_, err := tx.Exec(`
+			UPDATE tooling.expedition_slides SET
+				slide_text = $1, asset_id = $2, effect_id = $3, effect_factor = $4,
+				is_start = $5, reward_stat_type = $6, reward_stat_amount = $7,
+				reward_talent = $8, reward_item = $9, reward_perk = $10,
+				reward_blessing = $11, reward_potion = $12, pos_x = $13, pos_y = $14
+			WHERE tooling_id = $15
+		`, update.Text, assetID, update.EffectID, update.EffectFactor,
+			update.IsStart, update.RewardStatType, update.RewardStatAmt,
+			update.RewardTalent, update.RewardItem, update.RewardPerk,
+			update.RewardBlessing, update.RewardPotion, update.PosX, update.PosY,
+			update.ToolingID)
+
+		if err != nil {
+			log.Printf("Failed to update slide %d: %v", update.ToolingID, err)
+			http.Error(w, "Failed to update slide", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Updated slide tooling_id:%d", update.ToolingID)
+	}
+
+	// Step 7: Update existing options
+	for _, update := range req.OptionUpdates {
+		_, err := tx.Exec(`
+			UPDATE tooling.expedition_options SET
+				option_text = $1, stat_type = $2, stat_required = $3,
+				effect_id = $4, effect_amount = $5, enemy_id = $6
+			WHERE tooling_id = $7
+		`, update.Text, update.StatType, update.StatRequired,
+			update.EffectID, update.EffectAmount, update.EnemyID,
+			update.ToolingID)
+
+		if err != nil {
+			log.Printf("Failed to update option %d: %v", update.ToolingID, err)
+			http.Error(w, "Failed to update option", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Updated option tooling_id:%d", update.ToolingID)
 	}
 
 	// Commit transaction
