@@ -106,6 +106,14 @@ function initExpeditionDesigner() {
     
     updateCounter();
     console.log('✅ Expedition Designer ready');
+    
+    // Auto-load expedition data from server
+    setTimeout(() => {
+        console.log('🔄 Auto-loading expedition...');
+        loadExpedition().catch(err => {
+            console.log('ℹ️ No expedition data to load or load failed:', err.message);
+        });
+    }, 500);
 }
 
 // ==================== ADD SLIDE ====================
@@ -154,7 +162,8 @@ function renderSlide(slide) {
     
     const el = document.createElement('div');
     el.id = `slide-${slide.id}`;
-    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}`;
+    const isNewSlide = !expeditionState.serverSlides.has(slide.id);
+    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}${isNewSlide ? ' new-slide' : ''}`;
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
     
@@ -1383,11 +1392,7 @@ function uploadSlideBgFromDevice() {
         if (!file) return;
         
         const uploadStatus = document.getElementById('bgUploadStatus');
-        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', 'expeditions');
+        if (uploadStatus) uploadStatus.textContent = 'Converting...';
         
         try {
             const token = await getCurrentAccessToken();
@@ -1396,22 +1401,44 @@ function uploadSlideBgFromDevice() {
                 return;
             }
             
-            const response = await fetch('http://localhost:8080/api/uploadAsset', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-                body: formData
-            });
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = async (readerEvent) => {
+                if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+                
+                const base64Data = readerEvent.target.result;
+                
+                try {
+                    const response = await fetch('http://localhost:8080/api/uploadExpeditionAsset', {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            imageData: base64Data,
+                            contentType: file.type
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success && result.icon) {
+                        if (uploadStatus) uploadStatus.textContent = 'Uploaded!';
+                        // Add to local cache and select it
+                        expeditionAssets.unshift(result.icon);
+                        renderBgAssetsGrid();
+                        selectBgAsset(result.icon);
+                    } else {
+                        if (uploadStatus) uploadStatus.textContent = 'Upload failed';
+                        console.error('Upload response:', result);
+                    }
+                } catch (err) {
+                    console.error('Upload error:', err);
+                    if (uploadStatus) uploadStatus.textContent = 'Upload failed';
+                }
+            };
+            reader.readAsDataURL(file);
             
-            const result = await response.json();
-            if (result.url) {
-                if (uploadStatus) uploadStatus.textContent = 'Uploaded!';
-                // Add to local cache and select it
-                expeditionAssets.unshift(result.url);
-                renderBgAssetsGrid();
-                selectBgAsset(result.url);
-            } else {
-                if (uploadStatus) uploadStatus.textContent = 'Upload failed';
-            }
         } catch (err) {
             console.error('Upload error:', err);
             if (uploadStatus) uploadStatus.textContent = 'Upload failed';
@@ -1684,7 +1711,7 @@ async function loadExpedition() {
                 x: 100 + (localId - 1) % 4 * 400, // Grid layout
                 y: 100 + Math.floor((localId - 1) / 4) * 550,
                 options: [],
-                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expeditions/${serverSlide.assetId}.webp` : null,
+                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null
             };
@@ -1765,7 +1792,6 @@ async function loadExpedition() {
         centerCanvas();
 
         console.log(`✅ Loaded ${data.slides.length} slides from server`);
-        alert(`✅ Loaded ${data.slides.length} slides from server`);
 
     } catch (error) {
         console.error('Failed to load expedition:', error);

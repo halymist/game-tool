@@ -1,10 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // ExpeditionSlide represents a slide in the expedition designer
@@ -460,4 +469,213 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// ==================== EXPEDITION ASSETS ====================
+
+// ExpeditionAsset represents an asset for expedition backgrounds
+type ExpeditionAsset struct {
+	AssetID int    `json:"assetID"`
+	Name    string `json:"name"`
+	Icon    string `json:"icon"`
+}
+
+// handleGetExpeditionAssets lists all expedition assets from S3
+func handleGetExpeditionAssets(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== GET EXPEDITION ASSETS REQUEST ===")
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s3Client == nil {
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
+		return
+	}
+
+	assets, err := listExpeditionAssets()
+	if err != nil {
+		log.Printf("Error listing expedition assets: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to list assets: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Found %d expedition assets in S3", len(assets))
+
+	response := map[string]interface{}{
+		"success": true,
+		"assets":  assets,
+	}
+
+	json.NewEncoder(w).Encode(response)
+	log.Printf("✅ GET EXPEDITION ASSETS RESPONSE SENT")
+}
+
+// listExpeditionAssets lists all expedition assets from S3 (images/expedition/)
+func listExpeditionAssets() ([]ExpeditionAsset, error) {
+	if s3Client == nil {
+		return nil, fmt.Errorf("S3 client not initialized")
+	}
+
+	prefix := "images/expedition/"
+
+	input := &s3.ListObjectsV2Input{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Prefix: aws.String(prefix),
+	}
+
+	result, err := s3Client.ListObjectsV2(context.TODO(), input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list S3 objects: %v", err)
+	}
+
+	var assets []ExpeditionAsset
+	for _, obj := range result.Contents {
+		key := *obj.Key
+
+		ext := strings.ToLower(filepath.Ext(key))
+		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" && ext != ".webp" && ext != ".gif" {
+			continue
+		}
+
+		filename := filepath.Base(key)
+		nameWithoutExt := strings.TrimSuffix(filename, ext)
+
+		assetID, err := strconv.Atoi(nameWithoutExt)
+		if err != nil {
+			log.Printf("Non-numeric expedition asset: %s, skipping", filename)
+			continue
+		}
+
+		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+			S3_BUCKET_NAME, S3_REGION, key)
+
+		assets = append(assets, ExpeditionAsset{
+			AssetID: assetID,
+			Name:    nameWithoutExt,
+			Icon:    publicURL,
+		})
+	}
+
+	return assets, nil
+}
+
+// handleUploadExpeditionAsset uploads a new expedition asset to S3
+func handleUploadExpeditionAsset(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== UPLOAD EXPEDITION ASSET REQUEST ===")
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s3Client == nil {
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
+		return
+	}
+
+	var req struct {
+		ImageData   string `json:"imageData"`
+		ContentType string `json:"contentType"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error parsing request: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Find the next available asset ID
+	assets, err := listExpeditionAssets()
+	if err != nil {
+		log.Printf("Error listing assets for ID: %v", err)
+		http.Error(w, "Failed to determine asset ID", http.StatusInternalServerError)
+		return
+	}
+
+	maxID := 0
+	for _, asset := range assets {
+		if asset.AssetID > maxID {
+			maxID = asset.AssetID
+		}
+	}
+	newAssetID := maxID + 1
+
+	log.Printf("Uploading expedition asset with new ID: %d", newAssetID)
+
+	// Upload to S3
+	s3Key, err := uploadExpeditionAssetToS3(req.ImageData, newAssetID)
+	if err != nil {
+		log.Printf("Error uploading to S3: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		S3_BUCKET_NAME, S3_REGION, s3Key)
+
+	response := map[string]interface{}{
+		"success": true,
+		"assetID": newAssetID,
+		"s3Key":   s3Key,
+		"icon":    publicURL,
+	}
+
+	json.NewEncoder(w).Encode(response)
+	log.Printf("✅ UPLOAD EXPEDITION ASSET SUCCESS - Asset ID: %d, URL: %s", newAssetID, publicURL)
+}
+
+// uploadExpeditionAssetToS3 uploads an expedition asset as webp
+func uploadExpeditionAssetToS3(imageData string, assetID int) (string, error) {
+	if s3Client == nil {
+		return "", fmt.Errorf("S3 client not initialized")
+	}
+
+	// Remove data URL prefix if present
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	// Decode base64
+	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %v", err)
+	}
+
+	// S3 key: images/expedition/{assetID}.webp
+	s3Key := fmt.Sprintf("images/expedition/%d.webp", assetID)
+
+	log.Printf("Uploading expedition asset to S3: %s", s3Key)
+
+	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket:      aws.String(S3_BUCKET_NAME),
+		Key:         aws.String(s3Key),
+		Body:        bytes.NewReader(imageBytes),
+		ContentType: aws.String("image/webp"),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to upload to S3: %v", err)
+	}
+
+	log.Printf("Expedition asset uploaded to S3: %s", s3Key)
+	return s3Key, nil
 }

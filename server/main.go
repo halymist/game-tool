@@ -202,8 +202,8 @@ func main() {
 	http.HandleFunc("/api/uploadEnemyAsset", corsHandler(CreateUploadAssetHandler("enemies")))
 
 	// Expedition endpoints
-	http.HandleFunc("/api/getExpeditionAssets", corsHandler(CreateGetAssetsHandler("expeditions")))
-	http.HandleFunc("/api/uploadAsset", corsHandler(handleGenericUploadAsset))
+	http.HandleFunc("/api/getExpeditionAssets", corsHandler(handleGetExpeditionAssets))
+	http.HandleFunc("/api/uploadExpeditionAsset", corsHandler(handleUploadExpeditionAsset))
 	http.HandleFunc("/api/saveExpedition", corsHandler(handleSaveExpedition))
 	http.HandleFunc("/api/getExpedition", corsHandler(handleGetExpedition))
 
