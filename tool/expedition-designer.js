@@ -119,12 +119,14 @@ function addSlide() {
     const rect = canvas.getBoundingClientRect();
     const id = expeditionState.nextSlideId++;
     
+    // Position new slides in the visible center of the viewport
+    // Account for current pan offset so slide appears in center of view
     const slide = {
         id: id,
         text: 'Click to edit text...',
         isStart: expeditionState.slides.size === 0,
-        x: (rect.width / 2) - expeditionState.canvasOffset.x - 180,
-        y: (rect.height / 2) - expeditionState.canvasOffset.y - 120,
+        x: (rect.width / 2 - expeditionState.canvasOffset.x) / expeditionState.zoom - 180 + (Math.random() - 0.5) * 100,
+        y: (rect.height / 2 - expeditionState.canvasOffset.y) / expeditionState.zoom - 240 + (Math.random() - 0.5) * 100,
         options: [],
         assetUrl: null,
         reward: null

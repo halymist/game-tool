@@ -176,10 +176,10 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 10000px;
+    height: 10000px;
     z-index: 2;
-    transform-origin: center center;
+    transform-origin: 0 0;
 }
 
 /* Slide Node - 2:3 aspect ratio (taller) */

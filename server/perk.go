@@ -186,6 +186,7 @@ func getAllPerks() ([]Perk, error) {
 			effect_id_2, 
 			factor_2,
 			description,
+			COALESCE(is_blessing, false) as is_blessing,
 			COALESCE(version, 1) as version
 		FROM game.perks_info 
 		ORDER BY perk_id
@@ -209,6 +210,7 @@ func getAllPerks() ([]Perk, error) {
 			&perk.Effect2ID,
 			&perk.Factor2,
 			&perk.Description,
+			&perk.IsBlessing,
 			&perk.Version,
 		)
 		if err != nil {
@@ -276,7 +278,8 @@ func getPendingPerks() ([]PendingPerk, error) {
 			factor_1,
 			effect_id_2,
 			factor_2,
-			description
+			description,
+			COALESCE(is_blessing, false) as is_blessing
 		FROM tooling.perks_info 
 		ORDER BY tooling_id DESC
 	`
@@ -303,6 +306,7 @@ func getPendingPerks() ([]PendingPerk, error) {
 			&perk.Effect2ID,
 			&perk.Factor2,
 			&perk.Description,
+			&perk.IsBlessing,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning pending perk row: %v", err)
