@@ -233,15 +233,17 @@
 .connection-line {
     fill: none;
     stroke: #e94560;
-    stroke-width: 2;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 3;
     pointer-events: stroke;
     cursor: pointer;
-    transition: stroke 0.2s;
+    transition: stroke 0.2s, stroke-width 0.2s;
 }
 
 .connection-line:hover {
     stroke: #ff6b6b;
-    stroke-width: 3;
+    stroke-width: 2.5;
+    stroke-dasharray: none;
 }
 
 .connection-preview {
@@ -383,23 +385,25 @@
     opacity: 1;
 }
 
-/* Slide Input Connector */
+/* Slide Input Connector - hidden, connections go to border */
 .slide-input-connector {
+    display: none;
+}
+
+/* Connection target indicators on slide borders */
+.expedition-slide::after {
+    content: '';
     position: absolute;
-    left: -8px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 16px;
-    height: 16px;
-    background: #0f3460;
-    border: 2px solid #e94560;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    color: #e94560;
-    z-index: 10;
+    inset: -3px;
+    border: 3px solid transparent;
+    border-radius: 14px;
+    pointer-events: none;
+    transition: border-color 0.2s;
+}
+
+.expedition-slide.connection-target::after {
+    border-color: #f59e0b;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
 }
 
 /* Slide Body */
@@ -680,11 +684,10 @@
 
 .option-connector {
     position: absolute;
-    right: -12px;
     top: 50%;
     transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     background: #16213e;
     border: 2px solid #e94560;
     border-radius: 50%;
@@ -692,14 +695,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 8px;
+    font-size: 6px;
     color: #e94560;
     transition: transform 0.2s, background 0.2s;
     z-index: 10;
 }
 
+.option-connector-left {
+    left: -8px;
+}
+
+.option-connector-right {
+    right: -8px;
+}
+
 .option-connector:hover {
-    transform: translateY(-50%) scale(1.3);
+    transform: translateY(-50%) scale(1.4);
     background: #e94560;
     color: white;
 }

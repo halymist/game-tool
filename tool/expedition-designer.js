@@ -17,7 +17,7 @@ const expeditionState = {
     // Track which slides are from server (by their toolingId)
     serverSlides: new Map(), // localId -> toolingId
     serverOptions: new Map(), // "localSlideId-optionIndex" -> toolingId
-    serverOutcomes: new Set() // Set of outcome toolingIds
+    serverOutcomes: new Set() // Set of "optionToolingId-targetToolingId" keys
 };
 
 // ==================== INITIALIZATION ====================
@@ -215,13 +215,14 @@ function renderSlide(slide) {
         
         return `
         <div class="slide-option" data-slide="${slide.id}" data-option="${i}">
+            <div class="option-connector option-connector-left" data-slide="${slide.id}" data-option="${i}" data-side="left" title="Drag to connect">●</div>
             <span class="option-type-badge ${opt.type}">${getTypeIcon(opt.type)}</span>
             <input type="text" class="option-text-input" value="${escapeHtml(opt.text || '')}" 
                    data-slide="${slide.id}" data-option="${i}" placeholder="Option text...">
             ${detailsBadge}
             <button class="option-edit-btn" data-slide="${slide.id}" data-option="${i}" title="Edit option">⚙️</button>
             <button class="option-delete-btn" data-slide="${slide.id}" data-option="${i}" title="Delete option">×</button>
-            <div class="option-connector" data-slide="${slide.id}" data-option="${i}" title="Drag to connect">●</div>
+            <div class="option-connector option-connector-right" data-slide="${slide.id}" data-option="${i}" data-side="right" title="Drag to connect">●</div>
         </div>
     `}).join('');
     
@@ -367,7 +368,8 @@ function bindSlideEvents(el, slide) {
         conn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            startConnectionDrag(parseInt(conn.dataset.slide), parseInt(conn.dataset.option), e);
+            const side = conn.dataset.side || 'right';
+            startConnectionDrag(parseInt(conn.dataset.slide), parseInt(conn.dataset.option), e, side);
         });
     });
     
@@ -1027,10 +1029,10 @@ function onCanvasMouseUp(e) {
 }
 
 // ==================== CONNECTION DRAG FUNCTIONS ====================
-function startConnectionDrag(slideId, optionIndex, e) {
-    console.log('Starting connection drag from slide', slideId, 'option', optionIndex);
+function startConnectionDrag(slideId, optionIndex, e, side = 'right') {
+    console.log('Starting connection drag from slide', slideId, 'option', optionIndex, 'side', side);
     expeditionState.isConnecting = true;
-    expeditionState.connectionStart = { slideId, optionIndex };
+    expeditionState.connectionStart = { slideId, optionIndex, side };
     
     document.body.style.cursor = 'crosshair';
     const canvas = document.getElementById('expeditionCanvas');
@@ -1233,7 +1235,9 @@ function updateConnectionPreview(e) {
     if (!preview || !canvas || !expeditionState.connectionStart) return;
     
     const rect = canvas.getBoundingClientRect();
-    const fromEl = document.querySelector(`#slide-${expeditionState.connectionStart.slideId} .option-connector[data-option="${expeditionState.connectionStart.optionIndex}"]`);
+    // Use the side that was clicked (stored in connectionStart)
+    const side = expeditionState.connectionStart.side || 'right';
+    const fromEl = document.querySelector(`#slide-${expeditionState.connectionStart.slideId} .option-connector-${side}[data-option="${expeditionState.connectionStart.optionIndex}"]`);
     if (!fromEl) return;
     
     const fromRect = fromEl.getBoundingClientRect();
@@ -1242,7 +1246,9 @@ function updateConnectionPreview(e) {
     const x2 = e.clientX - rect.left;
     const y2 = e.clientY - rect.top;
     
-    preview.setAttribute('d', `M ${x1} ${y1} Q ${(x1+x2)/2} ${y1}, ${x2} ${y2}`);
+    // Curve control based on which side
+    const curveX = side === 'right' ? x1 + 50 : x1 - 50;
+    preview.setAttribute('d', `M ${x1} ${y1} Q ${curveX} ${y1}, ${x2} ${y2}`);
     preview.style.display = 'block';
 }
 
@@ -1254,28 +1260,109 @@ function renderConnections() {
         return;
     }
     
-    console.log('renderConnections: drawing', expeditionState.connections.length, 'connections');
-    
     const rect = canvas.getBoundingClientRect();
     
     // Remove old paths except preview
     svg.querySelectorAll('path:not(#connectionPreview)').forEach(p => p.remove());
     
+    const slideWidth = 360;
+    const slideHeight = 540;
+    const zoom = expeditionState.zoom;
+    const offsetX = expeditionState.canvasOffset.x;
+    const offsetY = expeditionState.canvasOffset.y;
+    
     expeditionState.connections.forEach((conn, i) => {
-        const fromEl = document.querySelector(`#slide-${conn.from} .option-connector[data-option="${conn.option}"]`);
-        const toEl = document.querySelector(`#slide-${conn.to} .slide-input-connector`);
-        if (!fromEl || !toEl) return;
+        const fromSlide = expeditionState.slides.get(conn.from);
+        const toSlide = expeditionState.slides.get(conn.to);
+        if (!fromSlide || !toSlide) return;
+        
+        // Convert target slide coordinates to screen space (accounting for zoom and offset)
+        const toScreenX = toSlide.x * zoom + offsetX;
+        const toScreenY = toSlide.y * zoom + offsetY;
+        const toScreenWidth = slideWidth * zoom;
+        const toScreenHeight = slideHeight * zoom;
+        const toScreenCenterX = toScreenX + toScreenWidth / 2;
+        const toScreenCenterY = toScreenY + toScreenHeight / 2;
+        
+        // Get from slide center in screen space to determine which connector to use
+        const fromScreenCenterX = fromSlide.x * zoom + offsetX + (slideWidth * zoom) / 2;
+        const useRightConnector = toScreenCenterX >= fromScreenCenterX;
+        const connectorSide = useRightConnector ? 'right' : 'left';
+        
+        const fromEl = document.querySelector(`#slide-${conn.from} .option-connector-${connectorSide}[data-option="${conn.option}"]`);
+        if (!fromEl) return;
         
         const fromRect = fromEl.getBoundingClientRect();
-        const toRect = toEl.getBoundingClientRect();
-        
         const x1 = fromRect.left + fromRect.width/2 - rect.left;
         const y1 = fromRect.top + fromRect.height/2 - rect.top;
-        const x2 = toRect.left + toRect.width/2 - rect.left;
-        const y2 = toRect.top + toRect.height/2 - rect.top;
+        
+        // Target slide bounds in screen coordinates
+        const targetLeft = toScreenX;
+        const targetRight = toScreenX + toScreenWidth;
+        const targetTop = toScreenY;
+        const targetBottom = toScreenY + toScreenHeight;
+        
+        // Find intersection point with slide border
+        let x2, y2;
+        const dx = toScreenCenterX - x1;
+        const dy = toScreenCenterY - y1;
+        
+        // Determine which edge to connect to based on angle
+        const aspectRatio = toScreenWidth / toScreenHeight;
+        
+        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
+            // Intersects left or right edge
+            if (dx > 0) {
+                // Left edge of target
+                x2 = targetLeft;
+                y2 = y1 + (dy / dx) * (targetLeft - x1);
+                y2 = Math.max(targetTop + 15, Math.min(targetBottom - 15, y2));
+            } else {
+                // Right edge of target
+                x2 = targetRight;
+                y2 = y1 + (dy / dx) * (targetRight - x1);
+                y2 = Math.max(targetTop + 15, Math.min(targetBottom - 15, y2));
+            }
+        } else {
+            // Intersects top or bottom edge
+            if (dy > 0) {
+                // Top edge of target
+                y2 = targetTop;
+                x2 = x1 + (dx / dy) * (targetTop - y1);
+                x2 = Math.max(targetLeft + 15, Math.min(targetRight - 15, x2));
+            } else {
+                // Bottom edge of target
+                y2 = targetBottom;
+                x2 = x1 + (dx / dy) * (targetBottom - y1);
+                x2 = Math.max(targetLeft + 15, Math.min(targetRight - 15, x2));
+            }
+        }
+        
+        // Create smooth bezier curve
+        const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        const curveStrength = Math.min(distance * 0.25, 60);
+        
+        // Control point 1: extends from start point
+        let cx1, cy1, cx2, cy2;
+        if (useRightConnector) {
+            cx1 = x1 + curveStrength;
+            cy1 = y1;
+        } else {
+            cx1 = x1 - curveStrength;
+            cy1 = y1;
+        }
+        
+        // Control point 2: approaches the target edge perpendicularly
+        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
+            cx2 = x2 + (dx > 0 ? -curveStrength : curveStrength);
+            cy2 = y2;
+        } else {
+            cx2 = x2;
+            cy2 = y2 + (dy > 0 ? -curveStrength : curveStrength);
+        }
         
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', `M ${x1} ${y1} C ${x1 + 80} ${y1}, ${x2 - 80} ${y2}, ${x2} ${y2}`);
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
         path.setAttribute('class', 'connection-line');
         path.dataset.index = i;
         path.addEventListener('click', () => {
@@ -1538,20 +1625,22 @@ async function saveExpedition() {
                             .filter(conn => conn.from === localId && conn.option === optIdx);
                         
                         optionConnections.forEach(conn => {
-                            // Check if this connection is already on server (by looking at serverOutcomes)
-                            // We need to check if this specific connection exists
-                            // For now, we'll be conservative and only add connections to NEW slides
                             const targetIsServer = expeditionState.serverSlides.has(conn.to);
+                            const targetToolingId = targetIsServer ? expeditionState.serverSlides.get(conn.to) : null;
                             
-                            if (!targetIsServer) {
-                                // Connection to a NEW slide from an existing option
+                            // Check if this connection already exists on server
+                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                            const alreadyOnServer = targetIsServer && expeditionState.serverOutcomes.has(outcomeKey);
+                            
+                            if (!alreadyOnServer) {
+                                // This is a NEW connection (either to new slide or new connection to existing slide)
                                 newConnections.push({
                                     optionToolingId: optionToolingId,
                                     targetSlideId: conn.to,
-                                    targetToolingId: null,
+                                    targetToolingId: targetToolingId,
                                     weight: conn.weight || 1
                                 });
-                                console.log(`New connection from existing option ${optionToolingId} to new slide ${conn.to}`);
+                                console.log(`New connection from existing option ${optionToolingId} to slide ${conn.to} (tooling: ${targetToolingId})`);
                             }
                         });
                     }
@@ -1854,8 +1943,9 @@ async function loadExpedition() {
                                 to: targetLocalId,
                                 weight: outcome.weight || 1
                             });
-                            // Track this as a server outcome
-                            expeditionState.serverOutcomes.add(outcome.toolingId);
+                            // Track this as a server outcome using option->target key
+                            const outcomeKey = `${serverOpt.toolingId}-${outcome.targetSlideId}`;
+                            expeditionState.serverOutcomes.add(outcomeKey);
                         }
                     }
                 }
