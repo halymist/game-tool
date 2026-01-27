@@ -1487,22 +1487,79 @@ async function saveExpedition() {
     try {
         // Debug: Log all connections before processing
         console.log('All connections before save:', expeditionState.connections);
-        console.log('Server slides (to skip):', [...expeditionState.serverSlides.keys()]);
+        console.log('Server slides:', [...expeditionState.serverSlides.entries()]);
+        console.log('Server options:', [...expeditionState.serverOptions.entries()]);
+        console.log('Server outcomes:', [...expeditionState.serverOutcomes]);
         
         // Build slides array with proper structure for the API
         // ONLY include NEW slides (not ones already from server)
         const slides = [];
-        let newSlideCount = 0;
+        const newOptions = []; // New options for existing slides
+        const newConnections = []; // New connections for existing options
         
         expeditionState.slides.forEach((slide, localId) => {
-            // Skip slides that are already on the server
-            if (expeditionState.serverSlides.has(localId)) {
-                console.log(`Skipping server slide ${localId} (toolingId: ${expeditionState.serverSlides.get(localId)})`);
-                return;
+            const isServerSlide = expeditionState.serverSlides.has(localId);
+            const slideToolingId = isServerSlide ? expeditionState.serverSlides.get(localId) : null;
+            
+            if (isServerSlide) {
+                // This is an existing server slide - check for new options
+                slide.options.forEach((opt, optIdx) => {
+                    const optionKey = `${localId}-${optIdx}`;
+                    const isServerOption = expeditionState.serverOptions.has(optionKey);
+                    
+                    if (!isServerOption) {
+                        // This is a NEW option on an existing slide
+                        const connections = expeditionState.connections
+                            .filter(conn => conn.from === localId && conn.option === optIdx)
+                            .map(conn => {
+                                const targetIsServer = expeditionState.serverSlides.has(conn.to);
+                                return {
+                                    targetSlideId: conn.to,
+                                    targetToolingId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
+                                    weight: conn.weight || 1
+                                };
+                            });
+                        
+                        newOptions.push({
+                            slideToolingId: slideToolingId,
+                            text: opt.text || '',
+                            statType: opt.type === 'skill' ? opt.statType : null,
+                            statRequired: opt.type === 'skill' ? opt.statRequired : null,
+                            effectId: opt.type === 'effect' ? opt.effectId : null,
+                            effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
+                            enemyId: opt.type === 'combat' ? opt.enemyId : null,
+                            connections: connections
+                        });
+                        console.log(`New option on existing slide ${localId} (tooling ${slideToolingId}):`, opt.text);
+                    } else {
+                        // This is an existing server option - check for new connections
+                        const optionToolingId = expeditionState.serverOptions.get(optionKey);
+                        const optionConnections = expeditionState.connections
+                            .filter(conn => conn.from === localId && conn.option === optIdx);
+                        
+                        optionConnections.forEach(conn => {
+                            // Check if this connection is already on server (by looking at serverOutcomes)
+                            // We need to check if this specific connection exists
+                            // For now, we'll be conservative and only add connections to NEW slides
+                            const targetIsServer = expeditionState.serverSlides.has(conn.to);
+                            
+                            if (!targetIsServer) {
+                                // Connection to a NEW slide from an existing option
+                                newConnections.push({
+                                    optionToolingId: optionToolingId,
+                                    targetSlideId: conn.to,
+                                    targetToolingId: null,
+                                    weight: conn.weight || 1
+                                });
+                                console.log(`New connection from existing option ${optionToolingId} to new slide ${conn.to}`);
+                            }
+                        });
+                    }
+                });
+                return; // Skip adding to slides array
             }
             
-            newSlideCount++;
-            
+            // This is a NEW slide
             // Build reward fields based on reward object
             let rewardStatType = null;
             let rewardStatAmount = null;
@@ -1598,17 +1655,22 @@ async function saveExpedition() {
                 rewardPerk: rewardPerk,
                 rewardBlessing: rewardBlessing,
                 rewardPotion: rewardPotion,
+                posX: slide.x || 100,
+                posY: slide.y || 100,
                 options: options
             });
         });
 
-        if (slides.length === 0) {
-            alert('No new slides to save. All slides are already on the server.');
+        // Check if there's anything to save
+        if (slides.length === 0 && newOptions.length === 0 && newConnections.length === 0) {
+            alert('No changes to save. All slides, options, and connections are already on the server.');
             return;
         }
 
-        console.log('Saving expedition with', slides.length, 'NEW slides (skipped', expeditionState.serverSlides.size, 'server slides)');
-        console.log('Slides data:', JSON.stringify(slides, null, 2));
+        console.log('Saving expedition:');
+        console.log(`  - ${slides.length} new slides`);
+        console.log(`  - ${newOptions.length} new options on existing slides`);
+        console.log(`  - ${newConnections.length} new connections on existing options`);
 
         // Get auth token
         const token = await getCurrentAccessToken();
@@ -1625,6 +1687,8 @@ async function saveExpedition() {
             },
             body: JSON.stringify({
                 slides: slides,
+                newOptions: newOptions,
+                newConnections: newConnections,
                 settlementId: null // Could add settlement selector later
             })
         });
@@ -1645,7 +1709,15 @@ async function saveExpedition() {
                 }
             }
             
-            alert(`✅ Expedition saved successfully!\n\n${slides.length} new slides saved to database.\n\nNote: Items are pending approval.`);
+            // Re-render slides to update visual (remove new-slide highlight)
+            expeditionState.slides.forEach(slide => renderSlide(slide));
+            
+            const parts = [];
+            if (slides.length > 0) parts.push(`${slides.length} new slides`);
+            if (newOptions.length > 0) parts.push(`${newOptions.length} new options`);
+            if (newConnections.length > 0) parts.push(`${newConnections.length} new connections`);
+            
+            alert(`✅ Expedition saved successfully!\n\n${parts.join(', ')} saved to database.\n\nNote: Items are pending approval.`);
             console.log('Save result:', result);
         } else {
             throw new Error(result.message || 'Unknown error');
@@ -1719,8 +1791,8 @@ async function loadExpedition() {
                 id: localId,
                 text: serverSlide.text || '',
                 isStart: serverSlide.isStart || false,
-                x: 100 + (localId - 1) % 4 * 400, // Grid layout
-                y: 100 + Math.floor((localId - 1) / 4) * 550,
+                x: serverSlide.posX || 100,
+                y: serverSlide.posY || 100,
                 options: [],
                 assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
                 reward: buildRewardFromServer(serverSlide),

@@ -412,8 +412,8 @@ type LoadedSlide struct {
 	RewardPerk     *int           `json:"rewardPerk"`
 	RewardBlessing *int           `json:"rewardBlessing"`
 	RewardPotion   *int           `json:"rewardPotion"`
-	PosX           int            `json:"posX"`
-	PosY           int            `json:"posY"`
+	PosX           float64        `json:"posX"`
+	PosY           float64        `json:"posY"`
 	Approved       bool           `json:"approved"`
 	Options        []LoadedOption `json:"options"`
 }
