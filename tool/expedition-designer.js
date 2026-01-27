@@ -13,7 +13,11 @@ const expeditionState = {
     lastMouse: { x: 0, y: 0 },
     isConnecting: false,
     connectionStart: null,
-    dropdownsPopulated: false
+    dropdownsPopulated: false,
+    // Track which slides are from server (by their toolingId)
+    serverSlides: new Map(), // localId -> toolingId
+    serverOptions: new Map(), // "localSlideId-optionIndex" -> toolingId
+    serverOutcomes: new Set() // Set of outcome toolingIds
 };
 
 // ==================== INITIALIZATION ====================
@@ -1445,11 +1449,22 @@ async function saveExpedition() {
     try {
         // Debug: Log all connections before processing
         console.log('All connections before save:', expeditionState.connections);
+        console.log('Server slides (to skip):', [...expeditionState.serverSlides.keys()]);
         
         // Build slides array with proper structure for the API
+        // ONLY include NEW slides (not ones already from server)
         const slides = [];
+        let newSlideCount = 0;
         
         expeditionState.slides.forEach((slide, localId) => {
+            // Skip slides that are already on the server
+            if (expeditionState.serverSlides.has(localId)) {
+                console.log(`Skipping server slide ${localId} (toolingId: ${expeditionState.serverSlides.get(localId)})`);
+                return;
+            }
+            
+            newSlideCount++;
+            
             // Build reward fields based on reward object
             let rewardStatType = null;
             let rewardStatAmount = null;
@@ -1502,15 +1517,21 @@ async function saveExpedition() {
             }
 
             // Build options with their connections
+            // For connections, we need to handle both new and existing target slides
             const options = slide.options.map((opt, optIdx) => {
                 // Find all connections from this option
-                // Connections are stored as: { from: slideId, option: optionIndex, to: targetSlideId, weight: 1 }
                 const connections = expeditionState.connections
                     .filter(conn => conn.from === localId && conn.option === optIdx)
-                    .map(conn => ({
-                        targetSlideId: conn.to,
-                        weight: conn.weight || 1
-                    }));
+                    .map(conn => {
+                        // If target is a server slide, use its toolingId
+                        // If target is a new slide, use its localId (server will map it)
+                        const targetIsServer = expeditionState.serverSlides.has(conn.to);
+                        return {
+                            targetSlideId: conn.to,
+                            targetToolingId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
+                            weight: conn.weight || 1
+                        };
+                    });
                 
                 console.log(`Slide ${localId} option ${optIdx} connections:`, connections);
 
@@ -1543,7 +1564,12 @@ async function saveExpedition() {
             });
         });
 
-        console.log('Saving expedition with', slides.length, 'slides');
+        if (slides.length === 0) {
+            alert('No new slides to save. All slides are already on the server.');
+            return;
+        }
+
+        console.log('Saving expedition with', slides.length, 'NEW slides (skipped', expeditionState.serverSlides.size, 'server slides)');
         console.log('Slides data:', JSON.stringify(slides, null, 2));
 
         // Get auth token
@@ -1573,7 +1599,15 @@ async function saveExpedition() {
         const result = await response.json();
         
         if (result.success) {
-            alert(`✅ Expedition saved successfully!\n\n${slides.length} slides saved to database.\n\nNote: Items are pending approval.`);
+            // Mark the newly saved slides as server slides
+            if (result.slideMapping) {
+                for (const [localIdStr, toolingId] of Object.entries(result.slideMapping)) {
+                    const localId = parseInt(localIdStr);
+                    expeditionState.serverSlides.set(localId, toolingId);
+                }
+            }
+            
+            alert(`✅ Expedition saved successfully!\n\n${slides.length} new slides saved to database.\n\nNote: Items are pending approval.`);
             console.log('Save result:', result);
         } else {
             throw new Error(result.message || 'Unknown error');
@@ -1590,6 +1624,183 @@ async function saveExpedition() {
     }
 }
 window.saveExpedition = saveExpedition;
+
+// ==================== LOAD EXPEDITION ====================
+async function loadExpedition() {
+    const loadBtn = document.getElementById('loadExpeditionBtn');
+    if (loadBtn) {
+        loadBtn.disabled = true;
+        loadBtn.textContent = '⏳ Loading...';
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        const response = await fetch('http://localhost:8080/api/getExpedition', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error('Failed to load expedition data');
+        }
+
+        console.log('Loaded expedition data:', data);
+
+        // Clear existing state
+        expeditionState.slides.clear();
+        expeditionState.connections = [];
+        expeditionState.serverSlides.clear();
+        expeditionState.serverOptions.clear();
+        expeditionState.serverOutcomes.clear();
+
+        // Clear the canvas
+        const container = document.getElementById('slidesContainer');
+        if (container) {
+            container.innerHTML = '';
+        }
+
+        // Create a mapping from server toolingId to local ID
+        const toolingIdToLocalId = new Map();
+        
+        // First pass: create all slides
+        let localId = 1;
+        for (const serverSlide of data.slides) {
+            const slide = {
+                id: localId,
+                text: serverSlide.text || '',
+                isStart: serverSlide.isStart || false,
+                x: 100 + (localId - 1) % 4 * 400, // Grid layout
+                y: 100 + Math.floor((localId - 1) / 4) * 550,
+                options: [],
+                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expeditions/${serverSlide.assetId}.webp` : null,
+                reward: buildRewardFromServer(serverSlide),
+                effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null
+            };
+
+            // Map toolingId -> localId
+            toolingIdToLocalId.set(serverSlide.toolingId, localId);
+            
+            // Track this as a server slide
+            expeditionState.serverSlides.set(localId, serverSlide.toolingId);
+            
+            expeditionState.slides.set(localId, slide);
+            localId++;
+        }
+
+        expeditionState.nextSlideId = localId;
+
+        // Second pass: add options to slides
+        for (const serverSlide of data.slides) {
+            const slideLocalId = toolingIdToLocalId.get(serverSlide.toolingId);
+            const slide = expeditionState.slides.get(slideLocalId);
+            
+            if (!slide || !serverSlide.options) continue;
+
+            for (let optIdx = 0; optIdx < serverSlide.options.length; optIdx++) {
+                const serverOpt = serverSlide.options[optIdx];
+                
+                // Determine option type
+                let optType = 'dialogue';
+                if (serverOpt.statType) optType = 'skill';
+                else if (serverOpt.effectId) optType = 'effect';
+                else if (serverOpt.enemyId) optType = 'combat';
+
+                const option = {
+                    text: serverOpt.text || '',
+                    type: optType,
+                    statType: serverOpt.statType,
+                    statRequired: serverOpt.statRequired,
+                    effectId: serverOpt.effectId,
+                    effectAmount: serverOpt.effectAmount,
+                    enemyId: serverOpt.enemyId
+                };
+
+                slide.options.push(option);
+                
+                // Track this as a server option
+                const optionKey = `${slideLocalId}-${optIdx}`;
+                expeditionState.serverOptions.set(optionKey, serverOpt.toolingId);
+
+                // Third pass: create connections from outcomes
+                if (serverOpt.outcomes) {
+                    for (const outcome of serverOpt.outcomes) {
+                        const targetLocalId = toolingIdToLocalId.get(outcome.targetSlideId);
+                        if (targetLocalId) {
+                            expeditionState.connections.push({
+                                from: slideLocalId,
+                                option: optIdx,
+                                to: targetLocalId,
+                                weight: outcome.weight || 1
+                            });
+                            // Track this as a server outcome
+                            expeditionState.serverOutcomes.add(outcome.toolingId);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Render all slides
+        expeditionState.slides.forEach(slide => {
+            renderSlide(slide);
+        });
+
+        // Render connections
+        renderConnections();
+        updateCounter();
+        
+        // Center the view
+        centerCanvas();
+
+        console.log(`✅ Loaded ${data.slides.length} slides from server`);
+        alert(`✅ Loaded ${data.slides.length} slides from server`);
+
+    } catch (error) {
+        console.error('Failed to load expedition:', error);
+        alert(`❌ Failed to load expedition:\n${error.message}`);
+    } finally {
+        if (loadBtn) {
+            loadBtn.disabled = false;
+            loadBtn.textContent = '📥 Load Expedition';
+        }
+    }
+}
+window.loadExpedition = loadExpedition;
+
+// Helper to build reward object from server data
+function buildRewardFromServer(serverSlide) {
+    if (serverSlide.rewardStatType && serverSlide.rewardStatAmount) {
+        return { type: 'stat', statType: serverSlide.rewardStatType, amount: serverSlide.rewardStatAmount };
+    }
+    if (serverSlide.rewardTalent) {
+        return { type: 'talent' };
+    }
+    if (serverSlide.rewardItem) {
+        return { type: 'item', itemId: serverSlide.rewardItem };
+    }
+    if (serverSlide.rewardPerk) {
+        return { type: 'perk', perkId: serverSlide.rewardPerk };
+    }
+    if (serverSlide.rewardBlessing) {
+        return { type: 'blessing', blessingId: serverSlide.rewardBlessing };
+    }
+    if (serverSlide.rewardPotion) {
+        return { type: 'potion', potionId: serverSlide.rewardPotion };
+    }
+    return null;
+}
 
 // ==================== EXPOSE GLOBALLY ====================
 window.initExpeditionDesigner = initExpeditionDesigner;
