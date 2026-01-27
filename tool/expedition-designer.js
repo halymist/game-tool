@@ -107,6 +107,9 @@ function initExpeditionDesigner() {
     updateCounter();
     console.log('✅ Expedition Designer ready');
     
+    // Load expedition assets from S3
+    loadBgAssets();
+    
     // Auto-load expedition data from server
     setTimeout(() => {
         console.log('🔄 Auto-loading expedition...');
@@ -1292,7 +1295,12 @@ let expeditionAssets = [];
 function openBgPicker(slideId) {
     bgPickerSlideId = slideId;
     document.getElementById('bgPickerModal').classList.add('open');
-    loadBgAssets();
+    // Use cached assets, only load if empty
+    if (expeditionAssets.length === 0) {
+        loadBgAssets();
+    } else {
+        renderBgAssetsGrid();
+    }
 }
 
 function closeBgPicker() {
@@ -1343,11 +1351,14 @@ function renderBgAssetsGrid() {
         return;
     }
     
-    grid.innerHTML = expeditionAssets.map(url => `
-        <div class="bg-asset-item" data-url="${url}">
-            <img src="${url}" alt="Asset" onerror="this.parentElement.style.display='none'">
-        </div>
-    `).join('');
+    grid.innerHTML = expeditionAssets.map(asset => {
+        const url = typeof asset === 'string' ? asset : asset.icon;
+        return `
+            <div class="bg-asset-item" data-url="${url}">
+                <img src="${url}" alt="Asset" onerror="this.parentElement.style.display='none'">
+            </div>
+        `;
+    }).join('');
     
     grid.querySelectorAll('.bg-asset-item').forEach(item => {
         item.addEventListener('click', () => selectBgAsset(item.dataset.url));
@@ -1424,8 +1435,8 @@ function uploadSlideBgFromDevice() {
                     const result = await response.json();
                     if (result.success && result.icon) {
                         if (uploadStatus) uploadStatus.textContent = 'Uploaded!';
-                        // Add to local cache and select it
-                        expeditionAssets.unshift(result.icon);
+                        // Add to local cache as object (matching server format) and select it
+                        expeditionAssets.unshift({ icon: result.icon, assetId: result.assetID });
                         renderBgAssetsGrid();
                         selectBgAsset(result.icon);
                     } else {
