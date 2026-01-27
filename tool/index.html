@@ -635,6 +635,7 @@
                     </div>
                     <div class="toolbar-right">
                         <button id="addSlideBtn" class="btn-primary" onclick="addExpeditionSlide()">+ Add Slide</button>
+                        <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">💾 Save Expedition</button>
                         <button id="resetViewBtn" class="btn-secondary">Reset View</button>
                     </div>
                 </div>
@@ -645,6 +646,17 @@
                         <path id="connectionPreview" class="connection-preview" style="display:none"></path>
                     </svg>
                     <div id="slidesContainer" class="slides-container"></div>
+                    
+                    <!-- Navigation Controls -->
+                    <div class="canvas-nav-controls">
+                        <button class="nav-btn" onclick="window.panCanvas(0, 100)" title="Pan Up">▲</button>
+                        <div class="nav-row">
+                            <button class="nav-btn" onclick="window.panCanvas(100, 0)" title="Pan Left">◀</button>
+                            <button class="nav-btn nav-center" onclick="window.centerCanvas()" title="Center">⊙</button>
+                            <button class="nav-btn" onclick="window.panCanvas(-100, 0)" title="Pan Right">▶</button>
+                        </div>
+                        <button class="nav-btn" onclick="window.panCanvas(0, -100)" title="Pan Down">▼</button>
+                    </div>
                 </div>
             </div>
             
@@ -808,6 +820,31 @@
                     <div class="modal-buttons">
                         <button class="btn-cancel" onclick="window.closeRewardModal()">Cancel</button>
                         <button class="btn-primary" onclick="window.saveRewardFromModal()">Save Reward</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Effect Modal (for slide effects) -->
+            <div id="effectModal" class="option-modal">
+                <div class="option-modal-content" style="max-width: 400px;">
+                    <h3>Slide Effect</h3>
+                    <p style="color: #888; font-size: 12px; margin-bottom: 15px;">
+                        Effects are applied when a character enters this slide (e.g., health loss, stat debuffs).
+                    </p>
+                    <div class="modal-field">
+                        <label>Effect Type</label>
+                        <select id="slideEffectId">
+                            <option value="">-- Select an effect --</option>
+                        </select>
+                    </div>
+                    <div class="modal-field">
+                        <label>Factor (amount)</label>
+                        <input type="number" id="slideEffectFactor" value="0" placeholder="e.g., -10 for health loss">
+                        <small style="color: #888;">Negative values for penalties (e.g., -10 health), positive for buffs</small>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn-cancel" onclick="window.closeEffectModal()">Cancel</button>
+                        <button class="btn-primary" onclick="window.saveEffectFromModal()">Save Effect</button>
                     </div>
                 </div>
             </div>

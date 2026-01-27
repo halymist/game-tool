@@ -204,6 +204,7 @@ func main() {
 	// Expedition endpoints
 	http.HandleFunc("/api/getExpeditionAssets", corsHandler(CreateGetAssetsHandler("expeditions")))
 	http.HandleFunc("/api/uploadAsset", corsHandler(handleGenericUploadAsset))
+	http.HandleFunc("/api/saveExpedition", corsHandler(handleSaveExpedition))
 
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")

@@ -123,6 +123,86 @@
     touch-action: none; /* Prevent browser handling of touch/wheel */
 }
 
+/* Navigation Controls */
+.canvas-nav-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 100;
+    background: rgba(20, 20, 35, 0.9);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.canvas-nav-controls .nav-row {
+    display: flex;
+    gap: 4px;
+}
+
+.nav-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(78, 205, 196, 0.15);
+    border: 1px solid rgba(78, 205, 196, 0.4);
+    color: #4ecdc4;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: rgba(78, 205, 196, 0.3);
+    transform: scale(1.05);
+}
+
+.nav-btn:active {
+    transform: scale(0.95);
+}
+
+.nav-btn.nav-center {
+    background: rgba(233, 69, 96, 0.15);
+    border-color: rgba(233, 69, 96, 0.4);
+    color: #e94560;
+}
+
+.nav-btn.nav-center:hover {
+    background: rgba(233, 69, 96, 0.3);
+}
+
+/* Save button style */
+.btn-success {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #5cbf60, #4caf50);
+    transform: translateY(-1px);
+}
+
+.btn-success:disabled {
+    background: #555;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .expedition-canvas:active:not(.connecting) {
     cursor: grabbing;
 }
@@ -377,6 +457,71 @@
     flex-direction: column-reverse;
     gap: 6px;
     margin-top: auto;
+}
+
+/* Slide Effect Section - above reward section */
+.slide-effect-section {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+}
+
+.slide-effect {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: linear-gradient(135deg, rgba(233, 69, 96, 0.2), rgba(233, 69, 96, 0.1));
+    border: 1px solid rgba(233, 69, 96, 0.4);
+    border-radius: 6px;
+    position: relative;
+}
+
+.effect-icon {
+    font-size: 1rem;
+}
+
+.effect-label {
+    flex: 1;
+    color: #f48fb1;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.effect-edit-btn,
+.effect-delete-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+}
+
+.effect-edit-btn:hover {
+    color: #4ecdc4;
+}
+
+.effect-delete-btn:hover {
+    color: #e94560;
+}
+
+.add-effect-btn {
+    background: rgba(233, 69, 96, 0.1);
+    border: 1px dashed rgba(233, 69, 96, 0.4);
+    color: #ef9a9a;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.add-effect-btn:hover {
+    background: rgba(233, 69, 96, 0.2);
+    border-color: rgba(233, 69, 96, 0.6);
 }
 
 /* Slide Reward Section - above options */

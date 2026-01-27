@@ -123,13 +123,14 @@ function addSlide() {
     // Account for current pan offset so slide appears in center of view
     const slide = {
         id: id,
-        text: 'Click to edit text...',
+        text: '',
         isStart: expeditionState.slides.size === 0,
         x: (rect.width / 2 - expeditionState.canvasOffset.x) / expeditionState.zoom - 180 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - expeditionState.canvasOffset.y) / expeditionState.zoom - 240 + (Math.random() - 0.5) * 100,
         options: [],
         assetUrl: null,
-        reward: null
+        reward: null,
+        effect: null  // { effectId, effectFactor }
     };
     
     expeditionState.slides.set(id, slide);
@@ -152,6 +153,21 @@ function renderSlide(slide) {
     el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}`;
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
+    
+    // Build effect display (applied when entering this slide)
+    let effectHtml = '';
+    if (slide.effect && slide.effect.effectId) {
+        effectHtml = `
+            <div class="slide-effect" data-slide="${slide.id}">
+                <span class="effect-icon">⚡</span>
+                <span class="effect-label">Effect #${slide.effect.effectId}: ${slide.effect.effectFactor > 0 ? '+' : ''}${slide.effect.effectFactor}</span>
+                <button class="effect-edit-btn" data-slide="${slide.id}" title="Edit effect">⚙️</button>
+                <button class="effect-delete-btn" data-slide="${slide.id}" title="Remove effect">×</button>
+            </div>
+        `;
+    } else {
+        effectHtml = `<button class="add-effect-btn" data-slide="${slide.id}">+ Add Effect</button>`;
+    }
     
     // Build reward display
     let rewardHtml = '';
@@ -212,6 +228,9 @@ function renderSlide(slide) {
         <div class="slide-input-connector" title="Input">●</div>
         <div class="${bodyClass}" ${bodyBgStyle}>
             <textarea class="slide-text-input" data-slide="${slide.id}" placeholder="Enter slide text...">${escapeHtml(slide.text)}</textarea>
+            <div class="slide-effect-section">
+                ${effectHtml}
+            </div>
             <div class="slide-reward-section">
                 ${rewardHtml}
             </div>
@@ -278,6 +297,25 @@ function bindSlideEvents(el, slide) {
     el.querySelector('.reward-delete-btn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         slide.reward = null;
+        renderSlide(slide);
+    });
+    
+    // Add effect button
+    el.querySelector('.add-effect-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEffectModal(slide.id);
+    });
+    
+    // Edit effect button
+    el.querySelector('.effect-edit-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEffectModal(slide.id);
+    });
+    
+    // Delete effect button
+    el.querySelector('.effect-delete-btn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        slide.effect = null;
         renderSlide(slide);
     });
     
@@ -430,6 +468,89 @@ function getRewardLabel(reward) {
             return 'Unknown reward';
     }
 }
+
+// ==================== EFFECT MODAL (Slide Effects) ====================
+let effectModalContext = { slideId: null };
+
+function openEffectModal(slideId) {
+    effectModalContext = { slideId };
+    const slide = expeditionState.slides.get(slideId);
+    if (!slide) return;
+    
+    const effect = slide.effect || { effectId: null, effectFactor: 0 };
+    
+    // Populate effects dropdown
+    populateEffectDropdown();
+    
+    document.getElementById('slideEffectId').value = effect.effectId || '';
+    document.getElementById('slideEffectFactor').value = effect.effectFactor || 0;
+    
+    document.getElementById('effectModal').classList.add('open');
+}
+window.openEffectModal = openEffectModal;
+
+function populateEffectDropdown() {
+    const effectSelect = document.getElementById('slideEffectId');
+    if (!effectSelect) return;
+    
+    // Get effects data
+    let effects = [];
+    if (typeof getEffects === 'function') {
+        effects = getEffects() || [];
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.effects) {
+        effects = GlobalData.effects;
+    }
+    
+    effectSelect.innerHTML = '<option value="">-- Select an effect --</option>';
+    
+    if (effects.length > 0) {
+        effects.forEach(effect => {
+            const opt = document.createElement('option');
+            opt.value = effect.id || effect.effect_id;
+            opt.textContent = `#${effect.id || effect.effect_id} - ${effect.name || effect.effect_name || 'Effect'}`;
+            effectSelect.appendChild(opt);
+        });
+    } else {
+        // Common expedition effects fallback
+        const commonEffects = [
+            { id: 200, name: 'Health Loss' },
+            { id: 201, name: 'Dodge Reduction' },
+            { id: 202, name: 'Damage Reduction' },
+            { id: 203, name: 'Speed Reduction' },
+            { id: 204, name: 'Crit Reduction' }
+        ];
+        commonEffects.forEach(effect => {
+            const opt = document.createElement('option');
+            opt.value = effect.id;
+            opt.textContent = `#${effect.id} - ${effect.name}`;
+            effectSelect.appendChild(opt);
+        });
+    }
+}
+
+function closeEffectModal() {
+    document.getElementById('effectModal').classList.remove('open');
+    effectModalContext = { slideId: null };
+}
+window.closeEffectModal = closeEffectModal;
+
+function saveEffectFromModal() {
+    const slide = expeditionState.slides.get(effectModalContext.slideId);
+    if (!slide) return;
+    
+    const effectId = parseInt(document.getElementById('slideEffectId').value) || null;
+    const effectFactor = parseInt(document.getElementById('slideEffectFactor').value) || 0;
+    
+    if (effectId) {
+        slide.effect = { effectId, effectFactor };
+    } else {
+        slide.effect = null;
+    }
+    
+    renderSlide(slide);
+    closeEffectModal();
+}
+window.saveEffectFromModal = saveEffectFromModal;
 
 // ==================== REWARD MODAL ====================
 let rewardModalContext = { slideId: null };
@@ -835,20 +956,23 @@ function onCanvasMouseDown(e) {
         e.preventDefault();
         expeditionState.isDragging = true;
         expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
+        const canvas = document.getElementById('expeditionCanvas');
+        if (canvas) canvas.style.cursor = 'grabbing';
         return;
     }
     
-    // Left click - only pan if clicking directly on canvas background
+    // Left click - only pan if clicking directly on canvas background (not on slides)
     if (e.button === 0) {
         // Check if clicking on a slide or interactive element
         const clickedSlide = e.target.closest('.expedition-slide');
         const clickedInteractive = e.target.closest('button, input, textarea, select, .option-connector');
         
-        // Only start panning if clicking on canvas background (not on slides or their children)
-        if (!clickedSlide && !clickedInteractive && (e.target.id === 'expeditionCanvas' || e.target.closest('.connections-svg') || e.target.id === 'slidesContainer')) {
+        // Only start panning if NOT clicking on a slide or interactive element
+        if (!clickedSlide && !clickedInteractive) {
             expeditionState.isDragging = true;
             expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
-            e.target.style.cursor = 'grabbing';
+            const canvas = document.getElementById('expeditionCanvas');
+            if (canvas) canvas.style.cursor = 'grabbing';
         }
     }
 }
@@ -997,26 +1121,89 @@ function changeZoom(delta) {
 }
 window.changeZoom = changeZoom;
 
-function onCanvasWheel(e) {
-    // Note: preventDefault and stopPropagation are called in the document-level handler
-    console.log('Wheel event, deltaY:', e.deltaY, 'current zoom:', expeditionState.zoom);
-    
-    const zoomSpeed = 0.1;
-    const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
-    const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
-    
-    expeditionState.zoom = newZoom;
-    console.log('New zoom:', expeditionState.zoom);
+// Pan canvas by delta
+function panCanvas(dx, dy) {
+    expeditionState.canvasOffset.x += dx;
+    expeditionState.canvasOffset.y += dy;
     
     const container = document.getElementById('slidesContainer');
     if (container) {
         container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
     }
     
-    // Update zoom indicator
-    const indicator = document.getElementById('zoomIndicator');
-    if (indicator) {
-        indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
+    renderConnections();
+}
+window.panCanvas = panCanvas;
+
+// Center canvas on slides
+function centerCanvas() {
+    if (expeditionState.slides.size === 0) {
+        expeditionState.canvasOffset = { x: 0, y: 0 };
+    } else {
+        // Calculate center of all slides
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        expeditionState.slides.forEach(slide => {
+            minX = Math.min(minX, slide.x);
+            minY = Math.min(minY, slide.y);
+            maxX = Math.max(maxX, slide.x + 360); // slide width
+            maxY = Math.max(maxY, slide.y + 480); // slide height
+        });
+        
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        const canvas = document.getElementById('expeditionCanvas');
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            expeditionState.canvasOffset.x = (rect.width / 2) - (centerX * expeditionState.zoom);
+            expeditionState.canvasOffset.y = (rect.height / 2) - (centerY * expeditionState.zoom);
+        }
+    }
+    
+    const container = document.getElementById('slidesContainer');
+    if (container) {
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+    }
+    
+    renderConnections();
+}
+window.centerCanvas = centerCanvas;
+
+function onCanvasWheel(e) {
+    // Note: preventDefault and stopPropagation are called in the document-level handler
+    
+    const container = document.getElementById('slidesContainer');
+    if (!container) return false;
+    
+    // Ctrl+scroll = zoom, otherwise scroll = pan
+    if (e.ctrlKey) {
+        // Zoom
+        const zoomSpeed = 0.1;
+        const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
+        const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
+        
+        expeditionState.zoom = newZoom;
+        
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+        
+        // Update zoom indicator
+        const indicator = document.getElementById('zoomIndicator');
+        if (indicator) {
+            indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
+        }
+    } else {
+        // Pan - scroll vertically, shift+scroll horizontally
+        const panSpeed = 1;
+        if (e.shiftKey) {
+            // Horizontal pan
+            expeditionState.canvasOffset.x -= e.deltaY * panSpeed;
+        } else {
+            // Vertical pan (also handle horizontal delta if trackpad)
+            expeditionState.canvasOffset.x -= (e.deltaX || 0) * panSpeed;
+            expeditionState.canvasOffset.y -= e.deltaY * panSpeed;
+        }
+        
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
     }
     
     renderConnections();
@@ -1241,6 +1428,162 @@ function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ==================== SAVE EXPEDITION ====================
+async function saveExpedition() {
+    if (expeditionState.slides.size === 0) {
+        alert('No slides to save. Create at least one slide first.');
+        return;
+    }
+
+    const saveBtn = document.getElementById('saveExpeditionBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+    }
+
+    try {
+        // Build slides array with proper structure for the API
+        const slides = [];
+        
+        expeditionState.slides.forEach((slide, localId) => {
+            // Build reward fields based on reward object
+            let rewardStatType = null;
+            let rewardStatAmount = null;
+            let rewardTalent = null;
+            let rewardItem = null;
+            let rewardPerk = null;
+            let rewardBlessing = null;
+            let rewardPotion = null;
+
+            if (slide.reward) {
+                switch (slide.reward.type) {
+                    case 'stat':
+                        rewardStatType = slide.reward.statType || null;
+                        rewardStatAmount = slide.reward.amount || null;
+                        break;
+                    case 'talent':
+                        rewardTalent = true;
+                        break;
+                    case 'item':
+                        rewardItem = slide.reward.itemId || null;
+                        break;
+                    case 'perk':
+                        rewardPerk = slide.reward.perkId || null;
+                        break;
+                    case 'blessing':
+                        rewardBlessing = slide.reward.blessingId || null;
+                        break;
+                    case 'potion':
+                        rewardPotion = slide.reward.potionId || null;
+                        break;
+                }
+            }
+
+            // Build effect fields
+            let effectId = null;
+            let effectFactor = null;
+            if (slide.effect) {
+                effectId = slide.effect.effectId || null;
+                effectFactor = slide.effect.effectFactor || null;
+            }
+
+            // Extract asset ID from assetUrl if needed
+            let assetId = null;
+            if (slide.assetUrl) {
+                // Try to extract asset ID from URL pattern
+                const match = slide.assetUrl.match(/\/(\d+)\.webp/);
+                if (match) {
+                    assetId = parseInt(match[1]);
+                }
+            }
+
+            // Build options with their connections
+            const options = slide.options.map((opt, optIdx) => {
+                // Find all connections from this option
+                const connections = expeditionState.connections
+                    .filter(conn => conn.fromSlideId === localId && conn.fromOptionIndex === optIdx)
+                    .map(conn => ({
+                        targetSlideId: conn.toSlideId,
+                        weight: conn.weight || 1
+                    }));
+
+                return {
+                    text: opt.text || '',
+                    statType: opt.type === 'skill' ? opt.statType : null,
+                    statRequired: opt.type === 'skill' ? opt.statRequired : null,
+                    effectId: opt.type === 'effect' ? opt.effectId : null,
+                    effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
+                    enemyId: opt.type === 'combat' ? opt.enemyId : null,
+                    connections: connections
+                };
+            });
+
+            slides.push({
+                id: localId,
+                text: slide.text || '',
+                assetId: assetId,
+                effectId: effectId,
+                effectFactor: effectFactor,
+                isStart: slide.isStart || false,
+                rewardStatType: rewardStatType,
+                rewardStatAmount: rewardStatAmount,
+                rewardTalent: rewardTalent,
+                rewardItem: rewardItem,
+                rewardPerk: rewardPerk,
+                rewardBlessing: rewardBlessing,
+                rewardPotion: rewardPotion,
+                options: options
+            });
+        });
+
+        console.log('Saving expedition with', slides.length, 'slides');
+        console.log('Slides data:', JSON.stringify(slides, null, 2));
+
+        // Get auth token
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        // Send to API
+        const response = await fetch('/api/saveExpedition', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                slides: slides,
+                settlementId: null // Could add settlement selector later
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server error: ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`✅ Expedition saved successfully!\n\n${slides.length} slides saved to database.\n\nNote: Items are pending approval.`);
+            console.log('Save result:', result);
+        } else {
+            throw new Error(result.message || 'Unknown error');
+        }
+
+    } catch (error) {
+        console.error('Failed to save expedition:', error);
+        alert(`❌ Failed to save expedition:\n${error.message}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save Expedition';
+        }
+    }
+}
+window.saveExpedition = saveExpedition;
 
 // ==================== EXPOSE GLOBALLY ====================
 window.initExpeditionDesigner = initExpeditionDesigner;
