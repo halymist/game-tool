@@ -32,6 +32,8 @@ type ExpeditionSlide struct {
 	RewardPerk     *int               `json:"rewardPerk"`
 	RewardBlessing *int               `json:"rewardBlessing"`
 	RewardPotion   *int               `json:"rewardPotion"`
+	PosX           float64            `json:"posX" db:"pos_x"`
+	PosY           float64            `json:"posY" db:"pos_y"`
 	Options        []ExpeditionOption `json:"options"`
 }
 
@@ -54,10 +56,32 @@ type ExpeditionConnection struct {
 	Weight             int  `json:"weight"`
 }
 
+// NewOptionForExistingSlide represents a new option being added to an existing server slide
+type NewOptionForExistingSlide struct {
+	SlideToolingID int                    `json:"slideToolingId"` // Existing slide's tooling_id
+	Text           string                 `json:"text"`
+	StatType       *string                `json:"statType"`
+	StatRequired   *int                   `json:"statRequired"`
+	EffectID       *int                   `json:"effectId"`
+	EffectAmount   *int                   `json:"effectAmount"`
+	EnemyID        *int                   `json:"enemyId"`
+	Connections    []ExpeditionConnection `json:"connections"`
+}
+
+// NewConnectionForExistingOption represents a new connection being added to an existing server option
+type NewConnectionForExistingOption struct {
+	OptionToolingID    int  `json:"optionToolingId"` // Existing option's tooling_id
+	TargetSlideLocalID int  `json:"targetSlideId"`   // Local ID from designer (for new slides)
+	TargetToolingID    *int `json:"targetToolingId"` // Tooling ID (for existing server slides)
+	Weight             int  `json:"weight"`
+}
+
 // SaveExpeditionRequest is the request body for saving an expedition
 type SaveExpeditionRequest struct {
-	Slides       []ExpeditionSlide `json:"slides"`
-	SettlementID *int              `json:"settlementId"`
+	Slides         []ExpeditionSlide                `json:"slides"`
+	NewOptions     []NewOptionForExistingSlide      `json:"newOptions"`     // New options for existing slides
+	NewConnections []NewConnectionForExistingOption `json:"newConnections"` // New connections for existing options
+	SettlementID   *int                             `json:"settlementId"`
 }
 
 // SaveExpeditionResponse contains the result of saving
@@ -154,13 +178,13 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			INSERT INTO tooling.expedition_slides (
 				action, slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
 				reward_stat_type, reward_stat_amount, reward_talent, reward_item, 
-				reward_perk, reward_blessing, reward_potion, approved
+				reward_perk, reward_blessing, reward_potion, pos_x, pos_y, approved
 			) VALUES (
-				'insert', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false
+				'insert', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false
 			) RETURNING tooling_id
 		`, slideText, assetID, effectID, effectFactor, slide.IsStart, req.SettlementID,
 			rewardStatType, rewardStatAmount, rewardTalent, rewardItem,
-			rewardPerk, rewardBlessing, rewardPotion).Scan(&toolingID)
+			rewardPerk, rewardBlessing, rewardPotion, slide.PosX, slide.PosY).Scan(&toolingID)
 
 		if err != nil {
 			log.Printf("Failed to insert slide %d: %v", slide.ID, err)
@@ -249,6 +273,103 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Step 4: Insert new options for existing slides
+	for _, newOpt := range req.NewOptions {
+		var optionToolingID int
+
+		err := tx.QueryRow(`
+			INSERT INTO tooling.expedition_options (
+				action, slide_id, option_text, stat_type, stat_required, 
+				effect_id, effect_amount, enemy_id, approved
+			) VALUES (
+				'insert', $1, $2, $3, $4, $5, $6, $7, false
+			) RETURNING tooling_id
+		`, newOpt.SlideToolingID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
+			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID).Scan(&optionToolingID)
+
+		if err != nil {
+			log.Printf("Failed to insert new option for existing slide %d: %v", newOpt.SlideToolingID, err)
+			http.Error(w, "Failed to save new option", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Inserted new option for existing slide:%d -> option tooling:%d", newOpt.SlideToolingID, optionToolingID)
+
+		// Insert connections for this new option
+		for _, conn := range newOpt.Connections {
+			var targetSlideToolingID int
+
+			if conn.TargetToolingID != nil && *conn.TargetToolingID > 0 {
+				targetSlideToolingID = *conn.TargetToolingID
+			} else {
+				var ok bool
+				targetSlideToolingID, ok = slideMapping[conn.TargetSlideLocalID]
+				if !ok {
+					log.Printf("Warning: Target slide %d not found in mapping, skipping connection for new option", conn.TargetSlideLocalID)
+					continue
+				}
+			}
+
+			weight := conn.Weight
+			if weight <= 0 {
+				weight = 1
+			}
+
+			_, err := tx.Exec(`
+				INSERT INTO tooling.expedition_outcomes (
+					action, option_id, target_slide_id, weight, approved
+				) VALUES (
+					'insert', $1, $2, $3, false
+				)
+			`, optionToolingID, targetSlideToolingID, weight)
+
+			if err != nil {
+				log.Printf("Failed to insert outcome for new option: %v", err)
+				http.Error(w, "Failed to save connection for new option", http.StatusInternalServerError)
+				return
+			}
+
+			log.Printf("Inserted outcome for new option: option:%d -> slide:%d", optionToolingID, targetSlideToolingID)
+		}
+	}
+
+	// Step 5: Insert new connections for existing options
+	for _, newConn := range req.NewConnections {
+		var targetSlideToolingID int
+
+		if newConn.TargetToolingID != nil && *newConn.TargetToolingID > 0 {
+			targetSlideToolingID = *newConn.TargetToolingID
+		} else {
+			var ok bool
+			targetSlideToolingID, ok = slideMapping[newConn.TargetSlideLocalID]
+			if !ok {
+				log.Printf("Warning: Target slide %d not found in mapping, skipping new connection", newConn.TargetSlideLocalID)
+				continue
+			}
+		}
+
+		weight := newConn.Weight
+		if weight <= 0 {
+			weight = 1
+		}
+
+		_, err := tx.Exec(`
+			INSERT INTO tooling.expedition_outcomes (
+				action, option_id, target_slide_id, weight, approved
+			) VALUES (
+				'insert', $1, $2, $3, false
+			)
+		`, newConn.OptionToolingID, targetSlideToolingID, weight)
+
+		if err != nil {
+			log.Printf("Failed to insert new connection for existing option %d: %v", newConn.OptionToolingID, err)
+			http.Error(w, "Failed to save new connection", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Inserted new connection: existing option:%d -> slide:%d", newConn.OptionToolingID, targetSlideToolingID)
+	}
+
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		log.Printf("Failed to commit transaction: %v", err)
@@ -291,6 +412,8 @@ type LoadedSlide struct {
 	RewardPerk     *int           `json:"rewardPerk"`
 	RewardBlessing *int           `json:"rewardBlessing"`
 	RewardPotion   *int           `json:"rewardPotion"`
+	PosX           int            `json:"posX"`
+	PosY           int            `json:"posY"`
 	Approved       bool           `json:"approved"`
 	Options        []LoadedOption `json:"options"`
 }
@@ -347,7 +470,8 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		SELECT tooling_id, COALESCE(slide_text, ''), asset_id, effect_id, effect_factor, 
 		       COALESCE(is_start, false), settlement_id,
 		       reward_stat_type, reward_stat_amount, reward_talent, reward_item,
-		       reward_perk, reward_blessing, reward_potion, COALESCE(approved, false)
+		       reward_perk, reward_blessing, reward_potion, 
+		       COALESCE(pos_x, 100), COALESCE(pos_y, 100), COALESCE(approved, false)
 		FROM tooling.expedition_slides
 		WHERE action = 'insert'
 		ORDER BY tooling_id
@@ -365,7 +489,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			&s.ToolingID, &s.SlideText, &s.AssetID, &s.EffectID, &s.EffectFactor,
 			&s.IsStart, &s.SettlementID,
 			&s.RewardStatType, &s.RewardStatAmt, &s.RewardTalent, &s.RewardItem,
-			&s.RewardPerk, &s.RewardBlessing, &s.RewardPotion, &s.Approved,
+			&s.RewardPerk, &s.RewardBlessing, &s.RewardPotion, &s.PosX, &s.PosY, &s.Approved,
 		)
 		if err != nil {
 			log.Printf("Failed to scan slide: %v", err)
