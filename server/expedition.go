@@ -128,6 +128,18 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		effectID = slide.EffectID
 		effectFactor = slide.EffectFactor
 
+		// Handle NOT NULL columns with defaults
+		slideText := slide.Text
+		if slideText == "" {
+			slideText = "" // Keep empty string, not NULL
+		}
+
+		// asset_id is NOT NULL, use 0 as default
+		assetID := 0
+		if slide.AssetID != nil {
+			assetID = *slide.AssetID
+		}
+
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_slides (
 				action, slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
@@ -136,13 +148,13 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			) VALUES (
 				'insert', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, false
 			) RETURNING tooling_id
-		`, slide.Text, slide.AssetID, effectID, effectFactor, slide.IsStart, req.SettlementID,
+		`, slideText, assetID, effectID, effectFactor, slide.IsStart, req.SettlementID,
 			rewardStatType, rewardStatAmount, rewardTalent, rewardItem,
 			rewardPerk, rewardBlessing, rewardPotion).Scan(&toolingID)
 
 		if err != nil {
 			log.Printf("Failed to insert slide %d: %v", slide.ID, err)
-			http.Error(w, "Failed to save slide", http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Failed to save slide: %v", err), http.StatusInternalServerError)
 			return
 		}
 

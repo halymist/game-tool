@@ -1443,6 +1443,9 @@ async function saveExpedition() {
     }
 
     try {
+        // Debug: Log all connections before processing
+        console.log('All connections before save:', expeditionState.connections);
+        
         // Build slides array with proper structure for the API
         const slides = [];
         
@@ -1501,12 +1504,15 @@ async function saveExpedition() {
             // Build options with their connections
             const options = slide.options.map((opt, optIdx) => {
                 // Find all connections from this option
+                // Connections are stored as: { from: slideId, option: optionIndex, to: targetSlideId, weight: 1 }
                 const connections = expeditionState.connections
-                    .filter(conn => conn.fromSlideId === localId && conn.fromOptionIndex === optIdx)
+                    .filter(conn => conn.from === localId && conn.option === optIdx)
                     .map(conn => ({
-                        targetSlideId: conn.toSlideId,
+                        targetSlideId: conn.to,
                         weight: conn.weight || 1
                     }));
+                
+                console.log(`Slide ${localId} option ${optIdx} connections:`, connections);
 
                 return {
                     text: opt.text || '',
@@ -1547,7 +1553,7 @@ async function saveExpedition() {
         }
 
         // Send to API
-        const response = await fetch('/api/saveExpedition', {
+        const response = await fetch('http://localhost:8080/api/saveExpedition', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
