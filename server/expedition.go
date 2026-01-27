@@ -164,6 +164,16 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// Get current max version for new inserts
+	var currentMaxVersion int
+	err = tx.QueryRow(`SELECT COALESCE(MAX(version), 0) + 1 FROM tooling.expedition_slides`).Scan(&currentMaxVersion)
+	if err != nil {
+		log.Printf("Failed to get max version: %v", err)
+		http.Error(w, "Failed to get version", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("Using version %d for new inserts", currentMaxVersion)
+
 	// Maps to track local IDs to database IDs
 	slideMapping := make(map[int]int)     // localID -> tooling_id
 	optionMapping := make(map[string]int) // "localSlideID-optionIndex" -> tooling_id
@@ -210,15 +220,15 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_slides (
-				action, slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
+				slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
 				reward_stat_type, reward_stat_amount, reward_talent, reward_item, 
-				reward_perk, reward_blessing, reward_potion, pos_x, pos_y, approved
+				reward_perk, reward_blessing, reward_potion, pos_x, pos_y, version
 			) VALUES (
-				'insert', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, false
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
 			) RETURNING tooling_id
 		`, slideText, assetID, effectID, effectFactor, slide.IsStart, req.SettlementID,
 			rewardStatType, rewardStatAmount, rewardTalent, rewardItem,
-			rewardPerk, rewardBlessing, rewardPotion, slide.PosX, slide.PosY).Scan(&toolingID)
+			rewardPerk, rewardBlessing, rewardPotion, slide.PosX, slide.PosY, currentMaxVersion).Scan(&toolingID)
 
 		if err != nil {
 			log.Printf("Failed to insert slide %d: %v", slide.ID, err)
@@ -239,13 +249,13 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 			err := tx.QueryRow(`
 				INSERT INTO tooling.expedition_options (
-					action, slide_id, option_text, stat_type, stat_required, 
-					effect_id, effect_amount, enemy_id, approved
+					slide_id, option_text, stat_type, stat_required, 
+					effect_id, effect_amount, enemy_id, version
 				) VALUES (
-					'insert', $1, $2, $3, $4, $5, $6, $7, false
+					$1, $2, $3, $4, $5, $6, $7, $8
 				) RETURNING tooling_id
 			`, slideToolingID, option.Text, option.StatType, option.StatRequired,
-				option.EffectID, option.EffectAmount, option.EnemyID).Scan(&optionToolingID)
+				option.EffectID, option.EffectAmount, option.EnemyID, currentMaxVersion).Scan(&optionToolingID)
 
 			if err != nil {
 				log.Printf("Failed to insert option for slide %d: %v", slide.ID, err)
@@ -289,11 +299,11 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 				_, err := tx.Exec(`
 					INSERT INTO tooling.expedition_outcomes (
-						action, option_id, target_slide_id, weight, approved
+						option_id, target_slide_id, weight, version
 					) VALUES (
-						'insert', $1, $2, $3, false
+						$1, $2, $3, $4
 					)
-				`, optionToolingID, targetSlideToolingID, weight)
+				`, optionToolingID, targetSlideToolingID, weight, currentMaxVersion)
 
 				if err != nil {
 					log.Printf("Failed to insert outcome: %v", err)
@@ -313,13 +323,13 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_options (
-				action, slide_id, option_text, stat_type, stat_required, 
-				effect_id, effect_amount, enemy_id, approved
+				slide_id, option_text, stat_type, stat_required, 
+				effect_id, effect_amount, enemy_id, version
 			) VALUES (
-				'insert', $1, $2, $3, $4, $5, $6, $7, false
+				$1, $2, $3, $4, $5, $6, $7, $8
 			) RETURNING tooling_id
 		`, newOpt.SlideToolingID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
-			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID).Scan(&optionToolingID)
+			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, currentMaxVersion).Scan(&optionToolingID)
 
 		if err != nil {
 			log.Printf("Failed to insert new option for existing slide %d: %v", newOpt.SlideToolingID, err)
@@ -354,11 +364,11 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 			_, err := tx.Exec(`
 				INSERT INTO tooling.expedition_outcomes (
-					action, option_id, target_slide_id, weight, approved
+					option_id, target_slide_id, weight, version
 				) VALUES (
-					'insert', $1, $2, $3, false
+					$1, $2, $3, $4
 				)
-			`, optionToolingID, targetSlideToolingID, weight)
+			`, optionToolingID, targetSlideToolingID, weight, currentMaxVersion)
 
 			if err != nil {
 				log.Printf("Failed to insert outcome for new option: %v", err)
@@ -392,11 +402,11 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 		_, err := tx.Exec(`
 			INSERT INTO tooling.expedition_outcomes (
-				action, option_id, target_slide_id, weight, approved
+				option_id, target_slide_id, weight, version
 			) VALUES (
-				'insert', $1, $2, $3, false
+				$1, $2, $3, $4
 			)
-		`, newConn.OptionToolingID, targetSlideToolingID, weight)
+		`, newConn.OptionToolingID, targetSlideToolingID, weight, currentMaxVersion)
 
 		if err != nil {
 			log.Printf("Failed to insert new connection for existing option %d: %v", newConn.OptionToolingID, err)
@@ -419,13 +429,14 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 				slide_text = $1, asset_id = $2, effect_id = $3, effect_factor = $4,
 				is_start = $5, reward_stat_type = $6, reward_stat_amount = $7,
 				reward_talent = $8, reward_item = $9, reward_perk = $10,
-				reward_blessing = $11, reward_potion = $12, pos_x = $13, pos_y = $14
-			WHERE tooling_id = $15
+				reward_blessing = $11, reward_potion = $12, pos_x = $13, pos_y = $14,
+				version = $15
+			WHERE tooling_id = $16
 		`, update.Text, assetID, update.EffectID, update.EffectFactor,
 			update.IsStart, update.RewardStatType, update.RewardStatAmt,
 			update.RewardTalent, update.RewardItem, update.RewardPerk,
 			update.RewardBlessing, update.RewardPotion, update.PosX, update.PosY,
-			update.ToolingID)
+			currentMaxVersion, update.ToolingID)
 
 		if err != nil {
 			log.Printf("Failed to update slide %d: %v", update.ToolingID, err)
@@ -441,11 +452,11 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		_, err := tx.Exec(`
 			UPDATE tooling.expedition_options SET
 				option_text = $1, stat_type = $2, stat_required = $3,
-				effect_id = $4, effect_amount = $5, enemy_id = $6
-			WHERE tooling_id = $7
+				effect_id = $4, effect_amount = $5, enemy_id = $6, version = $7
+			WHERE tooling_id = $8
 		`, update.Text, update.StatType, update.StatRequired,
 			update.EffectID, update.EffectAmount, update.EnemyID,
-			update.ToolingID)
+			currentMaxVersion, update.ToolingID)
 
 		if err != nil {
 			log.Printf("Failed to update option %d: %v", update.ToolingID, err)
@@ -500,7 +511,6 @@ type LoadedSlide struct {
 	RewardPotion   *int           `json:"rewardPotion"`
 	PosX           float64        `json:"posX"`
 	PosY           float64        `json:"posY"`
-	Approved       bool           `json:"approved"`
 	Options        []LoadedOption `json:"options"`
 }
 
@@ -513,16 +523,14 @@ type LoadedOption struct {
 	EffectID     *int            `json:"effectId"`
 	EffectAmount *int            `json:"effectAmount"`
 	EnemyID      *int            `json:"enemyId"`
-	Approved     bool            `json:"approved"`
 	Outcomes     []LoadedOutcome `json:"outcomes"`
 }
 
 // LoadedOutcome represents an outcome (connection) from database
 type LoadedOutcome struct {
-	ToolingID     int  `json:"toolingId"`
-	TargetSlideID int  `json:"targetSlideId"` // This is the tooling_id of the target slide
-	Weight        int  `json:"weight"`
-	Approved      bool `json:"approved"`
+	ToolingID     int `json:"toolingId"`
+	TargetSlideID int `json:"targetSlideId"` // This is the tooling_id of the target slide
+	Weight        int `json:"weight"`
 }
 
 // GetExpeditionResponse is the response for loading expedition data
@@ -557,9 +565,8 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(is_start, false), settlement_id,
 		       reward_stat_type, reward_stat_amount, reward_talent, reward_item,
 		       reward_perk, reward_blessing, reward_potion, 
-		       COALESCE(pos_x, 100), COALESCE(pos_y, 100), COALESCE(approved, false)
+		       COALESCE(pos_x, 100), COALESCE(pos_y, 100)
 		FROM tooling.expedition_slides
-		WHERE action = 'insert'
 		ORDER BY tooling_id
 	`)
 	if err != nil {
@@ -575,7 +582,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			&s.ToolingID, &s.SlideText, &s.AssetID, &s.EffectID, &s.EffectFactor,
 			&s.IsStart, &s.SettlementID,
 			&s.RewardStatType, &s.RewardStatAmt, &s.RewardTalent, &s.RewardItem,
-			&s.RewardPerk, &s.RewardBlessing, &s.RewardPotion, &s.PosX, &s.PosY, &s.Approved,
+			&s.RewardPerk, &s.RewardBlessing, &s.RewardPotion, &s.PosX, &s.PosY,
 		)
 		if err != nil {
 			log.Printf("Failed to scan slide: %v", err)
@@ -590,9 +597,8 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 	// Step 2: Load all options and attach to slides
 	optionRows, err := db.Query(`
 		SELECT tooling_id, slide_id, COALESCE(option_text, ''), stat_type, stat_required,
-		       effect_id, effect_amount, enemy_id, COALESCE(approved, false)
+		       effect_id, effect_amount, enemy_id
 		FROM tooling.expedition_options
-		WHERE action = 'insert'
 		ORDER BY tooling_id
 	`)
 	if err != nil {
@@ -609,7 +615,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		var slideID int
 		err := optionRows.Scan(
 			&o.ToolingID, &slideID, &o.OptionText, &o.StatType, &o.StatRequired,
-			&o.EffectID, &o.EffectAmount, &o.EnemyID, &o.Approved,
+			&o.EffectID, &o.EffectAmount, &o.EnemyID,
 		)
 		if err != nil {
 			log.Printf("Failed to scan option: %v", err)
@@ -628,9 +634,8 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 	// Step 3: Load all outcomes and attach to options
 	outcomeRows, err := db.Query(`
-		SELECT tooling_id, option_id, target_slide_id, COALESCE(weight, 1), COALESCE(approved, false)
+		SELECT tooling_id, option_id, target_slide_id, COALESCE(weight, 1)
 		FROM tooling.expedition_outcomes
-		WHERE action = 'insert'
 		ORDER BY tooling_id
 	`)
 	if err != nil {
@@ -645,7 +650,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		var oc LoadedOutcome
 		var optionID int
 		err := outcomeRows.Scan(
-			&oc.ToolingID, &optionID, &oc.TargetSlideID, &oc.Weight, &oc.Approved,
+			&oc.ToolingID, &optionID, &oc.TargetSlideID, &oc.Weight,
 		)
 		if err != nil {
 			log.Printf("Failed to scan outcome: %v", err)
