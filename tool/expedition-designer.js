@@ -77,7 +77,6 @@ function initExpeditionDesigner() {
     
     // Button events
     document.getElementById('addSlideBtn')?.addEventListener('click', addSlide);
-    document.getElementById('resetViewBtn')?.addEventListener('click', resetView);
     
     // Modal events - use onclick for more reliable binding
     const cancelBtn = document.getElementById('optionModalCancel');
@@ -112,14 +111,6 @@ function initExpeditionDesigner() {
     
     // Load expedition assets from S3
     loadBgAssets();
-    
-    // Auto-load expedition data from server
-    setTimeout(() => {
-        console.log('🔄 Auto-loading expedition...');
-        loadExpedition().catch(err => {
-            console.log('ℹ️ No expedition data to load or load failed:', err.message);
-        });
-    }, 500);
 }
 
 // ==================== ADD SLIDE ====================
@@ -423,8 +414,51 @@ function selectSlide(id) {
     });
 }
 
-function deleteSlide(id) {
-    if (!confirm('Delete this slide?')) return;
+async function deleteSlide(id) {
+    if (!confirm('Delete this slide and all its connections?')) return;
+    
+    const isServerSlide = expeditionState.serverSlides.has(id);
+    const toolingId = isServerSlide ? expeditionState.serverSlides.get(id) : null;
+    
+    // If it's a server slide, delete from database first
+    if (isServerSlide && toolingId) {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Not authenticated');
+            
+            const response = await fetch('http://localhost:8080/api/deleteExpeditionSlide', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ toolingId })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+            
+            console.log(`Deleted slide tooling_id ${toolingId} from server`);
+            
+            // Clean up server tracking
+            expeditionState.serverSlides.delete(id);
+            expeditionState.originalSlides.delete(id);
+            
+            // Clean up server options for this slide
+            for (const [key, optToolingId] of expeditionState.serverOptions.entries()) {
+                if (key.startsWith(`${id}-`)) {
+                    expeditionState.serverOptions.delete(key);
+                    expeditionState.originalOptions.delete(key);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to delete slide from server:', error);
+            alert(`Failed to delete slide: ${error.message}`);
+            return;
+        }
+    }
     
     // Remove connections
     expeditionState.connections = expeditionState.connections.filter(c => c.from !== id && c.to !== id);
@@ -440,15 +474,67 @@ function deleteSlide(id) {
     updateCounter();
 }
 
-function deleteOption(slideId, optionIndex) {
+async function deleteOption(slideId, optionIndex) {
     const slide = expeditionState.slides.get(slideId);
     if (!slide) return;
+    
+    const optionKey = `${slideId}-${optionIndex}`;
+    const isServerOption = expeditionState.serverOptions.has(optionKey);
+    const optionToolingId = isServerOption ? expeditionState.serverOptions.get(optionKey) : null;
+    
+    // If it's a server option, delete from database first
+    if (isServerOption && optionToolingId) {
+        if (!confirm('Delete this option from the server?')) return;
+        
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Not authenticated');
+            
+            const response = await fetch('http://localhost:8080/api/deleteExpeditionOption', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ toolingId: optionToolingId })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(errorText);
+            }
+            
+            console.log(`Deleted option tooling_id ${optionToolingId} from server`);
+            
+            // Clean up server tracking - need to re-index options after this one
+            expeditionState.serverOptions.delete(optionKey);
+            expeditionState.originalOptions.delete(optionKey);
+            
+            // Re-index remaining options
+            for (let i = optionIndex + 1; i < slide.options.length; i++) {
+                const oldKey = `${slideId}-${i}`;
+                const newKey = `${slideId}-${i - 1}`;
+                if (expeditionState.serverOptions.has(oldKey)) {
+                    expeditionState.serverOptions.set(newKey, expeditionState.serverOptions.get(oldKey));
+                    expeditionState.serverOptions.delete(oldKey);
+                }
+                if (expeditionState.originalOptions.has(oldKey)) {
+                    expeditionState.originalOptions.set(newKey, expeditionState.originalOptions.get(oldKey));
+                    expeditionState.originalOptions.delete(oldKey);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to delete option from server:', error);
+            alert(`Failed to delete option: ${error.message}`);
+            return;
+        }
+    }
     
     // Remove connections for this option
     expeditionState.connections = expeditionState.connections.filter(c => 
         !(c.from === slideId && c.option === optionIndex)
     );
-    // Adjust indices
+    // Adjust indices for connections with higher option indices
     expeditionState.connections.forEach(c => {
         if (c.from === slideId && c.option > optionIndex) c.option--;
     });
@@ -1576,9 +1662,9 @@ function isSlideModified(localId) {
     const slide = expeditionState.slides.get(localId);
     if (!slide) return false;
     
-    // Check slide-level changes
-    if (slide.text !== original.text) return true;
-    if (slide.isStart !== original.isStart) return true;
+    // Check slide-level changes (normalize values same as when storing)
+    if ((slide.text || '') !== original.text) return true;
+    if ((slide.isStart || false) !== original.isStart) return true;
     if (getAssetIdFromUrl(slide.assetUrl) !== original.assetId) return true;
     
     // Check effect changes
@@ -1614,13 +1700,14 @@ function isOptionModified(localId, optIdx) {
     
     const opt = slide.options[optIdx];
     
-    if (opt.text !== original.text) return true;
-    if (opt.type !== original.type) return true;
-    if (opt.statType !== original.statType) return true;
-    if (opt.statRequired !== original.statRequired) return true;
-    if (opt.effectId !== original.effectId) return true;
-    if (opt.effectAmount !== original.effectAmount) return true;
-    if (opt.enemyId !== original.enemyId) return true;
+    // Normalize values same as when storing originals
+    if ((opt.text || '') !== original.text) return true;
+    if ((opt.type || 'dialogue') !== original.type) return true;
+    if ((opt.statType || null) !== original.statType) return true;
+    if ((opt.statRequired || null) !== original.statRequired) return true;
+    if ((opt.effectId || null) !== original.effectId) return true;
+    if ((opt.effectAmount || null) !== original.effectAmount) return true;
+    if ((opt.enemyId || null) !== original.enemyId) return true;
     
     return false;
 }
@@ -1751,6 +1838,8 @@ async function saveExpedition() {
                             });
                         
                         newOptions.push({
+                            slideLocalId: localId,
+                            optionIndex: optIdx,
                             slideToolingId: slideToolingId,
                             text: opt.text || '',
                             statType: opt.type === 'skill' ? opt.statType : null,
@@ -2031,6 +2120,80 @@ async function saveExpedition() {
                 });
             }
             
+            // Track newly saved options from result.optionMapping
+            if (result.optionMapping) {
+                for (const [optionKey, optionToolingId] of Object.entries(result.optionMapping)) {
+                    expeditionState.serverOptions.set(optionKey, optionToolingId);
+                    
+                    // Also store original values for newly saved options
+                    const [slideIdStr, optIdxStr] = optionKey.split('-');
+                    const slideId = parseInt(slideIdStr);
+                    const optIdx = parseInt(optIdxStr);
+                    const slide = expeditionState.slides.get(slideId);
+                    if (slide && slide.options[optIdx]) {
+                        const opt = slide.options[optIdx];
+                        expeditionState.originalOptions.set(optionKey, {
+                            text: opt.text || '',
+                            type: opt.type || 'dialogue',
+                            statType: opt.statType || null,
+                            statRequired: opt.statRequired || null,
+                            effectId: opt.effectId || null,
+                            effectAmount: opt.effectAmount || null,
+                            enemyId: opt.enemyId || null
+                        });
+                    }
+                }
+            }
+            
+            // Track newly saved connections
+            // For new slides, their options are now tracked, so we need to register their connections
+            for (const slide of slides) {
+                const toolingId = result.slideMapping[slide.id];
+                if (!toolingId) continue;
+                
+                slide.options.forEach((opt, optIdx) => {
+                    const optionKey = `${slide.id}-${optIdx}`;
+                    const optionToolingId = result.optionMapping[optionKey];
+                    if (!optionToolingId) return;
+                    
+                    // Track all connections from this option
+                    opt.connections.forEach(conn => {
+                        const targetToolingId = conn.targetToolingId || result.slideMapping[conn.targetSlideId];
+                        if (targetToolingId) {
+                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                            expeditionState.serverOutcomes.add(outcomeKey);
+                        }
+                    });
+                });
+            }
+            
+            // Track connections from newOptions - now we have the proper mapping
+            for (const newOpt of newOptions) {
+                const optionKey = `${newOpt.slideLocalId}-${newOpt.optionIndex}`;
+                const optionToolingId = result.optionMapping[optionKey];
+                
+                if (optionToolingId) {
+                    // Register its connections
+                    newOpt.connections.forEach(conn => {
+                        const targetToolingId = conn.targetToolingId || result.slideMapping[conn.targetSlideId];
+                        if (targetToolingId) {
+                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                            expeditionState.serverOutcomes.add(outcomeKey);
+                        }
+                    });
+                }
+            }
+            
+            // Track connections from newConnections
+            for (const newConn of newConnections) {
+                const targetToolingId = newConn.targetToolingId || result.slideMapping[newConn.targetSlideId];
+                if (targetToolingId) {
+                    const outcomeKey = `${newConn.optionToolingId}-${targetToolingId}`;
+                    expeditionState.serverOutcomes.add(outcomeKey);
+                    console.log(`Tracked new connection: ${outcomeKey}`);
+                }
+            }
+            
             // Re-render slides to update visual (remove new-slide/modified-slide highlight)
             expeditionState.slides.forEach(slide => renderSlide(slide));
             
@@ -2041,7 +2204,7 @@ async function saveExpedition() {
             if (slideUpdates.length > 0) parts.push(`${slideUpdates.length} updated slides`);
             if (optionUpdates.length > 0) parts.push(`${optionUpdates.length} updated options`);
             
-            alert(`✅ Expedition saved successfully!\n\n${parts.join(', ')} saved to database.\n\nNote: Items are pending approval.`);
+            alert(`✅ Expedition saved successfully!\n\n${parts.join(', ')} saved to database.`);
             console.log('Save result:', result);
         } else {
             throw new Error(result.message || 'Unknown error');

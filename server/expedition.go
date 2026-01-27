@@ -58,6 +58,8 @@ type ExpeditionConnection struct {
 
 // NewOptionForExistingSlide represents a new option being added to an existing server slide
 type NewOptionForExistingSlide struct {
+	SlideLocalID   int                    `json:"slideLocalId"`   // Local ID from designer
+	OptionIndex    int                    `json:"optionIndex"`    // Option index on the slide
 	SlideToolingID int                    `json:"slideToolingId"` // Existing slide's tooling_id
 	Text           string                 `json:"text"`
 	StatType       *string                `json:"statType"`
@@ -325,7 +327,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		log.Printf("Inserted new option for existing slide:%d -> option tooling:%d", newOpt.SlideToolingID, optionToolingID)
+		// Track in optionMapping using the local slide ID and option index
+		optionKey := formatOptionKey(newOpt.SlideLocalID, newOpt.OptionIndex)
+		optionMapping[optionKey] = optionToolingID
+		log.Printf("Inserted new option for existing slide:%d -> option tooling:%d (mapped as %s)", newOpt.SlideToolingID, optionToolingID, optionKey)
 
 		// Insert connections for this new option
 		for _, conn := range newOpt.Connections {
@@ -883,4 +888,92 @@ func uploadExpeditionAssetToS3(imageData string, assetID int) (string, error) {
 
 	log.Printf("Expedition asset uploaded to S3: %s", s3Key)
 	return s3Key, nil
+}
+
+// ==================== DELETE ENDPOINTS ====================
+
+// handleDeleteExpeditionSlide deletes a slide and all its options/outcomes (via CASCADE)
+func handleDeleteExpeditionSlide(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		ToolingID int `json:"toolingId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if db == nil {
+		http.Error(w, "Database not connected", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete the slide - CASCADE will handle options and outcomes
+	result, err := db.Exec(`DELETE FROM tooling.expedition_slides WHERE tooling_id = $1`, req.ToolingID)
+	if err != nil {
+		log.Printf("Failed to delete slide %d: %v", req.ToolingID, err)
+		http.Error(w, "Failed to delete slide", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("Deleted slide tooling_id=%d (rows affected: %d)", req.ToolingID, rowsAffected)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Slide %d deleted", req.ToolingID),
+	})
+}
+
+// handleDeleteExpeditionOption deletes an option and its outcomes (via CASCADE)
+func handleDeleteExpeditionOption(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		ToolingID int `json:"toolingId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if db == nil {
+		http.Error(w, "Database not connected", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete the option - CASCADE will handle outcomes
+	result, err := db.Exec(`DELETE FROM tooling.expedition_options WHERE tooling_id = $1`, req.ToolingID)
+	if err != nil {
+		log.Printf("Failed to delete option %d: %v", req.ToolingID, err)
+		http.Error(w, "Failed to delete option", http.StatusInternalServerError)
+		return
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	log.Printf("Deleted option tooling_id=%d (rows affected: %d)", req.ToolingID, rowsAffected)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Option %d deleted", req.ToolingID),
+	})
 }
