@@ -179,7 +179,7 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// List objects in settlements folder
-	prefix := "settlements/"
+	prefix := "images/settlements/"
 	input := &s3.ListObjectsV2Input{
 		Bucket: aws.String(S3_BUCKET_NAME),
 		Prefix: aws.String(prefix),
@@ -279,7 +279,7 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Use asset ID as filename with .webp extension
-	key := fmt.Sprintf("settlements/%d.webp", nextID)
+	key := fmt.Sprintf("images/settlements/%d.webp", nextID)
 
 	// Upload to S3 as webp
 	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
@@ -327,7 +327,7 @@ func getNextSettlementAssetID() (int, error) {
 	}
 
 	// List existing settlement assets to find the highest ID
-	prefix := "settlements/"
+	prefix := "images/settlements/"
 	input := &s3.ListObjectsV2Input{
 		Bucket: aws.String(S3_BUCKET_NAME),
 		Prefix: aws.String(prefix),

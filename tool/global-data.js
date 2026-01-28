@@ -236,18 +236,15 @@ async function loadPerksData() {
  * @returns {Promise<Array>} Promise that resolves to array of complete item data
  */
 async function loadItemsData() {
-    console.log('🔵 loadItemsData() CALLED');
     try {
         // Get current access token
-        console.log('🔵 Getting access token...');
         const token = await getCurrentAccessToken();
-        console.log('🔵 Token received:', token ? 'YES' : 'NO');
         if (!token) {
             console.error('Authentication required to load items data');
             throw new Error('Authentication required');
         }
 
-        console.log('🔵 Loading items data from server...');
+        console.log('Loading items data from server...');
 
         const response = await fetch('http://localhost:8080/api/getItems', {
             method: 'GET',

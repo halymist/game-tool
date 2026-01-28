@@ -235,8 +235,19 @@ async function loadBlessingsData() {
 }
 
 async function loadSettlementItemsData() {
+    // Wait for global items to be loaded first
+    if (typeof loadItemsData === 'function') {
+        try {
+            await loadItemsData();  // This will load from server if not cached
+        } catch (e) {
+            console.log('Items already loading or loaded');
+        }
+    }
+    
+    // Now get the items from global data
     if (typeof getItems === 'function') {
         settlementState.items = getItems() || [];
+        console.log('✅ Settlement got', settlementState.items.length, 'items from global data');
     } else {
         try {
             const token = await getCurrentAccessToken();
@@ -262,8 +273,19 @@ async function loadSettlementItemsData() {
 }
 
 async function loadSettlementEffectsData() {
+    // Wait for global effects to be loaded first
+    if (typeof loadEffectsData === 'function') {
+        try {
+            await loadEffectsData();  // This will load from server if not cached
+        } catch (e) {
+            console.log('Effects already loading or loaded');
+        }
+    }
+    
+    // Now get the effects from global data
     if (typeof getEffects === 'function') {
         settlementState.effects = getEffects() || [];
+        console.log('✅ Settlement got', settlementState.effects.length, 'effects from global data');
     } else {
         try {
             const token = await getCurrentAccessToken();
@@ -624,16 +646,89 @@ function closeItemSelectDialog() {
 }
 
 function showAddEffectDialog() {
-    const effectId = prompt('Select an effect to add (enter effect ID):\n\nAvailable effects:\n' + 
-        settlementState.effects.slice(0, 20).map(e => `${e.effect_id || e.id}: ${e.effect_name || e.name}`).join('\n'));
+    // Create a modal overlay for effect selection (similar to item selection)
+    const existingOverlay = document.getElementById('effectSelectOverlay');
+    if (existingOverlay) existingOverlay.remove();
 
-    if (effectId) {
-        const id = parseInt(effectId);
-        if (!isNaN(id) && !settlementState.enchanterEffects.includes(id)) {
-            settlementState.enchanterEffects.push(id);
-            renderEnchanterEffects();
+    const overlay = document.createElement('div');
+    overlay.id = 'effectSelectOverlay';
+    overlay.className = 'settlement-asset-gallery-overlay active';
+    overlay.style.zIndex = '1001';
+
+    const effectsHtml = settlementState.effects.map(effect => {
+        const id = effect.effect_id || effect.id;
+        const name = effect.effect_name || effect.name || `Effect ${id}`;
+        const isSelected = settlementState.enchanterEffects.includes(id);
+        
+        return `
+            <div class="item-grid-cell ${isSelected ? 'selected' : ''}" 
+                 data-effect-id="${id}" 
+                 onclick="toggleEnchanterEffectSelection(${id})"
+                 style="cursor: pointer;">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="${isSelected ? '#48bb78' : '#4a5568'}" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                <span class="item-name">${escapeSettlementHtml(name)}</span>
+            </div>
+        `;
+    }).join('');
+
+    overlay.innerHTML = `
+        <div class="settlement-asset-gallery" style="max-width: 800px;">
+            <div class="settlement-asset-gallery-header">
+                <h3>Select Effects for Enchanter</h3>
+                <button class="settlement-asset-gallery-close" onclick="closeEffectSelectDialog()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="settlement-asset-gallery-content">
+                <div class="items-grid" style="max-height: none;">
+                    ${effectsHtml || '<p style="color: #a0aec0; text-align: center; padding: 40px;">No effects available</p>'}
+                </div>
+            </div>
+            <div class="settlement-upload-section">
+                <button class="btn-save-settlement" onclick="closeEffectSelectDialog()">Done</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close on backdrop click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeEffectSelectDialog();
+    });
+}
+
+function toggleEnchanterEffectSelection(effectId) {
+    const index = settlementState.enchanterEffects.indexOf(effectId);
+    if (index >= 0) {
+        settlementState.enchanterEffects.splice(index, 1);
+    } else {
+        settlementState.enchanterEffects.push(effectId);
+    }
+    
+    // Update the selection visual in the dialog
+    const cell = document.querySelector(`#effectSelectOverlay .item-grid-cell[data-effect-id="${effectId}"]`);
+    if (cell) {
+        cell.classList.toggle('selected');
+        const svg = cell.querySelector('svg');
+        if (svg) {
+            svg.setAttribute('stroke', cell.classList.contains('selected') ? '#48bb78' : '#4a5568');
         }
     }
+    
+    // Update the main enchanter effects list
+    renderEnchanterEffects();
+}
+
+function closeEffectSelectDialog() {
+    const overlay = document.getElementById('effectSelectOverlay');
+    if (overlay) overlay.remove();
 }
 
 function removeVendorItem(index) {
@@ -965,3 +1060,5 @@ window.removeVendorItem = removeVendorItem;
 window.removeEnchanterEffect = removeEnchanterEffect;
 window.toggleVendorItemSelection = toggleVendorItemSelection;
 window.closeItemSelectDialog = closeItemSelectDialog;
+window.toggleEnchanterEffectSelection = toggleEnchanterEffectSelection;
+window.closeEffectSelectDialog = closeEffectSelectDialog;
