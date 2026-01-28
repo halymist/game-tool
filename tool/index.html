@@ -875,10 +875,16 @@
                 <!-- Top bar with settlement selection -->
                 <div class="settlement-top-bar">
                     <div class="settlement-select-wrapper">
-                        <label for="settlementSelect">Settlement:</label>
-                        <select id="settlementSelect" class="settlement-select">
-                            <option value="">-- New Settlement --</option>
-                        </select>
+                        <div class="settlement-select-group">
+                            <label for="settlementSelect">Settlement:</label>
+                            <select id="settlementSelect" class="settlement-select">
+                                <option value="">-- New Settlement --</option>
+                            </select>
+                        </div>
+                        <div class="settlement-description-field">
+                            <label for="settlementDescription">Description:</label>
+                            <textarea id="settlementDescription" placeholder="Settlement description..."></textarea>
+                        </div>
                     </div>
                     <div class="settlement-top-actions">
                         <button id="saveSettlementBtn" class="btn-save-settlement">
@@ -921,10 +927,6 @@
                                     <input type="text" id="settlementName" placeholder="Settlement name...">
                                 </div>
                                 <div>
-                                    <label for="settlementDescription">Description</label>
-                                    <textarea id="settlementDescription" placeholder="Settlement description..." rows="3"></textarea>
-                                </div>
-                                <div>
                                     <label for="factionSelect">Faction</label>
                                     <select id="factionSelect" class="faction-select">
                                         <option value="">-- None --</option>
@@ -965,7 +967,23 @@
 
                     <!-- Utility Card -->
                     <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Utility</h3>
+                        <div class="utility-type-cards">
+                            <div class="utility-type-card" data-type="blacksmith" onclick="selectUtilityType('blacksmith')">
+                                Blacksmith
+                            </div>
+                            <div class="utility-type-card" data-type="alchemist" onclick="selectUtilityType('alchemist')">
+                                Alchemist
+                            </div>
+                            <div class="utility-type-card" data-type="enchanter" onclick="selectUtilityType('enchanter')">
+                                Enchanter
+                            </div>
+                            <div class="utility-type-card" data-type="trainer" onclick="selectUtilityType('trainer')">
+                                Trainer
+                            </div>
+                            <div class="utility-type-card" data-type="church" onclick="selectUtilityType('church')">
+                                Church
+                            </div>
+                        </div>
                         <div class="settlement-card">
                             <div id="utilityAssetArea" class="settlement-card-asset" data-asset-id="">
                                 <div class="no-asset">
@@ -978,17 +996,15 @@
                                 </div>
                             </div>
                             <div class="settlement-card-info">
-                                <div class="utility-type-selector">
-                                    <label for="utilityTypeSelect">Type</label>
-                                    <select id="utilityTypeSelect">
-                                        <option value="">-- Select Utility --</option>
-                                        <option value="blacksmith">Blacksmith</option>
-                                        <option value="alchemist">Alchemist</option>
-                                        <option value="enchanter">Enchanter</option>
-                                        <option value="trainer">Trainer</option>
-                                        <option value="church">Church</option>
-                                    </select>
-                                </div>
+                                <!-- Hidden select for form data -->
+                                <select id="utilityTypeSelect" style="display: none;">
+                                    <option value="">-- Select Utility --</option>
+                                    <option value="blacksmith">Blacksmith</option>
+                                    <option value="alchemist">Alchemist</option>
+                                    <option value="enchanter">Enchanter</option>
+                                    <option value="trainer">Trainer</option>
+                                    <option value="church">Church</option>
+                                </select>
                                 
                                 <!-- Church: Blessings -->
                                 <div id="utilityChurchContent" class="utility-content">

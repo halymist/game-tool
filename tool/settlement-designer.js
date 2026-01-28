@@ -439,11 +439,18 @@ function populateSettlementForm(settlement) {
         utilityTypeSelect.value = utilityType;
     }
 
+    // Update utility card styling
+    if (utilityType) {
+        selectUtilityType(utilityType);
+    }
+
     // Update utility asset
     updateAssetPreview('utility', utilityAssetId);
 
-    // Update utility content visibility
-    updateUtilityContent();
+    // Update utility content visibility was already called by selectUtilityType
+    if (!utilityType) {
+        updateUtilityContent();
+    }
 
     // Blessings (for church)
     const blessing1 = document.getElementById('blessing1Select');
@@ -486,6 +493,26 @@ function updateUtilityContent() {
             // No utility selected - show nothing
             break;
     }
+}
+
+function selectUtilityType(type) {
+    // Update the hidden select to keep form submission working
+    const utilityTypeSelect = document.getElementById('utilityTypeSelect');
+    if (utilityTypeSelect) {
+        utilityTypeSelect.value = type;
+    }
+
+    // Update active card styling
+    const cards = document.querySelectorAll('.utility-type-card');
+    cards.forEach(card => {
+        card.classList.remove('active');
+        if (card.dataset.type === type) {
+            card.classList.add('active');
+        }
+    });
+
+    // Update utility content
+    updateUtilityContent();
 }
 
 function updateAssetPreview(target, assetId) {
@@ -570,16 +597,20 @@ function renderEnchanterEffects() {
     if (!list) return;
 
     if (settlementState.enchanterEffects.length === 0) {
-        list.innerHTML = '<div class="effect-row" style="justify-content: center; color: #4a5568; font-style: italic;">No effects added</div>';
+        list.innerHTML = '<div style="text-align: center; color: #4a5568; font-style: italic; padding: 12px;">No effects added</div>';
         return;
     }
 
     list.innerHTML = settlementState.enchanterEffects.map((effectId, index) => {
         const effect = settlementState.effects.find(e => (e.effect_id || e.id) === effectId);
         const name = effect ? (effect.effect_name || effect.name) : `Effect ${effectId}`;
+        const description = effect ? (effect.effect_description || effect.description || '') : '';
         return `
             <div class="effect-row">
-                <span>${escapeSettlementHtml(name)}</span>
+                <div class="effect-item-content">
+                    <div class="effect-item-name">${escapeSettlementHtml(name)}</div>
+                    ${description ? `<div class="effect-item-description">${escapeSettlementHtml(description)}</div>` : ''}
+                </div>
                 <button class="effect-remove" onclick="removeEnchanterEffect(${index})">×</button>
             </div>
         `;
