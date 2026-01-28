@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -78,6 +79,16 @@
                         </div>
                         <div class="tool-card-body">
                             <p class="tool-card-description">Create branching expeditions with slides, options, and outcomes.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('settlements'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🏘️</span>
+                            <h4 class="tool-card-title">Settlement Designer</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Create and manage settlements with vendors and utilities.</p>
                         </div>
                     </a>
 
@@ -858,6 +869,197 @@
             </div>
         </div>
 
+        <!-- Settlement Designer Section -->
+        <div id="settlements-content" class="page-content" style="display: none;">
+            <div id="settlementDesigner" class="settlement-designer">
+                <!-- Top bar with settlement selection -->
+                <div class="settlement-top-bar">
+                    <div class="settlement-select-wrapper">
+                        <label for="settlementSelect">Settlement:</label>
+                        <select id="settlementSelect" class="settlement-select">
+                            <option value="">-- Select Settlement --</option>
+                        </select>
+                    </div>
+                    <div class="settlement-top-actions">
+                        <button id="newSettlementBtn" class="btn-new-settlement">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            New Settlement
+                        </button>
+                        <button id="saveSettlementBtn" class="btn-save-settlement">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Save
+                        </button>
+                        <button id="deleteSettlementBtn" class="btn-delete-settlement" style="display: none;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Three cards container -->
+                <div class="settlement-cards-container">
+                    <!-- Settlement Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Settlement</h3>
+                        <div class="settlement-card">
+                            <div id="settlementAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="settlement-card-info">
+                                <div>
+                                    <label for="settlementName">Name</label>
+                                    <input type="text" id="settlementName" placeholder="Settlement name...">
+                                </div>
+                                <div>
+                                    <label for="factionSelect">Faction</label>
+                                    <select id="factionSelect" class="faction-select">
+                                        <option value="">-- None --</option>
+                                        <option value="1">Faction 1</option>
+                                        <option value="2">Faction 2</option>
+                                        <option value="3">Faction 3</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vendor Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Vendor</h3>
+                        <div class="settlement-card">
+                            <div id="vendorAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="settlement-card-info">
+                                <div class="vendor-items-section">
+                                    <label>Items for Sale</label>
+                                    <div id="vendorItemsGrid" class="items-grid">
+                                        <!-- Items will be populated here -->
+                                    </div>
+                                    <button id="addVendorItemBtn" class="add-item-btn">+ Add Item</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Utility Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Utility</h3>
+                        <div class="settlement-card">
+                            <div id="utilityAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="settlement-card-info">
+                                <div class="utility-type-selector">
+                                    <label for="utilityTypeSelect">Type</label>
+                                    <select id="utilityTypeSelect">
+                                        <option value="">-- Select Utility --</option>
+                                        <option value="blacksmith">Blacksmith</option>
+                                        <option value="alchemist">Alchemist</option>
+                                        <option value="enchanter">Enchanter</option>
+                                        <option value="trainer">Trainer</option>
+                                        <option value="church">Church</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Church: Blessings -->
+                                <div id="utilityChurchContent" class="utility-content">
+                                    <label>Blessings (Perks)</label>
+                                    <div class="blessing-selects">
+                                        <select id="blessing1Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                        <select id="blessing2Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                        <select id="blessing3Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Enchanter: Effects -->
+                                <div id="utilityEnchanterContent" class="utility-content">
+                                    <label>Available Effects</label>
+                                    <div id="enchanterEffectsList" class="effects-list">
+                                        <!-- Effects will be populated here -->
+                                    </div>
+                                    <button id="addEnchanterEffectBtn" class="add-effect-btn">+ Add Effect</button>
+                                </div>
+                                
+                                <!-- Blacksmith/Alchemist/Trainer: No extra content -->
+                                <div id="utilityEmptyContent" class="utility-content">
+                                    <p class="utility-empty-msg">No additional configuration needed</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Asset Gallery Overlay -->
+                <div id="settlementAssetGalleryOverlay" class="settlement-asset-gallery-overlay">
+                    <div class="settlement-asset-gallery">
+                        <div class="settlement-asset-gallery-header">
+                            <h3 id="settlementGalleryTitle">Select Asset</h3>
+                            <button id="settlementGalleryClose" class="settlement-asset-gallery-close">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="settlement-asset-gallery-content">
+                            <div id="settlementAssetGrid" class="settlement-asset-grid">
+                                <!-- Assets will be populated here -->
+                            </div>
+                        </div>
+                        <div class="settlement-upload-section">
+                            <button id="settlementUploadBtn" class="btn-upload-asset">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                Upload New Asset
+                            </button>
+                            <input type="file" id="settlementAssetFile" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Player Management Section -->
         <div id="players-content" class="page-content" style="display: none;">
             <div class="tool-header">
@@ -976,6 +1178,7 @@
             'items': { title: 'Item Designer', element: 'items-content' },
             'perks': { title: 'Perk Designer', element: 'perks-content' },
             'dungeons': { title: 'Expeditions', element: 'dungeons-content' },
+            'settlements': { title: 'Settlement Designer', element: 'settlements-content' },
             'npcs': { title: 'NPC Manager', element: 'npcs-content' },
             'players': { title: 'Player Management', element: 'players-content' },
             'servers': { title: 'Server Management', element: 'servers-content' },
@@ -1027,6 +1230,12 @@
                 if (pageName === 'dungeons' && window.loadExpedition) {
                     console.log('Auto-loading expedition data...');
                     window.loadExpedition();
+                }
+                
+                // If showing the settlement designer, load data
+                if (pageName === 'settlements' && window.loadSettlementDesignerData) {
+                    console.log('Loading settlement designer data...');
+                    window.loadSettlementDesignerData();
                 }
             } else {
                 console.error('Element not found:', page.element);
@@ -1083,5 +1292,6 @@
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>
+    <script src="http://localhost:8080/static/settlement-designer.js"></script>
 </body>
 </html>

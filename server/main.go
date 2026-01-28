@@ -209,6 +209,13 @@ func main() {
 	http.HandleFunc("/api/deleteExpeditionSlide", corsHandler(handleDeleteExpeditionSlide))
 	http.HandleFunc("/api/deleteExpeditionOption", corsHandler(handleDeleteExpeditionOption))
 
+	// Settlement endpoints
+	http.HandleFunc("/api/getSettlements", corsHandler(handleGetSettlements))
+	http.HandleFunc("/api/getSettlementAssets", corsHandler(handleGetSettlementAssets))
+	http.HandleFunc("/api/uploadSettlementAsset", corsHandler(handleUploadSettlementAsset))
+	http.HandleFunc("/api/saveSettlement", corsHandler(handleSaveSettlement))
+	http.HandleFunc("/api/deleteSettlement", corsHandler(handleDeleteSettlement))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
