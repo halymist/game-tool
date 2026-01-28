@@ -236,15 +236,18 @@ async function loadPerksData() {
  * @returns {Promise<Array>} Promise that resolves to array of complete item data
  */
 async function loadItemsData() {
+    console.log('🔵 loadItemsData() CALLED');
     try {
         // Get current access token
+        console.log('🔵 Getting access token...');
         const token = await getCurrentAccessToken();
+        console.log('🔵 Token received:', token ? 'YES' : 'NO');
         if (!token) {
             console.error('Authentication required to load items data');
             throw new Error('Authentication required');
         }
 
-        console.log('Loading items data from server...');
+        console.log('🔵 Loading items data from server...');
 
         const response = await fetch('http://localhost:8080/api/getItems', {
             method: 'GET',
@@ -256,7 +259,8 @@ async function loadItemsData() {
 
         if (response.ok) {
             const data = await response.json();
-            console.log('=== ITEMS DATA LOADED ===');
+            console.log('=== ITEMS DATA LOADED FROM SERVER ===');
+            console.log('Response data:', data);
             console.log('Success:', data.success);
             console.log('Effects count from items endpoint:', data.effects ? data.effects.length : 0);
             console.log('Items count:', data.items ? data.items.length : 0);
@@ -271,7 +275,9 @@ async function loadItemsData() {
                 console.log('Effects data also loaded from items endpoint');
             }
             
-            console.log('✅ Items data loaded successfully:', GlobalData.items.length, 'items,', GlobalData.pendingItems.length, 'pending');
+            console.log('✅ GlobalData.items now has:', GlobalData.items.length, 'items');
+            console.log('✅ GlobalData.pendingItems now has:', GlobalData.pendingItems.length, 'pending');
+            console.log('First item (if any):', GlobalData.items[0]);
             return GlobalData.items;
             
         } else {

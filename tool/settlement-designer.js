@@ -162,10 +162,10 @@ async function loadSettlementDesignerData() {
         await loadBlessingsData();
 
         // Load items for vendor
-        await loadItemsData();
+        await loadSettlementItemsData();
 
         // Load effects for enchanter
-        await loadEffectsData();
+        await loadSettlementEffectsData();
 
         // Populate UI
         populateSettlementSelect();
@@ -234,7 +234,7 @@ async function loadBlessingsData() {
     }
 }
 
-async function loadItemsData() {
+async function loadSettlementItemsData() {
     if (typeof getItems === 'function') {
         settlementState.items = getItems() || [];
     } else {
@@ -261,7 +261,7 @@ async function loadItemsData() {
     }
 }
 
-async function loadEffectsData() {
+async function loadSettlementEffectsData() {
     if (typeof getEffects === 'function') {
         settlementState.effects = getEffects() || [];
     } else {

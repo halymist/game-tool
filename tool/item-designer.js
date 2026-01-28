@@ -168,11 +168,15 @@ async function loadItemsAndEffects() {
     
     try {
         // Load effects first
+        console.log('🔴 About to call loadEffectsData()');
         await loadEffectsData();
+        console.log('🔴 loadEffectsData() completed');
         populateEffectDropdown();
         
         // Then load items (this also loads pending items)
+        console.log('🔴 About to call loadItemsData()');
         await loadItemsData();
+        console.log('🔴 loadItemsData() completed');
         allItems = getItems();
         allPendingItems = getPendingItems();
         filteredItems = [...allItems];

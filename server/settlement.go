@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -191,8 +193,19 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var assets []SettlementAsset
-	for i, obj := range result.Contents {
+	for _, obj := range result.Contents {
 		if obj.Key == nil || *obj.Key == prefix {
+			continue
+		}
+
+		// Extract asset ID from filename (e.g., "settlements/5.webp" -> 5)
+		key := *obj.Key
+		filename := strings.TrimPrefix(key, prefix)
+		// Remove extension
+		baseName := strings.TrimSuffix(filename, filepath.Ext(filename))
+		assetID, err := strconv.Atoi(baseName)
+		if err != nil {
+			log.Printf("Skipping non-numeric asset: %s", key)
 			continue
 		}
 
@@ -209,9 +222,8 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Use index + 1 as a simple ID
 		assets = append(assets, SettlementAsset{
-			ID:  i + 1,
+			ID:  assetID,
 			URL: presignResult.URL,
 		})
 	}
@@ -258,17 +270,23 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate unique filename
-	ext := filepath.Ext(req.Filename)
-	timestamp := time.Now().UnixNano()
-	key := fmt.Sprintf("settlements/%d%s", timestamp, ext)
+	// Get next asset ID
+	nextID, err := getNextSettlementAssetID()
+	if err != nil {
+		log.Printf("Failed to get next asset ID: %v", err)
+		// Default to 1 if we can't determine
+		nextID = 1
+	}
 
-	// Upload to S3
+	// Use asset ID as filename with .webp extension
+	key := fmt.Sprintf("settlements/%d.webp", nextID)
+
+	// Upload to S3 as webp
 	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket:      aws.String(S3_BUCKET_NAME),
 		Key:         aws.String(key),
-		Body:        strings.NewReader(string(data)),
-		ContentType: aws.String(req.ContentType),
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String("image/webp"),
 	})
 	if err != nil {
 		log.Printf("Failed to upload to S3: %v", err)
@@ -290,16 +308,56 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Uploaded settlement asset: %s", key)
+	log.Printf("Uploaded settlement asset: %s (ID: %d)", key, nextID)
 
 	response := UploadSettlementAssetResponse{
 		Success: true,
-		AssetID: int(timestamp % 1000000), // Simple ID based on timestamp
+		AssetID: nextID,
 		URL:     presignResult.URL,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// getNextSettlementAssetID returns the next available asset ID for settlements
+func getNextSettlementAssetID() (int, error) {
+	if s3Client == nil {
+		return 1, fmt.Errorf("S3 client not initialized")
+	}
+
+	// List existing settlement assets to find the highest ID
+	prefix := "settlements/"
+	input := &s3.ListObjectsV2Input{
+		Bucket: aws.String(S3_BUCKET_NAME),
+		Prefix: aws.String(prefix),
+	}
+
+	result, err := s3Client.ListObjectsV2(context.TODO(), input)
+	if err != nil {
+		return 1, err
+	}
+
+	maxID := 0
+	for _, obj := range result.Contents {
+		if obj.Key == nil || *obj.Key == prefix {
+			continue
+		}
+
+		key := *obj.Key
+		filename := strings.TrimPrefix(key, prefix)
+		baseName := strings.TrimSuffix(filename, filepath.Ext(filename))
+		assetID, err := strconv.Atoi(baseName)
+		if err != nil {
+			continue
+		}
+
+		if assetID > maxID {
+			maxID = assetID
+		}
+	}
+
+	return maxID + 1, nil
 }
 
 // handleSaveSettlement saves or updates a settlement
