@@ -395,6 +395,12 @@ function populateSettlementForm(settlement) {
         nameInput.value = settlement.settlement_name || '';
     }
 
+    // Description
+    const descriptionInput = document.getElementById('settlementDescription');
+    if (descriptionInput) {
+        descriptionInput.value = settlement.description || '';
+    }
+
     // Faction
     const factionSelect = document.getElementById('factionSelect');
     if (factionSelect) {
@@ -770,6 +776,7 @@ function createNewSettlement() {
 
     // Clear form
     document.getElementById('settlementName').value = '';
+    document.getElementById('settlementDescription').value = '';
     document.getElementById('factionSelect').value = '';
     document.getElementById('utilityTypeSelect').value = '';
     document.getElementById('blessing1Select').value = '';
@@ -959,9 +966,11 @@ async function saveSettlement() {
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
     const utilityAssetId = parseInt(document.getElementById('utilityAssetArea').dataset.assetId) || null;
     const vendorAssetId = parseInt(document.getElementById('vendorAssetArea').dataset.assetId) || null;
+    const description = document.getElementById('settlementDescription')?.value.trim() || null;
 
     const settlement = {
         settlement_name: name,
+        description: description,
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
         vendor_asset_id: vendorAssetId,

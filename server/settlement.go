@@ -20,24 +20,26 @@ import (
 
 // Settlement represents a settlement from game.world_info
 type Settlement struct {
-	SettlementID      int    `json:"settlement_id"`
-	SettlementName    string `json:"settlement_name"`
-	Faction           *int   `json:"faction"`
-	Blacksmith        bool   `json:"blacksmith"`
-	Alchemist         bool   `json:"alchemist"`
-	Enchanter         bool   `json:"enchanter"`
-	Trainer           bool   `json:"trainer"`
-	Church            bool   `json:"church"`
-	Blessing1         *int   `json:"blessing1"`
-	Blessing2         *int   `json:"blessing2"`
-	Blessing3         *int   `json:"blessing3"`
-	SettlementAssetID *int   `json:"settlement_asset_id"`
-	VendorAssetID     *int   `json:"vendor_asset_id"`
-	BlacksmithAssetID *int   `json:"blacksmith_asset_id"`
-	AlchemistAssetID  *int   `json:"alchemist_asset_id"`
-	EnchanterAssetID  *int   `json:"enchanter_asset_id"`
-	TrainerAssetID    *int   `json:"trainer_asset_id"`
-	ChurchAssetID     *int   `json:"church_asset_id"`
+	SettlementID      int     `json:"settlement_id"`
+	SettlementName    string  `json:"settlement_name"`
+	Faction           *int    `json:"faction"`
+	Blacksmith        bool    `json:"blacksmith"`
+	Alchemist         bool    `json:"alchemist"`
+	Enchanter         bool    `json:"enchanter"`
+	Trainer           bool    `json:"trainer"`
+	Church            bool    `json:"church"`
+	Blessing1         *int    `json:"blessing1"`
+	Blessing2         *int    `json:"blessing2"`
+	Blessing3         *int    `json:"blessing3"`
+	SettlementAssetID *int    `json:"settlement_asset_id"`
+	VendorAssetID     *int    `json:"vendor_asset_id"`
+	BlacksmithAssetID *int    `json:"blacksmith_asset_id"`
+	AlchemistAssetID  *int    `json:"alchemist_asset_id"`
+	EnchanterAssetID  *int    `json:"enchanter_asset_id"`
+	TrainerAssetID    *int    `json:"trainer_asset_id"`
+	ChurchAssetID     *int    `json:"church_asset_id"`
+	Description       *string `json:"description"`
+	Version           int     `json:"version"`
 }
 
 // SettlementAsset represents an asset from S3
@@ -60,24 +62,25 @@ type GetSettlementAssetsResponse struct {
 
 // SaveSettlementRequest is the request for saving a settlement
 type SaveSettlementRequest struct {
-	SettlementID      *int   `json:"settlement_id"`
-	SettlementName    string `json:"settlement_name"`
-	Faction           *int   `json:"faction"`
-	Blacksmith        bool   `json:"blacksmith"`
-	Alchemist         bool   `json:"alchemist"`
-	Enchanter         bool   `json:"enchanter"`
-	Trainer           bool   `json:"trainer"`
-	Church            bool   `json:"church"`
-	Blessing1         *int   `json:"blessing1"`
-	Blessing2         *int   `json:"blessing2"`
-	Blessing3         *int   `json:"blessing3"`
-	SettlementAssetID *int   `json:"settlement_asset_id"`
-	VendorAssetID     *int   `json:"vendor_asset_id"`
-	BlacksmithAssetID *int   `json:"blacksmith_asset_id"`
-	AlchemistAssetID  *int   `json:"alchemist_asset_id"`
-	EnchanterAssetID  *int   `json:"enchanter_asset_id"`
-	TrainerAssetID    *int   `json:"trainer_asset_id"`
-	ChurchAssetID     *int   `json:"church_asset_id"`
+	SettlementID      *int    `json:"settlement_id"`
+	SettlementName    string  `json:"settlement_name"`
+	Faction           *int    `json:"faction"`
+	Blacksmith        bool    `json:"blacksmith"`
+	Alchemist         bool    `json:"alchemist"`
+	Enchanter         bool    `json:"enchanter"`
+	Trainer           bool    `json:"trainer"`
+	Church            bool    `json:"church"`
+	Blessing1         *int    `json:"blessing1"`
+	Blessing2         *int    `json:"blessing2"`
+	Blessing3         *int    `json:"blessing3"`
+	SettlementAssetID *int    `json:"settlement_asset_id"`
+	VendorAssetID     *int    `json:"vendor_asset_id"`
+	BlacksmithAssetID *int    `json:"blacksmith_asset_id"`
+	AlchemistAssetID  *int    `json:"alchemist_asset_id"`
+	EnchanterAssetID  *int    `json:"enchanter_asset_id"`
+	TrainerAssetID    *int    `json:"trainer_asset_id"`
+	ChurchAssetID     *int    `json:"church_asset_id"`
+	Description       *string `json:"description"`
 }
 
 // SaveSettlementResponse is the response after saving a settlement
@@ -126,7 +129,8 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(enchanter, false), COALESCE(trainer, false), COALESCE(church, false),
 		       blessing1, blessing2, blessing3,
 		       settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
-		       enchanter_asset_id, trainer_asset_id, church_asset_id
+		       enchanter_asset_id, trainer_asset_id, church_asset_id,
+		       description, COALESCE(version, 1)
 		FROM game.world_info
 		ORDER BY settlement_id
 	`)
@@ -146,6 +150,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.Blessing1, &s.Blessing2, &s.Blessing3,
 			&s.SettlementAssetID, &s.VendorAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
 			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID,
+			&s.Description, &s.Version,
 		)
 		if err != nil {
 			log.Printf("Failed to scan settlement: %v", err)
@@ -431,20 +436,23 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 	var settlementID int
 
 	if req.SettlementID != nil && *req.SettlementID > 0 {
-		// Update existing settlement
+		// Update existing settlement - increment version
 		_, err := db.Exec(`
 			UPDATE game.world_info SET
 				settlement_name = $1, faction = $2,
 				blacksmith = $3, alchemist = $4, enchanter = $5, trainer = $6, church = $7,
 				blessing1 = $8, blessing2 = $9, blessing3 = $10,
 				settlement_asset_id = $11, vendor_asset_id = $12, blacksmith_asset_id = $13, alchemist_asset_id = $14,
-				enchanter_asset_id = $15, trainer_asset_id = $16, church_asset_id = $17
-			WHERE settlement_id = $18
+				enchanter_asset_id = $15, trainer_asset_id = $16, church_asset_id = $17,
+				description = $18,
+				version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
+			WHERE settlement_id = $19
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
+			req.Description,
 			*req.SettlementID)
 
 		if err != nil {
@@ -455,22 +463,26 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 		settlementID = *req.SettlementID
 		log.Printf("Updated settlement %d", settlementID)
 	} else {
-		// Insert new settlement
+		// Insert new settlement - version auto-increments
 		err := db.QueryRow(`
 			INSERT INTO game.world_info (
 				settlement_name, faction,
 				blacksmith, alchemist, enchanter, trainer, church,
 				blessing1, blessing2, blessing3,
 				settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
-				enchanter_asset_id, trainer_asset_id, church_asset_id
+				enchanter_asset_id, trainer_asset_id, church_asset_id,
+				description,
+				version
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+				(SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
-			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID).Scan(&settlementID)
+			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
+			req.Description).Scan(&settlementID)
 
 		if err != nil {
 			log.Printf("Failed to insert settlement: %v", err)
