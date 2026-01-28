@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -31,6 +32,7 @@ type Settlement struct {
 	Blessing2         *int   `json:"blessing2"`
 	Blessing3         *int   `json:"blessing3"`
 	SettlementAssetID *int   `json:"settlement_asset_id"`
+	VendorAssetID     *int   `json:"vendor_asset_id"`
 	BlacksmithAssetID *int   `json:"blacksmith_asset_id"`
 	AlchemistAssetID  *int   `json:"alchemist_asset_id"`
 	EnchanterAssetID  *int   `json:"enchanter_asset_id"`
@@ -70,6 +72,7 @@ type SaveSettlementRequest struct {
 	Blessing2         *int   `json:"blessing2"`
 	Blessing3         *int   `json:"blessing3"`
 	SettlementAssetID *int   `json:"settlement_asset_id"`
+	VendorAssetID     *int   `json:"vendor_asset_id"`
 	BlacksmithAssetID *int   `json:"blacksmith_asset_id"`
 	AlchemistAssetID  *int   `json:"alchemist_asset_id"`
 	EnchanterAssetID  *int   `json:"enchanter_asset_id"`
@@ -115,12 +118,14 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("=== GET SETTLEMENTS REQUEST ===")
+
 	rows, err := db.Query(`
 		SELECT settlement_id, COALESCE(settlement_name, ''), faction, 
 		       COALESCE(blacksmith, false), COALESCE(alchemist, false), 
 		       COALESCE(enchanter, false), COALESCE(trainer, false), COALESCE(church, false),
 		       blessing1, blessing2, blessing3,
-		       settlement_asset_id, blacksmith_asset_id, alchemist_asset_id,
+		       settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
 		       enchanter_asset_id, trainer_asset_id, church_asset_id
 		FROM game.world_info
 		ORDER BY settlement_id
@@ -139,7 +144,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.SettlementID, &s.SettlementName, &s.Faction,
 			&s.Blacksmith, &s.Alchemist, &s.Enchanter, &s.Trainer, &s.Church,
 			&s.Blessing1, &s.Blessing2, &s.Blessing3,
-			&s.SettlementAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
+			&s.SettlementAssetID, &s.VendorAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
 			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID,
 		)
 		if err != nil {
@@ -149,7 +154,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		settlements = append(settlements, s)
 	}
 
-	log.Printf("Loaded %d settlements", len(settlements))
+	log.Printf("✅ Loaded %d settlements", len(settlements))
 
 	response := GetSettlementsResponse{
 		Success:     true,
@@ -162,6 +167,8 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 
 // handleGetSettlementAssets returns all settlement assets from S3
 func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== GET SETTLEMENT ASSETS REQUEST ===")
+
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -241,45 +248,87 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 
 // handleUploadSettlementAsset uploads a new settlement asset to S3
 func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
+	log.Println("=== UPLOAD SETTLEMENT ASSET REQUEST ===")
+
+	// Check authentication
+	if !isAuthenticated(r) {
+		log.Println("Unauthorized request to upload settlement asset")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Set headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if s3Client == nil {
-		http.Error(w, "S3 client not initialized", http.StatusInternalServerError)
+		log.Printf("S3 client not available")
+		http.Error(w, "S3 client not available", http.StatusInternalServerError)
 		return
 	}
 
-	var req UploadSettlementAssetRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
+	// Parse request body
+	var req struct {
+		AssetID     int    `json:"assetID"`
+		ImageData   string `json:"imageData"`
+		ContentType string `json:"contentType"`
 	}
 
-	// Decode base64 data
-	data, err := base64.StdEncoding.DecodeString(req.Data)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		log.Printf("Error parsing request JSON: %v", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Uploading settlement asset with ID: %d", req.AssetID)
+
+	// Get next asset ID if not provided
+	assetID := req.AssetID
+	if assetID == 0 {
+		assetID, err = getNextSettlementAssetID()
+		if err != nil {
+			log.Printf("Failed to get next asset ID: %v", err)
+			assetID = 1
+		}
+	}
+
+	// Decode base64 image data
+	imageData := req.ImageData
+	if strings.Contains(imageData, ",") {
+		parts := strings.Split(imageData, ",")
+		if len(parts) == 2 {
+			imageData = parts[1]
+		}
+	}
+
+	data, err := base64.StdEncoding.DecodeString(imageData)
+	if err != nil {
+		log.Printf("Error decoding base64: %v", err)
 		http.Error(w, "Invalid base64 data", http.StatusBadRequest)
 		return
 	}
 
-	// Get next asset ID
-	nextID, err := getNextSettlementAssetID()
-	if err != nil {
-		log.Printf("Failed to get next asset ID: %v", err)
-		// Default to 1 if we can't determine
-		nextID = 1
-	}
-
-	// Use asset ID as filename with .webp extension
-	key := fmt.Sprintf("images/settlements/%d.webp", nextID)
+	// Use asset ID as filename with .webp extension in settlements folder
+	key := fmt.Sprintf("images/settlements/%d.webp", assetID)
 
 	// Upload to S3 as webp
 	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
@@ -289,35 +338,30 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 		ContentType: aws.String("image/webp"),
 	})
 	if err != nil {
-		log.Printf("Failed to upload to S3: %v", err)
-		http.Error(w, "Failed to upload asset", http.StatusInternalServerError)
+		log.Printf("Error uploading to S3: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Generate presigned URL for the uploaded file
-	presignInput := &s3.GetObjectInput{
-		Bucket: aws.String(S3_BUCKET_NAME),
-		Key:    aws.String(key),
+	// Generate public URL for the uploaded asset
+	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		S3_BUCKET_NAME, S3_REGION, key)
+
+	// Return success response
+	response := map[string]interface{}{
+		"success": true,
+		"assetID": assetID,
+		"s3Key":   key,
+		"icon":    publicURL,
 	}
-	presignResult, err := s3Presigner.PresignGetObject(context.TODO(), presignInput, func(opts *s3.PresignOptions) {
-		opts.Expires = time.Hour * 24
-	})
-	if err != nil {
-		log.Printf("Failed to presign URL: %v", err)
-		http.Error(w, "Failed to generate URL", http.StatusInternalServerError)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Uploaded settlement asset: %s (ID: %d)", key, nextID)
-
-	response := UploadSettlementAssetResponse{
-		Success: true,
-		AssetID: nextID,
-		URL:     presignResult.URL,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	log.Printf("✅ UPLOAD SETTLEMENT ASSET RESPONSE SENT - Asset ID: %d", assetID)
 }
 
 // getNextSettlementAssetID returns the next available asset ID for settlements
@@ -393,13 +437,13 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				settlement_name = $1, faction = $2,
 				blacksmith = $3, alchemist = $4, enchanter = $5, trainer = $6, church = $7,
 				blessing1 = $8, blessing2 = $9, blessing3 = $10,
-				settlement_asset_id = $11, blacksmith_asset_id = $12, alchemist_asset_id = $13,
-				enchanter_asset_id = $14, trainer_asset_id = $15, church_asset_id = $16
-			WHERE settlement_id = $17
+				settlement_asset_id = $11, vendor_asset_id = $12, blacksmith_asset_id = $13, alchemist_asset_id = $14,
+				enchanter_asset_id = $15, trainer_asset_id = $16, church_asset_id = $17
+			WHERE settlement_id = $18
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
-			req.SettlementAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
+			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
 			*req.SettlementID)
 
@@ -417,15 +461,15 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				settlement_name, faction,
 				blacksmith, alchemist, enchanter, trainer, church,
 				blessing1, blessing2, blessing3,
-				settlement_asset_id, blacksmith_asset_id, alchemist_asset_id,
+				settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
 				enchanter_asset_id, trainer_asset_id, church_asset_id
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
-			req.SettlementAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
+			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID).Scan(&settlementID)
 
 		if err != nil {

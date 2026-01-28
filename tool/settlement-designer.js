@@ -32,18 +32,13 @@ function setupSettlementEventListeners() {
     const settlementSelect = document.getElementById('settlementSelect');
     if (settlementSelect) {
         settlementSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'new') {
+            if (e.target.value === '') {
+                // Empty value means "New Settlement"
                 createNewSettlement();
             } else if (e.target.value) {
                 selectSettlement(parseInt(e.target.value));
             }
         });
-    }
-
-    // New settlement button
-    const newSettlementBtn = document.getElementById('newSettlementBtn');
-    if (newSettlementBtn) {
-        newSettlementBtn.addEventListener('click', createNewSettlement);
     }
 
     // Save button
@@ -131,14 +126,14 @@ function setupSettlementEventListeners() {
 async function loadSettlementDesignerData() {
     console.log('Loading settlement data...');
 
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required');
-            return;
-        }
+    const token = await getCurrentAccessToken();
+    if (!token) {
+        console.error('Authentication required');
+        return;
+    }
 
-        // Load settlements
+    // Load settlements
+    try {
         const settlementsResponse = await fetch('http://localhost:8080/api/getSettlements', {
             method: 'GET',
             headers: {
@@ -154,33 +149,44 @@ async function loadSettlementDesignerData() {
         } else {
             console.error('Failed to load settlements:', await settlementsResponse.text());
         }
-
-        // Load settlement assets from S3
-        await loadSettlementAssets();
-
-        // Load perks for blessings dropdown
-        await loadBlessingsData();
-
-        // Load items for vendor
-        await loadSettlementItemsData();
-
-        // Load effects for enchanter
-        await loadSettlementEffectsData();
-
-        // Populate UI
-        populateSettlementSelect();
-        populateBlessingDropdowns();
-
-        // If there are settlements, select the first one
-        if (settlementState.settlements.length > 0) {
-            selectSettlement(settlementState.settlements[0].settlement_id);
-        } else {
-            showEmptyState();
-        }
-
     } catch (error) {
-        console.error('Error loading settlement data:', error);
+        console.error('Error loading settlements:', error);
     }
+
+    // Load settlement assets from S3
+    try {
+        await loadSettlementAssets();
+    } catch (error) {
+        console.error('Error loading settlement assets:', error);
+    }
+
+    // Load perks for blessings dropdown
+    try {
+        await loadBlessingsData();
+    } catch (error) {
+        console.error('Error loading blessings:', error);
+    }
+
+    // Load items for vendor
+    try {
+        await loadSettlementItemsData();
+    } catch (error) {
+        console.error('Error loading items for vendor:', error);
+    }
+
+    // Load effects for enchanter
+    try {
+        await loadSettlementEffectsData();
+    } catch (error) {
+        console.error('Error loading effects for enchanter:', error);
+    }
+
+    // Populate UI
+    populateSettlementSelect();
+    populateBlessingDropdowns();
+
+    // Start with a blank "new settlement" state
+    createNewSettlement();
 }
 
 async function loadSettlementAssets() {
@@ -238,37 +244,44 @@ async function loadSettlementItemsData() {
     // Wait for global items to be loaded first
     if (typeof loadItemsData === 'function') {
         try {
-            await loadItemsData();  // This will load from server if not cached
+            const items = await loadItemsData();  // This returns the items when loaded
+            settlementState.items = items || [];
+            console.log('✅ Settlement got', settlementState.items.length, 'items from global loadItemsData');
+            return;
         } catch (e) {
-            console.log('Items already loading or loaded');
+            console.log('Error loading items via loadItemsData:', e);
         }
     }
     
-    // Now get the items from global data
+    // Fallback: get from getItems if already loaded
     if (typeof getItems === 'function') {
         settlementState.items = getItems() || [];
-        console.log('✅ Settlement got', settlementState.items.length, 'items from global data');
-    } else {
-        try {
-            const token = await getCurrentAccessToken();
-            if (!token) return;
-
-            const response = await fetch('http://localhost:8080/api/getItems', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                settlementState.items = data.items || [];
-                console.log('✅ Loaded', settlementState.items.length, 'items');
-            }
-        } catch (error) {
-            console.error('Error loading items:', error);
+        if (settlementState.items.length > 0) {
+            console.log('✅ Settlement got', settlementState.items.length, 'items from getItems');
+            return;
         }
+    }
+    
+    // Final fallback: fetch directly
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:8080/api/getItems', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            settlementState.items = data.items || [];
+            console.log('✅ Loaded', settlementState.items.length, 'items directly');
+        }
+    } catch (error) {
+        console.error('Error loading items:', error);
     }
 }
 
@@ -276,37 +289,44 @@ async function loadSettlementEffectsData() {
     // Wait for global effects to be loaded first
     if (typeof loadEffectsData === 'function') {
         try {
-            await loadEffectsData();  // This will load from server if not cached
+            const effects = await loadEffectsData();  // This returns the effects when loaded
+            settlementState.effects = effects || [];
+            console.log('✅ Settlement got', settlementState.effects.length, 'effects from global loadEffectsData');
+            return;
         } catch (e) {
-            console.log('Effects already loading or loaded');
+            console.log('Error loading effects via loadEffectsData:', e);
         }
     }
     
-    // Now get the effects from global data
+    // Fallback: get from getEffects if already loaded
     if (typeof getEffects === 'function') {
         settlementState.effects = getEffects() || [];
-        console.log('✅ Settlement got', settlementState.effects.length, 'effects from global data');
-    } else {
-        try {
-            const token = await getCurrentAccessToken();
-            if (!token) return;
-
-            const response = await fetch('http://localhost:8080/api/getEffects', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                settlementState.effects = data.effects || [];
-                console.log('✅ Loaded', settlementState.effects.length, 'effects');
-            }
-        } catch (error) {
-            console.error('Error loading effects:', error);
+        if (settlementState.effects.length > 0) {
+            console.log('✅ Settlement got', settlementState.effects.length, 'effects from getEffects');
+            return;
         }
+    }
+    
+    // Final fallback: fetch directly
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:8080/api/getEffects', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            settlementState.effects = data.effects || [];
+            console.log('✅ Loaded', settlementState.effects.length, 'effects directly');
+        }
+    } catch (error) {
+        console.error('Error loading effects:', error);
     }
 }
 
@@ -314,7 +334,7 @@ function populateSettlementSelect() {
     const select = document.getElementById('settlementSelect');
     if (!select) return;
 
-    select.innerHTML = '<option value="">-- Select Settlement --</option>';
+    select.innerHTML = '<option value="">-- New Settlement --</option>';
     
     settlementState.settlements.forEach(settlement => {
         const option = document.createElement('option');
@@ -384,9 +404,8 @@ function populateSettlementForm(settlement) {
     // Settlement asset
     updateAssetPreview('settlement', settlement.settlement_asset_id);
 
-    // Vendor asset - for now we'll need to track this separately
-    // Using a generic vendor asset approach
-    updateAssetPreview('vendor', null); // Will need vendor_asset_id in DB
+    // Vendor asset
+    updateAssetPreview('vendor', settlement.vendor_asset_id);
 
     // Determine which utility is active based on the boolean flags
     const utilityTypeSelect = document.getElementById('utilityTypeSelect');
@@ -650,6 +669,8 @@ function showAddEffectDialog() {
     const existingOverlay = document.getElementById('effectSelectOverlay');
     if (existingOverlay) existingOverlay.remove();
 
+    console.log('🔮 showAddEffectDialog - settlementState.effects:', settlementState.effects.length);
+
     const overlay = document.createElement('div');
     overlay.id = 'effectSelectOverlay';
     overlay.className = 'settlement-asset-gallery-overlay active';
@@ -877,10 +898,15 @@ async function uploadSettlementAsset(file) {
             return;
         }
 
+        // Get next asset ID
+        const nextAssetID = settlementState.settlementAssets.length > 0
+            ? Math.max(...settlementState.settlementAssets.map(a => a.id)) + 1
+            : 1;
+
         // Convert to base64
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const base64Data = e.target.result.split(',')[1];
+            const base64Data = e.target.result;
 
             const response = await fetch('http://localhost:8080/api/uploadSettlementAsset', {
                 method: 'POST',
@@ -889,8 +915,8 @@ async function uploadSettlementAsset(file) {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    filename: file.name,
-                    data: base64Data,
+                    assetID: nextAssetID,
+                    imageData: base64Data,
                     contentType: file.type
                 })
             });
@@ -901,15 +927,15 @@ async function uploadSettlementAsset(file) {
 
                 // Add to local assets
                 settlementState.settlementAssets.push({
-                    id: result.assetId,
-                    url: result.url
+                    id: result.assetID,
+                    url: result.icon
                 });
 
                 // Refresh gallery
                 populateAssetGallery();
 
                 // Auto-select the new asset
-                selectAsset(result.assetId);
+                selectAsset(result.assetID);
             } else {
                 const error = await response.text();
                 alert('Failed to upload asset: ' + error);
@@ -932,11 +958,13 @@ async function saveSettlement() {
 
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
     const utilityAssetId = parseInt(document.getElementById('utilityAssetArea').dataset.assetId) || null;
+    const vendorAssetId = parseInt(document.getElementById('vendorAssetArea').dataset.assetId) || null;
 
     const settlement = {
         settlement_name: name,
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
+        vendor_asset_id: vendorAssetId,
         // Set utility flags based on selected type
         blacksmith: utilityType === 'blacksmith',
         alchemist: utilityType === 'alchemist',

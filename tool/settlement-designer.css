@@ -140,6 +140,23 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+/* Vendor card takes full space for items */
+.settlement-card.vendor-card-full {
+    padding: 16px;
+}
+
+.settlement-card.vendor-card-full .settlement-card-info {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.settlement-card.vendor-card-full .vendor-items-section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
 .settlement-card:hover {
     border-color: #3182ce;
     box-shadow: 0 8px 32px rgba(49, 130, 206, 0.2);
