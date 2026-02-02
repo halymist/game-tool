@@ -49,6 +49,8 @@ type Settlement struct {
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
+	VendorItems           []int            `json:"vendor_items"`
+	EnchanterEffects      []int            `json:"enchanter_effects"`
 }
 
 // SettlementAsset represents an asset from S3
@@ -99,6 +101,8 @@ type SaveSettlementRequest struct {
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
+	VendorItems           []int            `json:"vendor_items"`
+	EnchanterEffects      []int            `json:"enchanter_effects"`
 }
 
 // SaveSettlementResponse is the response after saving a settlement
@@ -181,6 +185,33 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		settlements = append(settlements, s)
+	}
+
+	// Load vendor and enchanter inventory for each settlement
+	for i := range settlements {
+		// Load vendor items
+		vendorRows, err := db.Query(`SELECT item_id FROM game.vendor_inventory WHERE settlement_id = $1`, settlements[i].SettlementID)
+		if err == nil {
+			for vendorRows.Next() {
+				var itemID int
+				if err := vendorRows.Scan(&itemID); err == nil {
+					settlements[i].VendorItems = append(settlements[i].VendorItems, itemID)
+				}
+			}
+			vendorRows.Close()
+		}
+
+		// Load enchanter effects
+		enchanterRows, err := db.Query(`SELECT effect_id FROM game.enchanter_inventory WHERE settlement_id = $1`, settlements[i].SettlementID)
+		if err == nil {
+			for enchanterRows.Next() {
+				var effectID int
+				if err := enchanterRows.Scan(&effectID); err == nil {
+					settlements[i].EnchanterEffects = append(settlements[i].EnchanterEffects, effectID)
+				}
+			}
+			enchanterRows.Close()
+		}
 	}
 
 	log.Printf("✅ Loaded %d settlements", len(settlements))
@@ -532,6 +563,44 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 	response := SaveSettlementResponse{
 		Success:      true,
 		SettlementID: settlementID,
+	}
+
+	// Save vendor inventory (delete and re-insert)
+	if len(req.VendorItems) > 0 || req.SettlementID != nil {
+		// Delete existing vendor items for this settlement
+		_, err := db.Exec(`DELETE FROM game.vendor_inventory WHERE settlement_id = $1`, settlementID)
+		if err != nil {
+			log.Printf("Warning: Failed to delete vendor inventory: %v", err)
+		}
+
+		// Insert new vendor items
+		for _, itemID := range req.VendorItems {
+			_, err := db.Exec(`INSERT INTO game.vendor_inventory (settlement_id, item_id) VALUES ($1, $2)`,
+				settlementID, itemID)
+			if err != nil {
+				log.Printf("Warning: Failed to insert vendor item %d: %v", itemID, err)
+			}
+		}
+		log.Printf("Saved %d vendor items for settlement %d", len(req.VendorItems), settlementID)
+	}
+
+	// Save enchanter inventory (delete and re-insert)
+	if len(req.EnchanterEffects) > 0 || req.SettlementID != nil {
+		// Delete existing enchanter effects for this settlement
+		_, err := db.Exec(`DELETE FROM game.enchanter_inventory WHERE settlement_id = $1`, settlementID)
+		if err != nil {
+			log.Printf("Warning: Failed to delete enchanter inventory: %v", err)
+		}
+
+		// Insert new enchanter effects
+		for _, effectID := range req.EnchanterEffects {
+			_, err := db.Exec(`INSERT INTO game.enchanter_inventory (settlement_id, effect_id) VALUES ($1, $2)`,
+				settlementID, effectID)
+			if err != nil {
+				log.Printf("Warning: Failed to insert enchanter effect %d: %v", effectID, err)
+			}
+		}
+		log.Printf("Saved %d enchanter effects for settlement %d", len(req.EnchanterEffects), settlementID)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

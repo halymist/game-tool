@@ -169,15 +169,21 @@
     border-bottom-color: #e2e8f0;
 }
 
-/* Three cards container */
-.settlement-cards-container {
+/* Cards grid - Two rows layout */
+.settlement-cards-grid {
     display: flex;
-    gap: 20px;
+    flex-direction: column;
+    gap: 16px;
     flex: 1;
     min-height: 0;
+    padding: 0;
+}
+
+.settlement-cards-row {
+    display: flex;
+    gap: 16px;
     justify-content: center;
     align-items: flex-start;
-    padding: 0;
 }
 
 /* Individual card wrapper */
@@ -196,9 +202,9 @@
     margin: 0;
 }
 
-/* Phone aspect ratio card (9:16 portrait) - BIGGER */
+/* Phone aspect ratio card (9:16 portrait) - Smaller for 2 rows */
 .settlement-card {
-    width: 380px;
+    width: 260px;
     aspect-ratio: 9 / 16;
     background: linear-gradient(145deg, #1e2a4a, #16213e);
     border: 2px solid #0f3460;
@@ -550,7 +556,7 @@
 .utility-responses {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px solid #1a365d;
@@ -560,7 +566,95 @@
 .utility-responses label {
     color: #a0aec0;
     font-size: 11px;
-    margin-bottom: 2px;
+    margin-bottom: 0;
+}
+
+/* Section header with inline add button */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.section-header label {
+    margin-bottom: 0;
+}
+
+.add-inline-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: rgba(49, 130, 206, 0.3);
+    border: 1px solid #3182ce;
+    border-radius: 4px;
+    color: #63b3ed;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-inline-btn:hover {
+    background: rgba(49, 130, 206, 0.5);
+    color: #90cdf4;
+}
+
+/* Responses list (dynamic entries) */
+.responses-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 80px;
+    overflow-y: auto;
+}
+
+.response-entry {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.response-entry select {
+    width: 80px;
+    padding: 4px 6px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 10px;
+}
+
+.response-entry input {
+    flex: 1;
+    padding: 4px 6px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 10px;
+}
+
+.response-entry .remove-response-btn {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    background: rgba(229, 62, 62, 0.3);
+    border: 1px solid #e53e3e;
+    border-radius: 3px;
+    color: #fc8181;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.response-entry .remove-response-btn:hover {
+    background: rgba(229, 62, 62, 0.5);
 }
 
 .response-input {
@@ -582,6 +676,43 @@
 .response-input::placeholder {
     color: #4a5568;
     font-size: 10px;
+}
+
+/* Expedition description overlay */
+.expedition-description-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.expedition-textarea {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-family: inherit;
+    resize: none;
+    pointer-events: auto;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    line-height: 1.4;
+}
+
+.expedition-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    text-shadow: none;
+}
+
+.expedition-textarea:focus {
+    outline: none;
 }
 
 /* Asset gallery overlay */
@@ -770,23 +901,31 @@
 /* Responsive adjustments */
 @media (max-width: 1400px) {
     .settlement-card {
-        width: 340px;
+        width: 220px;
     }
 }
 
 @media (max-width: 1200px) {
-    .settlement-cards-container {
+    .settlement-cards-row {
         flex-wrap: wrap;
     }
     
     .settlement-card {
-        width: 300px;
+        width: 200px;
     }
 }
 
 @media (max-width: 800px) {
-    .settlement-cards-container {
+    .settlement-cards-grid {
+        gap: 12px;
+    }
+    
+    .settlement-cards-row {
         flex-direction: column;
         align-items: center;
+    }
+    
+    .settlement-card {
+        width: 180px;
     }
 }

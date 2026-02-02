@@ -6,12 +6,14 @@ let settlementState = {
     selectedSettlementId: null,
     isNewSettlement: false,
     settlementAssets: [],
-    currentAssetTarget: null, // 'settlement', 'vendor', or 'utility'
+    currentAssetTarget: null, // 'settlement', 'vendor', 'utility', 'expedition', 'arena'
     blessings: [], // perks for church blessings
     items: [], // items for vendor
     effects: [], // effects for enchanter
     vendorItems: [], // current vendor's items
-    enchanterEffects: [] // current enchanter's effects
+    enchanterEffects: [], // current enchanter's effects
+    vendorResponses: [], // [{type: 'on_entered', text: '...'}, ...]
+    utilityResponses: [] // [{type: 'on_entered', text: '...'}, ...]
 };
 
 // Initialize when DOM is ready
@@ -477,26 +479,59 @@ function populateSettlementForm(settlement) {
     const expeditionDesc = document.getElementById('expeditionDescription');
     if (expeditionDesc) expeditionDesc.value = settlement.expedition_description || '';
 
-    // Vendor responses
-    const vendorOnEntered = document.getElementById('vendorOnEntered');
-    const vendorOnSold = document.getElementById('vendorOnSold');
-    const vendorOnBought = document.getElementById('vendorOnBought');
-    if (vendorOnEntered) vendorOnEntered.value = settlement.vendor_on_entered?.text || '';
-    if (vendorOnSold) vendorOnSold.value = settlement.vendor_on_sold?.text || '';
-    if (vendorOnBought) vendorOnBought.value = settlement.vendor_on_bought?.text || '';
+    // Parse and populate vendor responses (arrays per type -> flat list)
+    settlementState.vendorResponses = [];
+    if (settlement.vendor_on_entered) {
+        const arr = Array.isArray(settlement.vendor_on_entered) ? settlement.vendor_on_entered : [settlement.vendor_on_entered];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_entered', text });
+            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_entered', text: text.text });
+        });
+    }
+    if (settlement.vendor_on_sold) {
+        const arr = Array.isArray(settlement.vendor_on_sold) ? settlement.vendor_on_sold : [settlement.vendor_on_sold];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_sold', text });
+            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_sold', text: text.text });
+        });
+    }
+    if (settlement.vendor_on_bought) {
+        const arr = Array.isArray(settlement.vendor_on_bought) ? settlement.vendor_on_bought : [settlement.vendor_on_bought];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_bought', text });
+            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_bought', text: text.text });
+        });
+    }
+    renderVendorResponses();
 
-    // Utility responses
-    const utilityOnEntered = document.getElementById('utilityOnEntered');
-    const utilityOnPlaced = document.getElementById('utilityOnPlaced');
-    const utilityOnAction = document.getElementById('utilityOnAction');
-    if (utilityOnEntered) utilityOnEntered.value = settlement.utility_on_entered?.text || '';
-    if (utilityOnPlaced) utilityOnPlaced.value = settlement.utility_on_placed?.text || '';
-    if (utilityOnAction) utilityOnAction.value = settlement.utility_on_action?.text || '';
+    // Parse and populate utility responses (arrays per type -> flat list)
+    settlementState.utilityResponses = [];
+    if (settlement.utility_on_entered) {
+        const arr = Array.isArray(settlement.utility_on_entered) ? settlement.utility_on_entered : [settlement.utility_on_entered];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_entered', text });
+            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_entered', text: text.text });
+        });
+    }
+    if (settlement.utility_on_placed) {
+        const arr = Array.isArray(settlement.utility_on_placed) ? settlement.utility_on_placed : [settlement.utility_on_placed];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_placed', text });
+            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_placed', text: text.text });
+        });
+    }
+    if (settlement.utility_on_action) {
+        const arr = Array.isArray(settlement.utility_on_action) ? settlement.utility_on_action : [settlement.utility_on_action];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_action', text });
+            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_action', text: text.text });
+        });
+    }
+    renderUtilityResponses();
 
-    // Clear vendor items and enchanter effects for now
-    // These will need additional DB columns/tables
-    settlementState.vendorItems = [];
-    settlementState.enchanterEffects = [];
+    // Vendor items and enchanter effects from settlement data
+    settlementState.vendorItems = settlement.vendor_items || [];
+    settlementState.enchanterEffects = settlement.enchanter_effects || [];
     renderVendorItems();
     renderEnchanterEffects();
 }
@@ -838,11 +873,93 @@ function removeEnchanterEffect(index) {
     renderEnchanterEffects();
 }
 
+// Response management functions
+const VENDOR_RESPONSE_TYPES = ['on_entered', 'on_sold', 'on_bought'];
+const UTILITY_RESPONSE_TYPES = ['on_entered', 'on_placed', 'on_action'];
+
+function addVendorResponse() {
+    settlementState.vendorResponses.push({ type: 'on_entered', text: '' });
+    renderVendorResponses();
+}
+
+function addUtilityResponse() {
+    settlementState.utilityResponses.push({ type: 'on_entered', text: '' });
+    renderUtilityResponses();
+}
+
+function removeVendorResponse(index) {
+    settlementState.vendorResponses.splice(index, 1);
+    renderVendorResponses();
+}
+
+function removeUtilityResponse(index) {
+    settlementState.utilityResponses.splice(index, 1);
+    renderUtilityResponses();
+}
+
+function updateVendorResponse(index, field, value) {
+    if (settlementState.vendorResponses[index]) {
+        settlementState.vendorResponses[index][field] = value;
+    }
+}
+
+function updateUtilityResponse(index, field, value) {
+    if (settlementState.utilityResponses[index]) {
+        settlementState.utilityResponses[index][field] = value;
+    }
+}
+
+function renderVendorResponses() {
+    const list = document.getElementById('vendorResponsesList');
+    if (!list) return;
+
+    if (settlementState.vendorResponses.length === 0) {
+        list.innerHTML = '<div style="color: #4a5568; font-style: italic; font-size: 10px;">No responses</div>';
+        return;
+    }
+
+    list.innerHTML = settlementState.vendorResponses.map((resp, index) => `
+        <div class="response-entry">
+            <select onchange="updateVendorResponse(${index}, 'type', this.value)">
+                ${VENDOR_RESPONSE_TYPES.map(t => `<option value="${t}" ${resp.type === t ? 'selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
+            </select>
+            <input type="text" value="${escapeSettlementHtml(resp.text || '')}" 
+                   onchange="updateVendorResponse(${index}, 'text', this.value)" 
+                   placeholder="Response text...">
+            <button class="remove-response-btn" onclick="removeVendorResponse(${index})">×</button>
+        </div>
+    `).join('');
+}
+
+function renderUtilityResponses() {
+    const list = document.getElementById('utilityResponsesList');
+    if (!list) return;
+
+    if (settlementState.utilityResponses.length === 0) {
+        list.innerHTML = '<div style="color: #4a5568; font-style: italic; font-size: 10px;">No responses</div>';
+        return;
+    }
+
+    list.innerHTML = settlementState.utilityResponses.map((resp, index) => `
+        <div class="response-entry">
+            <select onchange="updateUtilityResponse(${index}, 'type', this.value)">
+                ${UTILITY_RESPONSE_TYPES.map(t => `<option value="${t}" ${resp.type === t ? 'selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
+            </select>
+            <input type="text" value="${escapeSettlementHtml(resp.text || '')}" 
+                   onchange="updateUtilityResponse(${index}, 'text', this.value)" 
+                   placeholder="Response text...">
+            <button class="remove-response-btn" onclick="removeUtilityResponse(${index})">×</button>
+        </div>
+    `).join('');
+}
+
 function createNewSettlement() {
     settlementState.selectedSettlementId = null;
     settlementState.isNewSettlement = true;
     settlementState.vendorItems = [];
     settlementState.enchanterEffects = [];
+    settlementState.vendorResponses = [];
+    settlementState.utilityResponses = [];
 
     // Clear form
     document.getElementById('settlementName').value = '';
@@ -854,14 +971,6 @@ function createNewSettlement() {
     document.getElementById('blessing3Select').value = '';
     document.getElementById('expeditionDescription').value = '';
 
-    // Clear response fields
-    document.getElementById('vendorOnEntered').value = '';
-    document.getElementById('vendorOnSold').value = '';
-    document.getElementById('vendorOnBought').value = '';
-    document.getElementById('utilityOnEntered').value = '';
-    document.getElementById('utilityOnPlaced').value = '';
-    document.getElementById('utilityOnAction').value = '';
-
     // Clear asset previews
     updateAssetPreview('settlement', null);
     updateAssetPreview('vendor', null);
@@ -872,9 +981,11 @@ function createNewSettlement() {
     // Update utility content
     updateUtilityContent();
 
-    // Clear vendor/enchanter lists
+    // Clear vendor/enchanter lists and responses
     renderVendorItems();
     renderEnchanterEffects();
+    renderVendorResponses();
+    renderUtilityResponses();
 
     // Update select
     const select = document.getElementById('settlementSelect');
@@ -1102,15 +1213,27 @@ async function saveSettlement() {
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
 
-    // Get vendor response fields
-    const vendorOnEntered = document.getElementById('vendorOnEntered')?.value.trim() || null;
-    const vendorOnSold = document.getElementById('vendorOnSold')?.value.trim() || null;
-    const vendorOnBought = document.getElementById('vendorOnBought')?.value.trim() || null;
+    // Build vendor responses JSONB from dynamic entries
+    const vendorResponsesObj = {};
+    settlementState.vendorResponses.forEach(resp => {
+        if (resp.type && resp.text) {
+            if (!vendorResponsesObj[resp.type]) {
+                vendorResponsesObj[resp.type] = [];
+            }
+            vendorResponsesObj[resp.type].push(resp.text);
+        }
+    });
 
-    // Get utility response fields
-    const utilityOnEntered = document.getElementById('utilityOnEntered')?.value.trim() || null;
-    const utilityOnPlaced = document.getElementById('utilityOnPlaced')?.value.trim() || null;
-    const utilityOnAction = document.getElementById('utilityOnAction')?.value.trim() || null;
+    // Build utility responses JSONB from dynamic entries
+    const utilityResponsesObj = {};
+    settlementState.utilityResponses.forEach(resp => {
+        if (resp.type && resp.text) {
+            if (!utilityResponsesObj[resp.type]) {
+                utilityResponsesObj[resp.type] = [];
+            }
+            utilityResponsesObj[resp.type].push(resp.text);
+        }
+    });
 
     const settlement = {
         settlement_name: name,
@@ -1138,14 +1261,17 @@ async function saveSettlement() {
         expedition_asset_id: expeditionAssetId,
         expedition_description: expeditionDescription,
         arena_asset_id: arenaAssetId,
-        // Vendor responses (wrap in JSON object)
-        vendor_on_entered: vendorOnEntered ? { text: vendorOnEntered } : null,
-        vendor_on_sold: vendorOnSold ? { text: vendorOnSold } : null,
-        vendor_on_bought: vendorOnBought ? { text: vendorOnBought } : null,
-        // Utility responses (wrap in JSON object)
-        utility_on_entered: utilityOnEntered ? { text: utilityOnEntered } : null,
-        utility_on_placed: utilityOnPlaced ? { text: utilityOnPlaced } : null,
-        utility_on_action: utilityOnAction ? { text: utilityOnAction } : null
+        // Vendor responses (JSONB with arrays per type)
+        vendor_on_entered: vendorResponsesObj.on_entered?.length ? vendorResponsesObj.on_entered : null,
+        vendor_on_sold: vendorResponsesObj.on_sold?.length ? vendorResponsesObj.on_sold : null,
+        vendor_on_bought: vendorResponsesObj.on_bought?.length ? vendorResponsesObj.on_bought : null,
+        // Utility responses (JSONB with arrays per type)
+        utility_on_entered: utilityResponsesObj.on_entered?.length ? utilityResponsesObj.on_entered : null,
+        utility_on_placed: utilityResponsesObj.on_placed?.length ? utilityResponsesObj.on_placed : null,
+        utility_on_action: utilityResponsesObj.on_action?.length ? utilityResponsesObj.on_action : null,
+        // Inventory arrays
+        vendor_items: settlementState.vendorItems,
+        enchanter_effects: settlementState.enchanterEffects
     };
 
     if (!settlementState.isNewSettlement && settlementState.selectedSettlementId) {
@@ -1255,3 +1381,9 @@ window.toggleVendorItemSelection = toggleVendorItemSelection;
 window.closeItemSelectDialog = closeItemSelectDialog;
 window.toggleEnchanterEffectSelection = toggleEnchanterEffectSelection;
 window.closeEffectSelectDialog = closeEffectSelectDialog;
+window.addVendorResponse = addVendorResponse;
+window.addUtilityResponse = addUtilityResponse;
+window.removeVendorResponse = removeVendorResponse;
+window.removeUtilityResponse = removeUtilityResponse;
+window.updateVendorResponse = updateVendorResponse;
+window.updateUtilityResponse = updateUtilityResponse;
