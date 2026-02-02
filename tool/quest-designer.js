@@ -106,6 +106,10 @@ function initQuestDesigner() {
     setupQuestAssetUpload();
     
     updateQuestCounter();
+    
+    // Reset view to show start slide on init
+    resetQuestView();
+    
     console.log('✅ Quest Designer ready');
     
     // Load settlements for dropdown
@@ -391,11 +395,13 @@ function panQuestCanvas(dx, dy) {
 window.panQuestCanvas = panQuestCanvas;
 
 function resetQuestView() {
-    questState.canvasOffset = { x: 0, y: 0 };
+    // Reset to show the start slide area (which is at top:100, left:50 in the container)
+    // Add some offset to center it nicely in the viewport
+    questState.canvasOffset = { x: 50, y: 20 };
     questState.zoom = 1;
     const container = document.getElementById('questOptionsContainer');
     if (container) {
-        container.style.transform = `translate(0px, 0px) scale(1)`;
+        container.style.transform = `translate(${questState.canvasOffset.x}px, ${questState.canvasOffset.y}px) scale(1)`;
     }
     const indicator = document.getElementById('questZoomIndicator');
     if (indicator) indicator.textContent = '100%';
@@ -701,6 +707,22 @@ function determineRewardType(option) {
     return '';
 }
 
+// Select enemy for combat option
+function selectQuestEnemy(enemyId) {
+    // Update hidden input
+    const input = document.getElementById('sidebarEnemyId');
+    if (input) input.value = enemyId;
+    
+    // Update selection visual
+    document.querySelectorAll('.quest-enemy-picker-item').forEach(item => {
+        item.classList.toggle('selected', item.dataset.enemyId == enemyId);
+    });
+    
+    // Trigger auto-save
+    debouncedSaveOption();
+}
+window.selectQuestEnemy = selectQuestEnemy;
+
 function updateSidebar() {
     const noSelection = document.getElementById('sidebarNoSelection');
     const content = document.getElementById('sidebarContent');
@@ -734,6 +756,11 @@ function updateSidebar() {
     document.getElementById('sidebarEffectId').value = option.effectId || '';
     document.getElementById('sidebarEffectAmount').value = option.effectAmount || '';
     document.getElementById('sidebarEnemyId').value = option.enemyId || '';
+    
+    // Update enemy picker selection visual
+    document.querySelectorAll('.quest-enemy-picker-item').forEach(item => {
+        item.classList.toggle('selected', option.enemyId && item.dataset.enemyId == option.enemyId);
+    });
     
     // Determine and set reward type
     const rewardType = option.rewardType || determineRewardType(option);
@@ -1505,7 +1532,8 @@ function filterAndRenderQuestOptions() {
     const container = document.getElementById('questOptionsContainer');
     if (!container) return;
     
-    container.innerHTML = '';
+    // Remove only option nodes, preserve the start slide
+    container.querySelectorAll('.quest-option-node').forEach(node => node.remove());
     
     questState.options.forEach(option => {
         const matchesFilter = !questState.selectedQuest || option.questId === questState.selectedQuest;
@@ -1516,6 +1544,9 @@ function filterAndRenderQuestOptions() {
     
     renderQuestConnections();
     updateQuestCounter();
+    
+    // Reset view to show start slide
+    resetQuestView();
 }
 
 function updateQuestCounter() {
@@ -1541,15 +1572,34 @@ function populateQuestDropdownsOnce() {
 }
 
 function populateSidebarDropdowns() {
-    // Enemies
-    const enemySelect = document.getElementById('sidebarEnemyId');
-    if (enemySelect && enemySelect.options.length <= 1) {
-        if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
-            GlobalData.enemies.forEach(enemy => {
-                const opt = document.createElement('option');
-                opt.value = enemy.id;
-                opt.textContent = `${enemy.name || 'Enemy #' + enemy.id}`;
-                enemySelect.appendChild(opt);
+    // Enemies - populate grid picker like expedition designer
+    const enemyGrid = document.getElementById('questEnemyPickerGrid');
+    if (enemyGrid && enemyGrid.children.length === 0) {
+        let enemies = [];
+        if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+            enemies = allEnemies; // From enemy-designer-new.js
+        } else if (typeof getEnemies === 'function') {
+            enemies = getEnemies();
+        } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+            enemies = GlobalData.enemies;
+        }
+        
+        console.log('Populating quest enemy grid with', enemies.length, 'enemies');
+        
+        if (enemies.length === 0) {
+            enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;font-size:0.75rem;">No enemies loaded</p>';
+        } else {
+            enemies.forEach(enemy => {
+                const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+                const item = document.createElement('div');
+                item.className = 'quest-enemy-picker-item';
+                item.dataset.enemyId = enemy.enemyId || enemy.id;
+                item.innerHTML = `
+                    <img src="${iconUrl}" alt="${enemy.enemyName || enemy.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+                    <span>${enemy.enemyName || enemy.name || 'Enemy #' + (enemy.enemyId || enemy.id)}</span>
+                `;
+                item.addEventListener('click', () => selectQuestEnemy(enemy.enemyId || enemy.id));
+                enemyGrid.appendChild(item);
             });
         }
     }

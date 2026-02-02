@@ -320,6 +320,15 @@ body {
     flex-direction: column;
 }
 
+/* Quest page specific - full height canvas like expeditions */
+#quests-content {
+    padding: 0 !important;
+    overflow: hidden !important;
+    max-width: none !important;
+    display: flex;
+    flex-direction: column;
+}
+
 /* Settlement page specific - full width */
 #settlements-content {
     max-width: none !important;

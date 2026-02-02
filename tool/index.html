@@ -334,10 +334,11 @@
                                 <!-- Combat Fields -->
                                 <div id="optionTypeCombat" class="option-type-fields" style="display:none;">
                                     <div class="sidebar-field">
-                                        <label>Enemy:</label>
-                                        <select id="sidebarEnemyId">
-                                            <option value="">-- Select Enemy --</option>
-                                        </select>
+                                        <label>Select Enemy:</label>
+                                        <input type="hidden" id="sidebarEnemyId">
+                                        <div id="questEnemyPickerGrid" class="quest-enemy-picker-grid">
+                                            <!-- Enemy items populated by JS -->
+                                        </div>
                                     </div>
                                 </div>
                             </div>
