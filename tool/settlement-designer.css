@@ -545,6 +545,45 @@
     padding: 12px;
 }
 
+/* Vendor and Utility responses */
+.vendor-responses,
+.utility-responses {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #1a365d;
+}
+
+.vendor-responses label,
+.utility-responses label {
+    color: #a0aec0;
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+.response-input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 4px;
+    color: #e2e8f0;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+.response-input:focus {
+    outline: none;
+    border-color: #3182ce;
+}
+
+.response-input::placeholder {
+    color: #4a5568;
+    font-size: 10px;
+}
+
 /* Asset gallery overlay */
 .settlement-asset-gallery-overlay {
     position: fixed;

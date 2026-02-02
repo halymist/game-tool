@@ -69,6 +69,16 @@ function setupSettlementEventListeners() {
         utilityAssetArea.addEventListener('click', () => openAssetGallery('utility'));
     }
 
+    const expeditionAssetArea = document.getElementById('expeditionAssetArea');
+    if (expeditionAssetArea) {
+        expeditionAssetArea.addEventListener('click', () => openAssetGallery('expedition'));
+    }
+
+    const arenaAssetArea = document.getElementById('arenaAssetArea');
+    if (arenaAssetArea) {
+        arenaAssetArea.addEventListener('click', () => openAssetGallery('arena'));
+    }
+
     // Gallery close button
     const galleryClose = document.getElementById('settlementGalleryClose');
     if (galleryClose) {
@@ -460,6 +470,29 @@ function populateSettlementForm(settlement) {
     if (blessing2) blessing2.value = settlement.blessing2 || '';
     if (blessing3) blessing3.value = settlement.blessing3 || '';
 
+    // Expedition and Arena
+    updateAssetPreview('expedition', settlement.expedition_asset_id);
+    updateAssetPreview('arena', settlement.arena_asset_id);
+    
+    const expeditionDesc = document.getElementById('expeditionDescription');
+    if (expeditionDesc) expeditionDesc.value = settlement.expedition_description || '';
+
+    // Vendor responses
+    const vendorOnEntered = document.getElementById('vendorOnEntered');
+    const vendorOnSold = document.getElementById('vendorOnSold');
+    const vendorOnBought = document.getElementById('vendorOnBought');
+    if (vendorOnEntered) vendorOnEntered.value = settlement.vendor_on_entered?.text || '';
+    if (vendorOnSold) vendorOnSold.value = settlement.vendor_on_sold?.text || '';
+    if (vendorOnBought) vendorOnBought.value = settlement.vendor_on_bought?.text || '';
+
+    // Utility responses
+    const utilityOnEntered = document.getElementById('utilityOnEntered');
+    const utilityOnPlaced = document.getElementById('utilityOnPlaced');
+    const utilityOnAction = document.getElementById('utilityOnAction');
+    if (utilityOnEntered) utilityOnEntered.value = settlement.utility_on_entered?.text || '';
+    if (utilityOnPlaced) utilityOnPlaced.value = settlement.utility_on_placed?.text || '';
+    if (utilityOnAction) utilityOnAction.value = settlement.utility_on_action?.text || '';
+
     // Clear vendor items and enchanter effects for now
     // These will need additional DB columns/tables
     settlementState.vendorItems = [];
@@ -527,6 +560,12 @@ function updateAssetPreview(target, assetId) {
             break;
         case 'utility':
             areaId = 'utilityAssetArea';
+            break;
+        case 'expedition':
+            areaId = 'expeditionAssetArea';
+            break;
+        case 'arena':
+            areaId = 'arenaAssetArea';
             break;
     }
 
@@ -813,11 +852,22 @@ function createNewSettlement() {
     document.getElementById('blessing1Select').value = '';
     document.getElementById('blessing2Select').value = '';
     document.getElementById('blessing3Select').value = '';
+    document.getElementById('expeditionDescription').value = '';
+
+    // Clear response fields
+    document.getElementById('vendorOnEntered').value = '';
+    document.getElementById('vendorOnSold').value = '';
+    document.getElementById('vendorOnBought').value = '';
+    document.getElementById('utilityOnEntered').value = '';
+    document.getElementById('utilityOnPlaced').value = '';
+    document.getElementById('utilityOnAction').value = '';
 
     // Clear asset previews
     updateAssetPreview('settlement', null);
     updateAssetPreview('vendor', null);
     updateAssetPreview('utility', null);
+    updateAssetPreview('expedition', null);
+    updateAssetPreview('arena', null);
 
     // Update utility content
     updateUtilityContent();
@@ -861,6 +911,12 @@ function openAssetGallery(target) {
             case 'utility':
                 const utilityType = document.getElementById('utilityTypeSelect')?.value;
                 title.textContent = utilityType ? `Select ${utilityType.charAt(0).toUpperCase() + utilityType.slice(1)} Asset` : 'Select Utility Asset';
+                break;
+            case 'expedition':
+                title.textContent = 'Select Expedition Asset';
+                break;
+            case 'arena':
+                title.textContent = 'Select Arena Asset';
                 break;
         }
     }
@@ -941,50 +997,94 @@ async function uploadSettlementAsset(file) {
             ? Math.max(...settlementState.settlementAssets.map(a => a.id)) + 1
             : 1;
 
+        // Convert to WebP format
+        console.log('Converting settlement asset to WebP format...');
+        const webpBlob = await convertImageToWebP(file, 512, 512, 0.85);
+        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
+        
         // Convert to base64
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const base64Data = e.target.result;
+        const base64Data = await blobToBase64(webpBlob);
 
-            const response = await fetch('http://localhost:8080/api/uploadSettlementAsset', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    assetID: nextAssetID,
-                    imageData: base64Data,
-                    contentType: file.type
-                })
+        const response = await fetch('http://localhost:8080/api/uploadSettlementAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                assetID: nextAssetID,
+                imageData: base64Data,
+                contentType: 'image/webp'
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Asset uploaded:', result);
+
+            // Add to local assets
+            settlementState.settlementAssets.push({
+                id: result.assetID,
+                url: result.icon
             });
 
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Asset uploaded:', result);
+            // Refresh gallery
+            populateAssetGallery();
 
-                // Add to local assets
-                settlementState.settlementAssets.push({
-                    id: result.assetID,
-                    url: result.icon
-                });
-
-                // Refresh gallery
-                populateAssetGallery();
-
-                // Auto-select the new asset
-                selectAsset(result.assetID);
-            } else {
-                const error = await response.text();
-                alert('Failed to upload asset: ' + error);
-            }
-        };
-        reader.readAsDataURL(file);
+            // Auto-select the new asset
+            selectAsset(result.assetID);
+        } else {
+            const error = await response.text();
+            alert('Failed to upload asset: ' + error);
+        }
 
     } catch (error) {
         console.error('Error uploading asset:', error);
         alert('Error uploading asset: ' + error.message);
     }
+}
+
+// Convert image to WebP format
+function convertImageToWebP(file, width, height, quality) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        img.onload = () => {
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw image scaled to fit
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to WebP
+            canvas.toBlob(
+                (blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to convert to WebP'));
+                    }
+                },
+                'image/webp',
+                quality
+            );
+        };
+        
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+// Convert Blob to base64
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 async function saveSettlement() {
@@ -997,7 +1097,20 @@ async function saveSettlement() {
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
     const utilityAssetId = parseInt(document.getElementById('utilityAssetArea').dataset.assetId) || null;
     const vendorAssetId = parseInt(document.getElementById('vendorAssetArea').dataset.assetId) || null;
+    const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
+    const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
+    const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
+
+    // Get vendor response fields
+    const vendorOnEntered = document.getElementById('vendorOnEntered')?.value.trim() || null;
+    const vendorOnSold = document.getElementById('vendorOnSold')?.value.trim() || null;
+    const vendorOnBought = document.getElementById('vendorOnBought')?.value.trim() || null;
+
+    // Get utility response fields
+    const utilityOnEntered = document.getElementById('utilityOnEntered')?.value.trim() || null;
+    const utilityOnPlaced = document.getElementById('utilityOnPlaced')?.value.trim() || null;
+    const utilityOnAction = document.getElementById('utilityOnAction')?.value.trim() || null;
 
     const settlement = {
         settlement_name: name,
@@ -1020,7 +1133,19 @@ async function saveSettlement() {
         alchemist_asset_id: utilityType === 'alchemist' ? utilityAssetId : null,
         enchanter_asset_id: utilityType === 'enchanter' ? utilityAssetId : null,
         trainer_asset_id: utilityType === 'trainer' ? utilityAssetId : null,
-        church_asset_id: utilityType === 'church' ? utilityAssetId : null
+        church_asset_id: utilityType === 'church' ? utilityAssetId : null,
+        // New expedition and arena fields
+        expedition_asset_id: expeditionAssetId,
+        expedition_description: expeditionDescription,
+        arena_asset_id: arenaAssetId,
+        // Vendor responses (wrap in JSON object)
+        vendor_on_entered: vendorOnEntered ? { text: vendorOnEntered } : null,
+        vendor_on_sold: vendorOnSold ? { text: vendorOnSold } : null,
+        vendor_on_bought: vendorOnBought ? { text: vendorOnBought } : null,
+        // Utility responses (wrap in JSON object)
+        utility_on_entered: utilityOnEntered ? { text: utilityOnEntered } : null,
+        utility_on_placed: utilityOnPlaced ? { text: utilityOnPlaced } : null,
+        utility_on_action: utilityOnAction ? { text: utilityOnAction } : null
     };
 
     if (!settlementState.isNewSettlement && settlementState.selectedSettlementId) {

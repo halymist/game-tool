@@ -961,6 +961,12 @@
                                     </div>
                                     <button id="addVendorItemBtn" class="add-item-btn">+ Add Item</button>
                                 </div>
+                                <div class="vendor-responses">
+                                    <label>Vendor Responses</label>
+                                    <input type="text" id="vendorOnEntered" placeholder="On entered..." class="response-input">
+                                    <input type="text" id="vendorOnSold" placeholder="On sold..." class="response-input">
+                                    <input type="text" id="vendorOnBought" placeholder="On bought..." class="response-input">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1035,6 +1041,57 @@
                                 <div id="utilityEmptyContent" class="utility-content">
                                     <p class="utility-empty-msg">No additional configuration needed</p>
                                 </div>
+                                
+                                <!-- Utility Responses (always visible) -->
+                                <div class="utility-responses">
+                                    <label>Utility Responses</label>
+                                    <input type="text" id="utilityOnEntered" placeholder="On entered..." class="response-input">
+                                    <input type="text" id="utilityOnPlaced" placeholder="On placed..." class="response-input">
+                                    <input type="text" id="utilityOnAction" placeholder="On action..." class="response-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expedition Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Expedition</h3>
+                        <div class="settlement-card">
+                            <div id="expeditionAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="settlement-card-info">
+                                <div>
+                                    <label for="expeditionDescription">Description</label>
+                                    <textarea id="expeditionDescription" placeholder="Expedition description..." rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Arena Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Arena</h3>
+                        <div class="settlement-card">
+                            <div id="arenaAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="settlement-card-info">
+                                <p class="utility-empty-msg">Arena configuration</p>
                             </div>
                         </div>
                     </div>
