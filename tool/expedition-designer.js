@@ -14,6 +14,9 @@ const expeditionState = {
     isConnecting: false,
     connectionStart: null,
     dropdownsPopulated: false,
+    // Settlement filter
+    selectedSettlementId: null,
+    settlements: [],
     // Track which slides are from server (by their toolingId)
     serverSlides: new Map(), // localId -> toolingId
     serverOptions: new Map(), // "localSlideId-optionIndex" -> toolingId
@@ -48,15 +51,30 @@ function initExpeditionDesigner() {
         if (expeditionState.isDragging) e.preventDefault();
     });
     
-    // Zoom with mouse wheel - use document-level capture to prevent browser interference
+    // Direct wheel listener on zoom indicator for better reliability
+    const zoomIndicator = document.getElementById('zoomIndicator');
+    if (zoomIndicator) {
+        zoomIndicator.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zoomSpeed = 0.05;
+            const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
+            changeZoom(delta);
+        }, { passive: false });
+        console.log('✅ Wheel event listener attached directly to zoomIndicator');
+    }
+    
+    // Zoom with mouse wheel on canvas - use document-level capture to prevent browser interference
     document.addEventListener('wheel', function(e) {
         const canvas = document.getElementById('expeditionCanvas');
         if (!canvas) return;
         
         // Check if mouse is over the canvas
-        const rect = canvas.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right &&
-            e.clientY >= rect.top && e.clientY <= rect.bottom) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
+                            e.clientY >= canvasRect.top && e.clientY <= canvasRect.bottom;
+        
+        if (isOverCanvas) {
             e.preventDefault();
             e.stopPropagation();
             onCanvasWheel(e);
@@ -111,6 +129,9 @@ function initExpeditionDesigner() {
     
     // Load expedition assets from S3
     loadBgAssets();
+    
+    // Load settlements for dropdown
+    loadExpeditionSettlements();
 }
 
 // ==================== ADD SLIDE ====================
@@ -139,7 +160,8 @@ function addSlide() {
         options: [],
         assetUrl: null,
         reward: null,
-        effect: null  // { effectId, effectFactor }
+        effect: null,  // { effectId, effectFactor }
+        settlementId: expeditionState.selectedSettlementId || null
     };
     
     expeditionState.slides.set(id, slide);
@@ -379,8 +401,11 @@ function bindSlideEvents(el, slide) {
         
         selectSlide(slide.id);
         
-        const startX = e.clientX - slide.x;
-        const startY = e.clientY - slide.y;
+        // Store initial mouse position and slide position
+        const startMouseX = e.clientX;
+        const startMouseY = e.clientY;
+        const startSlideX = slide.x;
+        const startSlideY = slide.y;
         
         let hasMoved = false;
         
@@ -389,8 +414,11 @@ function bindSlideEvents(el, slide) {
             if (expeditionState.isConnecting) return;
             hasMoved = true;
             el.classList.add('dragging');
-            slide.x = ev.clientX - startX;
-            slide.y = ev.clientY - startY;
+            // Account for zoom when calculating movement delta
+            const deltaX = (ev.clientX - startMouseX) / expeditionState.zoom;
+            const deltaY = (ev.clientY - startMouseY) / expeditionState.zoom;
+            slide.x = startSlideX + deltaX;
+            slide.y = startSlideY + deltaY;
             el.style.left = `${slide.x}px`;
             el.style.top = `${slide.y}px`;
             renderConnections();
@@ -1286,10 +1314,22 @@ function onCanvasWheel(e) {
     const container = document.getElementById('slidesContainer');
     if (!container) return false;
     
-    // Ctrl+scroll = zoom, otherwise scroll = pan
-    if (e.ctrlKey) {
-        // Zoom
-        const zoomSpeed = 0.1;
+    // Scroll wheel = zoom (default), Shift+scroll = horizontal pan, Ctrl+scroll = vertical pan
+    if (e.shiftKey) {
+        // Horizontal pan
+        const panSpeed = 1;
+        expeditionState.canvasOffset.x -= e.deltaY * panSpeed;
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+        renderConnections();
+    } else if (e.ctrlKey) {
+        // Vertical pan
+        const panSpeed = 1;
+        expeditionState.canvasOffset.y -= e.deltaY * panSpeed;
+        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+        renderConnections();
+    } else {
+        // Zoom (default - no modifier needed)
+        const zoomSpeed = 0.05;
         const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
         const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
         
@@ -1302,22 +1342,10 @@ function onCanvasWheel(e) {
         if (indicator) {
             indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
         }
-    } else {
-        // Pan - scroll vertically, shift+scroll horizontally
-        const panSpeed = 1;
-        if (e.shiftKey) {
-            // Horizontal pan
-            expeditionState.canvasOffset.x -= e.deltaY * panSpeed;
-        } else {
-            // Vertical pan (also handle horizontal delta if trackpad)
-            expeditionState.canvasOffset.x -= (e.deltaX || 0) * panSpeed;
-            expeditionState.canvasOffset.y -= e.deltaY * panSpeed;
-        }
         
-        container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
+        renderConnections();
     }
     
-    renderConnections();
     return false;
 }
 
@@ -1364,10 +1392,19 @@ function renderConnections() {
     const offsetX = expeditionState.canvasOffset.x;
     const offsetY = expeditionState.canvasOffset.y;
     
+    // Helper to check if a slide passes the current filter
+    const slidePassesFilter = (slide) => {
+        if (!expeditionState.selectedSettlementId) return true;
+        return slide.settlementId === expeditionState.selectedSettlementId;
+    };
+    
     expeditionState.connections.forEach((conn, i) => {
         const fromSlide = expeditionState.slides.get(conn.from);
         const toSlide = expeditionState.slides.get(conn.to);
         if (!fromSlide || !toSlide) return;
+        
+        // Skip connection if either slide is filtered out
+        if (!slidePassesFilter(fromSlide) || !slidePassesFilter(toSlide)) return;
         
         // Convert target slide coordinates to screen space (accounting for zoom and offset)
         const toScreenX = toSlide.x * zoom + offsetX;
@@ -1642,7 +1679,16 @@ function uploadSlideBgFromDevice() {
 function updateCounter() {
     const counter = document.getElementById('slideCounter');
     if (counter) {
-        counter.textContent = `${expeditionState.slides.size} slides`;
+        const total = expeditionState.slides.size;
+        if (expeditionState.selectedSettlementId) {
+            let filtered = 0;
+            expeditionState.slides.forEach(slide => {
+                if (slide.settlementId === expeditionState.selectedSettlementId) filtered++;
+            });
+            counter.textContent = `${filtered}/${total} slides`;
+        } else {
+            counter.textContent = `${total} slides`;
+        }
     }
 }
 
@@ -2061,7 +2107,7 @@ async function saveExpedition() {
                 newConnections: newConnections,
                 slideUpdates: slideUpdates,
                 optionUpdates: optionUpdates,
-                settlementId: null // Could add settlement selector later
+                settlementId: expeditionState.selectedSettlementId || null
             })
         });
 
@@ -2285,7 +2331,8 @@ async function loadExpedition() {
                 options: [],
                 assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
                 reward: buildRewardFromServer(serverSlide),
-                effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null
+                effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
+                settlementId: serverSlide.settlementId || null
             };
 
             // Map toolingId -> localId
@@ -2373,14 +2420,8 @@ async function loadExpedition() {
             }
         }
 
-        // Render all slides
-        expeditionState.slides.forEach(slide => {
-            renderSlide(slide);
-        });
-
-        // Render connections
-        renderConnections();
-        updateCounter();
+        // Render slides based on current filter
+        filterAndRenderSlides();
         
         // Center the view
         centerCanvas();
@@ -2420,6 +2461,267 @@ function buildRewardFromServer(serverSlide) {
         return { type: 'potion', potionId: serverSlide.rewardPotion };
     }
     return null;
+}
+
+// ==================== SETTLEMENT SELECTION ====================
+async function loadExpeditionSettlements() {
+    console.log('🏘️ Loading settlements for expedition designer...');
+    
+    // Check if loadSettlementsData function exists
+    if (typeof loadSettlementsData !== 'function') {
+        console.error('❌ loadSettlementsData function not found! Check global-data.js');
+        return;
+    }
+    
+    // Use GlobalData.settlements (shared across all pages)
+    try {
+        console.log('Calling loadSettlementsData()...');
+        await loadSettlementsData();
+        console.log('loadSettlementsData completed. GlobalData.settlements:', GlobalData.settlements);
+        expeditionState.settlements = GlobalData.settlements || [];
+        populateSettlementDropdown();
+        console.log(`✅ Using ${expeditionState.settlements.length} settlements from GlobalData`);
+    } catch (error) {
+        console.error('Failed to load settlements:', error);
+    }
+}
+
+function populateSettlementDropdown() {
+    const select = document.getElementById('expeditionSettlementSelect');
+    if (!select) return;
+
+    // Clear and populate with settlements (no empty option)
+    select.innerHTML = '';
+
+    expeditionState.settlements.forEach(settlement => {
+        const option = document.createElement('option');
+        option.value = settlement.settlement_id;
+        option.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
+        select.appendChild(option);
+    });
+    
+    // Auto-select first settlement and trigger filter
+    if (expeditionState.settlements.length > 0) {
+        const firstSettlement = expeditionState.settlements[0];
+        select.value = firstSettlement.settlement_id;
+        expeditionState.selectedSettlementId = firstSettlement.settlement_id;
+    }
+}
+
+function onExpeditionSettlementChange() {
+    const select = document.getElementById('expeditionSettlementSelect');
+    if (!select) return;
+
+    const value = select.value;
+    expeditionState.selectedSettlementId = value ? parseInt(value) : null;
+    
+    console.log(`🏘️ Settlement filter changed to: ${expeditionState.selectedSettlementId || 'all'}`);
+    
+    // Filter slides client-side and re-render
+    filterAndRenderSlides();
+}
+window.onExpeditionSettlementChange = onExpeditionSettlementChange;
+
+// Filter slides based on selected settlement and re-render
+function filterAndRenderSlides() {
+    const container = document.getElementById('slidesContainer');
+    if (!container) return;
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    // Render only slides matching the filter (or all if no filter)
+    expeditionState.slides.forEach(slide => {
+        const matchesFilter = !expeditionState.selectedSettlementId || 
+                              slide.settlementId === expeditionState.selectedSettlementId;
+        if (matchesFilter) {
+            renderSlide(slide);
+        }
+    });
+    
+    // Re-render connections (only for visible slides)
+    renderConnections();
+    updateCounter();
+}
+
+async function loadExpeditionForSettlement(settlementId) {
+    console.log(`📥 Loading expedition for settlement: ${settlementId || 'all'}`);
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        // Build URL with optional settlement filter
+        let url = 'http://localhost:8080/api/getExpedition';
+        if (settlementId) {
+            url += `?settlementId=${settlementId}`;
+        }
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error('Failed to load expedition data');
+        }
+
+        console.log('Loaded expedition data:', data);
+
+        // Clear existing state
+        expeditionState.slides.clear();
+        expeditionState.connections = [];
+        expeditionState.serverSlides.clear();
+        expeditionState.serverOptions.clear();
+        expeditionState.serverOutcomes.clear();
+        expeditionState.originalSlides.clear();
+        expeditionState.originalOptions.clear();
+
+        // Clear the canvas
+        const container = document.getElementById('slidesContainer');
+        if (container) {
+            container.innerHTML = '';
+        }
+
+        // Create a mapping from server toolingId to local ID
+        const toolingIdToLocalId = new Map();
+        
+        // First pass: create all slides
+        let localId = 1;
+        for (const serverSlide of data.slides) {
+            const slide = {
+                id: localId,
+                text: serverSlide.text || '',
+                isStart: serverSlide.isStart || false,
+                x: serverSlide.posX || 100,
+                y: serverSlide.posY || 100,
+                options: [],
+                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
+                reward: buildRewardFromServer(serverSlide),
+                effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
+                settlementId: serverSlide.settlementId
+            };
+
+            // Map toolingId -> localId
+            toolingIdToLocalId.set(serverSlide.toolingId, localId);
+            
+            // Track this as a server slide
+            expeditionState.serverSlides.set(localId, serverSlide.toolingId);
+            
+            // Store original values for change detection
+            expeditionState.originalSlides.set(localId, {
+                text: serverSlide.text || '',
+                isStart: serverSlide.isStart || false,
+                assetId: serverSlide.assetId || null,
+                effectId: serverSlide.effectId || null,
+                effectFactor: serverSlide.effectFactor || null,
+                reward: buildRewardFromServer(serverSlide)
+            });
+            
+            expeditionState.slides.set(localId, slide);
+            localId++;
+        }
+
+        expeditionState.nextSlideId = localId;
+
+        // Second pass: add options to slides
+        for (const serverSlide of data.slides) {
+            const slideLocalId = toolingIdToLocalId.get(serverSlide.toolingId);
+            const slide = expeditionState.slides.get(slideLocalId);
+            
+            if (!slide || !serverSlide.options) continue;
+
+            for (let optIdx = 0; optIdx < serverSlide.options.length; optIdx++) {
+                const serverOpt = serverSlide.options[optIdx];
+                
+                // Determine option type
+                let optType = 'dialogue';
+                if (serverOpt.statType) optType = 'skill';
+                else if (serverOpt.effectId) optType = 'effect';
+                else if (serverOpt.enemyId) optType = 'combat';
+
+                const option = {
+                    text: serverOpt.text || '',
+                    type: optType,
+                    statType: serverOpt.statType,
+                    statRequired: serverOpt.statRequired,
+                    effectId: serverOpt.effectId,
+                    effectAmount: serverOpt.effectAmount,
+                    enemyId: serverOpt.enemyId
+                };
+
+                slide.options.push(option);
+                
+                // Track this as a server option
+                const optionKey = `${slideLocalId}-${optIdx}`;
+                expeditionState.serverOptions.set(optionKey, serverOpt.toolingId);
+                
+                // Store original option values for change detection
+                expeditionState.originalOptions.set(optionKey, {
+                    text: serverOpt.text || '',
+                    type: optType,
+                    statType: serverOpt.statType || null,
+                    statRequired: serverOpt.statRequired || null,
+                    effectId: serverOpt.effectId || null,
+                    effectAmount: serverOpt.effectAmount || null,
+                    enemyId: serverOpt.enemyId || null
+                });
+
+                // Third pass: build connections from outcomes
+                if (serverOpt.connections) {
+                    for (const conn of serverOpt.connections) {
+                        const targetLocalId = toolingIdToLocalId.get(conn.targetToolingId);
+                        if (targetLocalId) {
+                            expeditionState.connections.push({
+                                fromSlide: slideLocalId,
+                                fromOption: optIdx,
+                                toSlide: targetLocalId,
+                                weight: conn.weight || 1
+                            });
+                            
+                            // Track this as a server outcome
+                            const outcomeKey = `${serverOpt.toolingId}-${conn.targetToolingId}`;
+                            expeditionState.serverOutcomes.add(outcomeKey);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Render all slides
+        expeditionState.slides.forEach(slide => {
+            renderSlide(slide);
+        });
+
+        // Render connections
+        renderConnections();
+        updateCounter();
+        
+        // Center the view
+        centerCanvas();
+
+        console.log(`✅ Loaded ${data.slides.length} slides for settlement ${settlementId || 'all'}`);
+
+    } catch (error) {
+        console.error('Failed to load expedition:', error);
+        // Clear canvas on error
+        expeditionState.slides.clear();
+        expeditionState.connections = [];
+        const container = document.getElementById('slidesContainer');
+        if (container) container.innerHTML = '';
+        renderConnections();
+        updateCounter();
+    }
 }
 
 // ==================== EXPOSE GLOBALLY ====================

@@ -637,6 +637,11 @@
                 <div class="expedition-toolbar">
                     <div class="toolbar-left">
                         <h2>🗺️ Expedition Designer</h2>
+                        <div class="expedition-settlement-select">
+                            <label>Settlement:</label>
+                            <select id="expeditionSettlementSelect" onchange="window.onExpeditionSettlementChange && window.onExpeditionSettlementChange()">
+                            </select>
+                        </div>
                         <span id="slideCounter">0 slides</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out" onclick="window.changeZoom(-0.1)">−</button>
@@ -645,7 +650,7 @@
                         </div>
                     </div>
                     <div class="toolbar-right">
-                        <button id="addSlideBtn" class="btn-primary" onclick="addExpeditionSlide()">+ Add Slide</button>
+                        <button id="addSlideBtn" class="btn-primary">+ Add Slide</button>
                         <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">💾 Save</button>
                     </div>
                 </div>
@@ -1299,9 +1304,18 @@
                 }
                 
                 // If showing the expedition designer, auto-load data
-                if (pageName === 'dungeons' && window.loadExpedition) {
-                    console.log('Auto-loading expedition data...');
-                    window.loadExpedition();
+                if (pageName === 'dungeons') {
+                    // Initialize expedition designer if not done yet
+                    if (window.initExpeditionDesigner && !window.expeditionDesignerInitialized) {
+                        console.log('Initializing expedition designer...');
+                        window.initExpeditionDesigner();
+                        window.expeditionDesignerInitialized = true;
+                    }
+                    // Load expedition data
+                    if (window.loadExpedition) {
+                        console.log('Auto-loading expedition data...');
+                        window.loadExpedition();
+                    }
                 }
                 
                 // If showing the settlement designer, load data

@@ -10,7 +10,9 @@ const GlobalData = {
     perkAssets: [],        // Array of available perk assets from S3
     items: [],             // Array of all complete item data with signed URLs
     pendingItems: [],      // Array of pending items from tooling.items
-    itemAssets: []         // Array of available item assets from S3
+    itemAssets: [],        // Array of available item assets from S3
+    settlements: [],       // Array of all settlements from game.world_info
+    settlementAssets: []   // Array of available settlement assets from S3
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -399,6 +401,149 @@ async function loadItemAssets() {
  */
 function getItemAssets() {
     return GlobalData.itemAssets;
+}
+
+// Track loading state for settlements
+let settlementsLoadingPromise = null;
+
+/**
+ * Load all settlements data from the server (loads only once, returns cached data)
+ * @returns {Promise<Array>} Promise that resolves to array of settlements
+ */
+async function loadSettlementsData() {
+    // If settlements are already loaded, return them immediately
+    if (GlobalData.settlements.length > 0) {
+        console.log('✅ Settlements already loaded, using cached data:', GlobalData.settlements.length, 'settlements');
+        return GlobalData.settlements;
+    }
+    
+    // If already loading, wait for that request to finish
+    if (settlementsLoadingPromise) {
+        console.log('Settlements already loading, waiting for existing request...');
+        return settlementsLoadingPromise;
+    }
+    
+    // Start new loading request
+    settlementsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) {
+                console.error('Authentication required to load settlements data');
+                throw new Error('Authentication required');
+            }
+
+            console.log('Loading settlements data from server...');
+
+            const response = await fetch('http://localhost:8080/api/getSettlements', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.settlements) {
+                    GlobalData.settlements = data.settlements;
+                    console.log('✅ Settlements data loaded successfully:', GlobalData.settlements.length, 'settlements');
+                }
+                return GlobalData.settlements;
+            } else {
+                const error = await response.text();
+                console.error('Failed to load settlements data:', error);
+                throw new Error(`Server error: ${error}`);
+            }
+
+        } catch (error) {
+            console.error('Error loading settlements data:', error);
+            throw error;
+        } finally {
+            settlementsLoadingPromise = null;
+        }
+    })();
+    
+    return settlementsLoadingPromise;
+}
+
+/**
+ * Load all settlement assets from S3 bucket
+ * @returns {Promise<Array>} Promise that resolves to array of settlement assets
+ */
+async function loadSettlementAssetsData() {
+    // If already loaded, return cached
+    if (GlobalData.settlementAssets.length > 0) {
+        console.log('✅ Settlement assets already loaded, using cached data:', GlobalData.settlementAssets.length, 'assets');
+        return GlobalData.settlementAssets;
+    }
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            console.error('Authentication required to load settlement assets');
+            throw new Error('Authentication required');
+        }
+
+        console.log('Loading settlement assets from S3...');
+
+        const response = await fetch('http://localhost:8080/api/getSettlementAssets', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            GlobalData.settlementAssets = data.assets || [];
+            console.log('✅ Settlement assets loaded successfully:', GlobalData.settlementAssets.length, 'assets');
+            return GlobalData.settlementAssets;
+        } else {
+            const error = await response.text();
+            console.error('Failed to load settlement assets:', error);
+            throw new Error(`Server error: ${error}`);
+        }
+
+    } catch (error) {
+        console.error('Error loading settlement assets:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get all settlements data
+ * @returns {Array} Array of settlements
+ */
+function getSettlements() {
+    return GlobalData.settlements;
+}
+
+/**
+ * Get settlement by ID
+ * @param {number|string} settlementId - The settlement ID to find
+ * @returns {Object|null} Settlement object or null if not found
+ */
+function getSettlementById(settlementId) {
+    const id = parseInt(settlementId);
+    return GlobalData.settlements.find(s => s.settlement_id === id) || null;
+}
+
+/**
+ * Get settlement assets data
+ * @returns {Array} Array of settlement assets
+ */
+function getSettlementAssets() {
+    return GlobalData.settlementAssets;
+}
+
+/**
+ * Refresh settlements data (force reload)
+ * @returns {Promise<Array>} Promise that resolves to array of settlements
+ */
+async function refreshSettlementsData() {
+    GlobalData.settlements = [];
+    return loadSettlementsData();
 }
 
 // === DATA ACCESS FUNCTIONS ===

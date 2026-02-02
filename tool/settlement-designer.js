@@ -144,30 +144,20 @@ async function loadSettlementDesignerData() {
         return;
     }
 
-    // Load settlements
+    // Load settlements from GlobalData (shared across pages)
     try {
-        const settlementsResponse = await fetch('http://localhost:8080/api/getSettlements', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (settlementsResponse.ok) {
-            const data = await settlementsResponse.json();
-            settlementState.settlements = data.settlements || [];
-            console.log('✅ Loaded', settlementState.settlements.length, 'settlements');
-        } else {
-            console.error('Failed to load settlements:', await settlementsResponse.text());
-        }
+        await loadSettlementsData();
+        settlementState.settlements = GlobalData.settlements;
+        console.log('✅ Using GlobalData.settlements:', settlementState.settlements.length, 'settlements');
     } catch (error) {
         console.error('Error loading settlements:', error);
     }
 
-    // Load settlement assets from S3
+    // Load settlement assets from GlobalData
     try {
-        await loadSettlementAssets();
+        await loadSettlementAssetsData();
+        settlementState.assets = GlobalData.settlementAssets;
+        console.log('✅ Using GlobalData.settlementAssets:', settlementState.assets?.length || 0, 'assets');
     } catch (error) {
         console.error('Error loading settlement assets:', error);
     }
@@ -1305,8 +1295,12 @@ async function saveSettlement() {
             const result = await response.json();
             console.log('✅ Settlement saved:', result);
 
-            // Reload settlements
-            await loadSettlementDesignerData();
+            // Refresh GlobalData settlements (force reload)
+            await refreshSettlementsData();
+            settlementState.settlements = GlobalData.settlements;
+            
+            // Repopulate UI
+            populateSettlementSelect();
 
             // Select the saved settlement
             if (result.settlementId) {
