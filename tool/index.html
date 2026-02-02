@@ -214,9 +214,7 @@
                                             <span>📷</span>
                                             <p>Click to set background</p>
                                         </div>
-                                    </div>
-                                    <div class="quest-start-content">
-                                        <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onchange="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
+                                        <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onclick="event.stopPropagation()" oninput="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
                                     </div>
                                 </div>
                             </div>

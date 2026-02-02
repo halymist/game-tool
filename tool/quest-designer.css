@@ -711,7 +711,8 @@
     position: absolute;
     top: 100px;
     left: 50px;
-    width: 300px;
+    width: 360px;
+    aspect-ratio: 2 / 3;
     background: linear-gradient(145deg, #1e2a4a, #16213e);
     border: 2px solid #4ade80;
     border-radius: 12px;
@@ -719,7 +720,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Not draggable */
     cursor: default;
 }
 
@@ -762,20 +762,30 @@
 
 .quest-start-body {
     flex: 1;
-    background: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.2);
     background-size: cover;
     background-position: center;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     cursor: pointer;
     transition: all 0.3s;
     position: relative;
-    min-height: 200px;
+    overflow: hidden;
 }
 
-.quest-start-body.has-image {
-    background-color: transparent;
+/* Dark overlay when image is set - covers full body */
+.quest-start-body.has-image::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    z-index: 0;
 }
 
 .quest-start-body.has-image .quest-start-placeholder {
@@ -799,6 +809,8 @@
     transition: all 0.3s;
     padding: 20px;
     border-radius: 8px;
+    position: relative;
+    z-index: 2;
 }
 
 .quest-start-placeholder span {
@@ -810,33 +822,37 @@
     font-size: 0.85rem;
 }
 
-.quest-start-content {
-    padding: 12px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(0, 0, 0, 0.2);
-}
-
+/* Text area positioned at top, centered, on top of overlay */
 .quest-start-text {
-    width: 100%;
-    min-height: 100px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: calc(100% - 24px);
+    margin: 12px;
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
     border-radius: 6px;
-    padding: 10px;
+    padding: 12px;
     color: #fff;
-    font-size: 0.9rem;
-    resize: vertical;
+    font-size: 0.95rem;
+    resize: none;
     font-family: inherit;
     line-height: 1.5;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+}
+
+.quest-start-text:hover {
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .quest-start-text:focus {
     outline: none;
     border-color: #4ecdc4;
+    background: rgba(0, 0, 0, 0.3);
 }
 
 .quest-start-text::placeholder {
-    color: #666;
+    color: #555;
 }
 
 /* Old quest-slide-preview styles - keeping for modal */

@@ -27,6 +27,7 @@ type Quest struct {
 	Ending         *int   `json:"ending"`
 	DefaultEntry   bool   `json:"default_entry"`
 	SettlementID   *int   `json:"settlement_id"`
+	AssetID        *int   `json:"asset_id"`
 }
 
 // QuestOption represents a quest option
@@ -55,9 +56,9 @@ type QuestOption struct {
 
 // QuestOptionVisibility represents visibility connections between options
 type QuestOptionVisibility struct {
-	OptionID       int    `json:"option_id"`
-	EffectType     string `json:"effect_type"`
-	TargetOptionID int    `json:"target_option_id"`
+	OptionID       int    `json:"optionId"`
+	EffectType     string `json:"effectType"`
+	TargetOptionID int    `json:"targetOptionId"`
 }
 
 // handleGetQuests returns quests and their options for a settlement
@@ -86,11 +87,11 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	var questQuery string
 	var questArgs []interface{}
 	if settlementID != nil {
-		questQuery = `SELECT quest_id, questchain_id, quest_name, requisite_quest, ending, default_entry, settlement_id 
+		questQuery = `SELECT quest_id, questchain_id, quest_name, requisite_quest, ending, default_entry, settlement_id, asset_id 
 			FROM game.quests WHERE settlement_id = $1 ORDER BY quest_id`
 		questArgs = []interface{}{*settlementID}
 	} else {
-		questQuery = `SELECT quest_id, questchain_id, quest_name, requisite_quest, ending, default_entry, settlement_id 
+		questQuery = `SELECT quest_id, questchain_id, quest_name, requisite_quest, ending, default_entry, settlement_id, asset_id 
 			FROM game.quests ORDER BY quest_id`
 	}
 
@@ -105,7 +106,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	var quests []Quest
 	for rows.Next() {
 		var q Quest
-		err := rows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.RequisiteQuest, &q.Ending, &q.DefaultEntry, &q.SettlementID)
+		err := rows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.RequisiteQuest, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID)
 		if err != nil {
 			log.Printf("Error scanning quest: %v", err)
 			continue
@@ -250,6 +251,7 @@ func handleCreateQuest(w http.ResponseWriter, r *http.Request) {
 // SaveQuestRequest represents the request to save quest options
 type SaveQuestRequest struct {
 	QuestID       int                     `json:"questId"`
+	AssetID       *int                    `json:"assetId"`
 	NewOptions    []NewQuestOption        `json:"newOptions"`
 	OptionUpdates []QuestOptionUpdate     `json:"optionUpdates"`
 	NewVisibility []QuestOptionVisibility `json:"newVisibility"`
@@ -327,6 +329,16 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// Update quest asset_id if provided
+	if req.AssetID != nil {
+		_, err := tx.Exec(`UPDATE game.quests SET asset_id = $1 WHERE quest_id = $2`, *req.AssetID, req.QuestID)
+		if err != nil {
+			log.Printf("Error updating quest asset: %v", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	// Track mapping from local IDs to server IDs
 	optionMapping := make(map[int]int)
 
@@ -376,6 +388,10 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	// Insert new visibility connections
 	for _, vis := range req.NewVisibility {
+		if vis.OptionID == 0 || vis.TargetOptionID == 0 {
+			log.Printf("Skipping invalid visibility: %+v", vis)
+			continue
+		}
 		_, err := tx.Exec(`INSERT INTO game.quest_option_visibility (option_id, effect_type, target_option_id)
 			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 			vis.OptionID, vis.EffectType, vis.TargetOptionID)

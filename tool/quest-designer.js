@@ -1036,6 +1036,8 @@ function renderQuestConnections() {
     const zoom = questState.zoom;
     const offsetX = questState.canvasOffset.x;
     const offsetY = questState.canvasOffset.y;
+    const nodeWidth = 200;
+    const nodeHeight = 100; // approximate
     
     // Filter options by current quest
     const optionPassesFilter = (opt) => {
@@ -1055,21 +1057,96 @@ function renderQuestConnections() {
         const toEl = document.getElementById(`option-${conn.targetOptionId}`);
         if (!fromEl || !toEl) return;
         
+        const toRect = toEl.getBoundingClientRect();
+        const fromRect = fromEl.getBoundingClientRect();
+        
+        // Get target center in screen space
+        const toCenterX = toRect.left + toRect.width/2 - rect.left;
+        const toCenterY = toRect.top + toRect.height/2 - rect.top;
+        
+        // Get from center to determine which connector to use
+        const fromCenterX = fromRect.left + fromRect.width/2 - rect.left;
+        const useRightConnector = toCenterX >= fromCenterX;
+        
+        // Select the appropriate connector based on target position
         const connectorClass = conn.effectType === 'show' ? '.connector-show' : '.connector-hide';
         const connector = fromEl.querySelector(connectorClass);
         if (!connector) return;
         
         const connRect = connector.getBoundingClientRect();
-        const toRect = toEl.getBoundingClientRect();
         
+        // Start point from connector
         const x1 = connRect.left + connRect.width/2 - rect.left;
         const y1 = connRect.top + connRect.height/2 - rect.top;
-        const x2 = toRect.left + toRect.width/2 - rect.left;
-        const y2 = toRect.top + toRect.height/2 - rect.top;
+        
+        // Target node bounds
+        const targetLeft = toRect.left - rect.left;
+        const targetRight = toRect.right - rect.left;
+        const targetTop = toRect.top - rect.top;
+        const targetBottom = toRect.bottom - rect.top;
+        
+        // Find intersection point with node border
+        const dx = toCenterX - x1;
+        const dy = toCenterY - y1;
+        const aspectRatio = toRect.width / toRect.height;
+        
+        let x2, y2;
+        
+        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
+            // Intersects left or right edge
+            if (dx > 0) {
+                // Left edge of target
+                x2 = targetLeft;
+                y2 = y1 + (dy / dx) * (targetLeft - x1);
+                y2 = Math.max(targetTop + 10, Math.min(targetBottom - 10, y2));
+            } else {
+                // Right edge of target
+                x2 = targetRight;
+                y2 = y1 + (dy / dx) * (targetRight - x1);
+                y2 = Math.max(targetTop + 10, Math.min(targetBottom - 10, y2));
+            }
+        } else {
+            // Intersects top or bottom edge
+            if (dy > 0) {
+                // Top edge of target
+                y2 = targetTop;
+                x2 = x1 + (dx / dy) * (targetTop - y1);
+                x2 = Math.max(targetLeft + 10, Math.min(targetRight - 10, x2));
+            } else {
+                // Bottom edge of target
+                y2 = targetBottom;
+                x2 = x1 + (dx / dy) * (targetBottom - y1);
+                x2 = Math.max(targetLeft + 10, Math.min(targetRight - 10, x2));
+            }
+        }
+        
+        // Create smooth bezier curve
+        const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+        const curveStrength = Math.min(distance * 0.25, 60);
+        
+        // Control point 1: extends from start point based on connector side
+        let cx1, cy1, cx2, cy2;
+        if (useRightConnector) {
+            cx1 = x1 + curveStrength;
+            cy1 = y1;
+        } else {
+            cx1 = x1 - curveStrength;
+            cy1 = y1;
+        }
+        
+        // Control point 2: approaches the target edge perpendicularly
+        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
+            // Horizontal edge intersection - approach from left/right
+            cx2 = x2 + (dx > 0 ? -curveStrength : curveStrength);
+            cy2 = y2;
+        } else {
+            // Vertical edge intersection - approach from top/bottom
+            cx2 = x2;
+            cy2 = y2 + (dy > 0 ? -curveStrength : curveStrength);
+        }
         
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const curveX = x1 + 80;
-        path.setAttribute('d', `M ${x1} ${y1} Q ${curveX} ${y1}, ${x2} ${y2}`);
+        path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
         path.classList.add('quest-connection', conn.effectType === 'show' ? 'show-connection' : 'hide-connection');
         path.dataset.from = conn.optionId;
         path.dataset.to = conn.targetOptionId;
@@ -1470,15 +1547,20 @@ async function loadQuestsForSettlement(settlementId) {
             });
             
             data.visibility.forEach(v => {
-                const fromLocal = serverToLocal.get(v.option_id);
-                const toLocal = serverToLocal.get(v.target_option_id);
+                // Support both camelCase and snake_case from server
+                const fromServer = v.optionId || v.option_id;
+                const toServer = v.targetOptionId || v.target_option_id;
+                const effectType = v.effectType || v.effect_type;
+                
+                const fromLocal = serverToLocal.get(fromServer);
+                const toLocal = serverToLocal.get(toServer);
                 if (fromLocal && toLocal) {
                     questState.visibility.push({
                         optionId: fromLocal,
-                        effectType: v.effect_type,
+                        effectType: effectType,
                         targetOptionId: toLocal
                     });
-                    questState.serverVisibility.add(`${v.option_id}-${v.effect_type}-${v.target_option_id}`);
+                    questState.serverVisibility.add(`${fromServer}-${effectType}-${toServer}`);
                 }
             });
         }
@@ -1524,6 +1606,37 @@ function onQuestChange() {
     questState.selectedQuest = value ? parseInt(value) : null;
     
     console.log(`📜 Quest changed to: ${questState.selectedQuest}`);
+    
+    // Load quest's asset_id and display on start slide
+    if (questState.selectedQuest) {
+        const quest = questState.quests.get(questState.selectedQuest);
+        if (quest && quest.asset_id) {
+            // Find the asset URL from loaded assets
+            const asset = questState.questAssets.find(a => a.id === quest.asset_id);
+            if (asset) {
+                selectQuestAsset(asset.id, asset.url);
+            } else {
+                // Clear the asset display
+                questState.questAssetId = null;
+                questState.questAssetUrl = null;
+                const slideBody = document.getElementById('questSlideBody');
+                if (slideBody) {
+                    slideBody.style.backgroundImage = '';
+                    slideBody.classList.remove('has-image');
+                }
+            }
+        } else {
+            // No asset set, clear display
+            questState.questAssetId = null;
+            questState.questAssetUrl = null;
+            const slideBody = document.getElementById('questSlideBody');
+            if (slideBody) {
+                slideBody.style.backgroundImage = '';
+                slideBody.classList.remove('has-image');
+            }
+        }
+    }
+    
     filterAndRenderQuestOptions();
 }
 window.onQuestChange = onQuestChange;
@@ -1768,6 +1881,7 @@ async function saveQuest() {
             },
             body: JSON.stringify({
                 questId: questState.selectedQuest,
+                assetId: questState.questAssetId,
                 newOptions: newOptions,
                 optionUpdates: optionUpdates,
                 newVisibility: newVisibility
