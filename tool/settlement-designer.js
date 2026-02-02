@@ -502,7 +502,6 @@ function populateSettlementForm(settlement) {
             else if (text?.text) settlementState.vendorResponses.push({ type: 'on_bought', text: text.text });
         });
     }
-    renderVendorResponses();
 
     // Parse and populate utility responses (arrays per type -> flat list)
     settlementState.utilityResponses = [];
@@ -527,7 +526,6 @@ function populateSettlementForm(settlement) {
             else if (text?.text) settlementState.utilityResponses.push({ type: 'on_action', text: text.text });
         });
     }
-    renderUtilityResponses();
 
     // Vendor items and enchanter effects from settlement data
     settlementState.vendorItems = settlement.vendor_items || [];
@@ -873,82 +871,93 @@ function removeEnchanterEffect(index) {
     renderEnchanterEffects();
 }
 
-// Response management functions
+// Response modal management
 const VENDOR_RESPONSE_TYPES = ['on_entered', 'on_sold', 'on_bought'];
 const UTILITY_RESPONSE_TYPES = ['on_entered', 'on_placed', 'on_action'];
 
-function addVendorResponse() {
-    settlementState.vendorResponses.push({ type: 'on_entered', text: '' });
-    renderVendorResponses();
-}
+let currentResponsesTarget = null; // 'vendor' or 'utility'
 
-function addUtilityResponse() {
-    settlementState.utilityResponses.push({ type: 'on_entered', text: '' });
-    renderUtilityResponses();
-}
-
-function removeVendorResponse(index) {
-    settlementState.vendorResponses.splice(index, 1);
-    renderVendorResponses();
-}
-
-function removeUtilityResponse(index) {
-    settlementState.utilityResponses.splice(index, 1);
-    renderUtilityResponses();
-}
-
-function updateVendorResponse(index, field, value) {
-    if (settlementState.vendorResponses[index]) {
-        settlementState.vendorResponses[index][field] = value;
+function openResponsesModal(target) {
+    currentResponsesTarget = target;
+    const overlay = document.getElementById('responsesModalOverlay');
+    const title = document.getElementById('responsesModalTitle');
+    
+    if (title) {
+        title.textContent = target === 'vendor' ? 'Vendor Responses' : 'Utility Responses';
+    }
+    
+    renderModalResponses();
+    
+    if (overlay) {
+        overlay.classList.add('active');
     }
 }
 
-function updateUtilityResponse(index, field, value) {
-    if (settlementState.utilityResponses[index]) {
-        settlementState.utilityResponses[index][field] = value;
+function closeResponsesModal() {
+    const overlay = document.getElementById('responsesModalOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+    currentResponsesTarget = null;
+}
+
+function addResponseEntry() {
+    if (currentResponsesTarget === 'vendor') {
+        settlementState.vendorResponses.push({ type: 'on_entered', text: '' });
+    } else if (currentResponsesTarget === 'utility') {
+        settlementState.utilityResponses.push({ type: 'on_entered', text: '' });
+    }
+    renderModalResponses();
+}
+
+function removeResponseEntry(index) {
+    if (currentResponsesTarget === 'vendor') {
+        settlementState.vendorResponses.splice(index, 1);
+    } else if (currentResponsesTarget === 'utility') {
+        settlementState.utilityResponses.splice(index, 1);
+    }
+    renderModalResponses();
+}
+
+function updateResponseEntry(index, field, value) {
+    const responses = currentResponsesTarget === 'vendor' 
+        ? settlementState.vendorResponses 
+        : settlementState.utilityResponses;
+    if (responses[index]) {
+        responses[index][field] = value;
     }
 }
 
-function renderVendorResponses() {
-    const list = document.getElementById('vendorResponsesList');
-    if (!list) return;
+function saveResponses() {
+    // Responses are already saved in state, just close modal
+    closeResponsesModal();
+}
 
-    if (settlementState.vendorResponses.length === 0) {
-        list.innerHTML = '<div style="color: #4a5568; font-style: italic; font-size: 10px;">No responses</div>';
+function renderModalResponses() {
+    const content = document.getElementById('responsesModalContent');
+    if (!content) return;
+    
+    const responses = currentResponsesTarget === 'vendor' 
+        ? settlementState.vendorResponses 
+        : settlementState.utilityResponses;
+    const types = currentResponsesTarget === 'vendor' 
+        ? VENDOR_RESPONSE_TYPES 
+        : UTILITY_RESPONSE_TYPES;
+    
+    if (responses.length === 0) {
+        content.innerHTML = '<div style="color: #4a5568; font-style: italic; text-align: center; padding: 20px;">No responses yet. Click "Add Response" to create one.</div>';
         return;
     }
-
-    list.innerHTML = settlementState.vendorResponses.map((resp, index) => `
-        <div class="response-entry">
-            <select onchange="updateVendorResponse(${index}, 'type', this.value)">
-                ${VENDOR_RESPONSE_TYPES.map(t => `<option value="${t}" ${resp.type === t ? 'selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
+    
+    content.innerHTML = responses.map((resp, index) => `
+        <div class="response-entry-modal">
+            <select onchange="updateResponseEntry(${index}, 'type', this.value)">
+                ${types.map(t => `<option value="${t}" ${resp.type === t ? 'selected' : ''}>${t.replace(/_/g, ' ')}</option>`).join('')}
             </select>
             <input type="text" value="${escapeSettlementHtml(resp.text || '')}" 
-                   onchange="updateVendorResponse(${index}, 'text', this.value)" 
+                   onchange="updateResponseEntry(${index}, 'text', this.value)" 
                    placeholder="Response text...">
-            <button class="remove-response-btn" onclick="removeVendorResponse(${index})">×</button>
-        </div>
-    `).join('');
-}
-
-function renderUtilityResponses() {
-    const list = document.getElementById('utilityResponsesList');
-    if (!list) return;
-
-    if (settlementState.utilityResponses.length === 0) {
-        list.innerHTML = '<div style="color: #4a5568; font-style: italic; font-size: 10px;">No responses</div>';
-        return;
-    }
-
-    list.innerHTML = settlementState.utilityResponses.map((resp, index) => `
-        <div class="response-entry">
-            <select onchange="updateUtilityResponse(${index}, 'type', this.value)">
-                ${UTILITY_RESPONSE_TYPES.map(t => `<option value="${t}" ${resp.type === t ? 'selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
-            </select>
-            <input type="text" value="${escapeSettlementHtml(resp.text || '')}" 
-                   onchange="updateUtilityResponse(${index}, 'text', this.value)" 
-                   placeholder="Response text...">
-            <button class="remove-response-btn" onclick="removeUtilityResponse(${index})">×</button>
+            <button class="remove-response-btn" onclick="removeResponseEntry(${index})">×</button>
         </div>
     `).join('');
 }
@@ -981,11 +990,9 @@ function createNewSettlement() {
     // Update utility content
     updateUtilityContent();
 
-    // Clear vendor/enchanter lists and responses
+    // Clear vendor/enchanter lists
     renderVendorItems();
     renderEnchanterEffects();
-    renderVendorResponses();
-    renderUtilityResponses();
 
     // Update select
     const select = document.getElementById('settlementSelect');
@@ -1381,9 +1388,9 @@ window.toggleVendorItemSelection = toggleVendorItemSelection;
 window.closeItemSelectDialog = closeItemSelectDialog;
 window.toggleEnchanterEffectSelection = toggleEnchanterEffectSelection;
 window.closeEffectSelectDialog = closeEffectSelectDialog;
-window.addVendorResponse = addVendorResponse;
-window.addUtilityResponse = addUtilityResponse;
-window.removeVendorResponse = removeVendorResponse;
-window.removeUtilityResponse = removeUtilityResponse;
-window.updateVendorResponse = updateVendorResponse;
-window.updateUtilityResponse = updateUtilityResponse;
+window.openResponsesModal = openResponsesModal;
+window.closeResponsesModal = closeResponsesModal;
+window.addResponseEntry = addResponseEntry;
+window.removeResponseEntry = removeResponseEntry;
+window.updateResponseEntry = updateResponseEntry;
+window.saveResponses = saveResponses;

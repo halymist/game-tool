@@ -320,6 +320,12 @@ body {
     flex-direction: column;
 }
 
+/* Settlement page specific - full width */
+#settlements-content {
+    max-width: none !important;
+    padding: 12px !important;
+}
+
 .page-header {
     margin-bottom: 2rem;
 }
