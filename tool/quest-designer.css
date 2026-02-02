@@ -702,15 +702,16 @@
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    width: 100%;
+    height: 100%;
 }
 
-/* Quest Starting Slide (like expedition slide) */
+/* Quest Starting Slide (inside container to zoom/pan with nodes) */
 .quest-start-slide {
     position: absolute;
-    top: 80px;
-    left: 40px;
-    width: 320px;
-    height: 480px;
+    top: 100px;
+    left: 50px;
+    width: 300px;
     background: linear-gradient(145deg, #1e2a4a, #16213e);
     border: 2px solid #4ade80;
     border-radius: 12px;
@@ -718,7 +719,15 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    z-index: 50;
+    /* Not draggable */
+    cursor: default;
+}
+
+/* Canvas adjustment */
+.quest-canvas-wrapper .quest-canvas {
+    flex: 1;
+    width: 100%;
+    height: 100%;
 }
 
 .quest-start-header {
@@ -1102,26 +1111,11 @@
     gap: 10px;
     padding-top: 16px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-actions .btn-save {
-    flex: 1;
-    padding: 10px 16px;
-    background: linear-gradient(135deg, #4caf50, #45a049);
-    border: none;
-    color: white;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.sidebar-actions .btn-save:hover {
-    background: linear-gradient(135deg, #5cbf60, #4caf50);
+    justify-content: center;
 }
 
 .sidebar-actions .btn-delete {
+    flex: 1;
     padding: 10px 16px;
     background: rgba(233, 69, 96, 0.2);
     border: 1px solid rgba(233, 69, 96, 0.5);
@@ -1134,6 +1128,48 @@
 
 .sidebar-actions .btn-delete:hover {
     background: rgba(233, 69, 96, 0.4);
+}
+
+/* Save Status Indicator */
+.sidebar-save-status {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.sidebar-save-status.saving {
+    background: rgba(78, 205, 196, 0.2);
+    color: #4ecdc4;
+}
+
+.sidebar-save-status.saved {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.sidebar-save-status.error {
+    background: rgba(233, 69, 96, 0.2);
+    color: #e94560;
+}
+
+/* Dynamic Option Type Fields */
+.option-type-fields,
+.reward-type-fields {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+/* Sidebar Header Flex */
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 /* ==================== UPDATED OPTION NODE STYLE ==================== */

@@ -15,6 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/lib/pq"
 )
 
 // Quest represents a quest
@@ -128,7 +129,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 			COALESCE(pos_x, 0) as pos_x, COALESCE(pos_y, 0) as pos_y
 			FROM game.quest_options WHERE quest_id = ANY($1) ORDER BY quest_id, option_id`
 
-		optionRows, err := db.Query(optionQuery, questIDs)
+		optionRows, err := db.Query(optionQuery, pq.Array(questIDs))
 		if err != nil {
 			log.Printf("Error querying quest options: %v", err)
 			http.Error(w, "Database error", http.StatusInternalServerError)
@@ -161,7 +162,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 		visQuery := `SELECT option_id, effect_type, target_option_id 
 			FROM game.quest_option_visibility WHERE option_id = ANY($1) OR target_option_id = ANY($1)`
 
-		visRows, err := db.Query(visQuery, optionIDs)
+		visRows, err := db.Query(visQuery, pq.Array(optionIDs))
 		if err != nil {
 			log.Printf("Error querying visibility: %v", err)
 		} else {

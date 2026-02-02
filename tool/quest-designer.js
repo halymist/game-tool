@@ -99,8 +99,8 @@ function initQuestDesigner() {
     document.getElementById('addOptionBtn')?.addEventListener('click', addQuestOption);
     document.getElementById('newQuestBtn')?.addEventListener('click', openNewQuestModal);
     
-    // Sidebar save button
-    document.getElementById('sidebarSaveOption')?.addEventListener('click', saveOptionFromSidebar);
+    // Sidebar auto-save setup
+    setupSidebarAutoSave();
     
     // Asset upload setup
     setupQuestAssetUpload();
@@ -327,7 +327,9 @@ function changeQuestZoom(delta) {
 window.changeQuestZoom = changeQuestZoom;
 
 function onQuestCanvasMouseDown(e) {
+    // Don't start canvas drag if clicking on option nodes or start slide
     if (e.target.closest('.quest-option-node')) return;
+    if (e.target.closest('.quest-start-slide')) return;
     if (e.button === 1 || (e.button === 0 && e.target === e.currentTarget)) {
         questState.isDragging = true;
         questState.lastMouse = { x: e.clientX, y: e.clientY };
@@ -570,6 +572,135 @@ function selectQuestOption(id) {
     updateSidebar();
 }
 
+// Debounce helper
+let sidebarSaveTimeout = null;
+function debouncedSaveOption() {
+    clearTimeout(sidebarSaveTimeout);
+    showSaveStatus('saving');
+    sidebarSaveTimeout = setTimeout(() => {
+        saveOptionFromSidebar();
+        showSaveStatus('saved');
+    }, 500);
+}
+
+function showSaveStatus(status) {
+    const statusEl = document.getElementById('sidebarSaveStatus');
+    if (!statusEl) return;
+    
+    statusEl.className = 'sidebar-save-status ' + status;
+    if (status === 'saving') {
+        statusEl.textContent = 'Saving...';
+    } else if (status === 'saved') {
+        statusEl.textContent = '✓ Saved';
+        setTimeout(() => {
+            statusEl.textContent = '';
+            statusEl.className = 'sidebar-save-status';
+        }, 2000);
+    } else if (status === 'error') {
+        statusEl.textContent = '✗ Error';
+    }
+}
+
+function setupSidebarAutoSave() {
+    // Inputs that trigger auto-save
+    const inputIds = [
+        'sidebarNodeText', 'sidebarOptionText', 'sidebarIsStart',
+        'sidebarStatType', 'sidebarStatRequired', 'sidebarEffectId', 'sidebarEffectAmount', 'sidebarEnemyId',
+        'sidebarRewardType', 'sidebarRewardStatType', 'sidebarRewardStatAmount',
+        'sidebarRewardItem', 'sidebarRewardPerk', 'sidebarRewardBlessing', 'sidebarRewardPotion',
+        'sidebarOptionType'
+    ];
+    
+    inputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        
+        const eventType = el.type === 'checkbox' || el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(eventType, () => {
+            // Handle option type change
+            if (id === 'sidebarOptionType') {
+                updateOptionTypeFields();
+            }
+            // Handle reward type change
+            if (id === 'sidebarRewardType') {
+                updateRewardTypeFields();
+            }
+            debouncedSaveOption();
+        });
+    });
+}
+
+function updateOptionTypeFields() {
+    const optionType = document.getElementById('sidebarOptionType')?.value || 'dialogue';
+    
+    // Hide all option type field groups
+    document.getElementById('optionTypeStatCheck')?.style && (document.getElementById('optionTypeStatCheck').style.display = 'none');
+    document.getElementById('optionTypeEffectCheck')?.style && (document.getElementById('optionTypeEffectCheck').style.display = 'none');
+    document.getElementById('optionTypeCombat')?.style && (document.getElementById('optionTypeCombat').style.display = 'none');
+    
+    // Show relevant fields
+    switch (optionType) {
+        case 'stat_check':
+            document.getElementById('optionTypeStatCheck') && (document.getElementById('optionTypeStatCheck').style.display = 'block');
+            break;
+        case 'effect_check':
+            document.getElementById('optionTypeEffectCheck') && (document.getElementById('optionTypeEffectCheck').style.display = 'block');
+            break;
+        case 'combat':
+            document.getElementById('optionTypeCombat') && (document.getElementById('optionTypeCombat').style.display = 'block');
+            break;
+    }
+}
+
+function updateRewardTypeFields() {
+    const rewardType = document.getElementById('sidebarRewardType')?.value || '';
+    
+    // Hide all reward type field groups
+    document.getElementById('rewardTypeStat')?.style && (document.getElementById('rewardTypeStat').style.display = 'none');
+    document.getElementById('rewardTypeItem')?.style && (document.getElementById('rewardTypeItem').style.display = 'none');
+    document.getElementById('rewardTypePotion')?.style && (document.getElementById('rewardTypePotion').style.display = 'none');
+    document.getElementById('rewardTypePerk')?.style && (document.getElementById('rewardTypePerk').style.display = 'none');
+    document.getElementById('rewardTypeBlessing')?.style && (document.getElementById('rewardTypeBlessing').style.display = 'none');
+    
+    // Show relevant fields
+    switch (rewardType) {
+        case 'stat':
+            document.getElementById('rewardTypeStat') && (document.getElementById('rewardTypeStat').style.display = 'block');
+            break;
+        case 'item':
+            document.getElementById('rewardTypeItem') && (document.getElementById('rewardTypeItem').style.display = 'block');
+            break;
+        case 'potion':
+            document.getElementById('rewardTypePotion') && (document.getElementById('rewardTypePotion').style.display = 'block');
+            break;
+        case 'perk':
+            document.getElementById('rewardTypePerk') && (document.getElementById('rewardTypePerk').style.display = 'block');
+            break;
+        case 'blessing':
+            document.getElementById('rewardTypeBlessing') && (document.getElementById('rewardTypeBlessing').style.display = 'block');
+            break;
+        // 'talent' has no additional fields
+    }
+}
+
+function determineOptionType(option) {
+    if (option.enemyId) return 'combat';
+    if (option.effectId) return 'effect_check';
+    if (option.statType) return 'stat_check';
+    // If no requirements and the option is terminal (no shows/hides), it might be an end
+    return 'dialogue';
+}
+
+function determineRewardType(option) {
+    if (option.rewardTalent) return 'talent';
+    if (option.rewardItem) return 'item';
+    if (option.rewardPotion) return 'potion';
+    if (option.rewardPerk) return 'perk';
+    if (option.rewardBlessing) return 'blessing';
+    if (option.rewardStatType) return 'stat';
+    return '';
+}
+
 function updateSidebar() {
     const noSelection = document.getElementById('sidebarNoSelection');
     const content = document.getElementById('sidebarContent');
@@ -592,17 +723,26 @@ function updateSidebar() {
     document.getElementById('sidebarOptionText').value = option.optionText || '';
     document.getElementById('sidebarIsStart').checked = option.isStart || false;
     
-    // Requirements
+    // Determine and set option type
+    const optionType = option.optionType || determineOptionType(option);
+    document.getElementById('sidebarOptionType').value = optionType;
+    updateOptionTypeFields();
+    
+    // Option type specific fields
     document.getElementById('sidebarStatType').value = option.statType || '';
     document.getElementById('sidebarStatRequired').value = option.statRequired || '';
     document.getElementById('sidebarEffectId').value = option.effectId || '';
     document.getElementById('sidebarEffectAmount').value = option.effectAmount || '';
     document.getElementById('sidebarEnemyId').value = option.enemyId || '';
     
-    // Rewards
+    // Determine and set reward type
+    const rewardType = option.rewardType || determineRewardType(option);
+    document.getElementById('sidebarRewardType').value = rewardType;
+    updateRewardTypeFields();
+    
+    // Reward type specific fields
     document.getElementById('sidebarRewardStatType').value = option.rewardStatType || '';
     document.getElementById('sidebarRewardStatAmount').value = option.rewardStatAmount || '';
-    document.getElementById('sidebarRewardTalent').checked = option.rewardTalent || false;
     document.getElementById('sidebarRewardItem').value = option.rewardItem || '';
     document.getElementById('sidebarRewardPerk').value = option.rewardPerk || '';
     document.getElementById('sidebarRewardBlessing').value = option.rewardBlessing || '';
@@ -655,19 +795,63 @@ function saveOptionFromSidebar() {
     option.optionText = document.getElementById('sidebarOptionText').value || '';
     option.isStart = document.getElementById('sidebarIsStart').checked;
     
-    option.statType = document.getElementById('sidebarStatType').value || null;
-    option.statRequired = parseInt(document.getElementById('sidebarStatRequired').value) || null;
-    option.effectId = parseInt(document.getElementById('sidebarEffectId').value) || null;
-    option.effectAmount = parseInt(document.getElementById('sidebarEffectAmount').value) || null;
-    option.enemyId = parseInt(document.getElementById('sidebarEnemyId').value) || null;
+    // Option type
+    option.optionType = document.getElementById('sidebarOptionType').value || 'dialogue';
     
-    option.rewardStatType = document.getElementById('sidebarRewardStatType').value || null;
-    option.rewardStatAmount = parseInt(document.getElementById('sidebarRewardStatAmount').value) || null;
-    option.rewardTalent = document.getElementById('sidebarRewardTalent').checked;
-    option.rewardItem = parseInt(document.getElementById('sidebarRewardItem').value) || null;
-    option.rewardPerk = parseInt(document.getElementById('sidebarRewardPerk').value) || null;
-    option.rewardBlessing = parseInt(document.getElementById('sidebarRewardBlessing').value) || null;
-    option.rewardPotion = parseInt(document.getElementById('sidebarRewardPotion').value) || null;
+    // Clear all type-specific fields first, then set based on type
+    option.statType = null;
+    option.statRequired = null;
+    option.effectId = null;
+    option.effectAmount = null;
+    option.enemyId = null;
+    
+    switch (option.optionType) {
+        case 'stat_check':
+            option.statType = document.getElementById('sidebarStatType').value || null;
+            option.statRequired = parseInt(document.getElementById('sidebarStatRequired').value) || null;
+            break;
+        case 'effect_check':
+            option.effectId = parseInt(document.getElementById('sidebarEffectId').value) || null;
+            option.effectAmount = parseInt(document.getElementById('sidebarEffectAmount').value) || null;
+            break;
+        case 'combat':
+            option.enemyId = parseInt(document.getElementById('sidebarEnemyId').value) || null;
+            break;
+    }
+    
+    // Reward type
+    option.rewardType = document.getElementById('sidebarRewardType').value || '';
+    
+    // Clear all reward fields first
+    option.rewardStatType = null;
+    option.rewardStatAmount = null;
+    option.rewardTalent = false;
+    option.rewardItem = null;
+    option.rewardPerk = null;
+    option.rewardBlessing = null;
+    option.rewardPotion = null;
+    
+    switch (option.rewardType) {
+        case 'stat':
+            option.rewardStatType = document.getElementById('sidebarRewardStatType').value || null;
+            option.rewardStatAmount = parseInt(document.getElementById('sidebarRewardStatAmount').value) || null;
+            break;
+        case 'talent':
+            option.rewardTalent = true;
+            break;
+        case 'item':
+            option.rewardItem = parseInt(document.getElementById('sidebarRewardItem').value) || null;
+            break;
+        case 'potion':
+            option.rewardPotion = parseInt(document.getElementById('sidebarRewardPotion').value) || null;
+            break;
+        case 'perk':
+            option.rewardPerk = parseInt(document.getElementById('sidebarRewardPerk').value) || null;
+            break;
+        case 'blessing':
+            option.rewardBlessing = parseInt(document.getElementById('sidebarRewardBlessing').value) || null;
+            break;
+    }
     
     renderQuestOption(option);
     console.log('✅ Option updated from sidebar');

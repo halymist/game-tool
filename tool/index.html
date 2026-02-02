@@ -202,24 +202,24 @@
                                 <path id="questConnectionPreview" class="quest-connection-preview" style="display:none"></path>
                             </svg>
                             
-                            <!-- Quest Starting Slide (like expedition slide) -->
-                            <div id="questStartSlide" class="quest-start-slide">
-                                <div class="quest-start-header">
-                                    <span class="quest-start-badge">🟢 START</span>
-                                    <button class="quest-start-bg-btn" onclick="window.openQuestAssetModal()" title="Set background">🖼️</button>
-                                </div>
-                                <div id="questSlideBody" class="quest-start-body" onclick="window.openQuestAssetModal()">
-                                    <div class="quest-start-placeholder">
-                                        <span>📷</span>
-                                        <p>Click to set background</p>
+                            <div id="questOptionsContainer" class="quest-options-container">
+                                <!-- Quest Starting Slide (inside container to zoom/pan with nodes) -->
+                                <div id="questStartSlide" class="quest-start-slide">
+                                    <div class="quest-start-header">
+                                        <span class="quest-start-badge">🟢 START</span>
+                                        <button class="quest-start-bg-btn" onclick="window.openQuestAssetModal()" title="Set background">🖼️</button>
+                                    </div>
+                                    <div id="questSlideBody" class="quest-start-body" onclick="window.openQuestAssetModal()">
+                                        <div class="quest-start-placeholder">
+                                            <span>📷</span>
+                                            <p>Click to set background</p>
+                                        </div>
+                                    </div>
+                                    <div class="quest-start-content">
+                                        <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onchange="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
                                     </div>
                                 </div>
-                                <div class="quest-start-content">
-                                    <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onchange="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
-                                </div>
                             </div>
-                            
-                            <div id="questOptionsContainer" class="quest-options-container"></div>
                             
                             <!-- Navigation Controls -->
                             <div class="quest-nav-controls">
@@ -260,6 +260,7 @@
                             <div class="sidebar-header">
                                 <h3>Option Properties</h3>
                                 <span id="sidebarOptionId" class="sidebar-option-id">Option ID: --</span>
+                                <span id="sidebarSaveStatus" class="sidebar-save-status"></span>
                             </div>
                             
                             <!-- Basic Info -->
@@ -279,98 +280,147 @@
                                 </div>
                             </div>
                             
-                            <!-- Requirements -->
+                            <!-- Option Type -->
                             <div class="sidebar-section">
-                                <h4>📊 Requirements</h4>
-                                <div class="sidebar-row">
-                                    <div class="sidebar-field">
-                                        <label>Stat Type:</label>
-                                        <select id="sidebarStatType">
-                                            <option value="">-- None --</option>
-                                            <option value="strength">Strength</option>
-                                            <option value="stamina">Stamina</option>
-                                            <option value="agility">Agility</option>
-                                            <option value="luck">Luck</option>
-                                            <option value="armor">Armor</option>
-                                        </select>
-                                    </div>
-                                    <div class="sidebar-field">
-                                        <label>Required:</label>
-                                        <input type="number" id="sidebarStatRequired" placeholder="0">
-                                    </div>
-                                </div>
-                                <div class="sidebar-row">
-                                    <div class="sidebar-field">
-                                        <label>Effect:</label>
-                                        <select id="sidebarEffectId">
-                                            <option value="">-- None --</option>
-                                        </select>
-                                    </div>
-                                    <div class="sidebar-field">
-                                        <label>Amount:</label>
-                                        <input type="number" id="sidebarEffectAmount" placeholder="0">
-                                    </div>
-                                </div>
+                                <h4>🎯 Option Type</h4>
                                 <div class="sidebar-field">
-                                    <label>⚔️ Enemy (Combat):</label>
-                                    <select id="sidebarEnemyId">
-                                        <option value="">-- None --</option>
+                                    <label>Type:</label>
+                                    <select id="sidebarOptionType">
+                                        <option value="dialogue">💬 Dialogue</option>
+                                        <option value="stat_check">📊 Stat Check</option>
+                                        <option value="effect_check">✨ Effect Check</option>
+                                        <option value="combat">⚔️ Combat</option>
+                                        <option value="end">🏁 Quest End</option>
                                     </select>
+                                </div>
+                                
+                                <!-- Stat Check Fields -->
+                                <div id="optionTypeStatCheck" class="option-type-fields" style="display:none;">
+                                    <div class="sidebar-row">
+                                        <div class="sidebar-field">
+                                            <label>Stat:</label>
+                                            <select id="sidebarStatType">
+                                                <option value="">-- Select --</option>
+                                                <option value="strength">Strength</option>
+                                                <option value="stamina">Stamina</option>
+                                                <option value="agility">Agility</option>
+                                                <option value="luck">Luck</option>
+                                                <option value="armor">Armor</option>
+                                            </select>
+                                        </div>
+                                        <div class="sidebar-field">
+                                            <label>Required:</label>
+                                            <input type="number" id="sidebarStatRequired" placeholder="0">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Effect Check Fields -->
+                                <div id="optionTypeEffectCheck" class="option-type-fields" style="display:none;">
+                                    <div class="sidebar-row">
+                                        <div class="sidebar-field">
+                                            <label>Effect:</label>
+                                            <select id="sidebarEffectId">
+                                                <option value="">-- Select --</option>
+                                            </select>
+                                        </div>
+                                        <div class="sidebar-field">
+                                            <label>Amount:</label>
+                                            <input type="number" id="sidebarEffectAmount" placeholder="0">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Combat Fields -->
+                                <div id="optionTypeCombat" class="option-type-fields" style="display:none;">
+                                    <div class="sidebar-field">
+                                        <label>Enemy:</label>
+                                        <select id="sidebarEnemyId">
+                                            <option value="">-- Select Enemy --</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             
                             <!-- Rewards -->
                             <div class="sidebar-section">
-                                <h4>🎁 Rewards</h4>
-                                <div class="sidebar-row">
-                                    <div class="sidebar-field">
-                                        <label>Stat Type:</label>
-                                        <select id="sidebarRewardStatType">
-                                            <option value="">-- None --</option>
-                                            <option value="strength">Strength</option>
-                                            <option value="stamina">Stamina</option>
-                                            <option value="agility">Agility</option>
-                                            <option value="luck">Luck</option>
-                                            <option value="armor">Armor</option>
-                                        </select>
-                                    </div>
-                                    <div class="sidebar-field">
-                                        <label>Amount:</label>
-                                        <input type="number" id="sidebarRewardStatAmount" placeholder="0">
+                                <h4>🎁 Reward</h4>
+                                <div class="sidebar-field">
+                                    <label>Reward Type:</label>
+                                    <select id="sidebarRewardType">
+                                        <option value="">-- None --</option>
+                                        <option value="stat">📊 Stat Bonus</option>
+                                        <option value="talent">⭐ Talent Point</option>
+                                        <option value="item">🎒 Item</option>
+                                        <option value="potion">🧪 Potion</option>
+                                        <option value="perk">💪 Perk</option>
+                                        <option value="blessing">🙏 Blessing</option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Stat Reward Fields -->
+                                <div id="rewardTypeStat" class="reward-type-fields" style="display:none;">
+                                    <div class="sidebar-row">
+                                        <div class="sidebar-field">
+                                            <label>Stat:</label>
+                                            <select id="sidebarRewardStatType">
+                                                <option value="">-- Select --</option>
+                                                <option value="strength">Strength</option>
+                                                <option value="stamina">Stamina</option>
+                                                <option value="agility">Agility</option>
+                                                <option value="luck">Luck</option>
+                                                <option value="armor">Armor</option>
+                                            </select>
+                                        </div>
+                                        <div class="sidebar-field">
+                                            <label>Amount:</label>
+                                            <input type="number" id="sidebarRewardStatAmount" placeholder="0">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="sidebar-checkbox">
-                                    <input type="checkbox" id="sidebarRewardTalent">
-                                    <label for="sidebarRewardTalent">⭐ Talent Point</label>
-                                </div>
-                                <div class="sidebar-row">
+                                
+                                <!-- Item Reward Fields -->
+                                <div id="rewardTypeItem" class="reward-type-fields" style="display:none;">
                                     <div class="sidebar-field">
                                         <label>Item:</label>
                                         <select id="sidebarRewardItem">
-                                            <option value="">-- None --</option>
+                                            <option value="">-- Select Item --</option>
                                         </select>
                                     </div>
+                                </div>
+                                
+                                <!-- Potion Reward Fields -->
+                                <div id="rewardTypePotion" class="reward-type-fields" style="display:none;">
                                     <div class="sidebar-field">
                                         <label>Potion:</label>
                                         <select id="sidebarRewardPotion">
-                                            <option value="">-- None --</option>
+                                            <option value="">-- Select Potion --</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div class="sidebar-row">
+                                
+                                <!-- Perk Reward Fields -->
+                                <div id="rewardTypePerk" class="reward-type-fields" style="display:none;">
                                     <div class="sidebar-field">
                                         <label>Perk:</label>
                                         <select id="sidebarRewardPerk">
-                                            <option value="">-- None --</option>
-                                        </select>
-                                    </div>
-                                    <div class="sidebar-field">
-                                        <label>Blessing:</label>
-                                        <select id="sidebarRewardBlessing">
-                                            <option value="">-- None --</option>
+                                            <option value="">-- Select Perk --</option>
                                         </select>
                                     </div>
                                 </div>
+                                
+                                <!-- Blessing Reward Fields -->
+                                <div id="rewardTypeBlessing" class="reward-type-fields" style="display:none;">
+                                    <div class="sidebar-field">
+                                        <label>Blessing:</label>
+                                        <select id="sidebarRewardBlessing">
+                                            <option value="">-- Select Blessing --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Hidden checkbox for talent (used when reward type is talent) -->
+                                <input type="hidden" id="sidebarRewardTalent">
                             </div>
                             
                             <!-- Visibility Rules -->
@@ -389,8 +439,7 @@
                             
                             <!-- Actions -->
                             <div class="sidebar-actions">
-                                <button id="sidebarSaveOption" class="btn-save">💾 Save Changes</button>
-                                <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">🗑️ Delete</button>
+                                <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">🗑️ Delete Option</button>
                             </div>
                         </div>
                     </div>
