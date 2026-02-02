@@ -1,0 +1,1280 @@
+/* Quest Designer - Visual Option Network Editor Styles */
+
+.quest-designer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: #1a1a2e;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Toolbar */
+.quest-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: #16213e;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.quest-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.quest-toolbar-left h2 {
+    margin: 0;
+    color: #e94560;
+    font-size: 1.3rem;
+}
+
+.quest-toolbar-left label {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.quest-toolbar-left select {
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-width: 150px;
+}
+
+.quest-toolbar-left select:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+#questOptionCounter {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.quest-zoom-indicator {
+    color: #4ecdc4;
+    font-size: 0.85rem;
+    background: rgba(78, 205, 196, 0.1);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.quest-zoom-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: rgba(78, 205, 196, 0.15);
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    color: #4ecdc4;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.quest-zoom-btn:hover {
+    background: rgba(78, 205, 196, 0.3);
+    border-color: #4ecdc4;
+}
+
+.quest-toolbar-right {
+    display: flex;
+    gap: 10px;
+}
+
+/* Canvas */
+.quest-canvas {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: 
+        radial-gradient(circle at 50% 50%, #1a1a2e 0%, #0d0d1a 100%),
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    cursor: grab;
+    touch-action: none;
+}
+
+.quest-canvas:active {
+    cursor: grabbing;
+}
+
+/* Options Container */
+.quest-options-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    transition: none;
+}
+
+/* Option Node */
+.quest-option-node {
+    position: absolute;
+    width: 280px;
+    background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
+    border: 2px solid #1a4a7a;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: move;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.quest-option-node:hover {
+    border-color: #4ecdc4;
+}
+
+.quest-option-node.selected {
+    border-color: #e94560;
+    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+}
+
+.quest-option-node.start-option {
+    border-color: #4caf50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
+}
+
+.quest-option-node.new-option {
+    border-color: #ffc107;
+    box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
+}
+
+.quest-option-node.modified-option {
+    border-color: #ff9800;
+    box-shadow: 0 0 15px rgba(255, 152, 0, 0.2);
+}
+
+.quest-option-node.dragging {
+    opacity: 0.9;
+    z-index: 1000;
+    cursor: grabbing;
+}
+
+/* Option Header */
+.option-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.start-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: #4caf50;
+    font-size: 0.8rem;
+}
+
+.start-checkbox input[type="checkbox"] {
+    accent-color: #4caf50;
+}
+
+.delete-option-btn {
+    background: rgba(233, 69, 96, 0.2);
+    border: 1px solid rgba(233, 69, 96, 0.4);
+    color: #e94560;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.delete-option-btn:hover {
+    background: rgba(233, 69, 96, 0.4);
+}
+
+/* Option Text Areas */
+.option-node-text,
+.option-choice-text {
+    margin-bottom: 10px;
+}
+
+.option-node-text label,
+.option-choice-text label {
+    display: block;
+    color: #888;
+    font-size: 0.75rem;
+    margin-bottom: 4px;
+}
+
+.option-node-text textarea {
+    width: 100%;
+    min-height: 60px;
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    resize: vertical;
+}
+
+.option-choice-text input {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.option-node-text textarea:focus,
+.option-choice-text input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+/* Requirements & Rewards */
+.option-requirement,
+.option-reward {
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+}
+
+.option-requirement {
+    background: rgba(78, 205, 196, 0.1);
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    color: #4ecdc4;
+}
+
+.option-requirement.stat-req {
+    background: rgba(33, 150, 243, 0.1);
+    border-color: rgba(33, 150, 243, 0.3);
+    color: #2196f3;
+}
+
+.option-requirement.effect-req {
+    background: rgba(156, 39, 176, 0.1);
+    border-color: rgba(156, 39, 176, 0.3);
+    color: #9c27b0;
+}
+
+.option-requirement.combat-req {
+    background: rgba(233, 69, 96, 0.1);
+    border-color: rgba(233, 69, 96, 0.3);
+    color: #e94560;
+}
+
+.option-reward {
+    background: rgba(76, 175, 80, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    color: #4caf50;
+}
+
+/* Option Actions */
+.option-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.option-edit-btn {
+    flex: 1;
+    padding: 6px 12px;
+    background: rgba(78, 205, 196, 0.15);
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    color: #4ecdc4;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.option-edit-btn:hover {
+    background: rgba(78, 205, 196, 0.3);
+}
+
+/* Connectors */
+.option-connectors {
+    display: flex;
+    justify-content: space-around;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.connector {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: crosshair;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.connector-show {
+    background: rgba(76, 175, 80, 0.2);
+    border: 2px solid rgba(76, 175, 80, 0.5);
+}
+
+.connector-show:hover {
+    background: rgba(76, 175, 80, 0.4);
+    transform: scale(1.1);
+}
+
+.connector-hide {
+    background: rgba(233, 69, 96, 0.2);
+    border: 2px solid rgba(233, 69, 96, 0.5);
+}
+
+.connector-hide:hover {
+    background: rgba(233, 69, 96, 0.4);
+    transform: scale(1.1);
+}
+
+/* Connections SVG */
+.quest-connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.quest-connections-svg path {
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+.quest-connection {
+    fill: none;
+    stroke-width: 3;
+}
+
+.quest-connection.show-connection {
+    stroke: rgba(76, 175, 80, 0.7);
+}
+
+.quest-connection.show-connection:hover {
+    stroke: rgba(76, 175, 80, 1);
+    stroke-width: 4;
+}
+
+.quest-connection.hide-connection {
+    stroke: rgba(233, 69, 96, 0.7);
+    stroke-dasharray: 8, 4;
+}
+
+.quest-connection.hide-connection:hover {
+    stroke: rgba(233, 69, 96, 1);
+    stroke-width: 4;
+}
+
+#questConnectionPreview {
+    fill: none;
+    stroke-width: 3;
+    stroke-dasharray: 5, 5;
+    pointer-events: none;
+}
+
+#questConnectionPreview.show-connection {
+    stroke: rgba(76, 175, 80, 0.8);
+}
+
+#questConnectionPreview.hide-connection {
+    stroke: rgba(233, 69, 96, 0.8);
+}
+
+/* Navigation Controls */
+.quest-nav-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 100;
+    background: rgba(20, 20, 35, 0.9);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.quest-nav-controls .nav-row {
+    display: flex;
+    gap: 4px;
+}
+
+.quest-nav-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(78, 205, 196, 0.15);
+    border: 1px solid rgba(78, 205, 196, 0.4);
+    color: #4ecdc4;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.quest-nav-btn:hover {
+    background: rgba(78, 205, 196, 0.3);
+    transform: scale(1.05);
+}
+
+.quest-nav-btn.nav-center {
+    background: rgba(233, 69, 96, 0.15);
+    border-color: rgba(233, 69, 96, 0.4);
+    color: #e94560;
+}
+
+/* Modal Styles */
+.quest-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.quest-modal.open {
+    display: flex;
+}
+
+.quest-modal-content {
+    background: #16213e;
+    border: 1px solid #1a4a7a;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.quest-modal-content h3 {
+    color: #e94560;
+    margin: 0 0 20px 0;
+    font-size: 1.2rem;
+}
+
+.quest-modal-content label {
+    display: block;
+    color: #888;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+}
+
+.quest-modal-content input,
+.quest-modal-content select {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+}
+
+.quest-modal-content input:focus,
+.quest-modal-content select:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.quest-modal-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quest-modal-section h4 {
+    color: #4ecdc4;
+    margin: 0 0 12px 0;
+    font-size: 0.95rem;
+}
+
+.quest-modal-row {
+    display: flex;
+    gap: 12px;
+}
+
+.quest-modal-row > div {
+    flex: 1;
+}
+
+.quest-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.quest-modal-actions button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #666;
+    color: #888;
+}
+
+.btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.btn-save {
+    background: #4caf50;
+    border: none;
+    color: white;
+}
+
+.btn-save:hover {
+    background: #5cbf60;
+}
+
+/* Checkbox in modal */
+.quest-modal-content .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.quest-modal-content .checkbox-row input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.quest-modal-content .checkbox-row label {
+    margin: 0;
+    color: #ccc;
+}
+
+/* Connection Legend */
+.connection-legend {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(20, 20, 35, 0.9);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 100;
+}
+
+.connection-legend h4 {
+    margin: 0 0 8px 0;
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+    color: #ccc;
+}
+
+.legend-line {
+    width: 30px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.legend-line.show {
+    background: rgba(76, 175, 80, 0.7);
+}
+
+.legend-line.hide {
+    background: rgba(233, 69, 96, 0.7);
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(233, 69, 96, 0.7) 0px,
+        rgba(233, 69, 96, 0.7) 8px,
+        transparent 8px,
+        transparent 12px
+    );
+}
+
+/* Buttons */
+.quest-toolbar .btn-primary {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.quest-toolbar .btn-primary:hover {
+    background: #ff6b6b;
+}
+
+.quest-toolbar .btn-secondary {
+    background: #0f3460;
+    color: #ccc;
+    border: 1px solid #1a4a7a;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quest-toolbar .btn-secondary:hover {
+    background: #1a4a7a;
+    color: white;
+}
+
+.quest-toolbar .btn-success {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.quest-toolbar .btn-success:hover {
+    background: linear-gradient(135deg, #5cbf60, #4caf50);
+}
+
+.quest-toolbar .btn-success:disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+/* ==================== NEW SIDEBAR LAYOUT ==================== */
+
+/* Main Area with Canvas and Sidebar */
+.quest-main-area {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* Canvas Wrapper */
+.quest-canvas-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Quest Starting Slide (like expedition slide) */
+.quest-start-slide {
+    position: absolute;
+    top: 80px;
+    left: 40px;
+    width: 320px;
+    height: 480px;
+    background: linear-gradient(145deg, #1e2a4a, #16213e);
+    border: 2px solid #4ade80;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(74, 222, 128, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 50;
+}
+
+.quest-start-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.quest-start-badge {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.quest-start-bg-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.quest-start-bg-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.quest-start-body {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    min-height: 200px;
+}
+
+.quest-start-body.has-image {
+    background-color: transparent;
+}
+
+.quest-start-body.has-image .quest-start-placeholder {
+    opacity: 0;
+}
+
+.quest-start-body:hover .quest-start-placeholder {
+    opacity: 1;
+}
+
+.quest-start-body:hover.has-image .quest-start-placeholder {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.quest-start-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    transition: all 0.3s;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.quest-start-placeholder span {
+    font-size: 2.5rem;
+}
+
+.quest-start-placeholder p {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.quest-start-content {
+    padding: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.quest-start-text {
+    width: 100%;
+    min-height: 100px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 10px;
+    color: #fff;
+    font-size: 0.9rem;
+    resize: vertical;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.quest-start-text:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.quest-start-text::placeholder {
+    color: #666;
+}
+
+/* Old quest-slide-preview styles - keeping for modal */
+.quest-slide-preview {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-bottom: 2px solid #0f3460;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.quest-slide-preview:hover {
+    background-color: rgba(78, 205, 196, 0.05);
+}
+
+.quest-slide-preview.has-image {
+    background-color: transparent;
+}
+
+.quest-slide-preview.has-image .quest-slide-placeholder {
+    opacity: 0;
+}
+
+.quest-slide-preview:hover.has-image .quest-slide-placeholder {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.quest-slide-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    transition: all 0.3s;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.quest-slide-placeholder span {
+    font-size: 3rem;
+}
+
+.quest-slide-placeholder p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Canvas adjustment */
+.quest-canvas-wrapper .quest-canvas {
+    flex: 1;
+}
+
+/* Right Sidebar */
+.quest-option-sidebar {
+    width: 340px;
+    background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
+    border-left: 2px solid #0f3460;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+/* No Selection State */
+.sidebar-no-selection {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    padding: 40px;
+    text-align: center;
+}
+
+.sidebar-no-selection span {
+    font-size: 4rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.sidebar-no-selection p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Sidebar Content */
+.sidebar-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    color: #e94560;
+    font-size: 1.1rem;
+}
+
+.sidebar-option-id {
+    color: #888;
+    font-size: 0.8rem;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.sidebar-section h4 {
+    margin: 0 0 12px 0;
+    color: #4ecdc4;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Sidebar Fields */
+.sidebar-field {
+    margin-bottom: 10px;
+}
+
+.sidebar-field:last-child {
+    margin-bottom: 0;
+}
+
+.sidebar-field label {
+    display: block;
+    color: #888;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+}
+
+.sidebar-field input,
+.sidebar-field select,
+.sidebar-field textarea {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+
+.sidebar-field input:focus,
+.sidebar-field select:focus,
+.sidebar-field textarea:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
+.sidebar-field textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Sidebar Row (two columns) */
+.sidebar-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.sidebar-row:last-child {
+    margin-bottom: 0;
+}
+
+.sidebar-row .sidebar-field {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+/* Sidebar Checkbox */
+.sidebar-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.sidebar-checkbox input[type="checkbox"] {
+    width: auto;
+    accent-color: #4ecdc4;
+}
+
+.sidebar-checkbox label {
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+/* Visibility Tags */
+.visibility-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 28px;
+}
+
+.vis-tag {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.vis-tag.show {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.5);
+    color: #4caf50;
+}
+
+.vis-tag.show:hover {
+    background: rgba(76, 175, 80, 0.3);
+}
+
+.vis-tag.hide {
+    background: rgba(233, 69, 96, 0.2);
+    border: 1px solid rgba(233, 69, 96, 0.5);
+    color: #e94560;
+}
+
+.vis-tag.hide:hover {
+    background: rgba(233, 69, 96, 0.3);
+}
+
+.vis-none {
+    color: #666;
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.sidebar-hint {
+    color: #666;
+    font-size: 0.75rem;
+    margin: 8px 0 0 0;
+    font-style: italic;
+}
+
+/* Sidebar Actions */
+.sidebar-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-actions .btn-save {
+    flex: 1;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    border: none;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.sidebar-actions .btn-save:hover {
+    background: linear-gradient(135deg, #5cbf60, #4caf50);
+}
+
+.sidebar-actions .btn-delete {
+    padding: 10px 16px;
+    background: rgba(233, 69, 96, 0.2);
+    border: 1px solid rgba(233, 69, 96, 0.5);
+    color: #e94560;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.sidebar-actions .btn-delete:hover {
+    background: rgba(233, 69, 96, 0.4);
+}
+
+/* ==================== UPDATED OPTION NODE STYLE ==================== */
+
+/* Simpler node style for sidebar-based editing */
+.quest-option-node {
+    position: absolute;
+    width: 200px;
+    background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
+    border: 2px solid #1a4a7a;
+    border-radius: 10px;
+    padding: 0;
+    cursor: move;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.option-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.option-icon {
+    font-size: 1.1rem;
+}
+
+.option-title {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.option-node-body {
+    padding: 10px 12px;
+}
+
+.option-node-body p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #aaa;
+    line-height: 1.4;
+}
+
+.option-node-body p.placeholder {
+    color: #666;
+    font-style: italic;
+}
+
+/* Combat option */
+.quest-option-node.combat-option {
+    border-color: #e94560;
+    box-shadow: 0 0 15px rgba(233, 69, 96, 0.2);
+}
+
+.quest-option-node.combat-option .option-node-header {
+    background: rgba(233, 69, 96, 0.1);
+}
+
+/* ==================== QUEST ASSET MODAL ==================== */
+
+.quest-asset-modal-content {
+    max-width: 700px;
+}
+
+.quest-asset-upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    border: 2px dashed #1a4a7a;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 16px;
+}
+
+.quest-asset-upload-area:hover,
+.quest-asset-upload-area.dragover {
+    border-color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.05);
+}
+
+.quest-asset-upload-area span {
+    font-size: 2.5rem;
+    margin-bottom: 8px;
+}
+
+.quest-asset-upload-area p {
+    margin: 0;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.quest-asset-upload-status {
+    text-align: center;
+    padding: 8px;
+    color: #4ecdc4;
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+.quest-asset-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.quest-asset-item {
+    aspect-ratio: 16/9;
+    border: 2px solid #1a4a7a;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quest-asset-item:hover {
+    border-color: #4ecdc4;
+    transform: scale(1.02);
+}
+
+.quest-asset-item.selected {
+    border-color: #e94560;
+    box-shadow: 0 0 12px rgba(233, 69, 96, 0.4);
+}
+
+.quest-asset-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -153,10 +154,281 @@
 
         <!-- Quest Manager Section -->
         <div id="quests-content" class="page-content" style="display: none;">
-            <div class="tool-header">
-                <div class="tool-icon">🗡️</div>
-                <h1>Quest Manager</h1>
-                <p>Create and manage quests, objectives, and rewards for your players.</p>
+            <div class="quest-designer-container">
+                <!-- Toolbar -->
+                <div class="quest-toolbar">
+                    <div class="quest-toolbar-left">
+                        <h2>🗡️ Quest Designer</h2>
+                        <div class="quest-settlement-select">
+                            <label>Settlement:</label>
+                            <select id="questSettlementSelect" onchange="window.onQuestSettlementChange && window.onQuestSettlementChange()">
+                            </select>
+                        </div>
+                        <div class="quest-select">
+                            <label>Quest:</label>
+                            <select id="questSelect" onchange="window.onQuestChange && window.onQuestChange()">
+                                <option value="">-- Select Quest --</option>
+                            </select>
+                        </div>
+                        <span id="questOptionCounter">0 options</span>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <button class="quest-zoom-btn" title="Zoom Out" onclick="window.changeQuestZoom(-0.1)">−</button>
+                            <span id="questZoomIndicator" class="quest-zoom-indicator">100%</span>
+                            <button class="quest-zoom-btn" title="Zoom In" onclick="window.changeQuestZoom(0.1)">+</button>
+                        </div>
+                    </div>
+                    <div class="quest-toolbar-right">
+                        <button id="newQuestBtn" class="btn-secondary">+ New Quest</button>
+                        <button id="addOptionBtn" class="btn-primary">+ Add Option</button>
+                        <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
+                    </div>
+                </div>
+                
+                <!-- Main content area with canvas and sidebar -->
+                <div class="quest-main-area">
+                    <!-- Canvas Area -->
+                    <div class="quest-canvas-wrapper">
+                        <!-- Canvas -->
+                        <div id="questCanvas" class="quest-canvas">
+                            <svg id="questConnectionsSvg" class="quest-connections-svg">
+                                <defs>
+                                    <marker id="arrowShow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#4ecdc4"/>
+                                    </marker>
+                                    <marker id="arrowHide" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#e94560"/>
+                                    </marker>
+                                </defs>
+                                <path id="questConnectionPreview" class="quest-connection-preview" style="display:none"></path>
+                            </svg>
+                            
+                            <!-- Quest Starting Slide (like expedition slide) -->
+                            <div id="questStartSlide" class="quest-start-slide">
+                                <div class="quest-start-header">
+                                    <span class="quest-start-badge">🟢 START</span>
+                                    <button class="quest-start-bg-btn" onclick="window.openQuestAssetModal()" title="Set background">🖼️</button>
+                                </div>
+                                <div id="questSlideBody" class="quest-start-body" onclick="window.openQuestAssetModal()">
+                                    <div class="quest-start-placeholder">
+                                        <span>📷</span>
+                                        <p>Click to set background</p>
+                                    </div>
+                                </div>
+                                <div class="quest-start-content">
+                                    <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onchange="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
+                                </div>
+                            </div>
+                            
+                            <div id="questOptionsContainer" class="quest-options-container"></div>
+                            
+                            <!-- Navigation Controls -->
+                            <div class="quest-nav-controls">
+                                <button class="quest-nav-btn" onclick="window.panQuestCanvas(0, 100)" title="Pan Up">▲</button>
+                                <div class="nav-row">
+                                    <button class="quest-nav-btn" onclick="window.panQuestCanvas(100, 0)" title="Pan Left">◀</button>
+                                    <button class="quest-nav-btn nav-center" onclick="window.resetQuestView()" title="Reset View">⊙</button>
+                                    <button class="quest-nav-btn" onclick="window.panQuestCanvas(-100, 0)" title="Pan Right">▶</button>
+                                </div>
+                                <button class="quest-nav-btn" onclick="window.panQuestCanvas(0, -100)" title="Pan Down">▼</button>
+                            </div>
+                            
+                            <!-- Connection Legend -->
+                            <div class="connection-legend">
+                                <h4>Connections</h4>
+                                <div class="legend-item">
+                                    <div class="legend-line show"></div>
+                                    <span>Shows option</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-line hide"></div>
+                                    <span>Hides option</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Sidebar - Option Properties -->
+                    <div id="questOptionSidebar" class="quest-option-sidebar">
+                        <!-- No selection state -->
+                        <div id="sidebarNoSelection" class="sidebar-no-selection">
+                            <span>📋</span>
+                            <p>Select an option node to edit its properties</p>
+                        </div>
+                        
+                        <!-- Option content (hidden until selection) -->
+                        <div id="sidebarContent" class="sidebar-content" style="display: none;">
+                            <div class="sidebar-header">
+                                <h3>Option Properties</h3>
+                                <span id="sidebarOptionId" class="sidebar-option-id">Option ID: --</span>
+                            </div>
+                            
+                            <!-- Basic Info -->
+                            <div class="sidebar-section">
+                                <h4>📝 Basic Info</h4>
+                                <div class="sidebar-field">
+                                    <label>Option Text (player clicks):</label>
+                                    <input type="text" id="sidebarOptionText" placeholder="What the player clicks...">
+                                </div>
+                                <div class="sidebar-field">
+                                    <label>Node Text (description):</label>
+                                    <textarea id="sidebarNodeText" rows="3" placeholder="Description shown to player..."></textarea>
+                                </div>
+                                <div class="sidebar-checkbox">
+                                    <input type="checkbox" id="sidebarIsStart">
+                                    <label for="sidebarIsStart">🟢 Starting Option</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Requirements -->
+                            <div class="sidebar-section">
+                                <h4>📊 Requirements</h4>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Stat Type:</label>
+                                        <select id="sidebarStatType">
+                                            <option value="">-- None --</option>
+                                            <option value="strength">Strength</option>
+                                            <option value="stamina">Stamina</option>
+                                            <option value="agility">Agility</option>
+                                            <option value="luck">Luck</option>
+                                            <option value="armor">Armor</option>
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Required:</label>
+                                        <input type="number" id="sidebarStatRequired" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Effect:</label>
+                                        <select id="sidebarEffectId">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Amount:</label>
+                                        <input type="number" id="sidebarEffectAmount" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="sidebar-field">
+                                    <label>⚔️ Enemy (Combat):</label>
+                                    <select id="sidebarEnemyId">
+                                        <option value="">-- None --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Rewards -->
+                            <div class="sidebar-section">
+                                <h4>🎁 Rewards</h4>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Stat Type:</label>
+                                        <select id="sidebarRewardStatType">
+                                            <option value="">-- None --</option>
+                                            <option value="strength">Strength</option>
+                                            <option value="stamina">Stamina</option>
+                                            <option value="agility">Agility</option>
+                                            <option value="luck">Luck</option>
+                                            <option value="armor">Armor</option>
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Amount:</label>
+                                        <input type="number" id="sidebarRewardStatAmount" placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="sidebar-checkbox">
+                                    <input type="checkbox" id="sidebarRewardTalent">
+                                    <label for="sidebarRewardTalent">⭐ Talent Point</label>
+                                </div>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Item:</label>
+                                        <select id="sidebarRewardItem">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Potion:</label>
+                                        <select id="sidebarRewardPotion">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Perk:</label>
+                                        <select id="sidebarRewardPerk">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Blessing:</label>
+                                        <select id="sidebarRewardBlessing">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Visibility Rules -->
+                            <div class="sidebar-section">
+                                <h4>👁️ Visibility Rules</h4>
+                                <div class="sidebar-field">
+                                    <label>This option reveals:</label>
+                                    <div id="sidebarReveals" class="visibility-tags"></div>
+                                </div>
+                                <div class="sidebar-field">
+                                    <label>This option hides:</label>
+                                    <div id="sidebarHides" class="visibility-tags"></div>
+                                </div>
+                                <p class="sidebar-hint">Drag connectors on nodes to create visibility rules</p>
+                            </div>
+                            
+                            <!-- Actions -->
+                            <div class="sidebar-actions">
+                                <button id="sidebarSaveOption" class="btn-save">💾 Save Changes</button>
+                                <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">🗑️ Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- New Quest Modal -->
+            <div id="newQuestModal" class="quest-modal">
+                <div class="quest-modal-content">
+                    <h3>Create New Quest</h3>
+                    <div>
+                        <label>Quest Name:</label>
+                        <input type="text" id="newQuestName" placeholder="Enter quest name...">
+                    </div>
+                    <div class="quest-modal-actions">
+                        <button class="btn-cancel" onclick="window.closeNewQuestModal()">Cancel</button>
+                        <button class="btn-save" onclick="window.createNewQuest()">Create</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quest Asset Modal -->
+            <div id="questAssetModal" class="quest-modal">
+                <div class="quest-modal-content quest-asset-modal-content">
+                    <h3>Select Quest Background</h3>
+                    <div class="quest-asset-upload-area" id="questAssetUploadArea">
+                        <span>📤</span>
+                        <p>Drop an image here or click to upload</p>
+                        <input type="file" id="questAssetFileInput" accept="image/*" style="display:none">
+                    </div>
+                    <div id="questAssetUploadStatus" class="quest-asset-upload-status" style="display:none"></div>
+                    <div class="quest-asset-gallery" id="questAssetGallery">
+                        <!-- Assets will be populated here -->
+                    </div>
+                    <div class="quest-modal-actions">
+                        <button class="btn-cancel" onclick="window.closeQuestAssetModal()">Cancel</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1323,6 +1595,15 @@
                     console.log('Loading settlement designer data...');
                     window.loadSettlementDesignerData();
                 }
+                
+                // If showing the quest designer, initialize and load data
+                if (pageName === 'quests') {
+                    if (window.initQuestDesigner && !window.questDesignerInitialized) {
+                        console.log('Initializing quest designer...');
+                        window.initQuestDesigner();
+                        window.questDesignerInitialized = true;
+                    }
+                }
             } else {
                 console.error('Element not found:', page.element);
                 return false;
@@ -1379,5 +1660,6 @@
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>
     <script src="http://localhost:8080/static/settlement-designer.js"></script>
+    <script src="http://localhost:8080/static/quest-designer.js"></script>
 </body>
 </html>

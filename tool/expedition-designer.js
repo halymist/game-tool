@@ -2241,7 +2241,8 @@ async function saveExpedition() {
             }
             
             // Re-render slides to update visual (remove new-slide/modified-slide highlight)
-            expeditionState.slides.forEach(slide => renderSlide(slide));
+            // Use filterAndRenderSlides to respect the current settlement filter
+            filterAndRenderSlides();
             
             const parts = [];
             if (slides.length > 0) parts.push(`${slides.length} new slides`);

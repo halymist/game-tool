@@ -216,6 +216,14 @@ func main() {
 	http.HandleFunc("/api/saveSettlement", corsHandler(handleSaveSettlement))
 	http.HandleFunc("/api/deleteSettlement", corsHandler(handleDeleteSettlement))
 
+	// Quest endpoints
+	http.HandleFunc("/api/getQuests", corsHandler(handleGetQuests))
+	http.HandleFunc("/api/createQuest", corsHandler(handleCreateQuest))
+	http.HandleFunc("/api/saveQuest", corsHandler(handleSaveQuest))
+	http.HandleFunc("/api/deleteQuestOption", corsHandler(handleDeleteQuestOption))
+	http.HandleFunc("/api/getQuestAssets", corsHandler(handleGetQuestAssets))
+	http.HandleFunc("/api/uploadQuestAsset", corsHandler(handleUploadQuestAsset))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
