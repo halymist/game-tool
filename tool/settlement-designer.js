@@ -156,8 +156,8 @@ async function loadSettlementDesignerData() {
     // Load settlement assets from GlobalData
     try {
         await loadSettlementAssetsData();
-        settlementState.assets = GlobalData.settlementAssets;
-        console.log('✅ Using GlobalData.settlementAssets:', settlementState.assets?.length || 0, 'assets');
+        settlementState.settlementAssets = GlobalData.settlementAssets;
+        console.log('✅ Using GlobalData.settlementAssets:', settlementState.settlementAssets?.length || 0, 'assets');
     } catch (error) {
         console.error('Error loading settlement assets:', error);
     }

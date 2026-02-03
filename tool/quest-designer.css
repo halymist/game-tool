@@ -1,5 +1,6 @@
-/* Quest Designer - Visual Option Network Editor Styles */
+/* Quest Designer - Visual Quest & Option Network Editor */
 
+/* ==================== CONTAINER ==================== */
 .quest-designer-container {
     display: flex;
     flex-direction: column;
@@ -10,7 +11,7 @@
     overflow: hidden;
 }
 
-/* Toolbar */
+/* ==================== TOOLBAR ==================== */
 .quest-toolbar {
     display: flex;
     justify-content: space-between;
@@ -34,24 +35,30 @@
     font-size: 1.3rem;
 }
 
-.quest-toolbar-left label {
+.quest-settlement-select,
+.quest-select,
+.quest-chain-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quest-settlement-select label,
+.quest-select label,
+.quest-chain-name label {
     color: #888;
     font-size: 0.85rem;
 }
 
-.quest-toolbar-left select {
-    background: #0d1b2a;
+.quest-settlement-select select,
+.quest-select select,
+.quest-chain-name input {
+    background: #0f3460;
     border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 6px 12px;
     border-radius: 4px;
-    font-size: 0.9rem;
-    min-width: 150px;
-}
-
-.quest-toolbar-left select:focus {
-    outline: none;
-    border-color: #4ecdc4;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 0.85rem;
 }
 
 #questOptionCounter {
@@ -66,6 +73,8 @@
     padding: 4px 10px;
     border-radius: 4px;
     font-weight: 500;
+    min-width: 50px;
+    text-align: center;
 }
 
 .quest-zoom-btn {
@@ -95,31 +104,70 @@
     gap: 10px;
 }
 
-/* Chain name input in toolbar */
-.quest-chain-name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* ==================== BUTTONS ==================== */
+.btn-primary {
+    background: #e94560;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
 }
 
-.quest-chain-name input {
-    background: #0d1b2a;
+.btn-primary:hover {
+    background: #ff6b6b;
+}
+
+.btn-secondary {
+    background: #0f3460;
+    color: #ccc;
     border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    min-width: 180px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.quest-chain-name input:focus {
-    outline: none;
-    border-color: #4ecdc4;
+.btn-secondary:hover {
+    background: #1a4a7a;
+    color: white;
 }
 
-/* Canvas */
-.quest-canvas {
+.btn-success {
+    background: linear-gradient(135deg, #4caf50, #45a049);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #5cbf60, #4caf50);
+}
+
+/* ==================== MAIN AREA ==================== */
+.quest-main-area {
     flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.quest-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+/* ==================== CANVAS ==================== */
+.quest-canvas {
+    width: 100%;
+    height: 100%;
     position: relative;
     overflow: hidden;
     background: 
@@ -128,229 +176,413 @@
         linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
     background-size: 100% 100%, 40px 40px, 40px 40px;
     cursor: grab;
-    touch-action: none;
 }
 
-.quest-canvas:active {
+.quest-canvas:active:not(.connecting) {
     cursor: grabbing;
 }
 
-/* Options Container */
+.quest-canvas.connecting {
+    cursor: crosshair !important;
+}
+
+/* ==================== SVG CONNECTIONS ==================== */
+.quest-connections-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    overflow: visible;
+}
+
+.quest-connection-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-dasharray: 6 3;
+    pointer-events: stroke;
+    cursor: pointer;
+    transition: stroke-width 0.2s;
+}
+
+.quest-connection-line:hover {
+    stroke-width: 4;
+    stroke-dasharray: none;
+}
+
+.quest-connection-preview {
+    fill: none;
+    stroke: #4ecdc4;
+    stroke-width: 2;
+    stroke-dasharray: 8 4;
+    opacity: 0.8;
+}
+
+/* ==================== OPTIONS CONTAINER ==================== */
 .quest-options-container {
     position: absolute;
     top: 0;
     left: 0;
+    width: 10000px;
+    height: 10000px;
+    z-index: 10;
     transform-origin: 0 0;
-    transition: none;
 }
 
-/* Option Node */
-.quest-option-node {
+/* ==================== QUEST SLIDE ==================== */
+.quest-slide {
     position: absolute;
-    width: 280px;
-    background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
-    border: 2px solid #1a4a7a;
+    width: 300px;
+    min-height: 400px;
+    background: linear-gradient(145deg, #1e2a4a, #16213e);
+    border: 2px solid #0f3460;
     border-radius: 12px;
-    padding: 12px 20px;
-    cursor: move;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    overflow: visible;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: move;
 }
 
-.quest-option-node:hover {
-    border-color: #4ecdc4;
+.quest-slide:hover {
+    border-color: #1a5a9a;
 }
 
-.quest-option-node.selected {
+.quest-slide.selected {
     border-color: #e94560;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.3);
+    box-shadow: 0 8px 32px rgba(233, 69, 96, 0.3);
 }
 
-.quest-option-node.start-option {
-    border-color: #4caf50;
-    box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
-}
-
-.quest-option-node.new-option {
-    border-color: #ffc107;
-    box-shadow: 0 0 15px rgba(255, 193, 7, 0.2);
-}
-
-.quest-option-node.modified-option {
-    border-color: #ff9800;
-    box-shadow: 0 0 15px rgba(255, 152, 0, 0.2);
-}
-
-.quest-option-node.dragging {
+.quest-slide.dragging {
     opacity: 0.9;
     z-index: 1000;
-    cursor: grabbing;
 }
 
-/* Option Header */
-.option-header {
+.quest-slide.connection-target {
+    border-color: #f59e0b;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+    animation: pulse-target 1s ease-in-out infinite;
+}
+
+@keyframes pulse-target {
+    0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 30px rgba(245, 158, 11, 0.6); }
+}
+
+/* Quest Slide Header */
+.quest-slide-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px 10px 0 0;
+}
+
+.quest-id {
+    color: #888;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.quest-name-input {
+    flex: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 0.9rem;
+    padding: 4px 8px;
+    font-weight: 500;
+}
+
+.quest-name-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.quest-name-input:focus {
+    outline: none;
+    border-color: #e94560;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.quest-bg-btn,
+.quest-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+    padding: 2px 6px;
+}
+
+.quest-bg-btn:hover,
+.quest-delete-btn:hover {
+    opacity: 1;
+}
+
+/* Quest Slide Body */
+.quest-slide-body {
+    flex: 1;
+    padding: 12px;
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    border-radius: 0 0 10px 10px;
+}
+
+.quest-slide-body.has-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    border-radius: 0 0 10px 10px;
+}
+
+.quest-slide-body.has-bg .quest-text-input {
+    position: relative;
+    z-index: 1;
+}
+
+.quest-text-input {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 12px;
+    resize: none;
+    font-family: inherit;
+}
+
+.quest-text-input:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.quest-text-input:focus {
+    outline: none;
+    border-color: #e94560;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+/* Quest Connectors */
+.quest-connector {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    background: #16213e;
+    border: 2px solid #9b59b6;
+    border-radius: 50%;
+    cursor: crosshair;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: #9b59b6;
+    transition: transform 0.2s, background 0.2s;
+    z-index: 20;
+}
+
+.quest-connector-left {
+    left: -10px;
+}
+
+.quest-connector-right {
+    right: -10px;
+}
+
+.quest-connector:hover {
+    transform: translateY(-50%) scale(1.4);
+    background: #9b59b6;
+    color: white;
+}
+
+/* ==================== OPTION NODE ==================== */
+.option-node {
+    position: absolute;
+    width: 220px;
+    min-height: 100px;
+    background: linear-gradient(145deg, #2a3a5a, #1e2a4a);
+    border: 2px solid #3498db;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: move;
+}
+
+.option-node:hover {
+    border-color: #5dade2;
+}
+
+.option-node.selected {
+    border-color: #e94560;
+    box-shadow: 0 4px 16px rgba(233, 69, 96, 0.4);
+}
+
+.option-node.start-option {
+    border-color: #4ade80;
+    box-shadow: 0 4px 16px rgba(74, 222, 128, 0.3);
+}
+
+.option-node.dragging {
+    opacity: 0.9;
+    z-index: 1000;
+}
+
+.option-node.connection-target {
+    border-color: #f59e0b;
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+    animation: pulse-target 1s ease-in-out infinite;
+}
+
+/* Option Node Header */
+.option-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px 8px 0 0;
+}
+
+.option-id {
+    color: #888;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .start-checkbox {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     cursor: pointer;
-    color: #4caf50;
-    font-size: 0.8rem;
+    font-size: 0.65rem;
+    color: #4ade80;
+    margin-left: auto;
 }
 
-.start-checkbox input[type="checkbox"] {
-    accent-color: #4caf50;
-}
-
-.delete-option-btn {
-    background: rgba(233, 69, 96, 0.2);
-    border: 1px solid rgba(233, 69, 96, 0.4);
-    color: #e94560;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
+.start-checkbox input {
+    accent-color: #4ade80;
     cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    transition: all 0.2s;
+    width: 12px;
+    height: 12px;
 }
 
-.delete-option-btn:hover {
-    background: rgba(233, 69, 96, 0.4);
+.start-checkbox span {
+    opacity: 0.5;
+    transition: opacity 0.2s;
 }
 
-/* Option Text Areas */
-.option-node-text,
-.option-choice-text {
-    margin-bottom: 10px;
+.start-checkbox input:checked + span {
+    opacity: 1;
+    font-weight: 600;
 }
 
-.option-node-text label,
-.option-choice-text label {
-    display: block;
+.option-delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
     color: #888;
-    font-size: 0.75rem;
-    margin-bottom: 4px;
+    opacity: 0.4;
+    transition: opacity 0.2s, color 0.2s;
+    padding: 0 4px;
 }
 
-.option-node-text textarea {
-    width: 100%;
-    min-height: 60px;
-    background: #0d1b2a;
-    border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    resize: vertical;
-}
-
-.option-choice-text input {
-    width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-}
-
-.option-node-text textarea:focus,
-.option-choice-text input:focus {
-    outline: none;
-    border-color: #4ecdc4;
-}
-
-/* Requirements & Rewards */
-.option-requirement,
-.option-reward {
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    margin-bottom: 8px;
-}
-
-.option-requirement {
-    background: rgba(78, 205, 196, 0.1);
-    border: 1px solid rgba(78, 205, 196, 0.3);
-    color: #4ecdc4;
-}
-
-.option-requirement.stat-req {
-    background: rgba(33, 150, 243, 0.1);
-    border-color: rgba(33, 150, 243, 0.3);
-    color: #2196f3;
-}
-
-.option-requirement.effect-req {
-    background: rgba(156, 39, 176, 0.1);
-    border-color: rgba(156, 39, 176, 0.3);
-    color: #9c27b0;
-}
-
-.option-requirement.combat-req {
-    background: rgba(233, 69, 96, 0.1);
-    border-color: rgba(233, 69, 96, 0.3);
+.option-delete-btn:hover {
+    opacity: 1;
     color: #e94560;
 }
 
-.option-reward {
-    background: rgba(76, 175, 80, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.3);
-    color: #4caf50;
-}
-
-/* Option Actions */
-.option-actions {
+/* Option Node Body */
+.option-node-body {
+    padding: 10px;
     display: flex;
+    flex-direction: column;
     gap: 8px;
-    margin-bottom: 10px;
 }
 
-.option-edit-btn {
-    flex: 1;
-    padding: 6px 12px;
-    background: rgba(78, 205, 196, 0.15);
-    border: 1px solid rgba(78, 205, 196, 0.3);
-    color: #4ecdc4;
+.option-text-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
     border-radius: 4px;
-    cursor: pointer;
+    color: #fff;
+    font-size: 0.9rem;
+    padding: 8px;
+    font-weight: 500;
+}
+
+.option-text-input:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.option-text-input:focus {
+    outline: none;
+    border-color: #3498db;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.option-node-text-input {
+    width: 100%;
+    min-height: 50px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #aaa;
     font-size: 0.8rem;
-    transition: all 0.2s;
+    padding: 8px;
+    resize: none;
+    font-family: inherit;
 }
 
-.option-edit-btn:hover {
-    background: rgba(78, 205, 196, 0.3);
+.option-node-text-input:hover {
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Two-sided Connectors */
+.option-node-text-input:focus {
+    outline: none;
+    border-color: #3498db;
+    color: #fff;
+}
+
+/* Option Connectors */
 .option-connector {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
-    background: rgba(100, 149, 237, 0.3);
-    border: 2px solid rgba(100, 149, 237, 0.6);
+    width: 14px;
+    height: 14px;
+    background: #16213e;
+    border: 2px solid #e94560;
     border-radius: 50%;
+    cursor: crosshair;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: crosshair;
-    transition: all 0.2s;
-    font-size: 10px;
-    color: rgba(100, 149, 237, 0.8);
-    z-index: 5;
+    font-size: 7px;
+    color: #e94560;
+    transition: transform 0.2s, background 0.2s;
+    z-index: 20;
 }
 
 .option-connector-left {
@@ -362,162 +594,12 @@
 }
 
 .option-connector:hover {
-    background: rgba(100, 149, 237, 0.6);
-    border-color: rgba(100, 149, 237, 1);
-    transform: translateY(-50%) scale(1.2);
+    transform: translateY(-50%) scale(1.4);
+    background: #e94560;
     color: white;
 }
 
-.option-node-content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-}
-
-/* Inline input styles for option nodes */
-.option-title-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid rgba(100, 149, 237, 0.3);
-    color: #fff;
-    font-size: 0.9rem;
-    font-weight: 500;
-    padding: 4px 6px;
-    margin-left: 8px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.option-title-input:focus {
-    border-bottom-color: #4ecdc4;
-}
-
-.option-title-input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.option-node-textarea {
-    flex: 1;
-    width: 100%;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(100, 149, 237, 0.2);
-    border-radius: 6px;
-    color: #e0e0e0;
-    font-size: 0.8rem;
-    padding: 8px;
-    resize: none;
-    outline: none;
-    min-height: 100px;
-    margin-top: 8px;
-    transition: border-color 0.2s;
-}
-
-.option-node-textarea:focus {
-    border-color: #4ecdc4;
-}
-
-.option-node-textarea::placeholder {
-    color: rgba(255, 255, 255, 0.35);
-}
-
-/* Connecting state */
-.quest-canvas.connecting {
-    cursor: crosshair !important;
-}
-
-.quest-canvas.connecting .quest-option-node,
-.quest-canvas.connecting .quest-slide {
-    cursor: pointer !important;
-}
-
-.quest-canvas.connecting .quest-option-node.connection-target,
-.quest-canvas.connecting .quest-slide.connection-target {
-    cursor: pointer !important;
-    border-color: #4ecdc4 !important;
-    box-shadow: 0 0 20px rgba(78, 205, 196, 0.5) !important;
-}
-
-/* CRITICAL: Disable pointer-events on ALL children during connecting so the node itself receives the drop */
-.quest-canvas.connecting .quest-option-node *,
-.quest-canvas.connecting .quest-slide * {
-    pointer-events: none !important;
-}
-
-/* But keep connectors active so we can start dragging from them */
-.quest-canvas.connecting .option-connector {
-    pointer-events: auto !important;
-}
-
-/* Quest connector styling during connection */
-.quest-canvas.connecting .quest-connector {
-    pointer-events: auto !important;
-    background: rgba(78, 205, 196, 0.5) !important;
-    border-color: #4ecdc4 !important;
-}
-
-/* Connections SVG */
-.quest-connections-svg {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 1;
-}
-
-.quest-connections-svg path {
-    pointer-events: stroke;
-    cursor: pointer;
-}
-
-/* Expedition-style connection lines */
-.quest-connection {
-    fill: none;
-    stroke: #e94560;
-    stroke-width: 1.5;
-    stroke-dasharray: 6 3;
-    pointer-events: stroke;
-    cursor: pointer;
-    transition: stroke 0.2s, stroke-width 0.2s;
-}
-
-.quest-connection:hover {
-    stroke: #ff6b6b;
-    stroke-width: 2.5;
-    stroke-dasharray: none;
-}
-
-/* Option to Quest connections - green solid */
-.quest-connection.option-to-quest {
-    stroke: #4ade80;
-    stroke-width: 2;
-    stroke-dasharray: none;
-}
-
-.quest-connection.option-to-quest:hover {
-    stroke: #6ee7a0;
-    stroke-width: 3;
-}
-
-/* Option to Option connections - red dashed */
-.quest-connection.option-to-option {
-    stroke: #e94560;
-    stroke-dasharray: 6 3;
-}
-
-#questConnectionPreview {
-    fill: none;
-    stroke: #4ecdc4;
-    stroke-width: 2;
-    stroke-dasharray: 8 4;
-    opacity: 0.8;
-}
-
-/* Navigation Controls */
+/* ==================== NAV CONTROLS ==================== */
 .quest-nav-controls {
     position: absolute;
     bottom: 20px;
@@ -565,18 +647,134 @@
     color: #e94560;
 }
 
-/* Modal Styles */
+.quest-nav-btn.nav-center:hover {
+    background: rgba(233, 69, 96, 0.3);
+}
+
+/* ==================== SIDEBAR ==================== */
+.quest-option-sidebar {
+    width: 320px;
+    background: #16213e;
+    border-left: 1px solid #0f3460;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.sidebar-no-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #555;
+    text-align: center;
+    padding: 40px;
+}
+
+.sidebar-no-selection span {
+    font-size: 3rem;
+    margin-bottom: 16px;
+}
+
+.sidebar-content {
+    padding: 16px;
+}
+
+.sidebar-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.sidebar-header h3 {
+    margin: 0 0 8px 0;
+    color: #e94560;
+    font-size: 1.1rem;
+}
+
+.sidebar-option-id {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.sidebar-section {
+    margin-bottom: 20px;
+}
+
+.sidebar-section h4 {
+    color: #888;
+    font-size: 0.85rem;
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-field {
+    margin-bottom: 12px;
+}
+
+.sidebar-field label {
+    display: block;
+    color: #888;
+    font-size: 0.8rem;
+    margin-bottom: 6px;
+}
+
+.sidebar-field input,
+.sidebar-field select {
+    width: 100%;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+}
+
+.sidebar-field input:focus,
+.sidebar-field select:focus {
+    outline: none;
+    border-color: #e94560;
+}
+
+.sidebar-row {
+    display: flex;
+    gap: 12px;
+}
+
+.sidebar-row .sidebar-field {
+    flex: 1;
+}
+
+.sidebar-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sidebar-checkbox input {
+    accent-color: #4ade80;
+    width: 16px;
+    height: 16px;
+}
+
+.sidebar-checkbox label {
+    color: #ccc;
+    font-size: 0.9rem;
+}
+
+/* ==================== MODAL ==================== */
 .quest-modal {
     display: none;
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    right: 0;
+    bottom: 0;
     background: rgba(0, 0, 0, 0.7);
     z-index: 1000;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
 }
 
 .quest-modal.open {
@@ -584,1082 +782,73 @@
 }
 
 .quest-modal-content {
-    background: #16213e;
-    border: 1px solid #1a4a7a;
+    background: #1e2a4a;
+    border: 1px solid #0f3460;
     border-radius: 12px;
     padding: 24px;
-    max-width: 500px;
-    width: 90%;
+    width: 500px;
+    max-width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .quest-modal-content h3 {
-    color: #e94560;
     margin: 0 0 20px 0;
-    font-size: 1.2rem;
-}
-
-.quest-modal-content label {
-    display: block;
-    color: #888;
-    font-size: 0.85rem;
-    margin-bottom: 4px;
-}
-
-.quest-modal-content input,
-.quest-modal-content select {
-    width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    margin-bottom: 12px;
-}
-
-.quest-modal-content input:focus,
-.quest-modal-content select:focus {
-    outline: none;
-    border-color: #4ecdc4;
-}
-
-.quest-modal-section {
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.quest-modal-section h4 {
-    color: #4ecdc4;
-    margin: 0 0 12px 0;
-    font-size: 0.95rem;
-}
-
-.quest-modal-row {
-    display: flex;
-    gap: 12px;
-}
-
-.quest-modal-row > div {
-    flex: 1;
-}
-
-.quest-modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 20px;
-}
-
-.quest-modal-actions button {
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-}
-
-.btn-cancel {
-    background: transparent;
-    border: 1px solid #666;
-    color: #888;
-}
-
-.btn-cancel:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-}
-
-.btn-save {
-    background: #4caf50;
-    border: none;
-    color: white;
-}
-
-.btn-save:hover {
-    background: #5cbf60;
-}
-
-/* Checkbox in modal */
-.quest-modal-content .checkbox-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-}
-
-.quest-modal-content .checkbox-row input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-}
-
-.quest-modal-content .checkbox-row label {
-    margin: 0;
-    color: #ccc;
-}
-
-/* Connection Legend */
-.connection-legend {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    background: rgba(20, 20, 35, 0.9);
-    padding: 12px 16px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    z-index: 100;
-}
-
-.connection-legend h4 {
-    margin: 0 0 8px 0;
-    color: #888;
-    font-size: 0.8rem;
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
-    font-size: 0.8rem;
-    color: #ccc;
-}
-
-.legend-line {
-    width: 30px;
-    height: 3px;
-    border-radius: 2px;
-}
-
-.legend-line.show {
-    background: rgba(76, 175, 80, 0.7);
-}
-
-.legend-line.hide {
-    background: rgba(233, 69, 96, 0.7);
-    background: repeating-linear-gradient(
-        90deg,
-        rgba(233, 69, 96, 0.7) 0px,
-        rgba(233, 69, 96, 0.7) 8px,
-        transparent 8px,
-        transparent 12px
-    );
-}
-
-/* Buttons */
-.quest-toolbar .btn-primary {
-    background: #e94560;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.quest-toolbar .btn-primary:hover {
-    background: #ff6b6b;
-}
-
-.quest-toolbar .btn-secondary {
-    background: #0f3460;
-    color: #ccc;
-    border: 1px solid #1a4a7a;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.quest-toolbar .btn-secondary:hover {
-    background: #1a4a7a;
-    color: white;
-}
-
-.quest-toolbar .btn-success {
-    background: linear-gradient(135deg, #4caf50, #45a049);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.quest-toolbar .btn-success:hover {
-    background: linear-gradient(135deg, #5cbf60, #4caf50);
-}
-
-.quest-toolbar .btn-success:disabled {
-    background: #666;
-    cursor: not-allowed;
-}
-/* ==================== NEW SIDEBAR LAYOUT ==================== */
-
-/* Main Area with Canvas and Sidebar */
-.quest-main-area {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-}
-
-/* Canvas Wrapper */
-.quest-canvas-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-
-/* Quest Starting Slide (inside container to zoom/pan with nodes) */
-/* NOW: Quest slides are draggable nodes representing each quest in the chain */
-.quest-slide {
-    position: absolute;
-    width: 280px;
-    min-height: 350px;
-    background: linear-gradient(145deg, #1e2a4a, #16213e);
-    border: 2px solid #4ade80;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(74, 222, 128, 0.25);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    cursor: move;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.quest-slide:hover {
-    border-color: #6ee7a0;
-    box-shadow: 0 8px 32px rgba(74, 222, 128, 0.4);
-}
-
-.quest-slide.selected {
-    border-color: #4ecdc4;
-    box-shadow: 0 0 20px rgba(78, 205, 196, 0.4);
-}
-
-.quest-slide.dragging {
-    opacity: 0.9;
-    z-index: 1000;
-    cursor: grabbing;
-}
-
-/* Quest slide has a connector on the left for incoming connections */
-.quest-slide .quest-connector {
-    position: absolute;
-    left: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 24px;
-    height: 24px;
-    background: rgba(74, 222, 128, 0.3);
-    border: 2px solid rgba(74, 222, 128, 0.8);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: crosshair;
-    transition: all 0.2s;
-    font-size: 12px;
-    color: rgba(74, 222, 128, 0.9);
-    z-index: 5;
-}
-
-.quest-slide .quest-connector:hover {
-    background: rgba(74, 222, 128, 0.6);
-    border-color: #4ade80;
-    transform: translateY(-50%) scale(1.2);
-    color: white;
-}
-
-/* Canvas adjustment */
-.quest-canvas-wrapper .quest-canvas {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-}
-
-.quest-slide-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.quest-slide-badge {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #4ade80;
-}
-
-.quest-slide-actions {
-    display: flex;
-    gap: 4px;
-}
-
-.quest-slide-btn {
-    width: 26px;
-    height: 26px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.quest-slide-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-.quest-slide-btn.delete-btn:hover {
-    background: rgba(233, 69, 96, 0.3);
-    border-color: rgba(233, 69, 96, 0.5);
-}
-
-.quest-slide-body {
-    flex: 1;
-    background-color: rgba(0, 0, 0, 0.2);
-    background-size: cover;
-    background-position: center;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    cursor: pointer;
-    transition: all 0.3s;
-    position: relative;
-    overflow: hidden;
-    min-height: 200px;
-}
-
-/* Dark overlay when image is set */
-.quest-slide-body.has-image::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    pointer-events: none;
-    z-index: 1;
-}
-
-.quest-slide-body.has-image .quest-slide-placeholder {
-    display: none;
-}
-
-.quest-slide-placeholder {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: #666;
-    transition: all 0.3s;
-    padding: 20px;
-    border-radius: 8px;
-    z-index: 0;
-}
-
-.quest-slide-placeholder span {
-    font-size: 2rem;
-}
-
-.quest-slide-placeholder p {
-    margin: 0;
-    font-size: 0.8rem;
-}
-
-/* Quest name input */
-.quest-slide-name {
-    width: calc(100% - 20px);
-    margin: 12px 10px 6px 10px;
-    background: rgba(0, 0, 0, 0.4);
-    border: none;
-    border-bottom: 2px solid rgba(78, 205, 196, 0.4);
-    border-radius: 4px 4px 0 0;
-    padding: 8px 12px;
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 600;
-    text-align: center;
-    font-family: inherit;
-    position: relative;
-    z-index: 2;
-}
-
-.quest-slide-name:focus {
-    outline: none;
-    border-bottom-color: #4ecdc4;
-}
-
-/* Quest start text */
-.quest-slide-text {
-    width: calc(100% - 20px);
-    margin: 6px 10px 12px 10px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    padding: 8px 10px;
-    color: #e0e0e0;
-    font-size: 0.8rem;
-    font-family: inherit;
-    resize: none;
-    min-height: 60px;
-    position: relative;
-    z-index: 2;
-}
-
-.quest-slide-text:focus {
-    outline: none;
-    border-color: rgba(78, 205, 196, 0.4);
-}
-
-/* LEGACY - Keep for compatibility but hidden */
-.quest-start-slide {
-    display: none !important;
-}
-
-.quest-start-header,
-.quest-start-badge,
-.quest-start-bg-btn,
-.quest-start-body,
-.quest-start-placeholder,
-.quest-name-input,
-.quest-start-text {
-    /* Legacy styles - kept for reference */
-}
-
-.quest-name-input:hover {
-    border-bottom-color: rgba(78, 205, 196, 0.6);
-}
-
-.quest-name-input:focus {
-    outline: none;
-    border-bottom-color: #4ecdc4;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.quest-name-input::placeholder {
-    color: #888;
-    font-weight: 400;
-}
-
-/* Text area below name */
-.quest-start-text {
-    width: calc(100% - 24px);
-    margin: 8px 12px 16px 12px;
-    flex: 1;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    padding: 12px;
-    color: #e0e0e0;
-    font-size: 0.95rem;
-    resize: none;
-    font-family: inherit;
-    line-height: 1.6;
-    text-align: left;
-    position: relative;
-    z-index: 2;
-}
-
-.quest-start-text:hover {
-    border-color: rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.3);
-}
-
-.quest-start-text:focus {
-    outline: none;
-    border-color: #4ecdc4;
-    background: rgba(0, 0, 0, 0.35);
-}
-
-.quest-start-text::placeholder {
-    color: #666;
-}
-
-/* Old quest-slide-preview styles - keeping for modal */
-.quest-slide-preview {
-    width: 100%;
-    height: 200px;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-bottom: 2px solid #0f3460;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s;
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    flex-shrink: 0;
-}
-
-.quest-slide-preview:hover {
-    background-color: rgba(78, 205, 196, 0.05);
-}
-
-.quest-slide-preview.has-image {
-    background-color: transparent;
-}
-
-.quest-slide-preview.has-image .quest-slide-placeholder {
-    opacity: 0;
-}
-
-.quest-slide-preview:hover.has-image .quest-slide-placeholder {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.7);
-}
-
-.quest-slide-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: #666;
-    transition: all 0.3s;
-    padding: 20px;
-    border-radius: 12px;
-}
-
-.quest-slide-placeholder span {
-    font-size: 3rem;
-}
-
-.quest-slide-placeholder p {
-    margin: 0;
-    font-size: 0.9rem;
-}
-
-/* Canvas adjustment */
-.quest-canvas-wrapper .quest-canvas {
-    flex: 1;
-}
-
-/* Right Sidebar */
-.quest-option-sidebar {
-    width: 340px;
-    background: linear-gradient(180deg, #16213e 0%, #1a1a2e 100%);
-    border-left: 2px solid #0f3460;
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    flex-shrink: 0;
-}
-
-/* No Selection State */
-.sidebar-no-selection {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    padding: 40px;
-    text-align: center;
-}
-
-.sidebar-no-selection span {
-    font-size: 4rem;
-    margin-bottom: 16px;
-    opacity: 0.5;
-}
-
-.sidebar-no-selection p {
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.5;
-}
-
-/* Sidebar Content */
-.sidebar-content {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-header h3 {
-    margin: 0;
     color: #e94560;
     font-size: 1.1rem;
 }
 
-.sidebar-option-id {
-    color: #888;
-    font-size: 0.8rem;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 4px 8px;
-    border-radius: 4px;
-}
-
-/* Sidebar Sections */
-.sidebar-section {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    padding: 12px;
-}
-
-.sidebar-section h4 {
-    margin: 0 0 12px 0;
-    color: #4ecdc4;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-/* Sidebar Fields */
-.sidebar-field {
-    margin-bottom: 10px;
-}
-
-.sidebar-field:last-child {
-    margin-bottom: 0;
-}
-
-.sidebar-field label {
-    display: block;
-    color: #888;
-    font-size: 0.8rem;
-    margin-bottom: 4px;
-}
-
-.sidebar-field input,
-.sidebar-field select,
-.sidebar-field textarea {
-    width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a4a7a;
-    color: #fff;
-    padding: 8px 10px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    box-sizing: border-box;
-}
-
-.sidebar-field input:focus,
-.sidebar-field select:focus,
-.sidebar-field textarea:focus {
-    outline: none;
-    border-color: #4ecdc4;
-}
-
-.sidebar-field textarea {
-    resize: vertical;
-    min-height: 60px;
-}
-
-/* Sidebar Row (two columns) */
-.sidebar-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-.sidebar-row:last-child {
-    margin-bottom: 0;
-}
-
-.sidebar-row .sidebar-field {
-    flex: 1;
-    margin-bottom: 0;
-}
-
-/* Sidebar Checkbox */
-.sidebar-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.sidebar-checkbox input[type="checkbox"] {
-    width: auto;
-    accent-color: #4ecdc4;
-}
-
-.sidebar-checkbox label {
-    color: #ccc;
-    font-size: 0.85rem;
-    cursor: pointer;
-}
-
-/* Visibility Tags */
-.visibility-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    min-height: 28px;
-}
-
-.vis-tag {
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.vis-tag.requires {
-    background: rgba(100, 149, 237, 0.2);
-    border: 1px solid rgba(100, 149, 237, 0.5);
-    color: #6495ed;
-}
-
-.vis-tag.requires:hover {
-    background: rgba(100, 149, 237, 0.3);
-}
-
-.vis-tag.required-by {
-    background: rgba(100, 149, 237, 0.1);
-    border: 1px solid rgba(100, 149, 237, 0.3);
-    color: #6495ed;
-    cursor: default;
-}
-
-.vis-none {
-    color: #666;
-    font-size: 0.8rem;
-    font-style: italic;
-}
-
-.sidebar-hint {
-    color: #666;
-    font-size: 0.75rem;
-    margin: 8px 0 0 0;
-    font-style: italic;
-}
-
-/* Sidebar Actions */
-.sidebar-actions {
-    display: flex;
-    gap: 10px;
-    padding-top: 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    justify-content: center;
-}
-
-.sidebar-actions .btn-delete {
-    flex: 1;
-    padding: 10px 16px;
-    background: rgba(233, 69, 96, 0.2);
-    border: 1px solid rgba(233, 69, 96, 0.5);
-    color: #e94560;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-}
-
-.sidebar-actions .btn-delete:hover {
-    background: rgba(233, 69, 96, 0.4);
-}
-
-/* Save Status Indicator */
-.sidebar-save-status {
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: all 0.3s;
-}
-
-.sidebar-save-status.saving {
-    background: rgba(78, 205, 196, 0.2);
-    color: #4ecdc4;
-}
-
-.sidebar-save-status.saved {
-    background: rgba(76, 175, 80, 0.2);
-    color: #4caf50;
-}
-
-.sidebar-save-status.error {
-    background: rgba(233, 69, 96, 0.2);
-    color: #e94560;
-}
-
-/* Dynamic Option Type Fields */
-.option-type-fields,
-.reward-type-fields {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-/* Enemy Picker Grid (for combat options) */
-.quest-enemy-picker-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 8px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.quest-enemy-picker-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 4px;
-    background: rgba(30, 42, 58, 0.8);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.quest-enemy-picker-item:hover {
-    border-color: rgba(78, 205, 196, 0.5);
-    background: rgba(30, 42, 58, 1);
-}
-
-.quest-enemy-picker-item.selected {
-    border-color: #e94560;
-    background: rgba(233, 69, 96, 0.2);
-    box-shadow: 0 0 8px rgba(233, 69, 96, 0.3);
-}
-
-.quest-enemy-picker-item img {
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-    border-radius: 4px;
-    margin-bottom: 4px;
-}
-
-.quest-enemy-picker-item span {
-    font-size: 0.7rem;
-    color: #ccc;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-}
-
-/* Sidebar Header Flex */
-.sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-/* ==================== UPDATED OPTION NODE STYLE ==================== */
-
-/* Simpler node style for sidebar-based editing */
-.quest-option-node {
-    position: absolute;
-    width: 280px;
-    min-height: 200px;
-    background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
-    border: 2px solid #1a4a7a;
-    border-radius: 10px;
-    padding: 0;
-    cursor: move;
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    overflow: visible;
-    display: flex;
-    align-items: stretch;
-}
-
-/* Connection target highlighting - entire node is droppable */
-.quest-option-node.connection-target {
-    border-color: #4ecdc4;
-    box-shadow: 0 0 25px rgba(78, 205, 196, 0.5);
-}
-
-.quest-option-node.connection-target:hover {
-    border-color: #4ade80;
-    box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
-    transform: scale(1.03);
-}
-
-.option-node-content {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.option-node-header {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.option-icon {
-    font-size: 1.1rem;
-    flex-shrink: 0;
-}
-
-.option-title {
-    flex: 1;
-    font-size: 0.85rem;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 500;
-}
-
-.option-node-body {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Combat option */
-.quest-option-node.combat-option {
-    border-color: #e94560;
-    box-shadow: 0 0 15px rgba(233, 69, 96, 0.2);
-}
-
-.quest-option-node.combat-option .option-node-header {
-    background: rgba(233, 69, 96, 0.1);
-}
-
-/* Option node states (need to be after base styles) */
-.quest-option-node:hover {
-    border-color: #4ecdc4;
-}
-
-.quest-option-node.selected {
-    border-color: #e94560;
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
-    z-index: 10;
-}
-
-.quest-option-node.start-option {
-    border-color: #4caf50;
-    box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
-}
-
-.quest-option-node.start-option.selected {
-    border-color: #4caf50;
-    box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
-}
-
-.quest-option-node.dragging {
-    opacity: 0.9;
-    z-index: 1000;
-    cursor: grabbing;
-}
-
-/* ==================== QUEST ASSET MODAL ==================== */
-
-.quest-asset-modal-content {
-    max-width: 700px;
-}
-
-.quest-asset-upload-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 30px;
-    border: 2px dashed #1a4a7a;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.3s;
-    margin-bottom: 16px;
-}
-
-.quest-asset-upload-area:hover,
-.quest-asset-upload-area.dragover {
-    border-color: #4ecdc4;
-    background: rgba(78, 205, 196, 0.05);
-}
-
-.quest-asset-upload-area span {
-    font-size: 2.5rem;
-    margin-bottom: 8px;
-}
-
-.quest-asset-upload-area p {
-    margin: 0;
-    color: #888;
-    font-size: 0.9rem;
-}
-
-.quest-asset-upload-status {
-    text-align: center;
-    padding: 8px;
-    color: #4ecdc4;
-    font-size: 0.85rem;
-    margin-bottom: 12px;
-}
-
+/* Asset Gallery */
 .quest-asset-gallery {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 12px;
-    max-height: 300px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-height: 400px;
     overflow-y: auto;
-    padding: 4px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
 }
 
 .quest-asset-item {
-    aspect-ratio: 16/9;
-    border: 2px solid #1a4a7a;
-    border-radius: 8px;
+    aspect-ratio: 2/3;
+    border-radius: 6px;
     overflow: hidden;
     cursor: pointer;
+    border: 2px solid transparent;
     transition: all 0.2s;
 }
 
 .quest-asset-item:hover {
-    border-color: #4ecdc4;
-    transform: scale(1.02);
-}
-
-.quest-asset-item.selected {
     border-color: #e94560;
-    box-shadow: 0 0 12px rgba(233, 69, 96, 0.4);
+    transform: scale(1.05);
 }
 
 .quest-asset-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.btn-cancel {
+    background: transparent;
+    border: 1px solid #444;
+    color: #888;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+    border-color: #666;
+    color: #ccc;
 }
