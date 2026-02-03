@@ -515,10 +515,10 @@ function renderQuestOption(option) {
         <div class="option-node-content">
             <div class="option-node-header">
                 <span class="option-icon">${icon}</span>
-                <span class="option-title">${option.optionText || 'New Option'}</span>
+                <input type="text" class="option-title-input" value="${(option.optionText || '').replace(/"/g, '&quot;')}" placeholder="Option title..." data-field="optionText" />
             </div>
             <div class="option-node-body">
-                ${option.nodeText ? `<p>${option.nodeText.substring(0, 200)}${option.nodeText.length > 200 ? '...' : ''}</p>` : '<p class="placeholder">No description</p>'}
+                <textarea class="option-node-textarea" placeholder="Node text / description..." data-field="nodeText">${option.nodeText || ''}</textarea>
             </div>
         </div>
         <div class="option-connector option-connector-right" data-option="${option.id}" title="Drag to connect to another option">●</div>
@@ -526,15 +526,39 @@ function renderQuestOption(option) {
     
     container.appendChild(el);
     
+    // Inline input handlers - update state when typing
+    const titleInput = el.querySelector('.option-title-input');
+    const textArea = el.querySelector('.option-node-textarea');
+    
+    if (titleInput) {
+        titleInput.addEventListener('input', (e) => {
+            option.optionText = e.target.value;
+            updateSidebar(); // Keep sidebar in sync
+        });
+        titleInput.addEventListener('mousedown', (e) => e.stopPropagation());
+        titleInput.addEventListener('click', (e) => e.stopPropagation());
+    }
+    
+    if (textArea) {
+        textArea.addEventListener('input', (e) => {
+            option.nodeText = e.target.value;
+            updateSidebar(); // Keep sidebar in sync
+        });
+        textArea.addEventListener('mousedown', (e) => e.stopPropagation());
+        textArea.addEventListener('click', (e) => e.stopPropagation());
+    }
+    
     // Click to select and show in sidebar
     el.addEventListener('click', (e) => {
         if (e.target.closest('.option-connector')) return;
+        if (e.target.closest('.option-title-input, .option-node-textarea')) return;
         selectQuestOption(option.id);
     });
     
     // Drag node
     el.addEventListener('mousedown', (e) => {
         if (e.target.closest('.option-connector')) return;
+        if (e.target.closest('.option-title-input, .option-node-textarea')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
         
@@ -746,10 +770,18 @@ function updateSidebar() {
     const option = questState.options.get(questState.selectedOption);
     if (!option) return;
     
-    // Populate sidebar fields
+    // Populate sidebar fields (only if not focused to avoid interrupting user typing)
     document.getElementById('sidebarOptionId').textContent = `Option ID: ${option.id}`;
-    document.getElementById('sidebarNodeText').value = option.nodeText || '';
-    document.getElementById('sidebarOptionText').value = option.optionText || '';
+    
+    const nodeTextEl = document.getElementById('sidebarNodeText');
+    const optionTextEl = document.getElementById('sidebarOptionText');
+    if (nodeTextEl && nodeTextEl !== document.activeElement) {
+        nodeTextEl.value = option.nodeText || '';
+    }
+    if (optionTextEl && optionTextEl !== document.activeElement) {
+        optionTextEl.value = option.optionText || '';
+    }
+    
     document.getElementById('sidebarIsStart').checked = option.isStart || false;
     
     // Determine and set option type
@@ -829,6 +861,20 @@ function saveOptionFromSidebar() {
     // Get values from sidebar
     option.nodeText = document.getElementById('sidebarNodeText').value || '';
     option.optionText = document.getElementById('sidebarOptionText').value || '';
+    option.isStart = document.getElementById('sidebarIsStart').checked;
+    
+    // Update the inline inputs in the node to match sidebar
+    const nodeEl = document.getElementById(`option-${optionId}`);
+    if (nodeEl) {
+        const titleInput = nodeEl.querySelector('.option-title-input');
+        const textArea = nodeEl.querySelector('.option-node-textarea');
+        if (titleInput && titleInput !== document.activeElement) {
+            titleInput.value = option.optionText;
+        }
+        if (textArea && textArea !== document.activeElement) {
+            textArea.value = option.nodeText;
+        }
+    }
     option.isStart = document.getElementById('sidebarIsStart').checked;
     
     // Option type
@@ -994,36 +1040,9 @@ function startRequirementDrag(optionId, e) {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         
-        // Check if we dropped on an option node (anywhere on the node, not just connector)
-        // First try elementFromPoint
+        // Check if we dropped on an option node - just use elementFromPoint + closest like expedition
         const target = document.elementFromPoint(ev.clientX, ev.clientY);
-        let optionEl = target?.closest('.quest-option-node');
-        
-        // If not directly on a node, check if we're near any connection-target node (within 25px buffer)
-        if (!optionEl) {
-            let closestNode = null;
-            let closestDist = Infinity;
-            const connectionTargets = document.querySelectorAll('.quest-option-node.connection-target');
-            connectionTargets.forEach(node => {
-                const rect = node.getBoundingClientRect();
-                const buffer = 25; // 25px buffer around the node
-                // Check if within buffer zone
-                if (ev.clientX >= rect.left - buffer && 
-                    ev.clientX <= rect.right + buffer &&
-                    ev.clientY >= rect.top - buffer && 
-                    ev.clientY <= rect.bottom + buffer) {
-                    // Calculate distance to center
-                    const centerX = rect.left + rect.width / 2;
-                    const centerY = rect.top + rect.height / 2;
-                    const dist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestNode = node;
-                    }
-                }
-            });
-            optionEl = closestNode;
-        }
+        const optionEl = target?.closest('.quest-option-node');
         
         if (optionEl && questState.connectionStart) {
             const toId = parseInt(optionEl.id.replace('option-', ''));
@@ -1474,6 +1493,25 @@ function onQuestSettlementChange() {
     questState.selectedSettlement = questState.selectedSettlementId;
     
     console.log(`🏘️ Quest settlement filter changed to: ${questState.selectedSettlementId}`);
+    
+    // Reset the start slide when changing settlement
+    questState.questAssetId = null;
+    questState.questAssetUrl = null;
+    questState.questName = '';
+    questState.questStartText = '';
+    questState.isNewQuest = true;
+    questState.selectedQuest = null;
+    
+    const slideBody = document.getElementById('questSlideBody');
+    if (slideBody) {
+        slideBody.style.backgroundImage = '';
+        slideBody.classList.remove('has-image');
+    }
+    
+    const nameInput = document.getElementById('questNameInput');
+    const questStartText = document.getElementById('questStartText');
+    if (nameInput) nameInput.value = '';
+    if (questStartText) questStartText.value = '';
     
     // Load quests for this settlement
     loadQuestsForSettlement(questState.selectedSettlementId);

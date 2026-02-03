@@ -349,11 +349,69 @@
 .option-node-content {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+/* Inline input styles for option nodes */
+.option-title-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(100, 149, 237, 0.3);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 4px 6px;
+    margin-left: 8px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.option-title-input:focus {
+    border-bottom-color: #4ecdc4;
+}
+
+.option-title-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.option-node-textarea {
+    flex: 1;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(100, 149, 237, 0.2);
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 0.8rem;
+    padding: 8px;
+    resize: none;
+    outline: none;
+    min-height: 100px;
+    margin-top: 8px;
+    transition: border-color 0.2s;
+}
+
+.option-node-textarea:focus {
+    border-color: #4ecdc4;
+}
+
+.option-node-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.35);
 }
 
 /* Connecting state */
 .quest-canvas.connecting {
     cursor: crosshair !important;
+}
+
+.quest-canvas.connecting .quest-option-node {
+    cursor: pointer !important;
+}
+
+.quest-canvas.connecting .quest-option-node.connection-target {
+    cursor: pointer !important;
 }
 
 /* Connections SVG */
@@ -1286,18 +1344,6 @@
     box-shadow: 0 0 25px rgba(78, 205, 196, 0.5);
 }
 
-/* Extend clickable area when node is a connection target */
-.quest-option-node.connection-target::before {
-    content: '';
-    position: absolute;
-    top: -15px;
-    left: -15px;
-    right: -15px;
-    bottom: -15px;
-    border-radius: 15px;
-    z-index: -1;
-}
-
 .quest-option-node.connection-target:hover {
     border-color: #4ade80;
     box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
@@ -1315,14 +1361,14 @@
 .option-node-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: rgba(0, 0, 0, 0.2);
+    gap: 4px;
+    padding: 8px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .option-icon {
     font-size: 1.1rem;
+    flex-shrink: 0;
 }
 
 .option-title {
@@ -1336,25 +1382,9 @@
 }
 
 .option-node-body {
-    padding: 12px;
     flex: 1;
-}
-
-.option-node-body p {
-    margin: 0;
-    font-size: 0.85rem;
-    color: #ccc;
-    line-height: 1.5;
-    /* Show up to ~5 lines */
-    display: -webkit-box;
-    -webkit-line-clamp: 5;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.option-node-body p.placeholder {
-    color: #666;
-    font-style: italic;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Combat option */
