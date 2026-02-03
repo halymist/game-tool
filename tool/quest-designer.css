@@ -95,6 +95,28 @@
     gap: 10px;
 }
 
+/* Chain name input in toolbar */
+.quest-chain-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quest-chain-name input {
+    background: #0d1b2a;
+    border: 1px solid #1a4a7a;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-width: 180px;
+}
+
+.quest-chain-name input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+}
+
 /* Canvas */
 .quest-canvas {
     flex: 1;
@@ -406,22 +428,34 @@
     cursor: crosshair !important;
 }
 
-.quest-canvas.connecting .quest-option-node {
+.quest-canvas.connecting .quest-option-node,
+.quest-canvas.connecting .quest-slide {
     cursor: pointer !important;
 }
 
-.quest-canvas.connecting .quest-option-node.connection-target {
+.quest-canvas.connecting .quest-option-node.connection-target,
+.quest-canvas.connecting .quest-slide.connection-target {
     cursor: pointer !important;
+    border-color: #4ecdc4 !important;
+    box-shadow: 0 0 20px rgba(78, 205, 196, 0.5) !important;
 }
 
 /* CRITICAL: Disable pointer-events on ALL children during connecting so the node itself receives the drop */
-.quest-canvas.connecting .quest-option-node * {
+.quest-canvas.connecting .quest-option-node *,
+.quest-canvas.connecting .quest-slide * {
     pointer-events: none !important;
 }
 
 /* But keep connectors active so we can start dragging from them */
 .quest-canvas.connecting .option-connector {
     pointer-events: auto !important;
+}
+
+/* Quest connector styling during connection */
+.quest-canvas.connecting .quest-connector {
+    pointer-events: auto !important;
+    background: rgba(78, 205, 196, 0.5) !important;
+    border-color: #4ecdc4 !important;
 }
 
 /* Connections SVG */
@@ -455,6 +489,24 @@
     stroke: #ff6b6b;
     stroke-width: 2.5;
     stroke-dasharray: none;
+}
+
+/* Option to Quest connections - green solid */
+.quest-connection.option-to-quest {
+    stroke: #4ade80;
+    stroke-width: 2;
+    stroke-dasharray: none;
+}
+
+.quest-connection.option-to-quest:hover {
+    stroke: #6ee7a0;
+    stroke-width: 3;
+}
+
+/* Option to Option connections - red dashed */
+.quest-connection.option-to-option {
+    stroke: #e94560;
+    stroke-dasharray: 6 3;
 }
 
 #questConnectionPreview {
@@ -768,12 +820,11 @@
 }
 
 /* Quest Starting Slide (inside container to zoom/pan with nodes) */
-.quest-start-slide {
+/* NOW: Quest slides are draggable nodes representing each quest in the chain */
+.quest-slide {
     position: absolute;
-    top: 100px;
-    left: 50px;
-    width: 360px;
-    aspect-ratio: 2 / 3;
+    width: 280px;
+    min-height: 350px;
     background: linear-gradient(145deg, #1e2a4a, #16213e);
     border: 2px solid #4ade80;
     border-radius: 12px;
@@ -781,7 +832,52 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    cursor: default;
+    cursor: move;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.quest-slide:hover {
+    border-color: #6ee7a0;
+    box-shadow: 0 8px 32px rgba(74, 222, 128, 0.4);
+}
+
+.quest-slide.selected {
+    border-color: #4ecdc4;
+    box-shadow: 0 0 20px rgba(78, 205, 196, 0.4);
+}
+
+.quest-slide.dragging {
+    opacity: 0.9;
+    z-index: 1000;
+    cursor: grabbing;
+}
+
+/* Quest slide has a connector on the left for incoming connections */
+.quest-slide .quest-connector {
+    position: absolute;
+    left: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background: rgba(74, 222, 128, 0.3);
+    border: 2px solid rgba(74, 222, 128, 0.8);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: crosshair;
+    transition: all 0.2s;
+    font-size: 12px;
+    color: rgba(74, 222, 128, 0.9);
+    z-index: 5;
+}
+
+.quest-slide .quest-connector:hover {
+    background: rgba(74, 222, 128, 0.6);
+    border-color: #4ade80;
+    transform: translateY(-50%) scale(1.2);
+    color: white;
 }
 
 /* Canvas adjustment */
@@ -791,7 +887,7 @@
     height: 100%;
 }
 
-.quest-start-header {
+.quest-slide-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -800,28 +896,41 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.quest-start-badge {
+.quest-slide-badge {
     font-size: 0.85rem;
     font-weight: 600;
     color: #4ade80;
 }
 
-.quest-start-bg-btn {
-    width: 28px;
-    height: 28px;
+.quest-slide-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.quest-slide-btn {
+    width: 26px;
+    height: 26px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 12px;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.quest-start-bg-btn:hover {
+.quest-slide-btn:hover {
     background: rgba(255, 255, 255, 0.2);
 }
 
-.quest-start-body {
+.quest-slide-btn.delete-btn:hover {
+    background: rgba(233, 69, 96, 0.3);
+    border-color: rgba(233, 69, 96, 0.5);
+}
+
+.quest-slide-body {
     flex: 1;
     background-color: rgba(0, 0, 0, 0.2);
     background-size: cover;
@@ -834,26 +943,27 @@
     transition: all 0.3s;
     position: relative;
     overflow: hidden;
+    min-height: 200px;
 }
 
-/* Dark overlay when image is set - covers full body */
-.quest-start-body.has-image::before {
+/* Dark overlay when image is set */
+.quest-slide-body.has-image::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.5);
     pointer-events: none;
     z-index: 1;
 }
 
-.quest-start-body.has-image .quest-start-placeholder {
+.quest-slide-body.has-image .quest-slide-placeholder {
     display: none;
 }
 
-.quest-start-placeholder {
+.quest-slide-placeholder {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -869,31 +979,73 @@
     z-index: 0;
 }
 
-.quest-start-placeholder span {
-    font-size: 2.5rem;
+.quest-slide-placeholder span {
+    font-size: 2rem;
 }
 
-.quest-start-placeholder p {
+.quest-slide-placeholder p {
     margin: 0;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
-/* Quest name input at top of start slide */
-.quest-name-input {
-    width: calc(100% - 24px);
-    margin: 16px 12px 8px 12px;
+/* Quest name input */
+.quest-slide-name {
+    width: calc(100% - 20px);
+    margin: 12px 10px 6px 10px;
     background: rgba(0, 0, 0, 0.4);
     border: none;
     border-bottom: 2px solid rgba(78, 205, 196, 0.4);
     border-radius: 4px 4px 0 0;
-    padding: 12px 16px;
+    padding: 8px 12px;
     color: #fff;
-    font-size: 1.3rem;
-    font-weight: 700;
+    font-size: 1rem;
+    font-weight: 600;
     text-align: center;
     font-family: inherit;
     position: relative;
     z-index: 2;
+}
+
+.quest-slide-name:focus {
+    outline: none;
+    border-bottom-color: #4ecdc4;
+}
+
+/* Quest start text */
+.quest-slide-text {
+    width: calc(100% - 20px);
+    margin: 6px 10px 12px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #e0e0e0;
+    font-size: 0.8rem;
+    font-family: inherit;
+    resize: none;
+    min-height: 60px;
+    position: relative;
+    z-index: 2;
+}
+
+.quest-slide-text:focus {
+    outline: none;
+    border-color: rgba(78, 205, 196, 0.4);
+}
+
+/* LEGACY - Keep for compatibility but hidden */
+.quest-start-slide {
+    display: none !important;
+}
+
+.quest-start-header,
+.quest-start-badge,
+.quest-start-bg-btn,
+.quest-start-body,
+.quest-start-placeholder,
+.quest-name-input,
+.quest-start-text {
+    /* Legacy styles - kept for reference */
 }
 
 .quest-name-input:hover {

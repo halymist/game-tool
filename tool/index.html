@@ -165,10 +165,14 @@
                             </select>
                         </div>
                         <div class="quest-select">
-                            <label>Quest:</label>
+                            <label>Chain:</label>
                             <select id="questSelect" onchange="window.onQuestChange && window.onQuestChange()">
                                 <option value="" disabled selected>-- Select or Create --</option>
                             </select>
+                        </div>
+                        <div class="quest-chain-name">
+                            <label>Name:</label>
+                            <input type="text" id="questChainNameInput" placeholder="Chain name..." oninput="window.updateChainName && window.updateChainName(this.value)">
                         </div>
                         <span id="questOptionCounter">0 options</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
@@ -178,6 +182,7 @@
                         </div>
                     </div>
                     <div class="quest-toolbar-right">
+                        <button id="addQuestBtn" class="btn-secondary" onclick="window.addQuestSlide()">+ Add Quest</button>
                         <button id="addOptionBtn" class="btn-primary">+ Add Option</button>
                         <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
                     </div>
@@ -199,21 +204,7 @@
                             </svg>
                             
                             <div id="questOptionsContainer" class="quest-options-container">
-                                <!-- Quest Starting Slide (inside container to zoom/pan with nodes) -->
-                                <div id="questStartSlide" class="quest-start-slide">
-                                    <div class="quest-start-header">
-                                        <span class="quest-start-badge">🟢 START</span>
-                                        <button class="quest-start-bg-btn" onclick="window.openQuestAssetModal()" title="Set background">🖼️</button>
-                                    </div>
-                                    <div id="questSlideBody" class="quest-start-body" onclick="window.openQuestAssetModal()">
-                                        <div class="quest-start-placeholder">
-                                            <span>📷</span>
-                                            <p>Click to set background</p>
-                                        </div>
-                                        <input type="text" id="questNameInput" class="quest-name-input" placeholder="Quest Name..." onclick="event.stopPropagation()" oninput="window.updateQuestName && window.updateQuestName(this.value)">
-                                        <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onclick="event.stopPropagation()" oninput="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
-                                    </div>
-                                </div>
+                                <!-- Quest slides and option nodes rendered dynamically here -->
                             </div>
                             
                             <!-- Navigation Controls -->
