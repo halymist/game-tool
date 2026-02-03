@@ -276,17 +276,40 @@
 .quest-slide-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 6px;
+    padding: 8px 10px;
     background: rgba(0, 0, 0, 0.3);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 10px 10px 0 0;
 }
 
-.quest-id {
-    color: #888;
+.quest-sort-input {
+    width: 40px;
+    background: rgba(78, 205, 196, 0.15);
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    border-radius: 4px;
+    color: #4ecdc4;
     font-size: 0.8rem;
-    font-weight: 600;
+    padding: 2px 4px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.quest-sort-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.25);
+}
+
+.quest-sort-input::-webkit-inner-spin-button,
+.quest-sort-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quest-sort-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 .quest-name-input {
@@ -851,4 +874,87 @@
 .btn-cancel:hover {
     border-color: #666;
     color: #ccc;
+}
+/* ==================== SIDEBAR ENEMY PICKER ==================== */
+.quest-enemy-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-top: 8px;
+}
+
+.quest-enemy-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 4px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.quest-enemy-item:hover {
+    border-color: #e94560;
+    background: rgba(233, 69, 96, 0.1);
+}
+
+.quest-enemy-item.selected {
+    border-color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.15);
+}
+
+.quest-enemy-item img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.quest-enemy-item .no-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.quest-enemy-item span {
+    font-size: 0.7rem;
+    color: #a0aec0;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==================== SIDEBAR IMPROVEMENTS ==================== */
+.sidebar-row {
+    display: flex;
+    gap: 10px;
+}
+
+.sidebar-row .sidebar-field {
+    flex: 1;
+}
+
+.option-type-fields,
+.reward-type-fields {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
 }

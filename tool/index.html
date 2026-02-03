@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/questchain-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -237,9 +236,8 @@
                                 <span id="sidebarSaveStatus" class="sidebar-save-status"></span>
                             </div>
                             
-                            <!-- Basic Info -->
+                            <!-- Starting Option Checkbox -->
                             <div class="sidebar-section">
-                                <h4>📝 Basic Info</h4>
                                 <div class="sidebar-checkbox">
                                     <input type="checkbox" id="sidebarIsStart">
                                     <label for="sidebarIsStart">🟢 Starting Option</label>
@@ -388,20 +386,6 @@
                                 
                                 <!-- Hidden checkbox for talent (used when reward type is talent) -->
                                 <input type="hidden" id="sidebarRewardTalent">
-                            </div>
-                            
-                            <!-- Requirements -->
-                            <div class="sidebar-section">
-                                <h4>🔗 Requirements</h4>
-                                <div class="sidebar-field">
-                                    <label>This option requires:</label>
-                                    <div id="sidebarRequires" class="visibility-tags"></div>
-                                </div>
-                                <div class="sidebar-field">
-                                    <label>Required by:</label>
-                                    <div id="sidebarRequiredBy" class="visibility-tags"></div>
-                                </div>
-                                <p class="sidebar-hint">Drag from an option to another to set it as a requirement (target requires source)</p>
                             </div>
                             
                             <!-- Actions -->
@@ -1677,6 +1661,5 @@
     <script src="http://localhost:8080/static/expedition-designer.js"></script>
     <script src="http://localhost:8080/static/settlement-designer.js"></script>
     <script src="http://localhost:8080/static/quest-designer.js"></script>
-    <script src="http://localhost:8080/static/questchain-designer.js"></script>
 </body>
 </html>
