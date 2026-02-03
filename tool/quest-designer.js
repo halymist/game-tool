@@ -423,7 +423,8 @@ window.resetQuestView = resetQuestView;
 function addQuestOption() {
     console.log('➕ addQuestOption called');
     
-    if (!questState.selectedQuest) {
+    // Allow adding options in new quest mode or when a quest is selected
+    if (!questState.selectedQuest && !questState.isNewQuest) {
         alert('Please select or create a quest first');
         return;
     }
@@ -441,11 +442,11 @@ function addQuestOption() {
     
     // Count existing options for this quest to determine if this is the start
     const questOptions = Array.from(questState.options.values())
-        .filter(opt => opt.questId === questState.selectedQuest);
+        .filter(opt => questState.isNewQuest ? (!opt.questId || opt.questId === 0) : opt.questId === questState.selectedQuest);
     
     const option = {
         id: id,
-        questId: questState.selectedQuest,
+        questId: questState.isNewQuest ? 0 : questState.selectedQuest, // 0 for new unsaved quest
         nodeText: '',
         optionText: '',
         isStart: questOptions.length === 0,
@@ -971,8 +972,6 @@ function startRequirementDrag(optionId, e) {
     const preview = document.getElementById('questConnectionPreview');
     if (preview) {
         preview.style.display = 'block';
-        preview.classList.remove('show-connection', 'hide-connection');
-        preview.classList.add('requires-connection');
     }
     
     updateQuestConnectionPreview(e);
@@ -987,7 +986,8 @@ function updateQuestConnectionPreview(e) {
     const optionEl = document.getElementById(`option-${questState.connectionStart.optionId}`);
     if (!optionEl) return;
     
-    const connector = optionEl.querySelector('.connector-requires');
+    // Use right connector by default for preview
+    const connector = optionEl.querySelector('.option-connector-right') || optionEl.querySelector('.option-connector-left');
     if (!connector) return;
     
     const connRect = connector.getBoundingClientRect();
@@ -996,8 +996,11 @@ function updateQuestConnectionPreview(e) {
     const x2 = e.clientX - rect.left;
     const y2 = e.clientY - rect.top;
     
-    const curveX = x1 + 50;
-    preview.setAttribute('d', `M ${x1} ${y1} Q ${curveX} ${y1}, ${x2} ${y2}`);
+    // Smooth bezier curve
+    const curveStrength = 50;
+    const cx1 = x1 + curveStrength;
+    const cx2 = x2 - curveStrength;
+    preview.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`);
 }
 
 function createRequirement(optionId, requiredOptionId) {
@@ -1037,9 +1040,13 @@ function renderQuestConnections() {
     // Remove old paths except preview
     svg.querySelectorAll('path:not(#questConnectionPreview)').forEach(p => p.remove());
     
-    // Filter options by current quest
+    // Filter options by current quest or new quest mode
     const optionPassesFilter = (opt) => {
-        if (!questState.selectedQuest) return true;
+        if (questState.isNewQuest) {
+            // In new quest mode, show options without questId
+            return !opt.questId || opt.questId === 0;
+        }
+        if (!questState.selectedQuest) return false;
         return opt.questId === questState.selectedQuest;
     };
     
@@ -1097,12 +1104,9 @@ function renderQuestConnections() {
         
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
-        path.classList.add('quest-connection', 'requires-connection');
+        path.classList.add('quest-connection');
         path.dataset.from = req.requiredOptionId;
         path.dataset.to = req.optionId;
-        
-        // Add arrow marker
-        path.setAttribute('marker-end', 'url(#arrowRequires)');
         
         // Click to delete requirement
         path.addEventListener('click', (e) => {
@@ -1371,6 +1375,7 @@ function populateQuestSettlementDropdown() {
         const firstSettlement = questState.settlements[0];
         select.value = firstSettlement.settlement_id;
         questState.selectedSettlementId = firstSettlement.settlement_id;
+        questState.selectedSettlement = firstSettlement.settlement_id;
         // Load quests for this settlement
         loadQuestsForSettlement(firstSettlement.settlement_id);
     }
@@ -1624,7 +1629,13 @@ function filterAndRenderQuestOptions() {
     container.querySelectorAll('.quest-option-node').forEach(node => node.remove());
     
     questState.options.forEach(option => {
-        const matchesFilter = !questState.selectedQuest || option.questId === questState.selectedQuest;
+        let matchesFilter = false;
+        if (questState.isNewQuest) {
+            // In new quest mode, only show options that belong to this new quest (no questId yet)
+            matchesFilter = !option.questId || option.questId === 0;
+        } else if (questState.selectedQuest) {
+            matchesFilter = option.questId === questState.selectedQuest;
+        }
         if (matchesFilter) {
             renderQuestOption(option);
         }
@@ -1779,7 +1790,13 @@ async function saveQuest() {
         const optionUpdates = [];
         
         questState.options.forEach((option, localId) => {
-            if (option.questId !== questState.selectedQuest) return;
+            // For new quest mode, include options with questId 0 or null
+            // For existing quest, include only options for that quest
+            const belongsToQuest = questState.isNewQuest 
+                ? (!option.questId || option.questId === 0)
+                : (option.questId === questState.selectedQuest);
+            
+            if (!belongsToQuest) return;
             
             const isServerOption = questState.serverOptions.has(localId);
             
@@ -1830,18 +1847,25 @@ async function saveQuest() {
             }
         });
         
-        // Collect new requirements
+        // Collect new requirements - include both server-side and pending local requirements
         const newRequirements = [];
+        const pendingRequirements = []; // Requirements between unsaved local options
         questState.requirements.forEach(r => {
             const option = questState.options.get(r.optionId);
             const requiredOption = questState.options.get(r.requiredOptionId);
             if (!option || !requiredOption) return;
-            if (option.questId !== questState.selectedQuest) return;
+            
+            // For new quest mode, check if option belongs to new quest
+            if (questState.isNewQuest) {
+                if (option.questId && option.questId !== 0) return;
+            } else {
+                if (option.questId !== questState.selectedQuest) return;
+            }
             
             const optionServerId = questState.serverOptions.get(r.optionId);
             const requiredServerId = questState.serverOptions.get(r.requiredOptionId);
             
-            // Only include if both are server options and requirement doesn't exist
+            // If both have server IDs, add to newRequirements
             if (optionServerId && requiredServerId) {
                 const key = `${optionServerId}-${requiredServerId}`;
                 if (!questState.serverRequirements.has(key)) {
@@ -1850,6 +1874,12 @@ async function saveQuest() {
                         requiredOptionId: requiredServerId
                     });
                 }
+            } else {
+                // Store pending requirements with local IDs to be resolved after options are saved
+                pendingRequirements.push({
+                    localOptionId: r.optionId,
+                    localRequiredOptionId: r.requiredOptionId
+                });
             }
         });
         
@@ -1867,7 +1897,8 @@ async function saveQuest() {
                 settlementId: questState.selectedSettlement,
                 newOptions: newOptions,
                 optionUpdates: optionUpdates,
-                newRequirements: newRequirements
+                newRequirements: newRequirements,
+                pendingRequirements: pendingRequirements
             })
         });
         
@@ -1896,6 +1927,13 @@ async function saveQuest() {
                 populateQuestDropdown();
                 const select = document.getElementById('questSelect');
                 if (select) select.value = result.questId;
+                
+                // Update all options to have the new quest ID
+                questState.options.forEach((option, localId) => {
+                    if (!option.questId || option.questId === 0) {
+                        option.questId = result.questId;
+                    }
+                });
             }
             
             // Update server tracking for new options

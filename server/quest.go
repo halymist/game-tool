@@ -250,14 +250,21 @@ func handleCreateQuest(w http.ResponseWriter, r *http.Request) {
 
 // SaveQuestRequest represents the request to save quest options
 type SaveQuestRequest struct {
-	QuestID         int                      `json:"questId"`
-	QuestName       string                   `json:"questName"`
-	AssetID         *int                     `json:"assetId"`
-	IsNewQuest      bool                     `json:"isNewQuest"`
-	SettlementID    *int                     `json:"settlementId"`
-	NewOptions      []NewQuestOption         `json:"newOptions"`
-	OptionUpdates   []QuestOptionUpdate      `json:"optionUpdates"`
-	NewRequirements []QuestOptionRequirement `json:"newRequirements"`
+	QuestID             int                      `json:"questId"`
+	QuestName           string                   `json:"questName"`
+	AssetID             *int                     `json:"assetId"`
+	IsNewQuest          bool                     `json:"isNewQuest"`
+	SettlementID        *int                     `json:"settlementId"`
+	NewOptions          []NewQuestOption         `json:"newOptions"`
+	OptionUpdates       []QuestOptionUpdate      `json:"optionUpdates"`
+	NewRequirements     []QuestOptionRequirement `json:"newRequirements"`
+	PendingRequirements []PendingRequirement     `json:"pendingRequirements"`
+}
+
+// PendingRequirement represents a requirement between unsaved local options
+type PendingRequirement struct {
+	LocalOptionID         int `json:"localOptionId"`
+	LocalRequiredOptionID int `json:"localRequiredOptionId"`
 }
 
 // NewQuestOption represents a new option to create
@@ -427,6 +434,27 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 			log.Printf("Error inserting requirement: %v", err)
+			// Continue, don't fail on requirements
+		}
+	}
+
+	// Insert pending requirements (between newly created options using local ID mapping)
+	for _, pendingReq := range req.PendingRequirements {
+		optionServerId, hasOption := optionMapping[pendingReq.LocalOptionID]
+		requiredServerId, hasRequired := optionMapping[pendingReq.LocalRequiredOptionID]
+
+		if !hasOption || !hasRequired {
+			log.Printf("Skipping pending requirement - missing mapping: local %d -> %v, local %d -> %v",
+				pendingReq.LocalOptionID, hasOption, pendingReq.LocalRequiredOptionID, hasRequired)
+			continue
+		}
+
+		_, err := tx.Exec(`INSERT INTO game.quest_option_requirements (option_id, required_option_id)
+			VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			optionServerId, requiredServerId)
+
+		if err != nil {
+			log.Printf("Error inserting pending requirement: %v", err)
 			// Continue, don't fail on requirements
 		}
 	}

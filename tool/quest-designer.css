@@ -367,29 +367,29 @@
     cursor: pointer;
 }
 
+/* Expedition-style connection lines */
 .quest-connection {
     fill: none;
-    stroke-width: 3;
+    stroke: #e94560;
+    stroke-width: 1.5;
+    stroke-dasharray: 6 3;
+    pointer-events: stroke;
+    cursor: pointer;
+    transition: stroke 0.2s, stroke-width 0.2s;
 }
 
-.quest-connection.requires-connection {
-    stroke: rgba(100, 149, 237, 0.7);
-}
-
-.quest-connection.requires-connection:hover {
-    stroke: rgba(100, 149, 237, 1);
-    stroke-width: 4;
+.quest-connection:hover {
+    stroke: #ff6b6b;
+    stroke-width: 2.5;
+    stroke-dasharray: none;
 }
 
 #questConnectionPreview {
     fill: none;
-    stroke-width: 3;
-    stroke-dasharray: 5, 5;
-    pointer-events: none;
-}
-
-#questConnectionPreview.requires-connection {
-    stroke: rgba(100, 149, 237, 0.8);
+    stroke: #4ecdc4;
+    stroke-width: 2;
+    stroke-dasharray: 8 4;
+    opacity: 0.8;
 }
 
 /* Navigation Controls */
