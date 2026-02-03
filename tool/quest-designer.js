@@ -41,13 +41,6 @@ const questState = {
     // Server tracking
     serverQuests: new Map(),
     serverOptions: new Map(),
-    
-    // Global data cache (loaded once)
-    effects: [],
-    enemies: [],
-    items: [],
-    perks: [],
-    potions: [],
 };
 
 // ==================== INITIALIZATION ====================
@@ -97,13 +90,33 @@ function initQuestDesigner() {
     // Sidebar event listeners
     setupSidebarEventListeners();
     
+    // Populate dropdowns from GlobalData or enemy-designer data - retry if not loaded yet
+    let dropdownRetryCount = 0;
+    const tryPopulateDropdowns = () => {
+        populateEffectsDropdown();
+        populateEnemyGrid();
+        populateItemsDropdown();
+        populatePotionsDropdown();
+        populatePerksDropdown();
+        populateBlessingsDropdown();
+        
+        // Check if enemies loaded, retry if not
+        const enemyGrid = document.getElementById('questEnemyPickerGrid');
+        const hasEnemies = enemyGrid && enemyGrid.children.length > 0 && !enemyGrid.querySelector('p');
+        if (!hasEnemies && dropdownRetryCount < 5) {
+            dropdownRetryCount++;
+            console.log(`Enemies not loaded yet, retrying in 2s (attempt ${dropdownRetryCount})...`);
+            setTimeout(tryPopulateDropdowns, 2000);
+        }
+    };
+    setTimeout(tryPopulateDropdowns, 1500);
+    
     updateCounter();
     console.log('✅ Quest Designer ready');
     
     // Load data
     loadQuestSettlements();
     loadQuestAssets();
-    loadQuestGlobalData();
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -661,7 +674,7 @@ function updateSidebar(optionId) {
     
     // Populate stat check fields
     const statTypeSelect = document.getElementById('sidebarStatType');
-    if (statTypeSelect) statTypeSelect.value = option.statType || '';
+    if (statTypeSelect) statTypeSelect.value = option.statType || 'strength';
     
     const statRequired = document.getElementById('sidebarStatRequired');
     if (statRequired) statRequired.value = option.statRequired || '';
@@ -687,7 +700,7 @@ function updateSidebar(optionId) {
     
     // Populate reward-specific fields
     const rewardStatType = document.getElementById('sidebarRewardStatType');
-    if (rewardStatType) rewardStatType.value = reward.statType || '';
+    if (rewardStatType) rewardStatType.value = reward.statType || 'strength';
     
     const rewardStatAmount = document.getElementById('sidebarRewardStatAmount');
     if (rewardStatAmount) rewardStatAmount.value = reward.amount || '';
@@ -1002,56 +1015,14 @@ async function loadQuestAssets() {
     }
 }
 
-// ==================== LOAD GLOBAL DATA ====================
-async function loadQuestGlobalData() {
-    console.log('Loading global data for quest designer...');
-    
-    try {
-        // Load effects
-        if (typeof loadEffectsData === 'function') {
-            questState.effects = await loadEffectsData() || [];
-        } else if (typeof GlobalData !== 'undefined') {
-            questState.effects = GlobalData.effects || [];
-        }
-        populateEffectsDropdown();
-        
-        // Load enemies
-        if (typeof loadEnemiesData === 'function') {
-            questState.enemies = await loadEnemiesData() || [];
-        } else if (typeof GlobalData !== 'undefined') {
-            questState.enemies = GlobalData.enemies || [];
-        }
-        
-        // Load items
-        if (typeof loadItemsData === 'function') {
-            questState.items = await loadItemsData() || [];
-        } else if (typeof GlobalData !== 'undefined') {
-            questState.items = GlobalData.items || [];
-        }
-        populateItemsDropdown();
-        populatePotionsDropdown();
-        
-        // Load perks
-        if (typeof loadPerksData === 'function') {
-            questState.perks = await loadPerksData() || [];
-        } else if (typeof GlobalData !== 'undefined') {
-            questState.perks = GlobalData.perks || [];
-        }
-        populatePerksDropdown();
-        populateBlessingsDropdown();
-        
-        console.log(`✅ Global data loaded: ${questState.effects.length} effects, ${questState.enemies.length} enemies, ${questState.items.length} items, ${questState.perks.length} perks`);
-    } catch (error) {
-        console.error('Error loading global data:', error);
-    }
-}
-
+// ==================== POPULATE DROPDOWNS FROM GLOBALDATA ====================
 function populateEffectsDropdown() {
+    const effects = typeof getEffects === 'function' ? getEffects() : (GlobalData?.effects || []);
     const select = document.getElementById('sidebarEffectId');
     if (!select) return;
     
-    select.innerHTML = '<option value="">-- Select --</option>';
-    questState.effects.forEach(effect => {
+    select.innerHTML = '';
+    effects.forEach(effect => {
         const opt = document.createElement('option');
         opt.value = effect.effect_id || effect.id;
         opt.textContent = effect.effect_name || effect.name || `Effect ${effect.effect_id || effect.id}`;
@@ -1060,11 +1031,12 @@ function populateEffectsDropdown() {
 }
 
 function populateItemsDropdown() {
+    const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
     const select = document.getElementById('sidebarRewardItem');
     if (!select) return;
     
-    select.innerHTML = '<option value="">-- Select Item --</option>';
-    const nonPotionItems = questState.items.filter(item => item.type !== 'potion');
+    select.innerHTML = '';
+    const nonPotionItems = items.filter(item => item.type !== 'potion');
     nonPotionItems.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.item_id || item.id;
@@ -1074,11 +1046,12 @@ function populateItemsDropdown() {
 }
 
 function populatePotionsDropdown() {
+    const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
     const select = document.getElementById('sidebarRewardPotion');
     if (!select) return;
     
-    select.innerHTML = '<option value="">-- Select Potion --</option>';
-    const potions = questState.items.filter(item => item.type === 'potion');
+    select.innerHTML = '';
+    const potions = items.filter(item => item.type === 'potion');
     potions.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.item_id || item.id;
@@ -1088,11 +1061,12 @@ function populatePotionsDropdown() {
 }
 
 function populatePerksDropdown() {
+    const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
     const select = document.getElementById('sidebarRewardPerk');
     if (!select) return;
     
-    select.innerHTML = '<option value="">-- Select Perk --</option>';
-    questState.perks.forEach(perk => {
+    select.innerHTML = '';
+    perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
         opt.textContent = perk.perk_name || perk.name || `Perk ${perk.perk_id || perk.id}`;
@@ -1101,12 +1075,13 @@ function populatePerksDropdown() {
 }
 
 function populateBlessingsDropdown() {
+    const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
     const select = document.getElementById('sidebarRewardBlessing');
     if (!select) return;
     
     // Blessings are just perks used in church
-    select.innerHTML = '<option value="">-- Select Blessing --</option>';
-    questState.perks.forEach(perk => {
+    select.innerHTML = '';
+    perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
         opt.textContent = perk.perk_name || perk.name || `Blessing ${perk.perk_id || perk.id}`;
@@ -1115,27 +1090,39 @@ function populateBlessingsDropdown() {
 }
 
 function populateEnemyGrid() {
+    // Try different sources for enemies (same as expedition-designer)
+    let enemies = [];
+    if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+        enemies = allEnemies; // From enemy-designer-new.js
+    } else if (typeof getEnemies === 'function') {
+        enemies = getEnemies(); // From global-data.js
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+        enemies = GlobalData.enemies;
+    }
+    
     const grid = document.getElementById('questEnemyPickerGrid');
     if (!grid) return;
     
     grid.innerHTML = '';
     
-    if (questState.enemies.length === 0) {
-        grid.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No enemies loaded</p>';
+    if (enemies.length === 0) {
+        grid.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No enemies loaded yet. Visit Enemy Designer first.</p>';
         return;
     }
     
-    questState.enemies.forEach(enemy => {
-        const id = enemy.enemy_id || enemy.id;
-        const name = enemy.enemy_name || enemy.name || `Enemy ${id}`;
-        const icon = enemy.icon || enemy.signedPortraitUrl || '';
+    enemies.forEach(enemy => {
+        // Handle both naming conventions (enemy-designer uses enemyId/enemyName, global-data uses id/name)
+        const id = enemy.enemyId || enemy.enemy_id || enemy.id;
+        const name = enemy.enemyName || enemy.enemy_name || enemy.name || `Enemy ${id}`;
+        const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
         
         const div = document.createElement('div');
         div.className = 'quest-enemy-item';
         div.dataset.enemyId = id;
-        div.innerHTML = icon 
-            ? `<img src="${icon}" alt="${escapeHtml(name)}"><span>${escapeHtml(name)}</span>`
-            : `<div class="no-icon">⚔️</div><span>${escapeHtml(name)}</span>`;
+        div.innerHTML = `
+            <img src="${iconUrl}" alt="${escapeHtml(name)}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+            <span>${escapeHtml(name)}</span>
+        `;
         
         div.addEventListener('click', () => {
             selectEnemyFromGrid(id);
