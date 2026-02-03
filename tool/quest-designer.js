@@ -54,10 +54,10 @@ function initQuestDesigner() {
     }
     
     // Canvas pan events
-    canvas.addEventListener('mousedown', onCanvasMouseDown);
-    canvas.addEventListener('mousemove', onCanvasMouseMove);
-    canvas.addEventListener('mouseup', onCanvasMouseUp);
-    canvas.addEventListener('mouseleave', onCanvasMouseUp);
+    canvas.addEventListener('mousedown', onQuestCanvasMouseDown);
+    canvas.addEventListener('mousemove', onQuestCanvasMouseMove);
+    canvas.addEventListener('mouseup', onQuestCanvasMouseUp);
+    canvas.addEventListener('mouseleave', onQuestCanvasMouseUp);
     
     // Prevent context menu on middle click
     canvas.addEventListener('auxclick', (e) => {
@@ -71,6 +71,10 @@ function initQuestDesigner() {
     document.addEventListener('wheel', function(e) {
         const canvas = document.getElementById('questCanvas');
         if (!canvas) return;
+        
+        // Only handle wheel events if quest page is visible
+        const questPage = document.getElementById('quests-content');
+        if (!questPage || questPage.style.display === 'none') return;
         
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
@@ -267,7 +271,7 @@ function bindQuestEvents(el, quest) {
             e.stopPropagation();
             e.preventDefault();
             const side = conn.dataset.side;
-            startConnection('quest', quest.questId, side, e);
+            questStartConnection('quest', quest.questId, side, e);
         });
     });
     
@@ -354,7 +358,7 @@ function bindOptionEvents(el, option) {
             e.stopPropagation();
             e.preventDefault();
             const side = conn.dataset.side;
-            startConnection('option', option.optionId, side, e);
+            questStartConnection('option', option.optionId, side, e);
         });
     });
     
@@ -385,7 +389,7 @@ function startDragElement(el, data, e) {
         data.y = startY + deltaY;
         el.style.left = `${data.x}px`;
         el.style.top = `${data.y}px`;
-        renderConnections();
+        questRenderConnections();
     };
     
     const onUp = () => {
@@ -399,7 +403,7 @@ function startDragElement(el, data, e) {
 }
 
 // ==================== CONNECTION SYSTEM ====================
-function startConnection(type, id, side, e) {
+function questStartConnection(type, id, side, e) {
     console.log('Starting connection from', type, id, 'side', side);
     questState.isConnecting = true;
     questState.connectionStart = { type, id, side };
@@ -423,7 +427,7 @@ function startConnection(type, id, side, e) {
     });
     
     const onMouseMove = (ev) => {
-        updateConnectionPreview(ev);
+        questUpdateConnectionPreview(ev);
     };
     
     const onMouseUp = (ev) => {
@@ -450,14 +454,14 @@ function startConnection(type, id, side, e) {
             }
         }
         
-        cancelConnection();
-        renderConnections();
+        questCancelConnection();
+        questRenderConnections();
     };
     
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     
-    updateConnectionPreview(e);
+    questUpdateConnectionPreview(e);
 }
 
 function addConnection(fromType, fromId, toType, toId) {
@@ -473,7 +477,7 @@ function addConnection(fromType, fromId, toType, toId) {
     }
 }
 
-function cancelConnection() {
+function questCancelConnection() {
     questState.isConnecting = false;
     questState.connectionStart = null;
     document.body.style.cursor = 'default';
@@ -488,7 +492,7 @@ function cancelConnection() {
     });
 }
 
-function updateConnectionPreview(e) {
+function questUpdateConnectionPreview(e) {
     const preview = document.getElementById('questConnectionPreview');
     const canvas = document.getElementById('questCanvas');
     if (!preview || !canvas || !questState.connectionStart) return;
@@ -515,7 +519,7 @@ function updateConnectionPreview(e) {
     preview.style.display = 'block';
 }
 
-function renderConnections() {
+function questRenderConnections() {
     const svg = document.getElementById('questConnectionsSvg');
     const canvas = document.getElementById('questCanvas');
     if (!svg || !canvas) return;
@@ -575,7 +579,7 @@ function renderConnections() {
             e.stopPropagation();
             if (confirm('Delete this connection?')) {
                 questState.connections.splice(idx, 1);
-                renderConnections();
+                questRenderConnections();
             }
         });
         
@@ -597,7 +601,7 @@ function deleteQuest(id) {
     questState.quests.delete(id);
     questState.selectedQuest = null;
     
-    renderConnections();
+    questRenderConnections();
     updateCounter();
 }
 
@@ -614,7 +618,7 @@ function deleteOption(id) {
     questState.options.delete(id);
     questState.selectedOption = null;
     
-    renderConnections();
+    questRenderConnections();
     updateCounter();
 }
 
@@ -777,7 +781,7 @@ function updateSidebarRewardFields(type) {
 }
 
 // ==================== CANVAS NAVIGATION ====================
-function onCanvasMouseDown(e) {
+function onQuestCanvasMouseDown(e) {
     if (e.button === 1) {
         e.preventDefault();
         questState.isDragging = true;
@@ -798,7 +802,7 @@ function onCanvasMouseDown(e) {
     }
 }
 
-function onCanvasMouseMove(e) {
+function onQuestCanvasMouseMove(e) {
     if (questState.isDragging) {
         const dx = e.clientX - questState.lastMouse.x;
         const dy = e.clientY - questState.lastMouse.y;
@@ -810,22 +814,22 @@ function onCanvasMouseMove(e) {
         if (container) {
             container.style.transform = `translate(${questState.canvasOffset.x}px, ${questState.canvasOffset.y}px) scale(${questState.zoom})`;
         }
-        renderConnections();
+        questRenderConnections();
     }
     
     if (questState.isConnecting) {
-        updateConnectionPreview(e);
+        questUpdateConnectionPreview(e);
     }
 }
 
-function onCanvasMouseUp(e) {
+function onQuestCanvasMouseUp(e) {
     if (questState.isDragging) {
         questState.isDragging = false;
         document.getElementById('questCanvas').style.cursor = 'grab';
     }
     
     if (questState.isConnecting && !e.target.closest('.quest-slide, .option-node')) {
-        cancelConnection();
+        questCancelConnection();
     }
 }
 
@@ -843,7 +847,7 @@ function onCanvasWheel(e) {
     const indicator = document.getElementById('questZoomIndicator');
     if (indicator) indicator.textContent = `${Math.round(questState.zoom * 100)}%`;
     
-    renderConnections();
+    questRenderConnections();
 }
 
 function changeQuestZoom(delta) {
@@ -858,7 +862,7 @@ function changeQuestZoom(delta) {
     const indicator = document.getElementById('questZoomIndicator');
     if (indicator) indicator.textContent = `${Math.round(questState.zoom * 100)}%`;
     
-    renderConnections();
+    questRenderConnections();
 }
 window.changeQuestZoom = changeQuestZoom;
 
@@ -871,7 +875,7 @@ function panQuestCanvas(dx, dy) {
         container.style.transform = `translate(${questState.canvasOffset.x}px, ${questState.canvasOffset.y}px) scale(${questState.zoom})`;
     }
     
-    renderConnections();
+    questRenderConnections();
 }
 window.panQuestCanvas = panQuestCanvas;
 
@@ -885,7 +889,7 @@ function resetQuestView() {
     const indicator = document.getElementById('questZoomIndicator');
     if (indicator) indicator.textContent = '100%';
     
-    renderConnections();
+    questRenderConnections();
 }
 window.resetQuestView = resetQuestView;
 

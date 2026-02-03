@@ -69,6 +69,10 @@ function initExpeditionDesigner() {
         const canvas = document.getElementById('expeditionCanvas');
         if (!canvas) return;
         
+        // Only handle wheel events if expedition page is visible
+        const expeditionPage = document.getElementById('dungeons-content');
+        if (!expeditionPage || expeditionPage.style.display === 'none') return;
+        
         // Check if mouse is over the canvas
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
