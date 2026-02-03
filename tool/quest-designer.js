@@ -639,9 +639,9 @@ function showSaveStatus(status) {
 }
 
 function setupSidebarAutoSave() {
-    // Inputs that trigger auto-save
+    // Inputs that trigger auto-save (text fields are now inline in the node)
     const inputIds = [
-        'sidebarNodeText', 'sidebarOptionText', 'sidebarIsStart',
+        'sidebarIsStart',
         'sidebarStatType', 'sidebarStatRequired', 'sidebarEffectId', 'sidebarEffectAmount', 'sidebarEnemyId',
         'sidebarRewardType', 'sidebarRewardStatType', 'sidebarRewardStatAmount',
         'sidebarRewardItem', 'sidebarRewardPerk', 'sidebarRewardBlessing', 'sidebarRewardPotion',
@@ -770,18 +770,8 @@ function updateSidebar() {
     const option = questState.options.get(questState.selectedOption);
     if (!option) return;
     
-    // Populate sidebar fields (only if not focused to avoid interrupting user typing)
+    // Populate sidebar fields
     document.getElementById('sidebarOptionId').textContent = `Option ID: ${option.id}`;
-    
-    const nodeTextEl = document.getElementById('sidebarNodeText');
-    const optionTextEl = document.getElementById('sidebarOptionText');
-    if (nodeTextEl && nodeTextEl !== document.activeElement) {
-        nodeTextEl.value = option.nodeText || '';
-    }
-    if (optionTextEl && optionTextEl !== document.activeElement) {
-        optionTextEl.value = option.optionText || '';
-    }
-    
     document.getElementById('sidebarIsStart').checked = option.isStart || false;
     
     // Determine and set option type
@@ -858,23 +848,7 @@ function saveOptionFromSidebar() {
     const option = questState.options.get(optionId);
     if (!option) return;
     
-    // Get values from sidebar
-    option.nodeText = document.getElementById('sidebarNodeText').value || '';
-    option.optionText = document.getElementById('sidebarOptionText').value || '';
-    option.isStart = document.getElementById('sidebarIsStart').checked;
-    
-    // Update the inline inputs in the node to match sidebar
-    const nodeEl = document.getElementById(`option-${optionId}`);
-    if (nodeEl) {
-        const titleInput = nodeEl.querySelector('.option-title-input');
-        const textArea = nodeEl.querySelector('.option-node-textarea');
-        if (titleInput && titleInput !== document.activeElement) {
-            titleInput.value = option.optionText;
-        }
-        if (textArea && textArea !== document.activeElement) {
-            textArea.value = option.nodeText;
-        }
-    }
+    // Get isStart from sidebar (text fields are now inline in the node)
     option.isStart = document.getElementById('sidebarIsStart').checked;
     
     // Option type

@@ -414,6 +414,16 @@
     cursor: pointer !important;
 }
 
+/* CRITICAL: Disable pointer-events on ALL children during connecting so the node itself receives the drop */
+.quest-canvas.connecting .quest-option-node * {
+    pointer-events: none !important;
+}
+
+/* But keep connectors active so we can start dragging from them */
+.quest-canvas.connecting .option-connector {
+    pointer-events: auto !important;
+}
+
 /* Connections SVG */
 .quest-connections-svg {
     position: absolute;
