@@ -54,11 +54,11 @@ type QuestOption struct {
 	Y float64 `json:"y"`
 }
 
-// QuestOptionVisibility represents visibility connections between options
-type QuestOptionVisibility struct {
-	OptionID       int    `json:"optionId"`
-	EffectType     string `json:"effectType"`
-	TargetOptionID int    `json:"targetOptionId"`
+// QuestOptionRequirement represents a visibility requirement for an option
+// The option_id requires required_option_id to have been selected before it becomes visible
+type QuestOptionRequirement struct {
+	OptionID         int `json:"optionId"`
+	RequiredOptionID int `json:"requiredOptionId"`
 }
 
 // handleGetQuests returns quests and their options for a settlement
@@ -152,37 +152,37 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get visibility connections for these options
-	var visibility []QuestOptionVisibility
+	// Get requirements for these options
+	var requirements []QuestOptionRequirement
 	if len(options) > 0 {
 		optionIDs := make([]int, len(options))
 		for i, o := range options {
 			optionIDs[i] = o.OptionID
 		}
 
-		visQuery := `SELECT option_id, effect_type, target_option_id 
-			FROM game.quest_option_visibility WHERE option_id = ANY($1) OR target_option_id = ANY($1)`
+		reqQuery := `SELECT option_id, required_option_id 
+			FROM game.quest_option_requirements WHERE option_id = ANY($1) OR required_option_id = ANY($1)`
 
-		visRows, err := db.Query(visQuery, pq.Array(optionIDs))
+		reqRows, err := db.Query(reqQuery, pq.Array(optionIDs))
 		if err != nil {
-			log.Printf("Error querying visibility: %v", err)
+			log.Printf("Error querying requirements: %v", err)
 		} else {
-			defer visRows.Close()
-			for visRows.Next() {
-				var v QuestOptionVisibility
-				if err := visRows.Scan(&v.OptionID, &v.EffectType, &v.TargetOptionID); err != nil {
-					log.Printf("Error scanning visibility: %v", err)
+			defer reqRows.Close()
+			for reqRows.Next() {
+				var r QuestOptionRequirement
+				if err := reqRows.Scan(&r.OptionID, &r.RequiredOptionID); err != nil {
+					log.Printf("Error scanning requirement: %v", err)
 					continue
 				}
-				visibility = append(visibility, v)
+				requirements = append(requirements, r)
 			}
 		}
 	}
 
 	response := map[string]interface{}{
-		"quests":     quests,
-		"options":    options,
-		"visibility": visibility,
+		"quests":       quests,
+		"options":      options,
+		"requirements": requirements,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -250,11 +250,14 @@ func handleCreateQuest(w http.ResponseWriter, r *http.Request) {
 
 // SaveQuestRequest represents the request to save quest options
 type SaveQuestRequest struct {
-	QuestID       int                     `json:"questId"`
-	AssetID       *int                    `json:"assetId"`
-	NewOptions    []NewQuestOption        `json:"newOptions"`
-	OptionUpdates []QuestOptionUpdate     `json:"optionUpdates"`
-	NewVisibility []QuestOptionVisibility `json:"newVisibility"`
+	QuestID         int                      `json:"questId"`
+	QuestName       string                   `json:"questName"`
+	AssetID         *int                     `json:"assetId"`
+	IsNewQuest      bool                     `json:"isNewQuest"`
+	SettlementID    *int                     `json:"settlementId"`
+	NewOptions      []NewQuestOption         `json:"newOptions"`
+	OptionUpdates   []QuestOptionUpdate      `json:"optionUpdates"`
+	NewRequirements []QuestOptionRequirement `json:"newRequirements"`
 }
 
 // NewQuestOption represents a new option to create
@@ -329,13 +332,39 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Update quest asset_id if provided
-	if req.AssetID != nil {
-		_, err := tx.Exec(`UPDATE game.quests SET asset_id = $1 WHERE quest_id = $2`, *req.AssetID, req.QuestID)
+	questID := req.QuestID
+
+	// Create new quest if isNewQuest
+	if req.IsNewQuest {
+		err := tx.QueryRow(`INSERT INTO game.quests (quest_name, settlement_id, asset_id)
+			VALUES ($1, $2, $3) RETURNING quest_id`,
+			req.QuestName, req.SettlementID, req.AssetID).Scan(&questID)
 		if err != nil {
-			log.Printf("Error updating quest asset: %v", err)
+			log.Printf("Error creating new quest: %v", err)
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
+		}
+		// Update quest IDs in new options
+		for i := range req.NewOptions {
+			req.NewOptions[i].QuestID = questID
+		}
+	} else {
+		// Update existing quest's asset_id and name if provided
+		if req.AssetID != nil {
+			_, err := tx.Exec(`UPDATE game.quests SET asset_id = $1 WHERE quest_id = $2`, *req.AssetID, questID)
+			if err != nil {
+				log.Printf("Error updating quest asset: %v", err)
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
+		}
+		if req.QuestName != "" {
+			_, err := tx.Exec(`UPDATE game.quests SET quest_name = $1 WHERE quest_id = $2`, req.QuestName, questID)
+			if err != nil {
+				log.Printf("Error updating quest name: %v", err)
+				http.Error(w, "Database error", http.StatusInternalServerError)
+				return
+			}
 		}
 	}
 
@@ -386,19 +415,19 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Insert new visibility connections
-	for _, vis := range req.NewVisibility {
-		if vis.OptionID == 0 || vis.TargetOptionID == 0 {
-			log.Printf("Skipping invalid visibility: %+v", vis)
+	// Insert new requirements
+	for _, reqItem := range req.NewRequirements {
+		if reqItem.OptionID == 0 || reqItem.RequiredOptionID == 0 {
+			log.Printf("Skipping invalid requirement: %+v", reqItem)
 			continue
 		}
-		_, err := tx.Exec(`INSERT INTO game.quest_option_visibility (option_id, effect_type, target_option_id)
-			VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-			vis.OptionID, vis.EffectType, vis.TargetOptionID)
+		_, err := tx.Exec(`INSERT INTO game.quest_option_requirements (option_id, required_option_id)
+			VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+			reqItem.OptionID, reqItem.RequiredOptionID)
 
 		if err != nil {
-			log.Printf("Error inserting visibility: %v", err)
-			// Continue, don't fail on visibility
+			log.Printf("Error inserting requirement: %v", err)
+			// Continue, don't fail on requirements
 		}
 	}
 
@@ -410,6 +439,7 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	response := map[string]interface{}{
 		"success":       true,
+		"questId":       questID,
 		"optionMapping": optionMapping,
 	}
 
@@ -448,10 +478,10 @@ func handleDeleteQuestOption(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Delete visibility connections first
-	_, err = tx.Exec(`DELETE FROM game.quest_option_visibility WHERE option_id = $1 OR target_option_id = $1`, req.OptionID)
+	// Delete requirements first
+	_, err = tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id = $1 OR required_option_id = $1`, req.OptionID)
 	if err != nil {
-		log.Printf("Error deleting visibility: %v", err)
+		log.Printf("Error deleting requirements: %v", err)
 	}
 
 	// Delete the option

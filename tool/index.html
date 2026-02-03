@@ -167,7 +167,7 @@
                         <div class="quest-select">
                             <label>Quest:</label>
                             <select id="questSelect" onchange="window.onQuestChange && window.onQuestChange()">
-                                <option value="">-- Select Quest --</option>
+                                <option value="" disabled selected>-- Select or Create --</option>
                             </select>
                         </div>
                         <span id="questOptionCounter">0 options</span>
@@ -178,7 +178,6 @@
                         </div>
                     </div>
                     <div class="quest-toolbar-right">
-                        <button id="newQuestBtn" class="btn-secondary">+ New Quest</button>
                         <button id="addOptionBtn" class="btn-primary">+ Add Option</button>
                         <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
                     </div>
@@ -192,11 +191,8 @@
                         <div id="questCanvas" class="quest-canvas">
                             <svg id="questConnectionsSvg" class="quest-connections-svg">
                                 <defs>
-                                    <marker id="arrowShow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                        <polygon points="0 0, 10 3.5, 0 7" fill="#4ecdc4"/>
-                                    </marker>
-                                    <marker id="arrowHide" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-                                        <polygon points="0 0, 10 3.5, 0 7" fill="#e94560"/>
+                                    <marker id="arrowRequires" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="rgb(100, 149, 237)"/>
                                     </marker>
                                 </defs>
                                 <path id="questConnectionPreview" class="quest-connection-preview" style="display:none"></path>
@@ -214,6 +210,7 @@
                                             <span>📷</span>
                                             <p>Click to set background</p>
                                         </div>
+                                        <input type="text" id="questNameInput" class="quest-name-input" placeholder="Quest Name..." onclick="event.stopPropagation()" oninput="window.updateQuestName && window.updateQuestName(this.value)">
                                         <textarea id="questStartText" class="quest-start-text" placeholder="Enter the starting quest text..." onclick="event.stopPropagation()" oninput="window.updateQuestStartText && window.updateQuestStartText(this.value)"></textarea>
                                     </div>
                                 </div>
@@ -422,18 +419,18 @@
                                 <input type="hidden" id="sidebarRewardTalent">
                             </div>
                             
-                            <!-- Visibility Rules -->
+                            <!-- Requirements -->
                             <div class="sidebar-section">
-                                <h4>👁️ Visibility Rules</h4>
+                                <h4>🔗 Requirements</h4>
                                 <div class="sidebar-field">
-                                    <label>This option reveals:</label>
-                                    <div id="sidebarReveals" class="visibility-tags"></div>
+                                    <label>This option requires:</label>
+                                    <div id="sidebarRequires" class="visibility-tags"></div>
                                 </div>
                                 <div class="sidebar-field">
-                                    <label>This option hides:</label>
-                                    <div id="sidebarHides" class="visibility-tags"></div>
+                                    <label>Required by:</label>
+                                    <div id="sidebarRequiredBy" class="visibility-tags"></div>
                                 </div>
-                                <p class="sidebar-hint">Drag connectors on nodes to create visibility rules</p>
+                                <p class="sidebar-hint">Drag from an option to another to set it as a requirement (target requires source)</p>
                             </div>
                             
                             <!-- Actions -->

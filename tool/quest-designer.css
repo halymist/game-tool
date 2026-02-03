@@ -129,10 +129,12 @@
     background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
     border: 2px solid #1a4a7a;
     border-radius: 12px;
-    padding: 12px;
+    padding: 12px 20px;
     cursor: move;
     transition: border-color 0.2s, box-shadow 0.2s;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
 }
 
 .quest-option-node:hover {
@@ -309,44 +311,44 @@
     background: rgba(78, 205, 196, 0.3);
 }
 
-/* Connectors */
-.option-connectors {
-    display: flex;
-    justify-content: space-around;
-    padding-top: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.connector {
-    width: 36px;
-    height: 36px;
+/* Two-sided Connectors */
+.option-connector {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    background: rgba(100, 149, 237, 0.3);
+    border: 2px solid rgba(100, 149, 237, 0.6);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: crosshair;
     transition: all 0.2s;
-    font-size: 1rem;
+    font-size: 10px;
+    color: rgba(100, 149, 237, 0.8);
+    z-index: 5;
 }
 
-.connector-show {
-    background: rgba(76, 175, 80, 0.2);
-    border: 2px solid rgba(76, 175, 80, 0.5);
+.option-connector-left {
+    left: -9px;
 }
 
-.connector-show:hover {
-    background: rgba(76, 175, 80, 0.4);
-    transform: scale(1.1);
+.option-connector-right {
+    right: -9px;
 }
 
-.connector-hide {
-    background: rgba(233, 69, 96, 0.2);
-    border: 2px solid rgba(233, 69, 96, 0.5);
+.option-connector:hover {
+    background: rgba(100, 149, 237, 0.6);
+    border-color: rgba(100, 149, 237, 1);
+    transform: translateY(-50%) scale(1.2);
+    color: white;
 }
 
-.connector-hide:hover {
-    background: rgba(233, 69, 96, 0.4);
-    transform: scale(1.1);
+.option-node-content {
+    flex: 1;
+    min-width: 0;
 }
 
 /* Connections SVG */
@@ -370,22 +372,12 @@
     stroke-width: 3;
 }
 
-.quest-connection.show-connection {
-    stroke: rgba(76, 175, 80, 0.7);
+.quest-connection.requires-connection {
+    stroke: rgba(100, 149, 237, 0.7);
 }
 
-.quest-connection.show-connection:hover {
-    stroke: rgba(76, 175, 80, 1);
-    stroke-width: 4;
-}
-
-.quest-connection.hide-connection {
-    stroke: rgba(233, 69, 96, 0.7);
-    stroke-dasharray: 8, 4;
-}
-
-.quest-connection.hide-connection:hover {
-    stroke: rgba(233, 69, 96, 1);
+.quest-connection.requires-connection:hover {
+    stroke: rgba(100, 149, 237, 1);
     stroke-width: 4;
 }
 
@@ -396,12 +388,8 @@
     pointer-events: none;
 }
 
-#questConnectionPreview.show-connection {
-    stroke: rgba(76, 175, 80, 0.8);
-}
-
-#questConnectionPreview.hide-connection {
-    stroke: rgba(233, 69, 96, 0.8);
+#questConnectionPreview.requires-connection {
+    stroke: rgba(100, 149, 237, 0.8);
 }
 
 /* Navigation Controls */
@@ -822,6 +810,38 @@
     font-size: 0.85rem;
 }
 
+/* Quest name input at top of start slide */
+.quest-name-input {
+    width: calc(100% - 24px);
+    margin: 12px 12px 0 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(78, 205, 196, 0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-align: center;
+    font-family: inherit;
+    position: relative;
+    z-index: 2;
+}
+
+.quest-name-input:hover {
+    border-color: rgba(78, 205, 196, 0.5);
+}
+
+.quest-name-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.quest-name-input::placeholder {
+    color: #666;
+    font-weight: 400;
+}
+
 /* Text area positioned at top, centered, on top of overlay */
 .quest-start-text {
     width: calc(100% - 24px);
@@ -1088,24 +1108,21 @@
     transition: all 0.2s;
 }
 
-.vis-tag.show {
-    background: rgba(76, 175, 80, 0.2);
-    border: 1px solid rgba(76, 175, 80, 0.5);
-    color: #4caf50;
+.vis-tag.requires {
+    background: rgba(100, 149, 237, 0.2);
+    border: 1px solid rgba(100, 149, 237, 0.5);
+    color: #6495ed;
 }
 
-.vis-tag.show:hover {
-    background: rgba(76, 175, 80, 0.3);
+.vis-tag.requires:hover {
+    background: rgba(100, 149, 237, 0.3);
 }
 
-.vis-tag.hide {
-    background: rgba(233, 69, 96, 0.2);
-    border: 1px solid rgba(233, 69, 96, 0.5);
-    color: #e94560;
-}
-
-.vis-tag.hide:hover {
-    background: rgba(233, 69, 96, 0.3);
+.vis-tag.required-by {
+    background: rgba(100, 149, 237, 0.1);
+    border: 1px solid rgba(100, 149, 237, 0.3);
+    color: #6495ed;
+    cursor: default;
 }
 
 .vis-none {
@@ -1247,7 +1264,7 @@
 /* Simpler node style for sidebar-based editing */
 .quest-option-node {
     position: absolute;
-    width: 200px;
+    width: 220px;
     background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
     border: 2px solid #1a4a7a;
     border-radius: 10px;
@@ -1255,6 +1272,14 @@
     cursor: move;
     transition: border-color 0.2s, box-shadow 0.2s;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    overflow: visible;
+    display: flex;
+    align-items: stretch;
+}
+
+.option-node-content {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
 }
 
@@ -1305,6 +1330,33 @@
 
 .quest-option-node.combat-option .option-node-header {
     background: rgba(233, 69, 96, 0.1);
+}
+
+/* Option node states (need to be after base styles) */
+.quest-option-node:hover {
+    border-color: #4ecdc4;
+}
+
+.quest-option-node.selected {
+    border-color: #e94560;
+    box-shadow: 0 0 20px rgba(233, 69, 96, 0.4);
+    z-index: 10;
+}
+
+.quest-option-node.start-option {
+    border-color: #4caf50;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.2);
+}
+
+.quest-option-node.start-option.selected {
+    border-color: #4caf50;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.4);
+}
+
+.quest-option-node.dragging {
+    opacity: 0.9;
+    z-index: 1000;
+    cursor: grabbing;
 }
 
 /* ==================== QUEST ASSET MODAL ==================== */

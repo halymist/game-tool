@@ -5,7 +5,7 @@ console.log('📦 quest-designer.js LOADED');
 const questState = {
     quests: new Map(),      // questId -> quest data
     options: new Map(),     // optionId -> option data
-    visibility: [],         // { optionId, effectType, targetOptionId }
+    requirements: [],       // { optionId, requiredOptionId } - option requires requiredOption to be selected first
     selectedQuest: null,
     selectedOption: null,
     nextOptionId: 1,
@@ -15,14 +15,14 @@ const questState = {
     lastMouse: { x: 0, y: 0 },
     isConnecting: false,
     connectionStart: null,
-    connectionType: 'show',  // 'show' or 'hide'
     dropdownsPopulated: false,
     // Settlement filter
     selectedSettlementId: null,
+    selectedSettlement: null,
     settlements: [],
     // Track which options are from server
     serverOptions: new Map(), // localId -> option_id
-    serverVisibility: new Set(), // Set of "optionId-effectType-targetOptionId" keys
+    serverRequirements: new Set(), // Set of "optionId-requiredOptionId" keys
     // Track original values for change detection
     originalOptions: new Map(),
     // Quest assets
@@ -30,7 +30,10 @@ const questState = {
     questAssetId: null,
     questAssetUrl: null,
     // Quest start slide text
-    questStartText: ''
+    questStartText: '',
+    // Quest name (for new quest mode)
+    questName: '',
+    isNewQuest: true
 };
 
 // ==================== INITIALIZATION ====================
@@ -194,6 +197,11 @@ function updateQuestStartText(text) {
     questState.questStartText = text;
 }
 window.updateQuestStartText = updateQuestStartText;
+
+function updateQuestName(name) {
+    questState.questName = name;
+}
+window.updateQuestName = updateQuestName;
 
 function setupQuestAssetUpload() {
     const uploadArea = document.getElementById('questAssetUploadArea');
@@ -372,8 +380,10 @@ function onQuestCanvasMouseUp(e) {
         const targetNode = e.target.closest('.quest-option-node');
         if (targetNode && targetNode.dataset.optionId) {
             const targetId = parseInt(targetNode.dataset.optionId);
+            // Create requirement: target requires the source option
+            // Dragging FROM option A TO option B means "B requires A"
             if (targetId !== questState.connectionStart.optionId) {
-                createVisibilityConnection(questState.connectionStart.optionId, questState.connectionType, targetId);
+                createRequirement(targetId, questState.connectionStart.optionId);
             }
         }
         questState.isConnecting = false;
@@ -500,34 +510,30 @@ function renderQuestOption(option) {
     else if (option.rewardItem || option.rewardPerk) icon = '🎁';
     
     el.innerHTML = `
-        <div class="option-node-header">
-            <span class="option-icon">${icon}</span>
-            <span class="option-title">${option.optionText || 'New Option'}</span>
-        </div>
-        <div class="option-node-body">
-            ${option.nodeText ? `<p>${option.nodeText.substring(0, 60)}${option.nodeText.length > 60 ? '...' : ''}</p>` : '<p class="placeholder">No description</p>'}
-        </div>
-        <div class="option-connectors">
-            <div class="connector connector-show" data-option="${option.id}" data-type="show" title="Drag to reveal another option">
-                <span>👁️</span>
+        <div class="option-connector option-connector-left" data-option="${option.id}" title="Connection point">●</div>
+        <div class="option-node-content">
+            <div class="option-node-header">
+                <span class="option-icon">${icon}</span>
+                <span class="option-title">${option.optionText || 'New Option'}</span>
             </div>
-            <div class="connector connector-hide" data-option="${option.id}" data-type="hide" title="Drag to hide another option">
-                <span>🚫</span>
+            <div class="option-node-body">
+                ${option.nodeText ? `<p>${option.nodeText.substring(0, 60)}${option.nodeText.length > 60 ? '...' : ''}</p>` : '<p class="placeholder">No description</p>'}
             </div>
         </div>
+        <div class="option-connector option-connector-right" data-option="${option.id}" title="Drag to connect to another option">●</div>
     `;
     
     container.appendChild(el);
     
     // Click to select and show in sidebar
     el.addEventListener('click', (e) => {
-        if (e.target.closest('.connector')) return;
+        if (e.target.closest('.option-connector')) return;
         selectQuestOption(option.id);
     });
     
     // Drag node
     el.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.connector')) return;
+        if (e.target.closest('.option-connector')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
         
@@ -560,12 +566,12 @@ function renderQuestOption(option) {
         document.addEventListener('mouseup', onUp);
     });
     
-    // Connector drag events
-    el.querySelectorAll('.connector').forEach(conn => {
+    // Connector drag events (both left and right)
+    el.querySelectorAll('.option-connector').forEach(conn => {
         conn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             e.preventDefault();
-            startVisibilityDrag(parseInt(conn.dataset.option), conn.dataset.type, e);
+            startRequirementDrag(parseInt(conn.dataset.option), e);
         });
     });
 }
@@ -775,42 +781,44 @@ function updateSidebar() {
     document.getElementById('sidebarRewardBlessing').value = option.rewardBlessing || '';
     document.getElementById('sidebarRewardPotion').value = option.rewardPotion || '';
     
-    // Update visibility rules display
-    updateVisibilityRulesDisplay(option.id);
+    // Update requirements display
+    updateRequirementsDisplay(option.id);
 }
 
-function updateVisibilityRulesDisplay(optionId) {
-    const revealsDiv = document.getElementById('sidebarReveals');
-    const hidesDiv = document.getElementById('sidebarHides');
+function updateRequirementsDisplay(optionId) {
+    const requiresDiv = document.getElementById('sidebarRequires');
+    const requiredByDiv = document.getElementById('sidebarRequiredBy');
     
-    if (!revealsDiv || !hidesDiv) return;
+    if (!requiresDiv || !requiredByDiv) return;
     
-    const reveals = questState.visibility.filter(v => v.optionId === optionId && v.effectType === 'show');
-    const hides = questState.visibility.filter(v => v.optionId === optionId && v.effectType === 'hide');
+    // Options this option requires (must be selected before this one is visible)
+    const requires = questState.requirements.filter(r => r.optionId === optionId);
+    // Options that require this option
+    const requiredBy = questState.requirements.filter(r => r.requiredOptionId === optionId);
     
-    revealsDiv.innerHTML = reveals.length > 0 
-        ? reveals.map(v => {
-            const targetOpt = questState.options.get(v.targetOptionId);
-            return `<span class="vis-tag show" onclick="removeVisibility(${optionId}, 'show', ${v.targetOptionId})">${targetOpt?.optionText || `Option #${v.targetOptionId}`} ×</span>`;
+    requiresDiv.innerHTML = requires.length > 0 
+        ? requires.map(r => {
+            const reqOpt = questState.options.get(r.requiredOptionId);
+            return `<span class="vis-tag requires" onclick="removeRequirement(${optionId}, ${r.requiredOptionId})">${reqOpt?.optionText || `Option #${r.requiredOptionId}`} ×</span>`;
         }).join('')
-        : '<span class="vis-none">None</span>';
+        : '<span class="vis-none">None (always visible)</span>';
     
-    hidesDiv.innerHTML = hides.length > 0
-        ? hides.map(v => {
-            const targetOpt = questState.options.get(v.targetOptionId);
-            return `<span class="vis-tag hide" onclick="removeVisibility(${optionId}, 'hide', ${v.targetOptionId})">${targetOpt?.optionText || `Option #${v.targetOptionId}`} ×</span>`;
+    requiredByDiv.innerHTML = requiredBy.length > 0
+        ? requiredBy.map(r => {
+            const depOpt = questState.options.get(r.optionId);
+            return `<span class="vis-tag required-by">${depOpt?.optionText || `Option #${r.optionId}`}</span>`;
         }).join('')
         : '<span class="vis-none">None</span>';
 }
 
-function removeVisibility(optionId, effectType, targetOptionId) {
-    questState.visibility = questState.visibility.filter(v => 
-        !(v.optionId === optionId && v.effectType === effectType && v.targetOptionId === targetOptionId)
+function removeRequirement(optionId, requiredOptionId) {
+    questState.requirements = questState.requirements.filter(r => 
+        !(r.optionId === optionId && r.requiredOptionId === requiredOptionId)
     );
     renderQuestConnections();
-    updateVisibilityRulesDisplay(optionId);
+    updateRequirementsDisplay(optionId);
 }
-window.removeVisibility = removeVisibility;
+window.removeRequirement = removeRequirement;
 
 function saveOptionFromSidebar() {
     const optionId = questState.selectedOption;
@@ -919,8 +927,8 @@ async function deleteSelectedOption() {
         }
     }
     
-    questState.visibility = questState.visibility.filter(v => 
-        v.optionId !== id && v.targetOptionId !== id
+    questState.requirements = questState.requirements.filter(r => 
+        r.optionId !== id && r.requiredOptionId !== id
     );
     
     questState.options.delete(id);
@@ -955,17 +963,16 @@ function isOptionModified(localId) {
            option.rewardPotion !== original.rewardPotion;
 }
 
-// ==================== VISIBILITY CONNECTIONS ====================
-function startVisibilityDrag(optionId, type, e) {
+// ==================== REQUIREMENT CONNECTIONS ====================
+function startRequirementDrag(optionId, e) {
     questState.isConnecting = true;
-    questState.connectionStart = { optionId, type };
-    questState.connectionType = type;
+    questState.connectionStart = { optionId };
     
     const preview = document.getElementById('questConnectionPreview');
     if (preview) {
         preview.style.display = 'block';
         preview.classList.remove('show-connection', 'hide-connection');
-        preview.classList.add(type === 'show' ? 'show-connection' : 'hide-connection');
+        preview.classList.add('requires-connection');
     }
     
     updateQuestConnectionPreview(e);
@@ -980,8 +987,7 @@ function updateQuestConnectionPreview(e) {
     const optionEl = document.getElementById(`option-${questState.connectionStart.optionId}`);
     if (!optionEl) return;
     
-    const connectorClass = questState.connectionType === 'show' ? '.connector-show' : '.connector-hide';
-    const connector = optionEl.querySelector(connectorClass);
+    const connector = optionEl.querySelector('.connector-requires');
     if (!connector) return;
     
     const connRect = connector.getBoundingClientRect();
@@ -994,33 +1000,31 @@ function updateQuestConnectionPreview(e) {
     preview.setAttribute('d', `M ${x1} ${y1} Q ${curveX} ${y1}, ${x2} ${y2}`);
 }
 
-function createVisibilityConnection(fromOptionId, effectType, targetOptionId) {
-    // Check if connection already exists
-    const exists = questState.visibility.some(v => 
-        v.optionId === fromOptionId && 
-        v.effectType === effectType && 
-        v.targetOptionId === targetOptionId
+function createRequirement(optionId, requiredOptionId) {
+    // Check if requirement already exists
+    const exists = questState.requirements.some(r => 
+        r.optionId === optionId && 
+        r.requiredOptionId === requiredOptionId
     );
     
     if (exists) {
-        console.log('Connection already exists');
+        console.log('Requirement already exists');
         return;
     }
     
-    questState.visibility.push({
-        optionId: fromOptionId,
-        effectType: effectType,
-        targetOptionId: targetOptionId
+    questState.requirements.push({
+        optionId: optionId,
+        requiredOptionId: requiredOptionId
     });
     
     renderQuestConnections();
     
-    // Update sidebar if the source option is selected
-    if (questState.selectedOption === fromOptionId) {
-        updateVisibilityRulesDisplay(fromOptionId);
+    // Update sidebar if either option is selected
+    if (questState.selectedOption === optionId) {
+        updateRequirementsDisplay(optionId);
     }
     
-    console.log(`Created ${effectType} connection: ${fromOptionId} -> ${targetOptionId}`);
+    console.log(`Created requirement: Option #${optionId} requires Option #${requiredOptionId}`);
 }
 
 function renderQuestConnections() {
@@ -1033,134 +1037,79 @@ function renderQuestConnections() {
     // Remove old paths except preview
     svg.querySelectorAll('path:not(#questConnectionPreview)').forEach(p => p.remove());
     
-    const zoom = questState.zoom;
-    const offsetX = questState.canvasOffset.x;
-    const offsetY = questState.canvasOffset.y;
-    const nodeWidth = 200;
-    const nodeHeight = 100; // approximate
-    
     // Filter options by current quest
     const optionPassesFilter = (opt) => {
         if (!questState.selectedQuest) return true;
         return opt.questId === questState.selectedQuest;
     };
     
-    questState.visibility.forEach((conn, i) => {
-        const fromOption = questState.options.get(conn.optionId);
-        const toOption = questState.options.get(conn.targetOptionId);
-        if (!fromOption || !toOption) return;
+    // Render requirements as connections
+    // Connection goes FROM required option TO dependent option (shows dependency direction)
+    questState.requirements.forEach((req, i) => {
+        const requiredOption = questState.options.get(req.requiredOptionId);
+        const dependentOption = questState.options.get(req.optionId);
+        if (!requiredOption || !dependentOption) return;
         
         // Skip if either option is filtered out
-        if (!optionPassesFilter(fromOption) || !optionPassesFilter(toOption)) return;
+        if (!optionPassesFilter(requiredOption) || !optionPassesFilter(dependentOption)) return;
         
-        const fromEl = document.getElementById(`option-${conn.optionId}`);
-        const toEl = document.getElementById(`option-${conn.targetOptionId}`);
+        const fromEl = document.getElementById(`option-${req.requiredOptionId}`);
+        const toEl = document.getElementById(`option-${req.optionId}`);
         if (!fromEl || !toEl) return;
         
         const toRect = toEl.getBoundingClientRect();
         const fromRect = fromEl.getBoundingClientRect();
         
-        // Get target center in screen space
+        // Get centers to determine best side for connectors
         const toCenterX = toRect.left + toRect.width/2 - rect.left;
         const toCenterY = toRect.top + toRect.height/2 - rect.top;
-        
-        // Get from center to determine which connector to use
         const fromCenterX = fromRect.left + fromRect.width/2 - rect.left;
+        const fromCenterY = fromRect.top + fromRect.height/2 - rect.top;
+        
+        // Determine which connector to use based on relative position (like expedition)
         const useRightConnector = toCenterX >= fromCenterX;
         
-        // Select the appropriate connector based on target position
-        const connectorClass = conn.effectType === 'show' ? '.connector-show' : '.connector-hide';
-        const connector = fromEl.querySelector(connectorClass);
-        if (!connector) return;
+        // Get the appropriate connector from source element
+        const fromConnector = fromEl.querySelector(useRightConnector ? '.option-connector-right' : '.option-connector-left');
+        // Get the opposite connector on target element
+        const toConnector = toEl.querySelector(useRightConnector ? '.option-connector-left' : '.option-connector-right');
         
-        const connRect = connector.getBoundingClientRect();
+        if (!fromConnector || !toConnector) return;
         
-        // Start point from connector
-        const x1 = connRect.left + connRect.width/2 - rect.left;
-        const y1 = connRect.top + connRect.height/2 - rect.top;
+        const fromConnRect = fromConnector.getBoundingClientRect();
+        const toConnRect = toConnector.getBoundingClientRect();
         
-        // Target node bounds
-        const targetLeft = toRect.left - rect.left;
-        const targetRight = toRect.right - rect.left;
-        const targetTop = toRect.top - rect.top;
-        const targetBottom = toRect.bottom - rect.top;
-        
-        // Find intersection point with node border
-        const dx = toCenterX - x1;
-        const dy = toCenterY - y1;
-        const aspectRatio = toRect.width / toRect.height;
-        
-        let x2, y2;
-        
-        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
-            // Intersects left or right edge
-            if (dx > 0) {
-                // Left edge of target
-                x2 = targetLeft;
-                y2 = y1 + (dy / dx) * (targetLeft - x1);
-                y2 = Math.max(targetTop + 10, Math.min(targetBottom - 10, y2));
-            } else {
-                // Right edge of target
-                x2 = targetRight;
-                y2 = y1 + (dy / dx) * (targetRight - x1);
-                y2 = Math.max(targetTop + 10, Math.min(targetBottom - 10, y2));
-            }
-        } else {
-            // Intersects top or bottom edge
-            if (dy > 0) {
-                // Top edge of target
-                y2 = targetTop;
-                x2 = x1 + (dx / dy) * (targetTop - y1);
-                x2 = Math.max(targetLeft + 10, Math.min(targetRight - 10, x2));
-            } else {
-                // Bottom edge of target
-                y2 = targetBottom;
-                x2 = x1 + (dx / dy) * (targetBottom - y1);
-                x2 = Math.max(targetLeft + 10, Math.min(targetRight - 10, x2));
-            }
-        }
+        // Start and end points from connector centers
+        const x1 = fromConnRect.left + fromConnRect.width/2 - rect.left;
+        const y1 = fromConnRect.top + fromConnRect.height/2 - rect.top;
+        const x2 = toConnRect.left + toConnRect.width/2 - rect.left;
+        const y2 = toConnRect.top + toConnRect.height/2 - rect.top;
         
         // Create smooth bezier curve
         const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-        const curveStrength = Math.min(distance * 0.25, 60);
+        const curveStrength = Math.min(distance * 0.3, 80);
         
-        // Control point 1: extends from start point based on connector side
-        let cx1, cy1, cx2, cy2;
-        if (useRightConnector) {
-            cx1 = x1 + curveStrength;
-            cy1 = y1;
-        } else {
-            cx1 = x1 - curveStrength;
-            cy1 = y1;
-        }
-        
-        // Control point 2: approaches the target edge perpendicularly
-        if (Math.abs(dx) > Math.abs(dy) * aspectRatio) {
-            // Horizontal edge intersection - approach from left/right
-            cx2 = x2 + (dx > 0 ? -curveStrength : curveStrength);
-            cy2 = y2;
-        } else {
-            // Vertical edge intersection - approach from top/bottom
-            cx2 = x2;
-            cy2 = y2 + (dy > 0 ? -curveStrength : curveStrength);
-        }
+        // Control points extend horizontally from connectors
+        const cx1 = useRightConnector ? x1 + curveStrength : x1 - curveStrength;
+        const cy1 = y1;
+        const cx2 = useRightConnector ? x2 - curveStrength : x2 + curveStrength;
+        const cy2 = y2;
         
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`);
-        path.classList.add('quest-connection', conn.effectType === 'show' ? 'show-connection' : 'hide-connection');
-        path.dataset.from = conn.optionId;
-        path.dataset.to = conn.targetOptionId;
-        path.dataset.type = conn.effectType;
+        path.classList.add('quest-connection', 'requires-connection');
+        path.dataset.from = req.requiredOptionId;
+        path.dataset.to = req.optionId;
         
         // Add arrow marker
-        path.setAttribute('marker-end', conn.effectType === 'show' ? 'url(#arrowShow)' : 'url(#arrowHide)');
+        path.setAttribute('marker-end', 'url(#arrowRequires)');
         
-        // Click to delete connection
+        // Click to delete requirement
         path.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm(`Delete this ${conn.effectType} connection?`)) {
-                questState.visibility = questState.visibility.filter(v => 
-                    !(v.optionId === conn.optionId && v.effectType === conn.effectType && v.targetOptionId === conn.targetOptionId)
+            if (confirm(`Delete this requirement? (Option #${req.optionId} requires Option #${req.requiredOptionId})`)) {
+                questState.requirements = questState.requirements.filter(r => 
+                    !(r.optionId === req.optionId && r.requiredOptionId === req.requiredOptionId)
                 );
                 renderQuestConnections();
             }
@@ -1433,6 +1382,7 @@ function onQuestSettlementChange() {
     
     const value = select.value;
     questState.selectedSettlementId = value ? parseInt(value) : null;
+    questState.selectedSettlement = questState.selectedSettlementId;
     
     console.log(`🏘️ Quest settlement filter changed to: ${questState.selectedSettlementId}`);
     
@@ -1467,9 +1417,9 @@ async function loadQuestsForSettlement(settlementId) {
         // Clear state
         questState.quests.clear();
         questState.options.clear();
-        questState.visibility = [];
+        questState.requirements = [];
         questState.serverOptions.clear();
-        questState.serverVisibility.clear();
+        questState.serverRequirements.clear();
         questState.originalOptions.clear();
         
         // Process quests
@@ -1482,7 +1432,8 @@ async function loadQuestsForSettlement(settlementId) {
                     requisiteQuest: q.requisite_quest,
                     ending: q.ending,
                     defaultEntry: q.default_entry,
-                    settlementId: q.settlement_id
+                    settlementId: q.settlement_id,
+                    assetId: q.asset_id
                 });
             });
         }
@@ -1538,44 +1489,35 @@ async function loadQuestsForSettlement(settlementId) {
         }
         questState.nextOptionId = maxOptionId + 1;
         
-        // Process visibility
-        if (data.visibility) {
+        // Process requirements
+        if (data.requirements) {
             // Need to map server option_id to local id
             const serverToLocal = new Map();
             questState.serverOptions.forEach((serverId, localId) => {
                 serverToLocal.set(serverId, localId);
             });
             
-            data.visibility.forEach(v => {
+            data.requirements.forEach(r => {
                 // Support both camelCase and snake_case from server
-                const fromServer = v.optionId || v.option_id;
-                const toServer = v.targetOptionId || v.target_option_id;
-                const effectType = v.effectType || v.effect_type;
+                const optionServer = r.optionId || r.option_id;
+                const requiredServer = r.requiredOptionId || r.required_option_id;
                 
-                const fromLocal = serverToLocal.get(fromServer);
-                const toLocal = serverToLocal.get(toServer);
-                if (fromLocal && toLocal) {
-                    questState.visibility.push({
-                        optionId: fromLocal,
-                        effectType: effectType,
-                        targetOptionId: toLocal
+                const optionLocal = serverToLocal.get(optionServer);
+                const requiredLocal = serverToLocal.get(requiredServer);
+                if (optionLocal && requiredLocal) {
+                    questState.requirements.push({
+                        optionId: optionLocal,
+                        requiredOptionId: requiredLocal
                     });
-                    questState.serverVisibility.add(`${fromServer}-${effectType}-${toServer}`);
+                    questState.serverRequirements.add(`${optionServer}-${requiredServer}`);
                 }
             });
         }
         
         populateQuestDropdown();
         
-        // Auto-select first quest
-        if (questState.quests.size > 0) {
-            const firstQuest = questState.quests.values().next().value;
-            questState.selectedQuest = firstQuest.questId;
-            document.getElementById('questSelect').value = firstQuest.questId;
-        } else {
-            questState.selectedQuest = null;
-        }
-        
+        // Don't auto-select any quest - start with empty view
+        questState.selectedQuest = null;
         filterAndRenderQuestOptions();
         
         console.log(`✅ Loaded ${questState.quests.size} quests, ${questState.options.size} options`);
@@ -1588,7 +1530,8 @@ function populateQuestDropdown() {
     const select = document.getElementById('questSelect');
     if (!select) return;
     
-    select.innerHTML = '<option value="">-- Select Quest --</option>';
+    // New Quest as default selected option (like settlements)
+    select.innerHTML = '<option value="">-- New Quest --</option>';
     
     questState.quests.forEach(quest => {
         const option = document.createElement('option');
@@ -1603,43 +1546,75 @@ function onQuestChange() {
     if (!select) return;
     
     const value = select.value;
-    questState.selectedQuest = value ? parseInt(value) : null;
+    const nameInput = document.getElementById('questNameInput');
+    const questStartText = document.getElementById('questStartText');
+    
+    // If no value (New Quest mode), set up for new quest creation
+    if (!value) {
+        questState.selectedQuest = null;
+        questState.isNewQuest = true;
+        questState.questName = '';
+        questState.questStartText = '';
+        
+        // Clear the start slide
+        questState.questAssetId = null;
+        questState.questAssetUrl = null;
+        const slideBody = document.getElementById('questSlideBody');
+        if (slideBody) {
+            slideBody.style.backgroundImage = '';
+            slideBody.classList.remove('has-image');
+        }
+        
+        // Clear inputs
+        if (nameInput) nameInput.value = '';
+        if (questStartText) questStartText.value = '';
+        
+        filterAndRenderQuestOptions();
+        return;
+    }
+    
+    questState.selectedQuest = parseInt(value);
+    questState.isNewQuest = false;
     
     console.log(`📜 Quest changed to: ${questState.selectedQuest}`);
     
-    // Load quest's asset_id and display on start slide
-    if (questState.selectedQuest) {
-        const quest = questState.quests.get(questState.selectedQuest);
-        if (quest && quest.asset_id) {
+    // Load quest data including name and asset
+    const quest = questState.quests.get(questState.selectedQuest);
+    if (quest) {
+        // Load quest name
+        questState.questName = quest.questName || '';
+        if (nameInput) nameInput.value = questState.questName;
+        
+        // Load quest asset
+        if (quest.assetId) {
             // Find the asset URL from loaded assets
-            const asset = questState.questAssets.find(a => a.id === quest.asset_id);
+            const asset = questState.questAssets.find(a => a.id === quest.assetId);
             if (asset) {
                 selectQuestAsset(asset.id, asset.url);
             } else {
-                // Clear the asset display
-                questState.questAssetId = null;
-                questState.questAssetUrl = null;
-                const slideBody = document.getElementById('questSlideBody');
-                if (slideBody) {
-                    slideBody.style.backgroundImage = '';
-                    slideBody.classList.remove('has-image');
-                }
+                clearQuestAsset();
             }
         } else {
-            // No asset set, clear display
-            questState.questAssetId = null;
-            questState.questAssetUrl = null;
-            const slideBody = document.getElementById('questSlideBody');
-            if (slideBody) {
-                slideBody.style.backgroundImage = '';
-                slideBody.classList.remove('has-image');
-            }
+            clearQuestAsset();
         }
+    } else {
+        clearQuestAsset();
+        if (nameInput) nameInput.value = '';
     }
     
     filterAndRenderQuestOptions();
 }
 window.onQuestChange = onQuestChange;
+
+function clearQuestAsset() {
+    questState.questAssetId = null;
+    questState.questAssetUrl = null;
+    const slideBody = document.getElementById('questSlideBody');
+    if (slideBody) {
+        slideBody.style.backgroundImage = '';
+        slideBody.classList.remove('has-image');
+    }
+}
 
 function filterAndRenderQuestOptions() {
     const container = document.getElementById('questOptionsContainer');
@@ -1778,7 +1753,13 @@ function populateSidebarDropdowns() {
 
 // ==================== SAVE ====================
 async function saveQuest() {
-    if (!questState.selectedQuest) {
+    // For new quest, we need a name
+    if (questState.isNewQuest) {
+        if (!questState.questName || !questState.questName.trim()) {
+            alert('Please enter a quest name');
+            return;
+        }
+    } else if (!questState.selectedQuest) {
         alert('Please select a quest first');
         return;
     }
@@ -1849,25 +1830,24 @@ async function saveQuest() {
             }
         });
         
-        // Collect new visibility connections
-        const newVisibility = [];
-        questState.visibility.forEach(v => {
-            const fromOption = questState.options.get(v.optionId);
-            const toOption = questState.options.get(v.targetOptionId);
-            if (!fromOption || !toOption) return;
-            if (fromOption.questId !== questState.selectedQuest) return;
+        // Collect new requirements
+        const newRequirements = [];
+        questState.requirements.forEach(r => {
+            const option = questState.options.get(r.optionId);
+            const requiredOption = questState.options.get(r.requiredOptionId);
+            if (!option || !requiredOption) return;
+            if (option.questId !== questState.selectedQuest) return;
             
-            const fromServerId = questState.serverOptions.get(v.optionId);
-            const toServerId = questState.serverOptions.get(v.targetOptionId);
+            const optionServerId = questState.serverOptions.get(r.optionId);
+            const requiredServerId = questState.serverOptions.get(r.requiredOptionId);
             
-            // Only include if both are server options and connection doesn't exist
-            if (fromServerId && toServerId) {
-                const key = `${fromServerId}-${v.effectType}-${toServerId}`;
-                if (!questState.serverVisibility.has(key)) {
-                    newVisibility.push({
-                        optionId: fromServerId,
-                        effectType: v.effectType,
-                        targetOptionId: toServerId
+            // Only include if both are server options and requirement doesn't exist
+            if (optionServerId && requiredServerId) {
+                const key = `${optionServerId}-${requiredServerId}`;
+                if (!questState.serverRequirements.has(key)) {
+                    newRequirements.push({
+                        optionId: optionServerId,
+                        requiredOptionId: requiredServerId
                     });
                 }
             }
@@ -1881,10 +1861,13 @@ async function saveQuest() {
             },
             body: JSON.stringify({
                 questId: questState.selectedQuest,
+                questName: questState.questName,
                 assetId: questState.questAssetId,
+                isNewQuest: questState.isNewQuest,
+                settlementId: questState.selectedSettlement,
                 newOptions: newOptions,
                 optionUpdates: optionUpdates,
-                newVisibility: newVisibility
+                newRequirements: newRequirements
             })
         });
         
@@ -1896,6 +1879,25 @@ async function saveQuest() {
         const result = await response.json();
         
         if (result.success) {
+            // If new quest was created, update state
+            if (questState.isNewQuest && result.questId) {
+                questState.selectedQuest = result.questId;
+                questState.isNewQuest = false;
+                
+                // Add quest to state
+                questState.quests.set(result.questId, {
+                    questId: result.questId,
+                    questName: questState.questName,
+                    assetId: questState.questAssetId,
+                    settlementId: questState.selectedSettlement
+                });
+                
+                // Update dropdown
+                populateQuestDropdown();
+                const select = document.getElementById('questSelect');
+                if (select) select.value = result.questId;
+            }
+            
             // Update server tracking for new options
             if (result.optionMapping) {
                 for (const [localIdStr, serverId] of Object.entries(result.optionMapping)) {
@@ -1949,10 +1951,10 @@ async function saveQuest() {
                 }
             });
             
-            // Track new visibility
-            newVisibility.forEach(v => {
-                const key = `${v.optionId}-${v.effectType}-${v.targetOptionId}`;
-                questState.serverVisibility.add(key);
+            // Track new requirements
+            newRequirements.forEach(r => {
+                const key = `${r.optionId}-${r.requiredOptionId}`;
+                questState.serverRequirements.add(key);
             });
             
             // Re-render to update visual state
