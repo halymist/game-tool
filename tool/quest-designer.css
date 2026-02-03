@@ -351,6 +351,11 @@
     min-width: 0;
 }
 
+/* Connecting state */
+.quest-canvas.connecting {
+    cursor: crosshair !important;
+}
+
 /* Connections SVG */
 .quest-connections-svg {
     position: absolute;
@@ -755,7 +760,7 @@
     background-position: center;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: flex-start;
     cursor: pointer;
     transition: all 0.3s;
@@ -769,26 +774,22 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.55);
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
 }
 
 .quest-start-body.has-image .quest-start-placeholder {
-    opacity: 0;
-}
-
-.quest-start-body:hover .quest-start-placeholder {
-    opacity: 1;
-}
-
-.quest-start-body:hover.has-image .quest-start-placeholder {
-    background: rgba(0, 0, 0, 0.7);
+    display: none;
 }
 
 .quest-start-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -797,8 +798,7 @@
     transition: all 0.3s;
     padding: 20px;
     border-radius: 8px;
-    position: relative;
-    z-index: 2;
+    z-index: 0;
 }
 
 .quest-start-placeholder span {
@@ -813,14 +813,15 @@
 /* Quest name input at top of start slide */
 .quest-name-input {
     width: calc(100% - 24px);
-    margin: 12px 12px 0 12px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 2px solid rgba(78, 205, 196, 0.3);
-    border-radius: 8px;
+    margin: 16px 12px 8px 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    border-bottom: 2px solid rgba(78, 205, 196, 0.4);
+    border-radius: 4px 4px 0 0;
     padding: 12px 16px;
     color: #fff;
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-size: 1.3rem;
+    font-weight: 700;
     text-align: center;
     font-family: inherit;
     position: relative;
@@ -828,51 +829,52 @@
 }
 
 .quest-name-input:hover {
-    border-color: rgba(78, 205, 196, 0.5);
+    border-bottom-color: rgba(78, 205, 196, 0.6);
 }
 
 .quest-name-input:focus {
     outline: none;
-    border-color: #4ecdc4;
-    background: rgba(0, 0, 0, 0.4);
+    border-bottom-color: #4ecdc4;
+    background: rgba(0, 0, 0, 0.5);
 }
 
 .quest-name-input::placeholder {
-    color: #666;
+    color: #888;
     font-weight: 400;
 }
 
-/* Text area positioned at top, centered, on top of overlay */
+/* Text area below name */
 .quest-start-text {
     width: calc(100% - 24px);
-    margin: 12px;
+    margin: 8px 12px 16px 12px;
     flex: 1;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid transparent;
-    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
     padding: 12px;
-    color: #fff;
+    color: #e0e0e0;
     font-size: 0.95rem;
     resize: none;
     font-family: inherit;
-    line-height: 1.5;
-    text-align: center;
+    line-height: 1.6;
+    text-align: left;
     position: relative;
     z-index: 2;
 }
 
 .quest-start-text:hover {
-    border-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
 }
 
 .quest-start-text:focus {
     outline: none;
     border-color: #4ecdc4;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.35);
 }
 
 .quest-start-text::placeholder {
-    color: #555;
+    color: #666;
 }
 
 /* Old quest-slide-preview styles - keeping for modal */
@@ -1264,23 +1266,50 @@
 /* Simpler node style for sidebar-based editing */
 .quest-option-node {
     position: absolute;
-    width: 220px;
+    width: 280px;
+    min-height: 200px;
     background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
     border: 2px solid #1a4a7a;
     border-radius: 10px;
     padding: 0;
     cursor: move;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     overflow: visible;
     display: flex;
     align-items: stretch;
 }
 
+/* Connection target highlighting - entire node is droppable */
+.quest-option-node.connection-target {
+    border-color: #4ecdc4;
+    box-shadow: 0 0 25px rgba(78, 205, 196, 0.5);
+}
+
+/* Extend clickable area when node is a connection target */
+.quest-option-node.connection-target::before {
+    content: '';
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    right: -15px;
+    bottom: -15px;
+    border-radius: 15px;
+    z-index: -1;
+}
+
+.quest-option-node.connection-target:hover {
+    border-color: #4ade80;
+    box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
+    transform: scale(1.03);
+}
+
 .option-node-content {
     flex: 1;
     min-width: 0;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .option-node-header {
@@ -1307,14 +1336,20 @@
 }
 
 .option-node-body {
-    padding: 10px 12px;
+    padding: 12px;
+    flex: 1;
 }
 
 .option-node-body p {
     margin: 0;
-    font-size: 0.8rem;
-    color: #aaa;
-    line-height: 1.4;
+    font-size: 0.85rem;
+    color: #ccc;
+    line-height: 1.5;
+    /* Show up to ~5 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 5;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .option-node-body p.placeholder {

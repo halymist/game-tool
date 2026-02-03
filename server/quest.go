@@ -265,6 +265,8 @@ type SaveQuestRequest struct {
 type PendingRequirement struct {
 	LocalOptionID         int `json:"localOptionId"`
 	LocalRequiredOptionID int `json:"localRequiredOptionId"`
+	OptionServerID        int `json:"optionServerId"`   // Server ID if already known (0 if new)
+	RequiredServerID      int `json:"requiredServerId"` // Server ID if already known (0 if new)
 }
 
 // NewQuestOption represents a new option to create
@@ -331,6 +333,13 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("SaveQuest request: IsNewQuest=%v, QuestID=%d, NewOptions=%d, PendingRequirements=%d, NewRequirements=%d",
+		req.IsNewQuest, req.QuestID, len(req.NewOptions), len(req.PendingRequirements), len(req.NewRequirements))
+	for i, pr := range req.PendingRequirements {
+		log.Printf("PendingRequirement[%d]: LocalOptionID=%d, LocalRequiredOptionID=%d, OptionServerID=%d, RequiredServerID=%d",
+			i, pr.LocalOptionID, pr.LocalRequiredOptionID, pr.OptionServerID, pr.RequiredServerID)
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		log.Printf("Error starting transaction: %v", err)
@@ -343,8 +352,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	// Create new quest if isNewQuest
 	if req.IsNewQuest {
-		err := tx.QueryRow(`INSERT INTO game.quests (quest_name, settlement_id, asset_id)
-			VALUES ($1, $2, $3) RETURNING quest_id`,
+		err := tx.QueryRow(`INSERT INTO game.quests (quest_name, settlement_id, asset_id, questchain_id)
+			VALUES ($1, $2, $3, 1) RETURNING quest_id`,
 			req.QuestName, req.SettlementID, req.AssetID).Scan(&questID)
 		if err != nil {
 			log.Printf("Error creating new quest: %v", err)
@@ -399,7 +408,10 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		optionMapping[opt.LocalID] = optionID
+		log.Printf("Option mapping: LocalID=%d -> ServerID=%d", opt.LocalID, optionID)
 	}
+
+	log.Printf("Final option mapping: %+v", optionMapping)
 
 	// Update existing options
 	for _, opt := range req.OptionUpdates {
@@ -440,8 +452,27 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	// Insert pending requirements (between newly created options using local ID mapping)
 	for _, pendingReq := range req.PendingRequirements {
-		optionServerId, hasOption := optionMapping[pendingReq.LocalOptionID]
-		requiredServerId, hasRequired := optionMapping[pendingReq.LocalRequiredOptionID]
+		// Use server ID if already known, otherwise look up from optionMapping
+		var optionServerId, requiredServerId int
+		var hasOption, hasRequired bool
+
+		if pendingReq.OptionServerID > 0 {
+			optionServerId = pendingReq.OptionServerID
+			hasOption = true
+			log.Printf("Using pre-existing OptionServerID: %d", optionServerId)
+		} else {
+			optionServerId, hasOption = optionMapping[pendingReq.LocalOptionID]
+			log.Printf("Looking up LocalOptionID %d in mapping: found=%v, serverID=%d", pendingReq.LocalOptionID, hasOption, optionServerId)
+		}
+
+		if pendingReq.RequiredServerID > 0 {
+			requiredServerId = pendingReq.RequiredServerID
+			hasRequired = true
+			log.Printf("Using pre-existing RequiredServerID: %d", requiredServerId)
+		} else {
+			requiredServerId, hasRequired = optionMapping[pendingReq.LocalRequiredOptionID]
+			log.Printf("Looking up LocalRequiredOptionID %d in mapping: found=%v, serverID=%d", pendingReq.LocalRequiredOptionID, hasRequired, requiredServerId)
+		}
 
 		if !hasOption || !hasRequired {
 			log.Printf("Skipping pending requirement - missing mapping: local %d -> %v, local %d -> %v",
@@ -449,6 +480,7 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		log.Printf("Inserting requirement: option_id=%d, required_option_id=%d", optionServerId, requiredServerId)
 		_, err := tx.Exec(`INSERT INTO game.quest_option_requirements (option_id, required_option_id)
 			VALUES ($1, $2) ON CONFLICT DO NOTHING`,
 			optionServerId, requiredServerId)
@@ -456,6 +488,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Printf("Error inserting pending requirement: %v", err)
 			// Continue, don't fail on requirements
+		} else {
+			log.Printf("Successfully inserted requirement: option_id=%d requires required_option_id=%d", optionServerId, requiredServerId)
 		}
 	}
 

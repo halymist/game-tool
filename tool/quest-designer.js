@@ -518,7 +518,7 @@ function renderQuestOption(option) {
                 <span class="option-title">${option.optionText || 'New Option'}</span>
             </div>
             <div class="option-node-body">
-                ${option.nodeText ? `<p>${option.nodeText.substring(0, 60)}${option.nodeText.length > 60 ? '...' : ''}</p>` : '<p class="placeholder">No description</p>'}
+                ${option.nodeText ? `<p>${option.nodeText.substring(0, 200)}${option.nodeText.length > 200 ? '...' : ''}</p>` : '<p class="placeholder">No description</p>'}
             </div>
         </div>
         <div class="option-connector option-connector-right" data-option="${option.id}" title="Drag to connect to another option">●</div>
@@ -969,12 +969,96 @@ function startRequirementDrag(optionId, e) {
     questState.isConnecting = true;
     questState.connectionStart = { optionId };
     
+    document.body.style.cursor = 'crosshair';
+    const canvas = document.getElementById('questCanvas');
+    if (canvas) canvas.classList.add('connecting');
+    
+    // Highlight all options as potential targets
+    document.querySelectorAll('.quest-option-node').forEach(node => {
+        if (node.id !== `option-${optionId}`) {
+            node.classList.add('connection-target');
+        }
+    });
+    
     const preview = document.getElementById('questConnectionPreview');
     if (preview) {
         preview.style.display = 'block';
     }
     
+    // Track mouse movement on document level
+    const onMouseMove = (ev) => {
+        updateQuestConnectionPreview(ev);
+    };
+    
+    const onMouseUp = (ev) => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        
+        // Check if we dropped on an option node (anywhere on the node, not just connector)
+        // First try elementFromPoint
+        const target = document.elementFromPoint(ev.clientX, ev.clientY);
+        let optionEl = target?.closest('.quest-option-node');
+        
+        // If not directly on a node, check if we're near any connection-target node (within 25px buffer)
+        if (!optionEl) {
+            let closestNode = null;
+            let closestDist = Infinity;
+            const connectionTargets = document.querySelectorAll('.quest-option-node.connection-target');
+            connectionTargets.forEach(node => {
+                const rect = node.getBoundingClientRect();
+                const buffer = 25; // 25px buffer around the node
+                // Check if within buffer zone
+                if (ev.clientX >= rect.left - buffer && 
+                    ev.clientX <= rect.right + buffer &&
+                    ev.clientY >= rect.top - buffer && 
+                    ev.clientY <= rect.bottom + buffer) {
+                    // Calculate distance to center
+                    const centerX = rect.left + rect.width / 2;
+                    const centerY = rect.top + rect.height / 2;
+                    const dist = Math.hypot(ev.clientX - centerX, ev.clientY - centerY);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestNode = node;
+                    }
+                }
+            });
+            optionEl = closestNode;
+        }
+        
+        if (optionEl && questState.connectionStart) {
+            const toId = parseInt(optionEl.id.replace('option-', ''));
+            if (toId !== questState.connectionStart.optionId) {
+                // Create requirement: the target option requires the source option
+                createRequirement(toId, questState.connectionStart.optionId);
+            }
+        }
+        
+        // Clean up
+        cancelConnectionDrag();
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    
+    // Initial preview
     updateQuestConnectionPreview(e);
+}
+
+function cancelConnectionDrag() {
+    questState.isConnecting = false;
+    questState.connectionStart = null;
+    document.body.style.cursor = 'default';
+    
+    const canvas = document.getElementById('questCanvas');
+    if (canvas) canvas.classList.remove('connecting');
+    
+    const preview = document.getElementById('questConnectionPreview');
+    if (preview) preview.style.display = 'none';
+    
+    // Remove target highlighting
+    document.querySelectorAll('.quest-option-node.connection-target').forEach(node => {
+        node.classList.remove('connection-target');
+    });
 }
 
 function updateQuestConnectionPreview(e) {
@@ -1849,39 +1933,79 @@ async function saveQuest() {
         
         // Collect new requirements - include both server-side and pending local requirements
         const newRequirements = [];
-        const pendingRequirements = []; // Requirements between unsaved local options
+        const pendingRequirements = []; // Requirements involving at least one unsaved local option
+        
+        console.log('Collecting requirements. Total requirements:', questState.requirements.length);
+        console.log('isNewQuest:', questState.isNewQuest, 'selectedQuest:', questState.selectedQuest);
+        
         questState.requirements.forEach(r => {
             const option = questState.options.get(r.optionId);
             const requiredOption = questState.options.get(r.requiredOptionId);
-            if (!option || !requiredOption) return;
             
-            // For new quest mode, check if option belongs to new quest
-            if (questState.isNewQuest) {
-                if (option.questId && option.questId !== 0) return;
-            } else {
-                if (option.questId !== questState.selectedQuest) return;
+            console.log('Processing requirement:', r, 'option:', option, 'requiredOption:', requiredOption);
+            
+            if (!option || !requiredOption) {
+                console.log('Skipping - missing option data');
+                return;
+            }
+            
+            // For new quest mode, include options that belong to this new quest (no questId or questId=0)
+            // For existing quest, include options that belong to selected quest
+            const optionBelongs = questState.isNewQuest 
+                ? (!option.questId || option.questId === 0)
+                : (option.questId === questState.selectedQuest);
+            
+            console.log('Option belongs:', optionBelongs, 'option.questId:', option.questId);
+            
+            if (!optionBelongs) {
+                console.log('Skipping - option does not belong to current quest');
+                return;
             }
             
             const optionServerId = questState.serverOptions.get(r.optionId);
             const requiredServerId = questState.serverOptions.get(r.requiredOptionId);
             
+            console.log('Server IDs - option:', optionServerId, 'required:', requiredServerId);
+            
             // If both have server IDs, add to newRequirements
             if (optionServerId && requiredServerId) {
                 const key = `${optionServerId}-${requiredServerId}`;
                 if (!questState.serverRequirements.has(key)) {
+                    console.log('Adding to newRequirements');
                     newRequirements.push({
                         optionId: optionServerId,
                         requiredOptionId: requiredServerId
                     });
                 }
             } else {
-                // Store pending requirements with local IDs to be resolved after options are saved
+                // At least one is a new unsaved option - store for server-side resolution
+                console.log('Adding to pendingRequirements');
                 pendingRequirements.push({
                     localOptionId: r.optionId,
-                    localRequiredOptionId: r.requiredOptionId
+                    localRequiredOptionId: r.requiredOptionId,
+                    // Also pass known server IDs so backend can use them
+                    optionServerId: optionServerId || 0,
+                    requiredServerId: requiredServerId || 0
                 });
             }
         });
+        
+        console.log('Final - newOptions:', newOptions.length, 'pendingRequirements:', pendingRequirements.length, 'newRequirements:', newRequirements.length);
+        console.log('pendingRequirements data:', JSON.stringify(pendingRequirements));
+        console.log('newOptions data:', JSON.stringify(newOptions.map(o => ({ localId: o.localId, questId: o.questId }))));
+        
+        const savePayload = {
+            questId: questState.selectedQuest,
+            questName: questState.questName,
+            assetId: questState.questAssetId,
+            isNewQuest: questState.isNewQuest,
+            settlementId: questState.selectedSettlement,
+            newOptions: newOptions,
+            optionUpdates: optionUpdates,
+            newRequirements: newRequirements,
+            pendingRequirements: pendingRequirements
+        };
+        console.log('Save payload:', JSON.stringify(savePayload, null, 2));
         
         const response = await fetch('http://localhost:8080/api/saveQuest', {
             method: 'POST',
@@ -1889,17 +2013,7 @@ async function saveQuest() {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({
-                questId: questState.selectedQuest,
-                questName: questState.questName,
-                assetId: questState.questAssetId,
-                isNewQuest: questState.isNewQuest,
-                settlementId: questState.selectedSettlement,
-                newOptions: newOptions,
-                optionUpdates: optionUpdates,
-                newRequirements: newRequirements,
-                pendingRequirements: pendingRequirements
-            })
+            body: JSON.stringify(savePayload)
         });
         
         if (!response.ok) {
