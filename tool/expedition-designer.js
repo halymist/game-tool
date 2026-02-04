@@ -85,7 +85,7 @@ function initExpeditionDesigner() {
         if (isOverCanvas) {
             e.preventDefault();
             e.stopPropagation();
-            onCanvasWheel(e);
+            expeditionOnCanvasWheel(e);
         }
     }, { passive: false, capture: true });
     console.log('✅ Wheel event listener attached to document (capture phase)');
@@ -148,6 +148,34 @@ function initExpeditionDesigner() {
                 uploadExpeditionAsset(file);
             }
             e.target.value = ''; // Reset for next upload
+        });
+    }
+    
+    // Asset gallery - click overlay to close
+    const expeditionGalleryOverlay = document.getElementById('expeditionAssetGalleryOverlay');
+    if (expeditionGalleryOverlay) {
+        expeditionGalleryOverlay.addEventListener('click', (e) => {
+            if (e.target === expeditionGalleryOverlay) {
+                closeExpeditionAssetGallery();
+            }
+        });
+    }
+    
+    // Asset gallery - ESC to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const galleryOverlay = document.getElementById('expeditionAssetGalleryOverlay');
+            if (galleryOverlay && galleryOverlay.classList.contains('active')) {
+                closeExpeditionAssetGallery();
+            }
+        }
+    });
+    
+    // Asset gallery - filter input
+    const expeditionAssetFilter = document.getElementById('expeditionAssetFilter');
+    if (expeditionAssetFilter) {
+        expeditionAssetFilter.addEventListener('input', (e) => {
+            populateExpeditionAssetGallery(e.target.value);
         });
     }
     
@@ -1335,7 +1363,7 @@ function centerCanvas() {
 }
 window.centerCanvas = centerCanvas;
 
-function onCanvasWheel(e) {
+function expeditionOnCanvasWheel(e) {
     // Note: preventDefault and stopPropagation are called in the document-level handler
     
     const container = document.getElementById('slidesContainer');
@@ -1540,6 +1568,10 @@ function openExpeditionAssetGallery(slideId) {
     
     const overlay = document.getElementById('expeditionAssetGalleryOverlay');
     if (overlay) {
+        // Clear filter
+        const filterInput = document.getElementById('expeditionAssetFilter');
+        if (filterInput) filterInput.value = '';
+        
         populateExpeditionAssetGallery();
         overlay.classList.add('active');
     }
@@ -1562,7 +1594,26 @@ async function loadExpeditionAssets() {
     console.log('✅ Expedition using GlobalData.questAssets:', GlobalData.questAssets?.length || 0, 'assets');
 }
 
-function populateExpeditionAssetGallery() {
+// Get location-asset mapping from GlobalData (shared with quest)
+function getExpeditionLocationAssetIds() {
+    const assetLocationMap = new Map();
+    const settlements = GlobalData.settlements || [];
+    
+    settlements.forEach(settlement => {
+        const locations = settlement.locations || [];
+        locations.forEach(loc => {
+            if (loc.texture_id) {
+                const existing = assetLocationMap.get(loc.texture_id) || [];
+                existing.push(loc.name);
+                assetLocationMap.set(loc.texture_id, existing);
+            }
+        });
+    });
+    
+    return assetLocationMap;
+}
+
+function populateExpeditionAssetGallery(filterText = '') {
     const gallery = document.getElementById('expeditionAssetGallery');
     if (!gallery) return;
     
@@ -1578,13 +1629,35 @@ function populateExpeditionAssetGallery() {
         return;
     }
     
-    gallery.innerHTML = assets.map(asset => `
-        <div class="expedition-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
-             data-asset-id="${asset.id}">
-            <img src="${asset.url}" alt="Asset ${asset.id}">
-            <div class="asset-id">ID: ${asset.id}</div>
-        </div>
-    `).join('');
+    // Get location-asset mapping for filtering
+    const assetLocationMap = getExpeditionLocationAssetIds();
+    
+    // Filter assets by location name if filter text provided
+    let filteredAssets = assets;
+    if (filterText.trim()) {
+        const searchTerm = filterText.toLowerCase().trim();
+        filteredAssets = assets.filter(asset => {
+            const locationNames = assetLocationMap.get(asset.id) || [];
+            return locationNames.some(name => name.toLowerCase().includes(searchTerm));
+        });
+    }
+    
+    if (filteredAssets.length === 0) {
+        gallery.innerHTML = `<p style="color:#a0aec0;text-align:center;padding:40px;">No assets match "${filterText}"</p>`;
+        return;
+    }
+    
+    gallery.innerHTML = filteredAssets.map(asset => {
+        const locationNames = assetLocationMap.get(asset.id) || [];
+        const locationLabel = locationNames.length > 0 ? locationNames.join(', ') : '';
+        return `
+            <div class="expedition-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
+                 data-asset-id="${asset.id}">
+                <img src="${asset.url}" alt="Asset ${asset.id}">
+                <div class="asset-id">${locationLabel || `ID: ${asset.id}`}</div>
+            </div>
+        `;
+    }).join('');
     
     // Add click listeners
     gallery.querySelectorAll('.expedition-asset-item').forEach(item => {

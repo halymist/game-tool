@@ -117,6 +117,34 @@ function initQuestDesigner() {
         });
     }
     
+    // Asset gallery - click overlay to close
+    const questGalleryOverlay = document.getElementById('questAssetGalleryOverlay');
+    if (questGalleryOverlay) {
+        questGalleryOverlay.addEventListener('click', (e) => {
+            if (e.target === questGalleryOverlay) {
+                closeQuestAssetModal();
+            }
+        });
+    }
+    
+    // Asset gallery - ESC to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const galleryOverlay = document.getElementById('questAssetGalleryOverlay');
+            if (galleryOverlay && galleryOverlay.classList.contains('active')) {
+                closeQuestAssetModal();
+            }
+        }
+    });
+    
+    // Asset gallery - filter input
+    const questAssetFilter = document.getElementById('questAssetFilter');
+    if (questAssetFilter) {
+        questAssetFilter.addEventListener('input', (e) => {
+            populateQuestAssetGallery(e.target.value);
+        });
+    }
+    
     // Sidebar event listeners
     setupSidebarEventListeners();
     
@@ -965,6 +993,10 @@ function openQuestAssetPicker(questId) {
     
     const overlay = document.getElementById('questAssetGalleryOverlay');
     if (overlay) {
+        // Clear filter
+        const filterInput = document.getElementById('questAssetFilter');
+        if (filterInput) filterInput.value = '';
+        
         populateQuestAssetGallery();
         overlay.classList.add('active');
     }
@@ -977,7 +1009,28 @@ function closeQuestAssetModal() {
 }
 window.closeQuestAssetModal = closeQuestAssetModal;
 
-function populateQuestAssetGallery() {
+// Get location-asset mapping from GlobalData
+function getLocationAssetIds() {
+    // Build a map of asset IDs to location names
+    const assetLocationMap = new Map();
+    const settlements = GlobalData.settlements || [];
+    
+    settlements.forEach(settlement => {
+        const locations = settlement.locations || [];
+        locations.forEach(loc => {
+            if (loc.texture_id) {
+                // Store location name for this asset ID
+                const existing = assetLocationMap.get(loc.texture_id) || [];
+                existing.push(loc.name);
+                assetLocationMap.set(loc.texture_id, existing);
+            }
+        });
+    });
+    
+    return assetLocationMap;
+}
+
+function populateQuestAssetGallery(filterText = '') {
     const gallery = document.getElementById('questAssetGallery');
     if (!gallery) return;
     
@@ -991,13 +1044,35 @@ function populateQuestAssetGallery() {
         return;
     }
     
-    gallery.innerHTML = questState.questAssets.map(asset => `
-        <div class="quest-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
-             data-asset-id="${asset.id}">
-            <img src="${asset.url}" alt="Asset ${asset.id}">
-            <div class="asset-id">ID: ${asset.id}</div>
-        </div>
-    `).join('');
+    // Get location-asset mapping for filtering
+    const assetLocationMap = getLocationAssetIds();
+    
+    // Filter assets by location name if filter text provided
+    let filteredAssets = questState.questAssets;
+    if (filterText.trim()) {
+        const searchTerm = filterText.toLowerCase().trim();
+        filteredAssets = questState.questAssets.filter(asset => {
+            const locationNames = assetLocationMap.get(asset.id) || [];
+            return locationNames.some(name => name.toLowerCase().includes(searchTerm));
+        });
+    }
+    
+    if (filteredAssets.length === 0) {
+        gallery.innerHTML = `<p style="color:#a0aec0;text-align:center;padding:40px;">No assets match "${filterText}"</p>`;
+        return;
+    }
+    
+    gallery.innerHTML = filteredAssets.map(asset => {
+        const locationNames = assetLocationMap.get(asset.id) || [];
+        const locationLabel = locationNames.length > 0 ? locationNames.join(', ') : '';
+        return `
+            <div class="quest-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
+                 data-asset-id="${asset.id}">
+                <img src="${asset.url}" alt="Asset ${asset.id}">
+                <div class="asset-id">${locationLabel || `ID: ${asset.id}`}</div>
+            </div>
+        `;
+    }).join('');
     
     // Add click listeners
     gallery.querySelectorAll('.quest-asset-item').forEach(item => {

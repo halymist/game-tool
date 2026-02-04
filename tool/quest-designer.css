@@ -867,12 +867,41 @@
     align-items: center;
     padding: 20px 24px;
     border-bottom: 1px solid #0f3460;
+    gap: 16px;
 }
 
 .quest-asset-gallery-header h3 {
     color: #e2e8f0;
     margin: 0;
     font-size: 18px;
+    white-space: nowrap;
+}
+
+/* Asset Gallery Filter */
+.asset-gallery-filter {
+    flex: 1;
+    max-width: 300px;
+}
+
+.asset-gallery-filter input {
+    width: 100%;
+    padding: 8px 12px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.asset-gallery-filter input:focus {
+    outline: none;
+    border-color: #3182ce;
+    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.2);
+}
+
+.asset-gallery-filter input::placeholder {
+    color: #4a5568;
 }
 
 .quest-asset-gallery-close {

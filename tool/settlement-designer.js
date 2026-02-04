@@ -99,6 +99,16 @@ function setupSettlementEventListeners() {
             }
         });
     }
+    
+    // ESC to close gallery
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('settlementAssetGalleryOverlay');
+            if (overlay && overlay.classList.contains('active')) {
+                closeAssetGallery();
+            }
+        }
+    });
 
     // Upload button
     const uploadBtn = document.getElementById('settlementUploadBtn');
