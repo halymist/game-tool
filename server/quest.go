@@ -301,16 +301,29 @@ type SaveQuestRequest struct {
 	// Quest-level fields (for new quests within the chain)
 	NewQuests    []NewQuestData    `json:"newQuests"`
 	QuestUpdates []QuestUpdateData `json:"questUpdates"`
+	// Deletion tracking
+	DeletedQuestIds  []int `json:"deletedQuestIds"`
+	DeletedOptionIds []int `json:"deletedOptionIds"`
 	// Option-level fields
 	NewOptions          []NewQuestOption         `json:"newOptions"`
 	OptionUpdates       []QuestOptionUpdate      `json:"optionUpdates"`
 	NewRequirements     []QuestOptionRequirement `json:"newRequirements"`
 	PendingRequirements []PendingRequirement     `json:"pendingRequirements"`
+	// Quest requisite mappings (option -> quest connections)
+	QuestRequisites []QuestRequisiteMapping `json:"questRequisites"`
 	// Legacy fields for backwards compat
 	QuestID    int    `json:"questId"`
 	QuestName  string `json:"questName"`
 	AssetID    *int   `json:"assetId"`
 	IsNewQuest bool   `json:"isNewQuest"`
+}
+
+// QuestRequisiteMapping maps an option to a quest (option leads to quest)
+type QuestRequisiteMapping struct {
+	OptionId      int `json:"optionId"`      // server ID of the option
+	LocalOptionId int `json:"localOptionId"` // local ID if option is new
+	QuestId       int `json:"questId"`       // server ID of the quest
+	LocalQuestId  int `json:"localQuestId"`  // local ID if quest is new
 }
 
 // NewQuestData represents a new quest to create within a chain
@@ -462,6 +475,42 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error updating quest %d: %v", questUpdate.QuestID, err)
 		} else {
 			log.Printf("Updated quest: %d", questUpdate.QuestID)
+		}
+	}
+
+	// Delete removed options first (before quests, due to foreign keys)
+	for _, optionId := range req.DeletedOptionIds {
+		// First delete any requirements referencing this option
+		_, err := tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id = $1 OR required_option_id = $1`, optionId)
+		if err != nil {
+			log.Printf("Error deleting requirements for option %d: %v", optionId, err)
+		}
+		// Clear any quest requisite_option_id pointing to this option
+		_, err = tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE requisite_option_id = $1`, optionId)
+		if err != nil {
+			log.Printf("Error clearing quest requisite for option %d: %v", optionId, err)
+		}
+		// Delete the option
+		_, err = tx.Exec(`DELETE FROM game.quest_options WHERE option_id = $1`, optionId)
+		if err != nil {
+			log.Printf("Error deleting option %d: %v", optionId, err)
+		} else {
+			log.Printf("Deleted option: %d", optionId)
+		}
+	}
+
+	// Delete removed quests
+	for _, questId := range req.DeletedQuestIds {
+		// Options will cascade delete, but let's be explicit
+		_, err := tx.Exec(`DELETE FROM game.quest_options WHERE quest_id = $1`, questId)
+		if err != nil {
+			log.Printf("Error deleting options for quest %d: %v", questId, err)
+		}
+		_, err = tx.Exec(`DELETE FROM game.quests WHERE quest_id = $1`, questId)
+		if err != nil {
+			log.Printf("Error deleting quest %d: %v", questId, err)
+		} else {
+			log.Printf("Deleted quest: %d", questId)
 		}
 	}
 
@@ -653,6 +702,42 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 			// Continue, don't fail on requirements
 		} else {
 			log.Printf("Successfully inserted requirement: option_id=%d requires required_option_id=%d", optionServerId, requiredServerId)
+		}
+	}
+
+	// Handle quest requisites (option -> quest connections)
+	// This sets the requisite_option_id on quests
+	for _, reqMapping := range req.QuestRequisites {
+		var optionServerId, questServerId int
+
+		// Get option server ID
+		if reqMapping.OptionId > 0 {
+			optionServerId = reqMapping.OptionId
+		} else if reqMapping.LocalOptionId != 0 {
+			if mappedId, ok := optionMapping[reqMapping.LocalOptionId]; ok {
+				optionServerId = mappedId
+			}
+		}
+
+		// Get quest server ID
+		if reqMapping.QuestId > 0 {
+			questServerId = reqMapping.QuestId
+		} else if reqMapping.LocalQuestId != 0 {
+			if mappedId, ok := questMapping[reqMapping.LocalQuestId]; ok {
+				questServerId = mappedId
+			}
+		}
+
+		if optionServerId > 0 && questServerId > 0 {
+			_, err := tx.Exec(`UPDATE game.quests SET requisite_option_id = $1 WHERE quest_id = $2`,
+				optionServerId, questServerId)
+			if err != nil {
+				log.Printf("Error setting quest requisite: quest %d <- option %d: %v", questServerId, optionServerId, err)
+			} else {
+				log.Printf("Set quest %d requisite_option_id = %d", questServerId, optionServerId)
+			}
+		} else {
+			log.Printf("Skipping quest requisite - missing IDs: option=%d, quest=%d", optionServerId, questServerId)
 		}
 	}
 

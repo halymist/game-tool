@@ -38,9 +38,13 @@ const questState = {
     questAssets: [],
     editingQuestAsset: null,
     
-    // Server tracking
+    // Server tracking - for detecting deletions
     serverQuests: new Map(),
     serverOptions: new Map(),
+    
+    // Track deleted items (server IDs of items that were loaded then deleted)
+    deletedQuestIds: [],
+    deletedOptionIds: [],
 };
 
 // ==================== INITIALIZATION ====================
@@ -616,6 +620,13 @@ function questRenderConnections() {
 function deleteQuest(id) {
     if (!confirm('Delete this quest?')) return;
     
+    // Track for server deletion if it has a serverId
+    const quest = questState.quests.get(id);
+    if (quest?.serverId) {
+        questState.deletedQuestIds.push(quest.serverId);
+        console.log(`Marked quest ${quest.serverId} for deletion`);
+    }
+    
     // Remove connections involving this quest
     questState.connections = questState.connections.filter(c => 
         !(c.fromType === 'quest' && c.fromId === id) && 
@@ -632,6 +643,13 @@ function deleteQuest(id) {
 
 function deleteOption(id) {
     if (!confirm('Delete this option?')) return;
+    
+    // Track for server deletion if it has a serverId
+    const option = questState.options.get(id);
+    if (option?.serverId) {
+        questState.deletedOptionIds.push(option.serverId);
+        console.log(`Marked option ${option.serverId} for deletion`);
+    }
     
     // Remove connections involving this option
     questState.connections = questState.connections.filter(c => 
@@ -1041,6 +1059,8 @@ function clearQuestCanvas() {
     questState.nextOptionId = 1;
     questState.serverQuests.clear();
     questState.serverOptions.clear();
+    questState.deletedQuestIds = [];
+    questState.deletedOptionIds = [];
     
     const container = document.getElementById('questOptionsContainer');
     if (container) container.innerHTML = '';
@@ -1670,10 +1690,13 @@ async function saveQuest() {
             settlementId: questState.selectedSettlementId,
             newQuests: [],
             questUpdates: [],
+            deletedQuestIds: questState.deletedQuestIds,
+            deletedOptionIds: questState.deletedOptionIds,
             newOptions: [],
             optionUpdates: [],
             newRequirements: [],
             pendingRequirements: [],
+            questRequisites: [],
         };
         
         // Track local ID to server ID mapping for new items
@@ -1763,6 +1786,17 @@ async function saveQuest() {
                         requiredServerId: fromOption?.serverId || 0,
                     });
                 }
+            } else if (conn.fromType === 'option' && conn.toType === 'quest') {
+                // Option -> Quest connection means the quest's requisite_option_id = option ID
+                const fromOption = questState.options.get(conn.fromId);
+                const toQuest = questState.quests.get(conn.toId);
+                
+                saveData.questRequisites.push({
+                    optionId: fromOption?.serverId || 0,
+                    localOptionId: conn.fromId,
+                    questId: toQuest?.serverId || 0,
+                    localQuestId: conn.toId,
+                });
             }
             // Quest -> option connections are inferred from option's questId and isStart flag
         });
@@ -1819,6 +1853,10 @@ async function saveQuest() {
         }
         
         alert('✅ Quest chain saved successfully!');
+        
+        // Clear deletion arrays after successful save
+        questState.deletedQuestIds = [];
+        questState.deletedOptionIds = [];
         
         // Reload to get fresh data
         if (questState.selectedChain) {
