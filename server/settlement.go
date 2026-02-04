@@ -429,12 +429,12 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
 		S3_BUCKET_NAME, S3_REGION, key)
 
-	// Return success response
+	// Return success response (consistent with quest asset endpoint)
 	response := map[string]interface{}{
 		"success": true,
-		"assetID": assetID,
+		"assetId": assetID,
 		"s3Key":   key,
-		"icon":    publicURL,
+		"url":     publicURL,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {

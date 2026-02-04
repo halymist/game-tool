@@ -116,7 +116,7 @@ function setupSettlementEventListeners() {
             if (file) {
                 // Use quest asset upload for location textures, settlement asset for others
                 if (settlementState.currentAssetTarget === 'location') {
-                    uploadQuestAsset(file);
+                    uploadLocationTexture(file);
                 } else {
                     uploadSettlementAsset(file);
                 }
@@ -1153,7 +1153,52 @@ function getCurrentAssetId() {
 }
 
 function selectAsset(assetId) {
-    updateAssetPreview(settlementState.currentAssetTarget, assetId);
+    // Find the asset URL from the appropriate array
+    const assets = settlementState.currentAssetTarget === 'location' 
+        ? settlementState.questAssets 
+        : settlementState.settlementAssets;
+    const asset = assets.find(a => a.id === assetId);
+    if (asset) {
+        selectSettlementAsset(assetId, asset.url);
+    }
+}
+
+// Select asset with both ID and URL (like quest designer pattern)
+function selectSettlementAsset(assetId, assetUrl) {
+    console.log('selectSettlementAsset called:', { assetId, assetUrl, currentTarget: settlementState.currentAssetTarget });
+    if (!settlementState.currentAssetTarget) {
+        console.log('❌ currentAssetTarget is null, returning early');
+        return;
+    }
+    
+    const target = settlementState.currentAssetTarget;
+    
+    if (target === 'location') {
+        // Update location texture
+        const textureArea = document.getElementById('locationTextureArea');
+        if (textureArea) {
+            textureArea.innerHTML = `<img src="${assetUrl}" alt="Location texture">`;
+            textureArea.dataset.assetId = assetId;
+        }
+    } else {
+        // Update settlement card asset
+        let areaId;
+        switch (target) {
+            case 'settlement': areaId = 'settlementAssetArea'; break;
+            case 'vendor': areaId = 'vendorAssetArea'; break;
+            case 'utility': areaId = 'utilityAssetArea'; break;
+            case 'expedition': areaId = 'expeditionAssetArea'; break;
+            case 'arena': areaId = 'arenaAssetArea'; break;
+        }
+        
+        const area = document.getElementById(areaId);
+        if (area) {
+            area.innerHTML = `<img src="${assetUrl}" alt="${target} asset">`;
+            area.dataset.assetId = assetId;
+            area.closest('.settlement-card')?.classList.add('has-asset');
+        }
+    }
+    
     closeAssetGallery();
 }
 
@@ -1170,14 +1215,9 @@ async function uploadSettlementAsset(file) {
             return;
         }
 
-        // Get next asset ID
-        const nextAssetID = settlementState.settlementAssets.length > 0
-            ? Math.max(...settlementState.settlementAssets.map(a => a.id)) + 1
-            : 1;
-
         // Convert to WebP format
         console.log('Converting settlement asset to WebP format...');
-        const webpBlob = await convertImageToWebP(file, 512, 512, 0.85);
+        const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
         console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
         
         // Convert to base64
@@ -1190,41 +1230,34 @@ async function uploadSettlementAsset(file) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                assetID: nextAssetID,
                 imageData: base64Data,
-                contentType: 'image/webp'
+                filename: file.name.replace(/\.[^/.]+$/, '.webp')
             })
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Asset uploaded:', result);
+        if (!response.ok) throw new Error('Upload failed');
 
-            // Add to assets (settlementState.settlementAssets IS GlobalData.settlementAssets - same reference)
-            settlementState.settlementAssets.push({
-                id: result.assetID,
-                url: result.icon
-            });
+        const result = await response.json();
+        console.log('✅ Settlement asset uploaded:', result);
 
-            // Refresh gallery
-            populateAssetGallery();
+        // Add to assets array
+        settlementState.settlementAssets.push({
+            id: result.assetId,
+            url: result.url
+        });
 
-            // Auto-select the new asset and close gallery
-            updateAssetPreview(settlementState.currentAssetTarget, result.assetID);
-            closeAssetGallery();
-        } else {
-            const error = await response.text();
-            alert('Failed to upload asset: ' + error);
-        }
+        // Refresh gallery and auto-select (same pattern as quest designer)
+        populateAssetGallery();
+        selectSettlementAsset(result.assetId, result.url);
 
     } catch (error) {
-        console.error('Error uploading asset:', error);
-        alert('Error uploading asset: ' + error.message);
+        console.error('Error uploading settlement asset:', error);
+        alert('Error uploading settlement asset: ' + error.message);
     }
 }
 
-// Upload quest asset (for location textures)
-async function uploadQuestAsset(file) {
+// Upload location texture (uses quest assets endpoint)
+async function uploadLocationTexture(file) {
     if (!file.type.startsWith('image/')) {
         alert('Please select an image file');
         return;
@@ -1257,26 +1290,27 @@ async function uploadQuestAsset(file) {
             })
         });
 
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Quest asset uploaded:', result);
+        if (!response.ok) throw new Error('Upload failed');
 
-            // Add to assets (settlementState.questAssets IS GlobalData.questAssets - same reference)
-            settlementState.questAssets.push({
-                id: result.assetId,
-                url: result.url
-            });
+        const result = await response.json();
+        console.log('✅ Quest asset uploaded:', result);
 
-            // Refresh gallery
-            populateAssetGallery();
+        // Add to assets array
+        console.log('Before push, questAssets length:', settlementState.questAssets?.length);
+        console.log('currentAssetTarget before auto-select:', settlementState.currentAssetTarget);
+        
+        settlementState.questAssets.push({
+            id: result.assetId,
+            url: result.url
+        });
+        
+        console.log('After push, questAssets length:', settlementState.questAssets?.length);
 
-            // Auto-select the new asset and close gallery
-            updateAssetPreview(settlementState.currentAssetTarget, result.assetId);
-            closeAssetGallery();
-        } else {
-            const error = await response.text();
-            alert('Failed to upload quest asset: ' + error);
-        }
+        // Refresh gallery and auto-select (same pattern as quest designer)
+        console.log('Calling populateAssetGallery...');
+        populateAssetGallery();
+        console.log('Calling selectSettlementAsset...');
+        selectSettlementAsset(result.assetId, result.url);
 
     } catch (error) {
         console.error('Error uploading quest asset:', error);
