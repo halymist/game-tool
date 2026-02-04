@@ -80,6 +80,10 @@ function initQuestDesigner() {
         const questPage = document.getElementById('quests-content');
         if (!questPage || questPage.style.display === 'none') return;
         
+        // Don't capture wheel if asset gallery overlay is open (allow scrolling in gallery)
+        const galleryOverlay = document.getElementById('questAssetGalleryOverlay');
+        if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
+        
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
                             e.clientY >= canvasRect.top && e.clientY <= canvasRect.bottom;
@@ -1108,8 +1112,8 @@ async function loadQuestChains() {
     const chainSelect = document.getElementById('questSelect');
     if (!chainSelect) return;
     
-    chainSelect.innerHTML = '<option value="" disabled selected>-- Select or Create --</option>';
-    chainSelect.innerHTML += '<option value="new">+ Create New Chain</option>';
+    // Default to Create New Chain (selected by default)
+    chainSelect.innerHTML = '<option value="new" selected>+ Create New Chain</option>';
     questState.chains.clear();
     
     if (!questState.selectedSettlementId) return;

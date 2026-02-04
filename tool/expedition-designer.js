@@ -73,6 +73,10 @@ function initExpeditionDesigner() {
         const expeditionPage = document.getElementById('dungeons-content');
         if (!expeditionPage || expeditionPage.style.display === 'none') return;
         
+        // Don't capture wheel if asset gallery overlay is open (allow scrolling in gallery)
+        const galleryOverlay = document.getElementById('expeditionAssetGalleryOverlay');
+        if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
+        
         // Check if mouse is over the canvas
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
@@ -128,11 +132,30 @@ function initExpeditionDesigner() {
         });
     }
     
+    // Asset gallery upload button
+    const uploadBtn = document.getElementById('expeditionUploadBtn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+            document.getElementById('expeditionAssetFileInput').click();
+        });
+    }
+    
+    const fileInput = document.getElementById('expeditionAssetFileInput');
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadExpeditionAsset(file);
+            }
+            e.target.value = ''; // Reset for next upload
+        });
+    }
+    
     updateCounter();
     console.log('✅ Expedition Designer ready');
     
-    // Load expedition assets from S3
-    loadBgAssets();
+    // Load expedition assets from GlobalData (shared quest assets)
+    loadExpeditionAssets();
     
     // Load settlements for dropdown
     loadExpeditionSettlements();
@@ -1509,174 +1532,187 @@ function renderConnections() {
     });
 }
 
-// ==================== BACKGROUND PICKER ====================
-let bgPickerSlideId = null;
-let expeditionAssets = [];
+// ==================== EXPEDITION ASSET GALLERY (uses shared quest assets) ====================
+let expeditionEditingSlide = null;
 
-function openBgPicker(slideId) {
-    bgPickerSlideId = slideId;
-    document.getElementById('bgPickerModal').classList.add('open');
-    // Use cached assets, only load if empty
-    if (expeditionAssets.length === 0) {
-        loadBgAssets();
-    } else {
-        renderBgAssetsGrid();
+function openExpeditionAssetGallery(slideId) {
+    expeditionEditingSlide = slideId;
+    
+    const overlay = document.getElementById('expeditionAssetGalleryOverlay');
+    if (overlay) {
+        populateExpeditionAssetGallery();
+        overlay.classList.add('active');
     }
 }
+window.openBgPicker = openExpeditionAssetGallery; // Keep old function name for compatibility
 
-function closeBgPicker() {
-    document.getElementById('bgPickerModal').classList.remove('open');
-    bgPickerSlideId = null;
+function closeExpeditionAssetGallery() {
+    const overlay = document.getElementById('expeditionAssetGalleryOverlay');
+    if (overlay) overlay.classList.remove('active');
+    expeditionEditingSlide = null;
+}
+window.closeExpeditionAssetGallery = closeExpeditionAssetGallery;
+window.closeBgPicker = closeExpeditionAssetGallery; // Alias for compatibility
+
+async function loadExpeditionAssets() {
+    // Use GlobalData.questAssets (shared with quests)
+    if (typeof loadQuestAssetsData === 'function') {
+        await loadQuestAssetsData();
+    }
+    console.log('✅ Expedition using GlobalData.questAssets:', GlobalData.questAssets?.length || 0, 'assets');
 }
 
-function loadBgAssets() {
-    const grid = document.getElementById('bgAssetsGrid');
-    if (!grid) return;
+function populateExpeditionAssetGallery() {
+    const gallery = document.getElementById('expeditionAssetGallery');
+    if (!gallery) return;
     
-    grid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">Loading assets...</p>';
+    // Use quest assets from GlobalData
+    const assets = GlobalData.questAssets || [];
     
-    // Fetch expedition assets from S3 using proper auth
-    getCurrentAccessToken().then(token => {
-        if (!token) {
-            grid.innerHTML = '<p style="color:#f66;text-align:center;grid-column:1/-1;">Auth required</p>';
-            return;
-        }
-        
-        fetch('http://localhost:8080/api/getExpeditionAssets', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(r => r.json())
-        .then(data => {
-            expeditionAssets = data.assets || [];
-            renderBgAssetsGrid();
-        })
-        .catch(err => {
-            console.log('Could not load assets:', err);
-            expeditionAssets = [];
-            renderBgAssetsGrid();
+    // Get current asset ID for selected state
+    const currentSlide = expeditionEditingSlide ? expeditionState.slides.get(expeditionEditingSlide) : null;
+    const currentAssetId = currentSlide ? getAssetIdFromUrl(currentSlide.assetUrl) : null;
+    
+    if (assets.length === 0) {
+        gallery.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:40px;">No assets yet. Upload some!</p>';
+        return;
+    }
+    
+    gallery.innerHTML = assets.map(asset => `
+        <div class="expedition-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
+             data-asset-id="${asset.id}">
+            <img src="${asset.url}" alt="Asset ${asset.id}">
+            <div class="asset-id">ID: ${asset.id}</div>
+        </div>
+    `).join('');
+    
+    // Add click listeners
+    gallery.querySelectorAll('.expedition-asset-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const assetId = parseInt(item.dataset.assetId);
+            const asset = assets.find(a => a.id === assetId);
+            if (asset) {
+                selectExpeditionAsset(asset.id, asset.url);
+            }
         });
     });
 }
 
-function renderBgAssetsGrid() {
-    const grid = document.getElementById('bgAssetsGrid');
-    if (!grid) return;
+function selectExpeditionAsset(assetId, assetUrl) {
+    if (!expeditionEditingSlide) return;
     
-    if (expeditionAssets.length === 0) {
-        grid.innerHTML = `
-            <p style="color:#888;text-align:center;grid-column:1/-1;">
-                No assets in S3 expeditions folder.<br>
-                <small>Upload from device or enter URL below.</small>
-            </p>
-        `;
-        return;
+    const slide = expeditionState.slides.get(expeditionEditingSlide);
+    if (slide) {
+        slide.assetUrl = assetUrl;
+        renderSlide(slide);
+        renderConnections();
     }
     
-    grid.innerHTML = expeditionAssets.map(asset => {
-        const url = typeof asset === 'string' ? asset : asset.icon;
-        return `
-            <div class="bg-asset-item" data-url="${url}">
-                <img src="${url}" alt="Asset" onerror="this.parentElement.style.display='none'">
-            </div>
-        `;
-    }).join('');
-    
-    grid.querySelectorAll('.bg-asset-item').forEach(item => {
-        item.addEventListener('click', () => selectBgAsset(item.dataset.url));
+    closeExpeditionAssetGallery();
+}
+
+// Upload expedition asset (uses quest assets endpoint for shared folder)
+async function uploadExpeditionAsset(file) {
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+
+    const uploadStatus = document.getElementById('expeditionAssetUploadStatus');
+    if (uploadStatus) {
+        uploadStatus.textContent = 'Converting...';
+        uploadStatus.className = 'expedition-upload-status';
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            if (uploadStatus) uploadStatus.textContent = 'Auth required';
+            return;
+        }
+
+        // Convert to WebP format (9:16 aspect ratio)
+        const webpBlob = await convertExpeditionImageToWebP(file);
+        
+        // Convert to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+        });
+        reader.readAsDataURL(webpBlob);
+        const base64Data = await base64Promise;
+
+        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+
+        // Use quest asset endpoint for shared folder
+        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                imageData: base64Data,
+                filename: file.name.replace(/\.[^/.]+$/, '.webp')
+            })
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const result = await response.json();
+        console.log('✅ Expedition asset uploaded:', result);
+
+        // Add to GlobalData.questAssets (shared array)
+        GlobalData.questAssets.push({ id: result.assetId, url: result.url });
+
+        // Refresh gallery and auto-select
+        populateExpeditionAssetGallery();
+        selectExpeditionAsset(result.assetId, result.url);
+
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Upload complete!';
+            setTimeout(() => { uploadStatus.textContent = ''; }, 2000);
+        }
+
+    } catch (error) {
+        console.error('Upload failed:', error);
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Upload failed: ' + error.message;
+            uploadStatus.className = 'expedition-upload-status error';
+        }
+    }
+}
+
+// Convert image to WebP format for expedition assets
+function convertExpeditionImageToWebP(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // Target 9:16 aspect ratio at 512x910
+            canvas.width = 512;
+            canvas.height = 910;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(
+                blob => blob ? resolve(blob) : reject(new Error('Failed to convert')),
+                'image/webp',
+                0.9
+            );
+        };
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = URL.createObjectURL(file);
     });
 }
 
-function selectBgAsset(url) {
-    const slide = expeditionState.slides.get(bgPickerSlideId);
-    if (slide) {
-        slide.assetUrl = url;
-        renderSlide(slide);
-        renderConnections();
-    }
-    closeBgPicker();
-}
-
-function applyBgUrl() {
-    const input = document.getElementById('bgUrlInput');
-    const url = input?.value?.trim();
-    if (url && bgPickerSlideId) {
-        selectBgAsset(url);
-        input.value = '';
-    }
-}
-
-function clearSlideBg() {
-    const slide = expeditionState.slides.get(bgPickerSlideId);
-    if (slide) {
-        slide.assetUrl = null;
-        renderSlide(slide);
-        renderConnections();
-    }
-    closeBgPicker();
-}
-
-function uploadSlideBgFromDevice() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const uploadStatus = document.getElementById('bgUploadStatus');
-        if (uploadStatus) uploadStatus.textContent = 'Converting...';
-        
-        try {
-            const token = await getCurrentAccessToken();
-            if (!token) {
-                if (uploadStatus) uploadStatus.textContent = 'Auth required';
-                return;
-            }
-            
-            // Convert to base64
-            const reader = new FileReader();
-            reader.onload = async (readerEvent) => {
-                if (uploadStatus) uploadStatus.textContent = 'Uploading...';
-                
-                const base64Data = readerEvent.target.result;
-                
-                try {
-                    const response = await fetch('http://localhost:8080/api/uploadExpeditionAsset', {
-                        method: 'POST',
-                        headers: { 
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            imageData: base64Data,
-                            contentType: file.type
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    if (result.success && result.icon) {
-                        if (uploadStatus) uploadStatus.textContent = 'Uploaded!';
-                        // Add to local cache as object (matching server format) and select it
-                        expeditionAssets.unshift({ icon: result.icon, assetId: result.assetID });
-                        renderBgAssetsGrid();
-                        selectBgAsset(result.icon);
-                    } else {
-                        if (uploadStatus) uploadStatus.textContent = 'Upload failed';
-                        console.error('Upload response:', result);
-                    }
-                } catch (err) {
-                    console.error('Upload error:', err);
-                    if (uploadStatus) uploadStatus.textContent = 'Upload failed';
-                }
-            };
-            reader.readAsDataURL(file);
-            
-        } catch (err) {
-            console.error('Upload error:', err);
-            if (uploadStatus) uploadStatus.textContent = 'Upload failed';
-        }
-    };
-    input.click();
+// Helper to extract asset ID from URL
+function getAssetIdFromUrl(url) {
+    if (!url) return null;
+    const match = url.match(/\/(\d+)\.webp$/);
+    return match ? parseInt(match[1]) : null;
 }
 
 // ==================== UTILS ====================

@@ -1026,25 +1026,34 @@
                 </div>
             </div>
             
-            <!-- Background Picker Modal -->
-            <div id="bgPickerModal" class="option-modal">
-                <div class="option-modal-content" style="width:520px;">
-                    <h3>Select Background Image</h3>
-                    <div id="bgAssetsGrid" class="bg-assets-grid">
-                        <p style="color:#888;text-align:center;">Loading...</p>
+            <!-- Expedition Asset Gallery Overlay (same style as quest gallery) -->
+            <div id="expeditionAssetGalleryOverlay" class="expedition-asset-gallery-overlay">
+                <div class="expedition-asset-gallery-modal">
+                    <div class="expedition-asset-gallery-header">
+                        <h3>Select Slide Background</h3>
+                        <button class="expedition-asset-gallery-close" onclick="window.closeExpeditionAssetGallery()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
                     </div>
-                    <div class="modal-field" style="margin-top:16px;">
-                        <label>Or upload from device / enter URL:</label>
-                        <div style="display:flex;gap:8px;margin-top:8px;">
-                            <button class="btn-secondary" onclick="window.uploadSlideBgFromDevice()">📁 From Device</button>
-                            <input type="text" id="bgUrlInput" placeholder="https://..." style="flex:1;">
-                            <button class="btn-primary" onclick="applyBgUrl()">Apply URL</button>
+                    <div class="expedition-asset-gallery-content">
+                        <div id="expeditionAssetGallery" class="expedition-asset-grid">
+                            <!-- Assets will be populated here -->
                         </div>
-                        <span id="bgUploadStatus" style="color:#888;font-size:0.8rem;margin-top:4px;display:block;"></span>
                     </div>
-                    <div class="modal-buttons">
-                        <button class="btn-cancel" onclick="clearSlideBg()">Clear Background</button>
-                        <button class="btn-cancel" onclick="closeBgPicker()">Cancel</button>
+                    <div class="expedition-upload-section">
+                        <button id="expeditionUploadBtn" class="btn-upload-asset">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            Upload New Asset
+                        </button>
+                        <input type="file" id="expeditionAssetFileInput" accept="image/*" style="display: none;">
+                        <span id="expeditionAssetUploadStatus" class="expedition-upload-status"></span>
                     </div>
                 </div>
             </div>
