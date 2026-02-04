@@ -1334,18 +1334,10 @@ function buildConnectionsFromData(quests, options, requirements) {
 async function loadQuestAssets() {
     console.log('Loading quest assets...');
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:8080/api/getQuestAssets', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch quest assets');
-        
-        const assets = await response.json();
-        questState.questAssets = assets || [];
-        console.log(`✅ Loaded ${questState.questAssets.length} quest assets`);
+        // Use shared GlobalData loader
+        await loadQuestAssetsData();
+        questState.questAssets = GlobalData.questAssets || [];
+        console.log(`✅ Loaded ${questState.questAssets.length} quest assets from GlobalData`);
     } catch (error) {
         console.error('Failed to load quest assets:', error);
         questState.questAssets = [];

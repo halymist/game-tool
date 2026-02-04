@@ -134,20 +134,12 @@ window.initQuestchainDesigner = initQuestchainDesigner;
 
 // ==================== ASSETS ====================
 async function loadQuestchainAssets() {
-    console.log('🖼️ Loading quest assets from S3...');
+    console.log('🖼️ Loading quest assets from GlobalData...');
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:8080/api/getQuestAssets', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) throw new Error('Failed to fetch quest assets');
-        
-        const assets = await response.json();
-        questchainState.questAssets = assets || [];
-        console.log(`✅ Loaded ${questchainState.questAssets.length} quest assets`);
+        // Use shared GlobalData loader
+        await loadQuestAssetsData();
+        questchainState.questAssets = GlobalData.questAssets || [];
+        console.log(`✅ Loaded ${questchainState.questAssets.length} quest assets from GlobalData`);
         populateQuestchainAssetGallery();
     } catch (error) {
         console.error('Failed to load quest assets:', error);

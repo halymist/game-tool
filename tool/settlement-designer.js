@@ -6,6 +6,7 @@ let settlementState = {
     selectedSettlementId: null,
     isNewSettlement: false,
     settlementAssets: [],
+    questAssets: [], // Quest assets from images/quests - used for location textures
     currentAssetTarget: null, // 'settlement', 'vendor', 'utility', 'expedition', 'arena', 'location'
     blessings: [], // perks for church blessings
     items: [], // items for vendor
@@ -184,6 +185,15 @@ async function loadSettlementDesignerData() {
         console.log('✅ Using GlobalData.settlementAssets:', settlementState.settlementAssets?.length || 0, 'assets');
     } catch (error) {
         console.error('Error loading settlement assets:', error);
+    }
+
+    // Load quest assets from GlobalData (for location textures)
+    try {
+        await loadQuestAssetsData();
+        settlementState.questAssets = GlobalData.questAssets;
+        console.log('✅ Using GlobalData.questAssets:', settlementState.questAssets?.length || 0, 'assets for locations');
+    } catch (error) {
+        console.error('Error loading quest assets:', error);
     }
 
     // Load perks for blessings dropdown
@@ -1091,8 +1101,13 @@ function populateAssetGallery() {
     if (!grid) return;
 
     const currentAssetId = getCurrentAssetId();
+    
+    // Use quest assets for location textures, settlement assets for everything else
+    const assets = settlementState.currentAssetTarget === 'location' 
+        ? settlementState.questAssets 
+        : settlementState.settlementAssets;
 
-    grid.innerHTML = settlementState.settlementAssets.map(asset => `
+    grid.innerHTML = assets.map(asset => `
         <div class="settlement-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
              data-asset-id="${asset.id}" onclick="selectAsset(${asset.id})">
             <img src="${asset.url}" alt="Asset ${asset.id}">
@@ -1100,7 +1115,7 @@ function populateAssetGallery() {
         </div>
     `).join('');
 
-    if (settlementState.settlementAssets.length === 0) {
+    if (assets.length === 0) {
         grid.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 40px;">No assets found. Upload some!</p>';
     }
 }
@@ -1116,6 +1131,15 @@ function getCurrentAssetId() {
             break;
         case 'utility':
             areaId = 'utilityAssetArea';
+            break;
+        case 'expedition':
+            areaId = 'expeditionAssetArea';
+            break;
+        case 'arena':
+            areaId = 'arenaAssetArea';
+            break;
+        case 'location':
+            areaId = 'locationTextureArea';
             break;
     }
 
@@ -1455,7 +1479,7 @@ function openEditLocationModal(index) {
     textureArea.dataset.assetId = location.texture_id || '';
     
     if (location.texture_id) {
-        const asset = settlementState.settlementAssets.find(a => a.id === location.texture_id);
+        const asset = settlementState.questAssets.find(a => a.id === location.texture_id);
         if (asset && asset.url) {
             textureArea.classList.add('has-texture');
             textureArea.innerHTML = `<img src="${asset.url}" alt="Location texture">`;
@@ -1561,7 +1585,7 @@ function renderLocations() {
         // Find texture URL
         let textureHtml = '';
         if (location.texture_id) {
-            const asset = settlementState.settlementAssets.find(a => a.id === location.texture_id);
+            const asset = settlementState.questAssets.find(a => a.id === location.texture_id);
             if (asset && asset.url) {
                 textureHtml = `<img src="${asset.url}" alt="${escapeSettlementHtml(location.name)}">`;
             }
@@ -1615,7 +1639,7 @@ function updateLocationTexturePreview(assetId) {
     textureArea.dataset.assetId = assetId || '';
     
     if (assetId) {
-        const asset = settlementState.settlementAssets.find(a => a.id === assetId);
+        const asset = settlementState.questAssets.find(a => a.id === assetId);
         if (asset && asset.url) {
             textureArea.classList.add('has-texture');
             textureArea.innerHTML = `<img src="${asset.url}" alt="Location texture">`;

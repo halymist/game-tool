@@ -12,7 +12,8 @@ const GlobalData = {
     pendingItems: [],      // Array of pending items from tooling.items
     itemAssets: [],        // Array of available item assets from S3
     settlements: [],       // Array of all settlements from game.world_info
-    settlementAssets: []   // Array of available settlement assets from S3
+    settlementAssets: [],  // Array of available settlement assets from S3
+    questAssets: []        // Array of available quest assets from S3 (images/quests)
 };
 
 // === EFFECTS DATA STRUCTURE ===
@@ -544,6 +545,84 @@ function getSettlementAssets() {
 async function refreshSettlementsData() {
     GlobalData.settlements = [];
     return loadSettlementsData();
+}
+
+// === QUEST ASSETS ===
+
+let questAssetsLoadingPromise = null;
+
+/**
+ * Load all quest assets from S3 bucket (images/quests folder)
+ * @returns {Promise<Array>} Promise that resolves to array of quest assets
+ */
+async function loadQuestAssetsData() {
+    // If already loaded, return cached
+    if (GlobalData.questAssets.length > 0) {
+        console.log('✅ Quest assets already loaded, using cached data:', GlobalData.questAssets.length, 'assets');
+        return GlobalData.questAssets;
+    }
+    
+    // If already loading, wait for that request to finish
+    if (questAssetsLoadingPromise) {
+        console.log('Quest assets already loading, waiting for existing request...');
+        return questAssetsLoadingPromise;
+    }
+    
+    questAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) {
+                console.error('Authentication required to load quest assets');
+                throw new Error('Authentication required');
+            }
+
+            console.log('Loading quest assets from S3...');
+
+            const response = await fetch('http://localhost:8080/api/getQuestAssets', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                GlobalData.questAssets = data || [];
+                console.log('✅ Quest assets loaded successfully:', GlobalData.questAssets.length, 'assets');
+                return GlobalData.questAssets;
+            } else {
+                const error = await response.text();
+                console.error('Failed to load quest assets:', error);
+                throw new Error(`Server error: ${error}`);
+            }
+
+        } catch (error) {
+            console.error('Error loading quest assets:', error);
+            questAssetsLoadingPromise = null;
+            throw error;
+        }
+    })();
+    
+    return questAssetsLoadingPromise;
+}
+
+/**
+ * Get quest assets data
+ * @returns {Array} Array of quest assets
+ */
+function getQuestAssets() {
+    return GlobalData.questAssets;
+}
+
+/**
+ * Refresh quest assets data (force reload)
+ * @returns {Promise<Array>} Promise that resolves to array of quest assets
+ */
+async function refreshQuestAssetsData() {
+    GlobalData.questAssets = [];
+    questAssetsLoadingPromise = null;
+    return loadQuestAssetsData();
 }
 
 // === DATA ACCESS FUNCTIONS ===
