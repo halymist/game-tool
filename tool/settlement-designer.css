@@ -1087,3 +1087,442 @@
 .btn-save-responses:hover {
     background: linear-gradient(145deg, #48bb78, #38a169);
 }
+
+/* ==================== LOCATIONS SECTION ==================== */
+
+.settlement-locations-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: linear-gradient(145deg, #1e2a4a, #16213e);
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+}
+
+.locations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.locations-title {
+    color: #e2e8f0;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.btn-add-location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: linear-gradient(145deg, #38a169, #2f855a);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-add-location:hover {
+    background: linear-gradient(145deg, #48bb78, #38a169);
+    transform: translateY(-1px);
+}
+
+.locations-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.locations-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    width: 100%;
+    color: #64748b;
+    text-align: center;
+}
+
+.locations-empty-state svg {
+    opacity: 0.4;
+    margin-bottom: 12px;
+}
+
+.locations-empty-state p {
+    font-size: 14px;
+    margin: 0 0 4px 0;
+    color: #94a3b8;
+}
+
+.locations-empty-state span {
+    font-size: 12px;
+}
+
+/* Location Card (same aspect ratio as slides - 9:16) */
+.location-card {
+    width: 180px;
+    aspect-ratio: 9 / 16;
+    background: linear-gradient(145deg, #0d1b2a, #162032);
+    border: 2px solid #1a365d;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.location-card:hover {
+    border-color: #3182ce;
+    box-shadow: 0 4px 20px rgba(49, 130, 206, 0.2);
+    transform: translateY(-2px);
+}
+
+.location-card.has-texture {
+    border-color: #38a169;
+}
+
+.location-card-texture {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0a1220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.location-card-texture img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.location-card-texture .no-texture {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #4a5568;
+}
+
+.location-card-texture .no-texture svg {
+    width: 36px;
+    height: 36px;
+    opacity: 0.4;
+}
+
+.location-card-texture .no-texture span {
+    font-size: 11px;
+}
+
+.location-card-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.7) 70%, transparent 100%);
+}
+
+.location-card-name {
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.location-card-description {
+    color: #94a3b8;
+    font-size: 11px;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.location-card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.location-card:hover .location-card-actions {
+    opacity: 1;
+}
+
+.location-card-actions button {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-edit-location {
+    background: rgba(49, 130, 206, 0.8);
+    color: white;
+}
+
+.btn-edit-location:hover {
+    background: #3182ce;
+}
+
+.btn-delete-location {
+    background: rgba(229, 62, 62, 0.8);
+    color: white;
+}
+
+.btn-delete-location:hover {
+    background: #e53e3e;
+}
+
+/* Location Modal */
+.location-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1000;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+}
+
+.location-modal-overlay.active {
+    display: flex;
+}
+
+.location-modal {
+    background: linear-gradient(145deg, #1e2a4a, #16213e);
+    border: 1px solid #0f3460;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.location-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.location-modal-header h3 {
+    color: #e2e8f0;
+    margin: 0;
+    font-size: 18px;
+}
+
+.location-modal-close {
+    background: none;
+    border: none;
+    color: #a0aec0;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 18px;
+    transition: all 0.2s;
+}
+
+.location-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+.location-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.location-modal-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+}
+
+.location-texture-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.location-texture-section label {
+    color: #a0aec0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.location-texture-preview {
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    background: #0d1b2a;
+    border: 2px dashed #1a365d;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.location-texture-preview:hover {
+    border-color: #3182ce;
+}
+
+.location-texture-preview.has-texture {
+    border-style: solid;
+    border-color: #38a169;
+}
+
+.location-texture-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.location-texture-preview .no-asset {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #4a5568;
+}
+
+.location-texture-preview .no-asset svg {
+    width: 40px;
+    height: 40px;
+    opacity: 0.5;
+}
+
+.location-texture-preview .no-asset span {
+    font-size: 12px;
+    text-align: center;
+}
+
+.location-info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.location-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.location-field label {
+    color: #a0aec0;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.location-field input,
+.location-field textarea {
+    width: 100%;
+    padding: 10px 14px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.location-field input:focus,
+.location-field textarea:focus {
+    outline: none;
+    border-color: #3182ce;
+}
+
+.location-field textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.location-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid #0f3460;
+}
+
+.btn-cancel-location {
+    padding: 10px 20px;
+    background: transparent;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    color: #a0aec0;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel-location:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: #718096;
+    color: #e2e8f0;
+}
+
+.btn-save-location {
+    padding: 10px 20px;
+    background: linear-gradient(145deg, #38a169, #2f855a);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-save-location:hover {
+    background: linear-gradient(145deg, #48bb78, #38a169);
+}
+
+@media (max-width: 600px) {
+    .location-modal-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .location-texture-section {
+        order: -1;
+    }
+    
+    .location-texture-preview {
+        max-width: 200px;
+        margin: 0 auto;
+    }
+}

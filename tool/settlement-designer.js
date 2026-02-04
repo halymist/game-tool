@@ -6,14 +6,16 @@ let settlementState = {
     selectedSettlementId: null,
     isNewSettlement: false,
     settlementAssets: [],
-    currentAssetTarget: null, // 'settlement', 'vendor', 'utility', 'expedition', 'arena'
+    currentAssetTarget: null, // 'settlement', 'vendor', 'utility', 'expedition', 'arena', 'location'
     blessings: [], // perks for church blessings
     items: [], // items for vendor
     effects: [], // effects for enchanter
     vendorItems: [], // current vendor's items
     enchanterEffects: [], // current enchanter's effects
     vendorResponses: [], // [{type: 'on_entered', text: '...'}, ...]
-    utilityResponses: [] // [{type: 'on_entered', text: '...'}, ...]
+    utilityResponses: [], // [{type: 'on_entered', text: '...'}, ...]
+    locations: [], // [{id: 1, name: '...', description: '...', texture_id: ...}, ...]
+    editingLocationIndex: null // index of location being edited, null for new
 };
 
 // Initialize when DOM is ready
@@ -132,6 +134,28 @@ function setupSettlementEventListeners() {
     const addEnchanterEffectBtn = document.getElementById('addEnchanterEffectBtn');
     if (addEnchanterEffectBtn) {
         addEnchanterEffectBtn.addEventListener('click', showAddEffectDialog);
+    }
+
+    // Add location button
+    const addLocationBtn = document.getElementById('addLocationBtn');
+    if (addLocationBtn) {
+        addLocationBtn.addEventListener('click', openAddLocationModal);
+    }
+
+    // Location texture click handler
+    const locationTextureArea = document.getElementById('locationTextureArea');
+    if (locationTextureArea) {
+        locationTextureArea.addEventListener('click', () => openAssetGallery('location'));
+    }
+
+    // Location modal overlay click to close
+    const locationModalOverlay = document.getElementById('locationModalOverlay');
+    if (locationModalOverlay) {
+        locationModalOverlay.addEventListener('click', (e) => {
+            if (e.target === locationModalOverlay) {
+                closeLocationModal();
+            }
+        });
     }
 }
 
@@ -522,6 +546,10 @@ function populateSettlementForm(settlement) {
     settlementState.enchanterEffects = settlement.enchanter_effects || [];
     renderVendorItems();
     renderEnchanterEffects();
+
+    // Locations from settlement data
+    settlementState.locations = settlement.locations || [];
+    renderLocations();
 }
 
 function updateUtilityContent() {
@@ -572,6 +600,12 @@ function selectUtilityType(type) {
 }
 
 function updateAssetPreview(target, assetId) {
+    // Special handling for location - use separate function
+    if (target === 'location') {
+        updateLocationTexturePreview(assetId);
+        return;
+    }
+
     let areaId;
 
     switch (target) {
@@ -959,6 +993,7 @@ function createNewSettlement() {
     settlementState.enchanterEffects = [];
     settlementState.vendorResponses = [];
     settlementState.utilityResponses = [];
+    settlementState.locations = [];
 
     // Clear form
     document.getElementById('settlementName').value = '';
@@ -983,6 +1018,9 @@ function createNewSettlement() {
     // Clear vendor/enchanter lists
     renderVendorItems();
     renderEnchanterEffects();
+
+    // Clear and render locations
+    renderLocations();
 
     // Update select
     const select = document.getElementById('settlementSelect');
@@ -1025,6 +1063,9 @@ function openAssetGallery(target) {
                 break;
             case 'arena':
                 title.textContent = 'Select Arena Asset';
+                break;
+            case 'location':
+                title.textContent = 'Select Location Texture';
                 break;
         }
     }
@@ -1268,7 +1309,9 @@ async function saveSettlement() {
         utility_on_action: utilityResponsesObj.on_action?.length ? utilityResponsesObj.on_action : null,
         // Inventory arrays
         vendor_items: settlementState.vendorItems,
-        enchanter_effects: settlementState.enchanterEffects
+        enchanter_effects: settlementState.enchanterEffects,
+        // Locations
+        locations: settlementState.locations
     };
 
     if (!settlementState.isNewSettlement && settlementState.selectedSettlementId) {
@@ -1372,6 +1415,227 @@ function escapeSettlementHtml(text) {
     return div.innerHTML;
 }
 
+// ==================== LOCATIONS MANAGEMENT ====================
+
+function openAddLocationModal() {
+    settlementState.editingLocationIndex = null;
+    document.getElementById('locationModalTitle').textContent = 'Add Location';
+    document.getElementById('locationName').value = '';
+    document.getElementById('locationDescription').value = '';
+    
+    // Reset texture preview
+    const textureArea = document.getElementById('locationTextureArea');
+    textureArea.dataset.assetId = '';
+    textureArea.classList.remove('has-texture');
+    textureArea.innerHTML = `
+        <div class="no-asset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span>Click to select texture</span>
+        </div>
+    `;
+    
+    document.getElementById('locationModalOverlay').classList.add('active');
+}
+
+function openEditLocationModal(index) {
+    const location = settlementState.locations[index];
+    if (!location) return;
+    
+    settlementState.editingLocationIndex = index;
+    document.getElementById('locationModalTitle').textContent = 'Edit Location';
+    document.getElementById('locationName').value = location.name || '';
+    document.getElementById('locationDescription').value = location.description || '';
+    
+    // Set texture preview
+    const textureArea = document.getElementById('locationTextureArea');
+    textureArea.dataset.assetId = location.texture_id || '';
+    
+    if (location.texture_id) {
+        const asset = settlementState.settlementAssets.find(a => a.id === location.texture_id);
+        if (asset && asset.url) {
+            textureArea.classList.add('has-texture');
+            textureArea.innerHTML = `<img src="${asset.url}" alt="Location texture">`;
+        } else {
+            textureArea.classList.remove('has-texture');
+            textureArea.innerHTML = `
+                <div class="no-asset">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>Click to select texture</span>
+                </div>
+            `;
+        }
+    } else {
+        textureArea.classList.remove('has-texture');
+        textureArea.innerHTML = `
+            <div class="no-asset">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span>Click to select texture</span>
+            </div>
+        `;
+    }
+    
+    document.getElementById('locationModalOverlay').classList.add('active');
+}
+
+function closeLocationModal() {
+    document.getElementById('locationModalOverlay').classList.remove('active');
+    settlementState.editingLocationIndex = null;
+}
+
+function saveLocation() {
+    const name = document.getElementById('locationName').value.trim();
+    const description = document.getElementById('locationDescription').value.trim();
+    const textureId = document.getElementById('locationTextureArea').dataset.assetId;
+    
+    if (!name) {
+        alert('Please enter a location name');
+        return;
+    }
+    
+    const locationData = {
+        name: name,
+        description: description,
+        texture_id: textureId ? parseInt(textureId) : null
+    };
+    
+    if (settlementState.editingLocationIndex !== null) {
+        // Edit existing location
+        settlementState.locations[settlementState.editingLocationIndex] = {
+            ...settlementState.locations[settlementState.editingLocationIndex],
+            ...locationData
+        };
+    } else {
+        // Add new location with temporary ID
+        locationData.id = Date.now(); // Temporary client-side ID
+        settlementState.locations.push(locationData);
+    }
+    
+    renderLocations();
+    closeLocationModal();
+}
+
+function deleteLocation(index) {
+    const location = settlementState.locations[index];
+    if (!location) return;
+    
+    if (confirm(`Delete location "${location.name}"?`)) {
+        settlementState.locations.splice(index, 1);
+        renderLocations();
+    }
+}
+
+function renderLocations() {
+    const grid = document.getElementById('locationsGrid');
+    const emptyState = document.getElementById('locationsEmptyState');
+    
+    if (!grid) return;
+    
+    // Clear existing location cards (keep empty state)
+    const existingCards = grid.querySelectorAll('.location-card');
+    existingCards.forEach(card => card.remove());
+    
+    if (settlementState.locations.length === 0) {
+        if (emptyState) emptyState.style.display = 'flex';
+        return;
+    }
+    
+    if (emptyState) emptyState.style.display = 'none';
+    
+    settlementState.locations.forEach((location, index) => {
+        const card = document.createElement('div');
+        card.className = 'location-card' + (location.texture_id ? ' has-texture' : '');
+        card.onclick = () => openEditLocationModal(index);
+        
+        // Find texture URL
+        let textureHtml = '';
+        if (location.texture_id) {
+            const asset = settlementState.settlementAssets.find(a => a.id === location.texture_id);
+            if (asset && asset.url) {
+                textureHtml = `<img src="${asset.url}" alt="${escapeSettlementHtml(location.name)}">`;
+            }
+        }
+        
+        if (!textureHtml) {
+            textureHtml = `
+                <div class="no-texture">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span>No texture</span>
+                </div>
+            `;
+        }
+        
+        card.innerHTML = `
+            <div class="location-card-texture">
+                ${textureHtml}
+            </div>
+            <div class="location-card-info">
+                <h4 class="location-card-name">${escapeSettlementHtml(location.name)}</h4>
+                <p class="location-card-description">${escapeSettlementHtml(location.description || '')}</p>
+            </div>
+            <div class="location-card-actions">
+                <button class="btn-edit-location" onclick="event.stopPropagation(); openEditLocationModal(${index})" title="Edit">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button>
+                <button class="btn-delete-location" onclick="event.stopPropagation(); deleteLocation(${index})" title="Delete">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function updateLocationTexturePreview(assetId) {
+    const textureArea = document.getElementById('locationTextureArea');
+    if (!textureArea) return;
+    
+    textureArea.dataset.assetId = assetId || '';
+    
+    if (assetId) {
+        const asset = settlementState.settlementAssets.find(a => a.id === assetId);
+        if (asset && asset.url) {
+            textureArea.classList.add('has-texture');
+            textureArea.innerHTML = `<img src="${asset.url}" alt="Location texture">`;
+            return;
+        }
+    }
+    
+    textureArea.classList.remove('has-texture');
+    textureArea.innerHTML = `
+        <div class="no-asset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span>Click to select texture</span>
+        </div>
+    `;
+}
+
 // Expose functions to window for HTML event handlers
 window.loadSettlementDesignerData = loadSettlementDesignerData;
 window.selectSettlement = selectSettlement;
@@ -1388,3 +1652,8 @@ window.addResponseEntry = addResponseEntry;
 window.removeResponseEntry = removeResponseEntry;
 window.updateResponseEntry = updateResponseEntry;
 window.saveResponses = saveResponses;
+window.openAddLocationModal = openAddLocationModal;
+window.openEditLocationModal = openEditLocationModal;
+window.closeLocationModal = closeLocationModal;
+window.saveLocation = saveLocation;
+window.deleteLocation = deleteLocation;

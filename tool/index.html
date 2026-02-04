@@ -1357,6 +1357,74 @@
                     </div>
                 </div>
 
+                <!-- Locations Section -->
+                <div class="settlement-locations-section">
+                    <div class="locations-header">
+                        <h3 class="locations-title">📍 Locations</h3>
+                        <button id="addLocationBtn" class="btn-add-location">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Location
+                        </button>
+                    </div>
+                    <div id="locationsGrid" class="locations-grid">
+                        <!-- Location cards will be populated here -->
+                        <div class="locations-empty-state" id="locationsEmptyState">
+                            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <p>No locations added yet</p>
+                            <span>Click "Add Location" to create a new location for this settlement</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Edit Modal -->
+                <div id="locationModalOverlay" class="location-modal-overlay">
+                    <div class="location-modal">
+                        <div class="location-modal-header">
+                            <h3 id="locationModalTitle">Add Location</h3>
+                            <button class="location-modal-close" onclick="closeLocationModal()">✕</button>
+                        </div>
+                        <div class="location-modal-content">
+                            <div class="location-modal-grid">
+                                <!-- Texture Preview (same aspect ratio as slides) -->
+                                <div class="location-texture-section">
+                                    <label>Texture</label>
+                                    <div id="locationTextureArea" class="location-texture-preview" data-asset-id="">
+                                        <div class="no-asset">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                                <polyline points="21 15 16 10 5 21"/>
+                                            </svg>
+                                            <span>Click to select texture</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Name and Description -->
+                                <div class="location-info-section">
+                                    <div class="location-field">
+                                        <label for="locationName">Name</label>
+                                        <input type="text" id="locationName" placeholder="Location name...">
+                                    </div>
+                                    <div class="location-field">
+                                        <label for="locationDescription">Description</label>
+                                        <textarea id="locationDescription" placeholder="Describe this location..." rows="6"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="location-modal-footer">
+                            <button class="btn-cancel-location" onclick="closeLocationModal()">Cancel</button>
+                            <button class="btn-save-location" onclick="saveLocation()">Save Location</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Responses Modal -->
                 <div id="responsesModalOverlay" class="responses-modal-overlay">
                     <div class="responses-modal">
