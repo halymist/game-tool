@@ -28,16 +28,17 @@ type QuestChain struct {
 
 // Quest represents a quest
 type Quest struct {
-	QuestID        int     `json:"quest_id"`
-	QuestchainID   int     `json:"questchain_id"`
-	QuestName      string  `json:"quest_name"`
-	RequisiteQuest *int    `json:"requisite_quest"`
-	Ending         *int    `json:"ending"`
-	DefaultEntry   bool    `json:"default_entry"`
-	SettlementID   *int    `json:"settlement_id"`
-	AssetID        *int    `json:"asset_id"`
-	PosX           float64 `json:"pos_x"`
-	PosY           float64 `json:"pos_y"`
+	QuestID           int     `json:"quest_id"`
+	QuestchainID      int     `json:"questchain_id"`
+	QuestName         string  `json:"quest_name"`
+	RequisiteOptionID *int    `json:"requisite_option_id"`
+	Ending            *int    `json:"ending"`
+	DefaultEntry      bool    `json:"default_entry"`
+	SettlementID      *int    `json:"settlement_id"`
+	AssetID           *int    `json:"asset_id"`
+	PosX              float64 `json:"pos_x"`
+	PosY              float64 `json:"pos_y"`
+	SortOrder         int     `json:"sort_order"`
 }
 
 // QuestOption represents a quest option
@@ -132,9 +133,9 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	// Get quests for these chains
 	var quests []Quest
 	if len(chainIDs) > 0 {
-		questQuery := `SELECT quest_id, questchain_id, quest_name, requisite_quest, ending, default_entry, settlement_id, asset_id,
-			COALESCE(pos_x, 50) as pos_x, COALESCE(pos_y, 100) as pos_y
-			FROM game.quests WHERE questchain_id = ANY($1) ORDER BY questchain_id, quest_id`
+		questQuery := `SELECT quest_id, questchain_id, quest_name, requisite_option_id, ending, default_entry, settlement_id, asset_id,
+			COALESCE(pos_x, 50) as pos_x, COALESCE(pos_y, 100) as pos_y, COALESCE(sort_order, 0) as sort_order
+			FROM game.quests WHERE questchain_id = ANY($1) ORDER BY questchain_id, sort_order, quest_id`
 
 		questRows, err := db.Query(questQuery, pq.Array(chainIDs))
 		if err != nil {
@@ -146,7 +147,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 
 		for questRows.Next() {
 			var q Quest
-			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.RequisiteQuest, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.PosX, &q.PosY)
+			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.PosX, &q.PosY, &q.SortOrder)
 			if err != nil {
 				log.Printf("Error scanning quest: %v", err)
 				continue
@@ -298,7 +299,8 @@ type SaveQuestRequest struct {
 	IsNewChain   bool   `json:"isNewChain"`
 	SettlementID *int   `json:"settlementId"`
 	// Quest-level fields (for new quests within the chain)
-	NewQuests []NewQuestData `json:"newQuests"`
+	NewQuests    []NewQuestData    `json:"newQuests"`
+	QuestUpdates []QuestUpdateData `json:"questUpdates"`
 	// Option-level fields
 	NewOptions          []NewQuestOption         `json:"newOptions"`
 	OptionUpdates       []QuestOptionUpdate      `json:"optionUpdates"`
@@ -318,6 +320,17 @@ type NewQuestData struct {
 	AssetID      *int    `json:"assetId"`
 	PosX         float64 `json:"posX"`
 	PosY         float64 `json:"posY"`
+	SortOrder    int     `json:"sortOrder"`
+}
+
+// QuestUpdateData represents an update to an existing quest
+type QuestUpdateData struct {
+	QuestID   int     `json:"questId"`
+	QuestName string  `json:"questName"`
+	AssetID   *int    `json:"assetId"`
+	PosX      float64 `json:"posX"`
+	PosY      float64 `json:"posY"`
+	SortOrder int     `json:"sortOrder"`
 }
 
 // PendingRequirement represents a requirement between unsaved local options
@@ -429,9 +442,9 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	// Create new quests within the chain
 	for _, newQuest := range req.NewQuests {
 		var newQuestID int
-		err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, asset_id, default_entry, pos_x, pos_y)
-			VALUES ($1, $2, $3, true, $4, $5) RETURNING quest_id`,
-			newQuest.QuestName, questchainID, newQuest.AssetID, newQuest.PosX, newQuest.PosY).Scan(&newQuestID)
+		err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, asset_id, default_entry, pos_x, pos_y, sort_order)
+			VALUES ($1, $2, $3, true, $4, $5, $6) RETURNING quest_id`,
+			newQuest.QuestName, questchainID, newQuest.AssetID, newQuest.PosX, newQuest.PosY, newQuest.SortOrder).Scan(&newQuestID)
 		if err != nil {
 			log.Printf("Error creating new quest in chain: %v", err)
 			http.Error(w, "Database error", http.StatusInternalServerError)
@@ -439,6 +452,17 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		}
 		questMapping[newQuest.LocalQuestID] = newQuestID
 		log.Printf("Created new quest: local %d -> server %d", newQuest.LocalQuestID, newQuestID)
+	}
+
+	// Update existing quests
+	for _, questUpdate := range req.QuestUpdates {
+		_, err := tx.Exec(`UPDATE game.quests SET quest_name = $1, asset_id = $2, pos_x = $3, pos_y = $4, sort_order = $5 WHERE quest_id = $6`,
+			questUpdate.QuestName, questUpdate.AssetID, questUpdate.PosX, questUpdate.PosY, questUpdate.SortOrder, questUpdate.QuestID)
+		if err != nil {
+			log.Printf("Error updating quest %d: %v", questUpdate.QuestID, err)
+		} else {
+			log.Printf("Updated quest: %d", questUpdate.QuestID)
+		}
 	}
 
 	// Legacy: Create new quest if isNewQuest (backwards compat)

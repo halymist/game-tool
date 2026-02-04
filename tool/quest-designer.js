@@ -162,16 +162,29 @@ function addOption() {
     const container = document.getElementById('questOptionsContainer');
     if (!canvas || !container) return;
     
+    // Determine which quest this option belongs to
+    // If a quest is selected, attach to it. Otherwise, the first quest or null
+    let targetQuestId = questState.selectedQuest;
+    if (!targetQuestId && questState.quests.size > 0) {
+        targetQuestId = questState.quests.keys().next().value;
+    }
+    
     const rect = canvas.getBoundingClientRect();
     const id = questState.nextOptionId++;
     
+    // Determine if this should be a start option
+    // It's a start if: no options yet, or it's the first option for this quest
+    const existingQuestOptions = Array.from(questState.options.values()).filter(o => o.questId === targetQuestId);
+    const isStart = existingQuestOptions.length === 0;
+    
     const option = {
         optionId: id,
+        questId: targetQuestId, // Link to quest
         optionText: 'New Option',
         nodeText: '',
         x: (rect.width / 2 - questState.canvasOffset.x) / questState.zoom - 100 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - questState.canvasOffset.y) / questState.zoom - 50 + (Math.random() - 0.5) * 100,
-        isStart: questState.options.size === 0,
+        isStart: isStart,
         // Option type: dialogue, stat_check, effect_check, combat, end
         type: 'dialogue',
         // Stat check fields
@@ -188,9 +201,21 @@ function addOption() {
     
     questState.options.set(id, option);
     renderOption(option);
+    
+    // If this is a start option, auto-create connection from quest to it
+    if (isStart && targetQuestId) {
+        questState.connections.push({
+            fromType: 'quest',
+            fromId: targetQuestId,
+            toType: 'option',
+            toId: id
+        });
+        questRenderConnections();
+    }
+    
     updateCounter();
     
-    console.log(`✅ Option #${id} created`);
+    console.log(`✅ Option #${id} created, linked to quest ${targetQuestId}`);
 }
 
 // ==================== RENDER QUEST SLIDE ====================
@@ -990,13 +1015,288 @@ async function loadQuestSettlements() {
     }
 }
 
-// Handle settlement selection change
-function onQuestSettlementChange() {
+// Handle settlement selection change - loads quest chains for that settlement
+async function onQuestSettlementChange() {
     const select = document.getElementById('questSettlementSelect');
     questState.selectedSettlementId = select?.value ? parseInt(select.value) : null;
     console.log('Settlement changed to:', questState.selectedSettlementId);
+    
+    // Clear current state
+    clearQuestCanvas();
+    
+    // Load quest chains for this settlement
+    await loadQuestChains();
 }
 window.onQuestSettlementChange = onQuestSettlementChange;
+
+// Clear the canvas and reset state
+function clearQuestCanvas() {
+    questState.quests.clear();
+    questState.options.clear();
+    questState.connections = [];
+    questState.selectedQuest = null;
+    questState.selectedOption = null;
+    questState.selectedChain = null;
+    questState.nextQuestId = 1;
+    questState.nextOptionId = 1;
+    questState.serverQuests.clear();
+    questState.serverOptions.clear();
+    
+    const container = document.getElementById('questOptionsContainer');
+    if (container) container.innerHTML = '';
+    
+    questRenderConnections();
+    updateCounter();
+    
+    // Reset chain name input
+    const nameInput = document.getElementById('questChainNameInput');
+    if (nameInput) nameInput.value = '';
+}
+
+// Load quest chains for current settlement
+async function loadQuestChains() {
+    const chainSelect = document.getElementById('questSelect');
+    if (!chainSelect) return;
+    
+    chainSelect.innerHTML = '<option value="" disabled selected>-- Select or Create --</option>';
+    chainSelect.innerHTML += '<option value="new">+ Create New Chain</option>';
+    questState.chains.clear();
+    
+    if (!questState.selectedSettlementId) return;
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:8080/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch quest chains');
+        
+        const data = await response.json();
+        const chains = data.chains || [];
+        
+        chains.forEach(chain => {
+            questState.chains.set(chain.questchain_id, chain);
+            const opt = document.createElement('option');
+            opt.value = chain.questchain_id;
+            opt.textContent = chain.name || `Chain #${chain.questchain_id}`;
+            chainSelect.appendChild(opt);
+        });
+        
+        console.log(`✅ Loaded ${chains.length} quest chains for settlement ${questState.selectedSettlementId}`);
+    } catch (error) {
+        console.error('Failed to load quest chains:', error);
+    }
+}
+
+// Handle quest chain selection change
+async function onQuestChange() {
+    const select = document.getElementById('questSelect');
+    const selectedValue = select?.value;
+    
+    console.log('Quest chain changed to:', selectedValue);
+    
+    // Clear canvas first
+    clearQuestCanvas();
+    
+    if (selectedValue === 'new') {
+        // Create new chain mode
+        questState.selectedChain = null;
+        const nameInput = document.getElementById('questChainNameInput');
+        if (nameInput) {
+            nameInput.value = '';
+            nameInput.focus();
+        }
+        return;
+    }
+    
+    if (!selectedValue) return;
+    
+    const chainId = parseInt(selectedValue);
+    questState.selectedChain = chainId;
+    
+    // Update chain name input
+    const chain = questState.chains.get(chainId);
+    const nameInput = document.getElementById('questChainNameInput');
+    if (nameInput && chain) {
+        nameInput.value = chain.name || '';
+    }
+    
+    // Load quests, options, and requirements for this chain
+    await loadQuestChainData(chainId);
+}
+window.onQuestChange = onQuestChange;
+
+// Update chain name in state
+function updateChainName(name) {
+    questState.chainName = name;
+}
+window.updateChainName = updateChainName;
+
+// Load full data for a quest chain
+async function loadQuestChainData(chainId) {
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        
+        const response = await fetch(`http://localhost:8080/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch quest data');
+        
+        const data = await response.json();
+        
+        // Filter to only this chain's quests
+        const chainQuests = (data.quests || []).filter(q => q.questchain_id === chainId);
+        const questIds = new Set(chainQuests.map(q => q.quest_id));
+        
+        // Filter options to only those belonging to chain's quests
+        const chainOptions = (data.options || []).filter(o => questIds.has(o.quest_id));
+        const optionIds = new Set(chainOptions.map(o => o.option_id));
+        
+        // Filter requirements
+        const chainRequirements = (data.requirements || []).filter(r => 
+            optionIds.has(r.optionId) || optionIds.has(r.requiredOptionId)
+        );
+        
+        console.log(`Loading chain ${chainId}: ${chainQuests.length} quests, ${chainOptions.length} options, ${chainRequirements.length} requirements`);
+        
+        // Track max IDs for new items
+        let maxQuestId = 0;
+        let maxOptionId = 0;
+        
+        // Load quests
+        chainQuests.forEach(q => {
+            const quest = {
+                questId: q.quest_id,
+                serverId: q.quest_id,
+                name: q.quest_name || `Quest ${q.quest_id}`,
+                text: '', // Not stored in DB yet
+                assetId: q.asset_id,
+                assetUrl: q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null,
+                sortOrder: q.sort_order || 0,
+                x: q.pos_x || 50,
+                y: q.pos_y || 100,
+                requisiteOptionId: q.requisite_option_id,
+            };
+            questState.quests.set(q.quest_id, quest);
+            questState.serverQuests.set(q.quest_id, { ...quest });
+            maxQuestId = Math.max(maxQuestId, q.quest_id);
+        });
+        
+        // Load options
+        chainOptions.forEach(o => {
+            const option = {
+                optionId: o.option_id,
+                serverId: o.option_id,
+                questId: o.quest_id, // The quest this option belongs to
+                optionText: o.option_text || 'Option',
+                nodeText: o.node_text || '',
+                x: o.x || o.pos_x || 0,
+                y: o.y || o.pos_y || 0,
+                isStart: o.start || false,
+                type: determineOptionType(o),
+                statType: o.stat_type,
+                statRequired: o.stat_required,
+                effectId: o.effect_id,
+                effectAmount: o.effect_amount,
+                enemyId: o.enemy_id,
+                reward: extractReward(o),
+            };
+            questState.options.set(o.option_id, option);
+            questState.serverOptions.set(o.option_id, { ...option });
+            maxOptionId = Math.max(maxOptionId, o.option_id);
+        });
+        
+        // Set next IDs
+        questState.nextQuestId = maxQuestId + 1;
+        questState.nextOptionId = maxOptionId + 1;
+        
+        // Build connections based on questId:
+        // - For each quest, find its START options and create quest -> option connections
+        // - Requirements table represents option -> option connections (option requires requiredOption to be done first)
+        buildConnectionsFromData(chainQuests, chainOptions, chainRequirements);
+        
+        // Render everything
+        questState.quests.forEach(quest => renderQuest(quest));
+        questState.options.forEach(option => renderOption(option));
+        questRenderConnections();
+        updateCounter();
+        
+        console.log(`✅ Loaded quest chain ${chainId}`);
+    } catch (error) {
+        console.error('Failed to load quest chain data:', error);
+    }
+}
+
+// Determine option type from DB fields
+function determineOptionType(o) {
+    if (o.enemy_id) return 'combat';
+    if (o.effect_id && o.effect_amount) return 'effect_check';
+    if (o.stat_type && o.stat_required) return 'stat_check';
+    return 'dialogue';
+}
+
+// Extract reward object from option data
+function extractReward(o) {
+    if (o.reward_stat_type && o.reward_stat_amount) {
+        return { type: 'stat', statType: o.reward_stat_type, amount: o.reward_stat_amount };
+    }
+    if (o.reward_talent) {
+        return { type: 'talent' };
+    }
+    if (o.reward_item) {
+        return { type: 'item', itemId: o.reward_item };
+    }
+    if (o.reward_potion) {
+        return { type: 'potion', potionId: o.reward_potion };
+    }
+    if (o.reward_perk) {
+        return { type: 'perk', perkId: o.reward_perk };
+    }
+    if (o.reward_blessing) {
+        return { type: 'blessing', blessingId: o.reward_blessing };
+    }
+    return null;
+}
+
+// Build connections: 
+// - Quest -> Start options (visual connection from quest to its starting options)
+// - Option -> Option (from requirements table - option requires another option)
+function buildConnectionsFromData(quests, options, requirements) {
+    questState.connections = [];
+    
+    // For each quest, connect to its START options only
+    quests.forEach(quest => {
+        const startOptions = options.filter(o => o.quest_id === quest.quest_id && o.start);
+        startOptions.forEach(opt => {
+            questState.connections.push({
+                fromType: 'quest',
+                fromId: quest.quest_id,
+                toType: 'option',
+                toId: opt.option_id
+            });
+        });
+    });
+    
+    // Option -> Option connections from requirements
+    // In requirements: option_id requires required_option_id
+    // This means required_option_id leads TO option_id
+    // So connection is: required_option_id -> option_id
+    requirements.forEach(req => {
+        questState.connections.push({
+            fromType: 'option',
+            fromId: req.requiredOptionId,
+            toType: 'option',
+            toId: req.optionId
+        });
+    });
+    
+    console.log(`Built ${questState.connections.length} connections`);
+}
 
 async function loadQuestAssets() {
     console.log('Loading quest assets...');
@@ -1339,8 +1639,196 @@ window.deleteSelectedOption = deleteSelectedOption;
 async function saveQuest() {
     console.log('💾 Saving quest data...');
     
-    // TODO: Implement save logic
-    alert('Save functionality coming soon!');
+    if (!questState.selectedSettlementId) {
+        alert('Please select a settlement first');
+        return;
+    }
+    
+    const chainNameInput = document.getElementById('questChainNameInput');
+    const chainName = chainNameInput?.value || questState.chainName || '';
+    
+    if (!chainName.trim()) {
+        alert('Please enter a chain name');
+        chainNameInput?.focus();
+        return;
+    }
+    
+    const isNewChain = !questState.selectedChain;
+    
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Not authenticated');
+            return;
+        }
+        
+        // Prepare request data
+        const saveData = {
+            questchainId: questState.selectedChain || 0,
+            chainName: chainName,
+            isNewChain: isNewChain,
+            settlementId: questState.selectedSettlementId,
+            newQuests: [],
+            questUpdates: [],
+            newOptions: [],
+            optionUpdates: [],
+            newRequirements: [],
+            pendingRequirements: [],
+        };
+        
+        // Track local ID to server ID mapping for new items
+        const questIdMap = new Map(); // localId -> will be filled after save
+        const optionIdMap = new Map();
+        
+        // Collect quests - separate new from existing
+        questState.quests.forEach((quest, id) => {
+            if (!quest.serverId) {
+                // New quest
+                saveData.newQuests.push({
+                    localQuestId: id,
+                    questName: quest.name,
+                    assetId: quest.assetId || null,
+                    posX: quest.x,
+                    posY: quest.y,
+                    sortOrder: quest.sortOrder || 0,
+                });
+            } else {
+                // Existing quest - update it
+                saveData.questUpdates.push({
+                    questId: quest.serverId,
+                    questName: quest.name,
+                    assetId: quest.assetId || null,
+                    posX: quest.x,
+                    posY: quest.y,
+                    sortOrder: quest.sortOrder || 0,
+                });
+            }
+        });
+        
+        // Collect options - separate new from existing
+        questState.options.forEach((option, id) => {
+            const optionData = {
+                localId: id,
+                questId: option.questId || 0,
+                nodeText: option.nodeText || '',
+                optionText: option.optionText || '',
+                isStart: option.isStart || false,
+                x: option.x,
+                y: option.y,
+                statType: option.type === 'stat_check' ? option.statType : null,
+                statRequired: option.type === 'stat_check' ? option.statRequired : null,
+                effectId: option.type === 'effect_check' ? option.effectId : null,
+                effectAmount: option.type === 'effect_check' ? option.effectAmount : null,
+                enemyId: option.type === 'combat' ? option.enemyId : null,
+                rewardStatType: option.reward?.type === 'stat' ? option.reward.statType : null,
+                rewardStatAmount: option.reward?.type === 'stat' ? option.reward.amount : null,
+                rewardTalent: option.reward?.type === 'talent' ? true : null,
+                rewardItem: option.reward?.type === 'item' ? option.reward.itemId : null,
+                rewardPotion: option.reward?.type === 'potion' ? option.reward.potionId : null,
+                rewardPerk: option.reward?.type === 'perk' ? option.reward.perkId : null,
+                rewardBlessing: option.reward?.type === 'blessing' ? option.reward.blessingId : null,
+            };
+            
+            if (!option.serverId) {
+                // New option
+                saveData.newOptions.push(optionData);
+            } else {
+                // Existing option - update it
+                saveData.optionUpdates.push({
+                    ...optionData,
+                    optionId: option.serverId,
+                });
+            }
+        });
+        
+        // Collect connections (requirements)
+        // Connection from option A -> option B means B requires A
+        questState.connections.forEach(conn => {
+            if (conn.fromType === 'option' && conn.toType === 'option') {
+                const fromOption = questState.options.get(conn.fromId);
+                const toOption = questState.options.get(conn.toId);
+                
+                if (fromOption?.serverId && toOption?.serverId) {
+                    // Both have server IDs - can create requirement directly
+                    saveData.newRequirements.push({
+                        optionId: toOption.serverId,
+                        requiredOptionId: fromOption.serverId,
+                    });
+                } else {
+                    // One or both are new - use pending requirements
+                    saveData.pendingRequirements.push({
+                        localOptionId: conn.toId,
+                        localRequiredOptionId: conn.fromId,
+                        optionServerId: toOption?.serverId || 0,
+                        requiredServerId: fromOption?.serverId || 0,
+                    });
+                }
+            }
+            // Quest -> option connections are inferred from option's questId and isStart flag
+        });
+        
+        console.log('Save data:', saveData);
+        
+        const response = await fetch('http://localhost:8080/api/saveQuest', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(saveData),
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Save failed: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        console.log('Save result:', result);
+        
+        // Update local state with server IDs
+        if (result.questchainId && isNewChain) {
+            questState.selectedChain = result.questchainId;
+            // Reload chains to update dropdown
+            await loadQuestChains();
+            // Select the newly created chain
+            const chainSelect = document.getElementById('questSelect');
+            if (chainSelect) chainSelect.value = result.questchainId;
+        }
+        
+        // Update option IDs from mapping
+        if (result.optionMapping) {
+            Object.entries(result.optionMapping).forEach(([localId, serverId]) => {
+                const option = questState.options.get(parseInt(localId));
+                if (option) {
+                    option.serverId = serverId;
+                    questState.serverOptions.set(serverId, { ...option });
+                }
+            });
+        }
+        
+        // Update quest IDs from mapping
+        if (result.questMapping) {
+            Object.entries(result.questMapping).forEach(([localId, serverId]) => {
+                const quest = questState.quests.get(parseInt(localId));
+                if (quest) {
+                    quest.serverId = serverId;
+                    questState.serverQuests.set(serverId, { ...quest });
+                }
+            });
+        }
+        
+        alert('✅ Quest chain saved successfully!');
+        
+        // Reload to get fresh data
+        if (questState.selectedChain) {
+            await loadQuestChainData(questState.selectedChain);
+        }
+        
+    } catch (error) {
+        console.error('Save error:', error);
+        alert(`❌ Failed to save: ${error.message}`);
+    }
 }
 window.saveQuest = saveQuest;
 
