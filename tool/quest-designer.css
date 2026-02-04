@@ -862,6 +862,49 @@
     object-fit: cover;
 }
 
+/* Quest Upload Section */
+.quest-upload-section {
+    padding: 16px 0;
+    border-top: 1px solid #0f3460;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+}
+
+.quest-upload-section .btn-upload-asset {
+    padding: 10px 20px;
+    background: linear-gradient(145deg, #805ad5, #6b46c1);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quest-upload-section .btn-upload-asset:hover {
+    background: linear-gradient(145deg, #9f7aea, #805ad5);
+    transform: translateY(-1px);
+}
+
+.quest-upload-section .btn-upload-asset svg {
+    width: 16px;
+    height: 16px;
+}
+
+.quest-upload-status {
+    font-size: 13px;
+    color: #4ecdc4;
+}
+
+.quest-upload-status.error {
+    color: #e94560;
+}
+
 .modal-buttons {
     display: flex;
     gap: 10px;

@@ -95,6 +95,24 @@ function initQuestDesigner() {
     // addQuestBtn uses onclick in HTML to avoid double-firing
     document.getElementById('addOptionBtn')?.addEventListener('click', addOption);
     
+    // Upload button event listeners
+    const questUploadBtn = document.getElementById('questUploadBtn');
+    if (questUploadBtn) {
+        questUploadBtn.addEventListener('click', () => {
+            document.getElementById('questAssetFileInput').click();
+        });
+    }
+    
+    const questAssetFileInput = document.getElementById('questAssetFileInput');
+    if (questAssetFileInput) {
+        questAssetFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadQuestAsset(file);
+            }
+        });
+    }
+    
     // Sidebar event listeners
     setupSidebarEventListeners();
     
@@ -1342,6 +1360,99 @@ async function loadQuestAssets() {
         console.error('Failed to load quest assets:', error);
         questState.questAssets = [];
     }
+}
+
+// Upload quest asset to S3
+async function uploadQuestAsset(file) {
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+
+    const uploadStatus = document.getElementById('questAssetUploadStatus');
+    if (uploadStatus) {
+        uploadStatus.textContent = 'Converting to WebP...';
+        uploadStatus.className = 'quest-upload-status';
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) throw new Error('Not authenticated');
+
+        // Convert to WebP format
+        const webpBlob = await convertQuestImageToWebP(file);
+        
+        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+
+        // Convert to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+        });
+        reader.readAsDataURL(webpBlob);
+        const base64Data = await base64Promise;
+
+        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                imageData: base64Data,
+                filename: file.name.replace(/\.[^/.]+$/, '.webp')
+            })
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+
+        const result = await response.json();
+        console.log('✅ Quest asset uploaded:', result);
+
+        // Add to local assets
+        questState.questAssets.push({ id: result.assetId, url: result.url });
+        
+        // Also update GlobalData
+        GlobalData.questAssets.push({ id: result.assetId, url: result.url });
+
+        // Refresh gallery and auto-select
+        populateQuestAssetGallery();
+        selectQuestAsset(result.assetId, result.url);
+
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Upload complete!';
+            setTimeout(() => { uploadStatus.textContent = ''; }, 2000);
+        }
+
+    } catch (error) {
+        console.error('Upload failed:', error);
+        if (uploadStatus) {
+            uploadStatus.textContent = 'Upload failed: ' + error.message;
+            uploadStatus.className = 'quest-upload-status error';
+        }
+    }
+}
+
+// Convert image to WebP format for quest assets
+function convertQuestImageToWebP(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // Preserve original dimensions for quest backgrounds
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(blob => {
+                if (blob) resolve(blob);
+                else reject(new Error('WebP conversion failed'));
+            }, 'image/webp', 0.9);
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+    });
 }
 
 // ==================== POPULATE DROPDOWNS FROM GLOBALDATA ====================

@@ -114,7 +114,12 @@ function setupSettlementEventListeners() {
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                uploadSettlementAsset(file);
+                // Use quest asset upload for location textures, settlement asset for others
+                if (settlementState.currentAssetTarget === 'location') {
+                    uploadQuestAsset(file);
+                } else {
+                    uploadSettlementAsset(file);
+                }
             }
         });
     }
@@ -1214,6 +1219,72 @@ async function uploadSettlementAsset(file) {
     } catch (error) {
         console.error('Error uploading asset:', error);
         alert('Error uploading asset: ' + error.message);
+    }
+}
+
+// Upload quest asset (for location textures)
+async function uploadQuestAsset(file) {
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Authentication required');
+            return;
+        }
+
+        // Convert to WebP format (9:16 aspect ratio for locations)
+        console.log('Converting quest asset to WebP format...');
+        const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
+        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
+        
+        // Convert to base64
+        const base64Data = await blobToBase64(webpBlob);
+
+        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                imageData: base64Data,
+                filename: file.name.replace(/\.[^/.]+$/, '.webp')
+            })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Quest asset uploaded:', result);
+
+            // Add to local quest assets
+            settlementState.questAssets.push({
+                id: result.assetId,
+                url: result.url
+            });
+
+            // Also update GlobalData
+            GlobalData.questAssets.push({
+                id: result.assetId,
+                url: result.url
+            });
+
+            // Refresh gallery
+            populateAssetGallery();
+
+            // Auto-select the new asset
+            selectAsset(result.assetId);
+        } else {
+            const error = await response.text();
+            alert('Failed to upload quest asset: ' + error);
+        }
+
+    } catch (error) {
+        console.error('Error uploading quest asset:', error);
+        alert('Error uploading quest asset: ' + error.message);
     }
 }
 
