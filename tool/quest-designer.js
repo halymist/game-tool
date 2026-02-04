@@ -184,7 +184,7 @@ function addOption() {
     const option = {
         optionId: id,
         questId: targetQuestId, // Link to quest
-        optionText: 'New Option',
+        optionText: '',
         nodeText: '',
         x: (rect.width / 2 - questState.canvasOffset.x) / questState.zoom - 100 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - questState.canvasOffset.y) / questState.zoom - 50 + (Math.random() - 0.5) * 100,
@@ -341,7 +341,7 @@ function renderOption(option) {
         <div class="option-connector option-connector-left" data-option="${option.optionId}" data-side="left" title="Drag to connect">●</div>
         <div class="option-connector option-connector-right" data-option="${option.optionId}" data-side="right" title="Drag to connect">●</div>
         <div class="option-node-body">
-            <input type="text" class="option-text-input" value="${escapeHtml(option.optionText)}" 
+            <input type="text" class="option-text-input" value="${option.optionText && option.optionText !== 'New Option' ? escapeHtml(option.optionText) : ''}" 
                    data-option="${option.optionId}" placeholder="Option text...">
             <textarea class="option-node-text-input" data-option="${option.optionId}" 
                       placeholder="Node description...">${escapeHtml(option.nodeText || '')}</textarea>
@@ -1315,6 +1315,19 @@ function buildConnectionsFromData(quests, options, requirements) {
         });
     });
     
+    // Option -> Quest connections from requisite_option_id
+    // If a quest has requisite_option_id, it means that option leads to this quest
+    quests.forEach(quest => {
+        if (quest.requisite_option_id) {
+            questState.connections.push({
+                fromType: 'option',
+                fromId: quest.requisite_option_id,
+                toType: 'quest',
+                toId: quest.quest_id
+            });
+        }
+    });
+    
     console.log(`Built ${questState.connections.length} connections`);
 }
 
@@ -1728,11 +1741,22 @@ async function saveQuest() {
             }
         });
         
+        // Build a map of option -> quest from quest->option connections
+        const optionToQuestMap = new Map();
+        questState.connections.forEach(conn => {
+            if (conn.fromType === 'quest' && conn.toType === 'option') {
+                optionToQuestMap.set(conn.toId, conn.fromId);
+            }
+        });
+        
         // Collect options - separate new from existing
         questState.options.forEach((option, id) => {
+            // Determine questId: prefer connection-based, fall back to option.questId
+            let resolvedQuestId = optionToQuestMap.get(id) || option.questId || 0;
+            
             const optionData = {
                 localId: id,
-                questId: option.questId || 0,
+                questId: resolvedQuestId,
                 nodeText: option.nodeText || '',
                 optionText: option.optionText || '',
                 isStart: option.isStart || false,

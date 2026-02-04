@@ -601,6 +601,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	}
 	// Insert new options
 	for _, opt := range req.NewOptions {
+		log.Printf("Processing new option: LocalID=%d, QuestID=%d, NodeText=%s, OptionText=%s",
+			opt.LocalID, opt.QuestID, opt.NodeText, opt.OptionText)
 		var optionID int
 		err := tx.QueryRow(`INSERT INTO game.quest_options 
 			(quest_id, node_text, option_text, start, stat_type, stat_required, effect_id, effect_amount, enemy_id,
