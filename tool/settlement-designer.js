@@ -1200,7 +1200,7 @@ async function uploadSettlementAsset(file) {
             const result = await response.json();
             console.log('✅ Asset uploaded:', result);
 
-            // Add to local assets
+            // Add to assets (settlementState.settlementAssets IS GlobalData.settlementAssets - same reference)
             settlementState.settlementAssets.push({
                 id: result.assetID,
                 url: result.icon
@@ -1209,8 +1209,9 @@ async function uploadSettlementAsset(file) {
             // Refresh gallery
             populateAssetGallery();
 
-            // Auto-select the new asset
-            selectAsset(result.assetID);
+            // Auto-select the new asset and close gallery
+            updateAssetPreview(settlementState.currentAssetTarget, result.assetID);
+            closeAssetGallery();
         } else {
             const error = await response.text();
             alert('Failed to upload asset: ' + error);
@@ -1260,14 +1261,8 @@ async function uploadQuestAsset(file) {
             const result = await response.json();
             console.log('✅ Quest asset uploaded:', result);
 
-            // Add to local quest assets
+            // Add to assets (settlementState.questAssets IS GlobalData.questAssets - same reference)
             settlementState.questAssets.push({
-                id: result.assetId,
-                url: result.url
-            });
-
-            // Also update GlobalData
-            GlobalData.questAssets.push({
                 id: result.assetId,
                 url: result.url
             });
@@ -1275,8 +1270,9 @@ async function uploadQuestAsset(file) {
             // Refresh gallery
             populateAssetGallery();
 
-            // Auto-select the new asset
-            selectAsset(result.assetId);
+            // Auto-select the new asset and close gallery
+            updateAssetPreview(settlementState.currentAssetTarget, result.assetId);
+            closeAssetGallery();
         } else {
             const error = await response.text();
             alert('Failed to upload quest asset: ' + error);

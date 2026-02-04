@@ -959,16 +959,16 @@ function openQuestAssetPicker(questId) {
     console.log('Opening asset picker for quest', questId);
     questState.editingQuestAsset = questId;
     
-    const modal = document.getElementById('questAssetModal');
-    if (modal) {
+    const overlay = document.getElementById('questAssetGalleryOverlay');
+    if (overlay) {
         populateQuestAssetGallery();
-        modal.classList.add('open');
+        overlay.classList.add('active');
     }
 }
 
 function closeQuestAssetModal() {
-    const modal = document.getElementById('questAssetModal');
-    if (modal) modal.classList.remove('open');
+    const overlay = document.getElementById('questAssetGalleryOverlay');
+    if (overlay) overlay.classList.remove('active');
     questState.editingQuestAsset = null;
 }
 window.closeQuestAssetModal = closeQuestAssetModal;
@@ -977,21 +977,33 @@ function populateQuestAssetGallery() {
     const gallery = document.getElementById('questAssetGallery');
     if (!gallery) return;
     
-    gallery.innerHTML = '';
+    // Get current asset ID for selected state
+    const currentAssetId = questState.editingQuestAsset 
+        ? questState.quests.get(questState.editingQuestAsset)?.assetId 
+        : null;
     
     if (questState.questAssets.length === 0) {
-        gallery.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No assets yet</p>';
+        gallery.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:40px;">No assets yet. Upload some!</p>';
         return;
     }
     
-    questState.questAssets.forEach(asset => {
-        const div = document.createElement('div');
-        div.className = 'quest-asset-item';
-        div.innerHTML = `<img src="${asset.url}" alt="Asset">`;
-        div.addEventListener('click', () => {
-            selectQuestAsset(asset.id, asset.url);
+    gallery.innerHTML = questState.questAssets.map(asset => `
+        <div class="quest-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
+             data-asset-id="${asset.id}">
+            <img src="${asset.url}" alt="Asset ${asset.id}">
+            <div class="asset-id">ID: ${asset.id}</div>
+        </div>
+    `).join('');
+    
+    // Add click listeners
+    gallery.querySelectorAll('.quest-asset-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const assetId = parseInt(item.dataset.assetId);
+            const asset = questState.questAssets.find(a => a.id === assetId);
+            if (asset) {
+                selectQuestAsset(asset.id, asset.url);
+            }
         });
-        gallery.appendChild(div);
     });
 }
 
@@ -1410,11 +1422,8 @@ async function uploadQuestAsset(file) {
         const result = await response.json();
         console.log('✅ Quest asset uploaded:', result);
 
-        // Add to local assets
+        // Add to assets (questState.questAssets IS GlobalData.questAssets - same reference)
         questState.questAssets.push({ id: result.assetId, url: result.url });
-        
-        // Also update GlobalData
-        GlobalData.questAssets.push({ id: result.assetId, url: result.url });
 
         // Refresh gallery and auto-select
         populateQuestAssetGallery();

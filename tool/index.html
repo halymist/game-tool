@@ -410,12 +410,22 @@
                 </div>
             </div>
             
-            <!-- Quest Asset Modal -->
-            <div id="questAssetModal" class="quest-modal">
-                <div class="quest-modal-content quest-asset-modal-content">
-                    <h3>Select Quest Background</h3>
-                    <div class="quest-asset-gallery" id="questAssetGallery">
-                        <!-- Assets will be populated here -->
+            <!-- Quest Asset Gallery Overlay -->
+            <div id="questAssetGalleryOverlay" class="quest-asset-gallery-overlay">
+                <div class="quest-asset-gallery-modal">
+                    <div class="quest-asset-gallery-header">
+                        <h3>Select Quest Background</h3>
+                        <button id="questGalleryClose" class="quest-asset-gallery-close" onclick="window.closeQuestAssetModal()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="quest-asset-gallery-content">
+                        <div id="questAssetGallery" class="quest-asset-grid">
+                            <!-- Assets will be populated here -->
+                        </div>
                     </div>
                     <div class="quest-upload-section">
                         <button id="questUploadBtn" class="btn-upload-asset">
@@ -428,9 +438,6 @@
                         </button>
                         <input type="file" id="questAssetFileInput" accept="image/*" style="display: none;">
                         <span id="questAssetUploadStatus" class="quest-upload-status"></span>
-                    </div>
-                    <div class="quest-modal-actions">
-                        <button class="btn-cancel" onclick="window.closeQuestAssetModal()">Cancel</button>
                     </div>
                 </div>
             </div>
