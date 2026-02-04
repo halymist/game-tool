@@ -1194,7 +1194,7 @@ async function loadQuestChainData(chainId) {
                 questId: q.quest_id,
                 serverId: q.quest_id,
                 name: q.quest_name || `Quest ${q.quest_id}`,
-                text: '', // Not stored in DB yet
+                text: q.start_text || '',
                 assetId: q.asset_id,
                 assetUrl: q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null,
                 sortOrder: q.sort_order || 0,
@@ -1358,7 +1358,7 @@ function populateEffectsDropdown() {
     const select = document.getElementById('sidebarEffectId');
     if (!select) return;
     
-    select.innerHTML = '';
+    select.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
     effects.forEach(effect => {
         const opt = document.createElement('option');
         opt.value = effect.effect_id || effect.id;
@@ -1372,7 +1372,7 @@ function populateItemsDropdown() {
     const select = document.getElementById('sidebarRewardItem');
     if (!select) return;
     
-    select.innerHTML = '';
+    select.innerHTML = '<option value="" disabled selected>-- Select Item --</option>';
     const nonPotionItems = items.filter(item => item.type !== 'potion');
     nonPotionItems.forEach(item => {
         const opt = document.createElement('option');
@@ -1387,7 +1387,7 @@ function populatePotionsDropdown() {
     const select = document.getElementById('sidebarRewardPotion');
     if (!select) return;
     
-    select.innerHTML = '';
+    select.innerHTML = '<option value="" disabled selected>-- Select Potion --</option>';
     const potions = items.filter(item => item.type === 'potion');
     potions.forEach(item => {
         const opt = document.createElement('option');
@@ -1402,7 +1402,7 @@ function populatePerksDropdown() {
     const select = document.getElementById('sidebarRewardPerk');
     if (!select) return;
     
-    select.innerHTML = '';
+    select.innerHTML = '<option value="" disabled selected>-- Select Perk --</option>';
     perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
@@ -1417,7 +1417,7 @@ function populateBlessingsDropdown() {
     if (!select) return;
     
     // Blessings are just perks used in church
-    select.innerHTML = '';
+    select.innerHTML = '<option value="" disabled selected>-- Select Blessing --</option>';
     perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
@@ -1723,6 +1723,7 @@ async function saveQuest() {
                 saveData.newQuests.push({
                     localQuestId: id,
                     questName: quest.name,
+                    startText: quest.text || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -1733,6 +1734,7 @@ async function saveQuest() {
                 saveData.questUpdates.push({
                     questId: quest.serverId,
                     questName: quest.name,
+                    startText: quest.text || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
