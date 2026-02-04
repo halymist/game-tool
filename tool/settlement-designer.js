@@ -1511,14 +1511,14 @@ function saveLocation() {
     };
     
     if (settlementState.editingLocationIndex !== null) {
-        // Edit existing location
+        // Edit existing location - preserve location_id if it exists
+        const existingLocation = settlementState.locations[settlementState.editingLocationIndex];
         settlementState.locations[settlementState.editingLocationIndex] = {
-            ...settlementState.locations[settlementState.editingLocationIndex],
+            location_id: existingLocation.location_id, // Preserve DB ID
             ...locationData
         };
     } else {
-        // Add new location with temporary ID
-        locationData.id = Date.now(); // Temporary client-side ID
+        // Add new location - no location_id means it's new
         settlementState.locations.push(locationData);
     }
     

@@ -51,6 +51,15 @@ type Settlement struct {
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
 	VendorItems           []int            `json:"vendor_items"`
 	EnchanterEffects      []int            `json:"enchanter_effects"`
+	Locations             []Location       `json:"locations"`
+}
+
+// Location represents a location tied to a settlement
+type Location struct {
+	LocationID  int64  `json:"location_id,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	TextureID   *int   `json:"texture_id"`
 }
 
 // SettlementAsset represents an asset from S3
@@ -103,6 +112,7 @@ type SaveSettlementRequest struct {
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
 	VendorItems           []int            `json:"vendor_items"`
 	EnchanterEffects      []int            `json:"enchanter_effects"`
+	Locations             []Location       `json:"locations"`
 }
 
 // SaveSettlementResponse is the response after saving a settlement
@@ -211,6 +221,18 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			enchanterRows.Close()
+		}
+
+		// Load locations
+		locationRows, err := db.Query(`SELECT location_id, name, COALESCE(description, ''), asset_id FROM game.locations WHERE settlement_id = $1 ORDER BY location_id`, settlements[i].SettlementID)
+		if err == nil {
+			for locationRows.Next() {
+				var loc Location
+				if err := locationRows.Scan(&loc.LocationID, &loc.Name, &loc.Description, &loc.TextureID); err == nil {
+					settlements[i].Locations = append(settlements[i].Locations, loc)
+				}
+			}
+			locationRows.Close()
 		}
 	}
 
@@ -603,6 +625,62 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Saved %d enchanter effects for settlement %d", len(req.EnchanterEffects), settlementID)
 	}
 
+	// Save locations - delete removed ones and upsert the rest
+	if req.SettlementID != nil {
+		// Get existing location IDs for this settlement
+		existingIDs := make(map[int64]bool)
+		rows, err := db.Query(`SELECT location_id FROM game.locations WHERE settlement_id = $1`, settlementID)
+		if err == nil {
+			for rows.Next() {
+				var id int64
+				if rows.Scan(&id) == nil {
+					existingIDs[id] = true
+				}
+			}
+			rows.Close()
+		}
+
+		// Track which IDs are still present in the request
+		keepIDs := make(map[int64]bool)
+		for _, loc := range req.Locations {
+			if loc.LocationID > 0 {
+				keepIDs[loc.LocationID] = true
+			}
+		}
+
+		// Delete locations that are no longer in the request
+		for id := range existingIDs {
+			if !keepIDs[id] {
+				_, err := db.Exec(`DELETE FROM game.locations WHERE location_id = $1`, id)
+				if err != nil {
+					log.Printf("Warning: Failed to delete location %d: %v", id, err)
+				} else {
+					log.Printf("Deleted location %d", id)
+				}
+			}
+		}
+	}
+
+	// Upsert locations
+	for _, loc := range req.Locations {
+		if loc.LocationID > 0 {
+			// Update existing location
+			_, err := db.Exec(`UPDATE game.locations SET name = $1, description = $2, asset_id = $3 WHERE location_id = $4`,
+				loc.Name, loc.Description, loc.TextureID, loc.LocationID)
+			if err != nil {
+				log.Printf("Warning: Failed to update location %d: %v", loc.LocationID, err)
+			}
+		} else {
+			// Insert new location
+			_, err := db.Exec(`INSERT INTO game.locations (settlement_id, name, description, asset_id) VALUES ($1, $2, $3, $4)`,
+				settlementID, loc.Name, loc.Description, loc.TextureID)
+			if err != nil {
+				log.Printf("Warning: Failed to insert location: %v", err)
+			}
+		}
+	}
+	log.Printf("Saved %d locations for settlement %d", len(req.Locations), settlementID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -633,14 +711,33 @@ func handleDeleteSettlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := db.Exec(`DELETE FROM game.world_info WHERE settlement_id = $1`, req.SettlementID)
+	// Delete locations first (due to foreign key)
+	_, err := db.Exec(`DELETE FROM game.locations WHERE settlement_id = $1`, req.SettlementID)
+	if err != nil {
+		log.Printf("Warning: Failed to delete locations for settlement %d: %v", req.SettlementID, err)
+	}
+
+	// Delete vendor inventory
+	_, err = db.Exec(`DELETE FROM game.vendor_inventory WHERE settlement_id = $1`, req.SettlementID)
+	if err != nil {
+		log.Printf("Warning: Failed to delete vendor inventory for settlement %d: %v", req.SettlementID, err)
+	}
+
+	// Delete enchanter inventory
+	_, err = db.Exec(`DELETE FROM game.enchanter_inventory WHERE settlement_id = $1`, req.SettlementID)
+	if err != nil {
+		log.Printf("Warning: Failed to delete enchanter inventory for settlement %d: %v", req.SettlementID, err)
+	}
+
+	// Delete the settlement itself
+	_, err = db.Exec(`DELETE FROM game.world_info WHERE settlement_id = $1`, req.SettlementID)
 	if err != nil {
 		log.Printf("Failed to delete settlement: %v", err)
 		http.Error(w, "Failed to delete settlement", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Deleted settlement %d", req.SettlementID)
+	log.Printf("Deleted settlement %d and all related data", req.SettlementID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

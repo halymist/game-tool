@@ -4,9 +4,9 @@
 .settlement-designer {
     display: flex;
     flex-direction: column;
-    height: 100%;
     gap: 12px;
     padding: 12px;
+    overflow-y: auto;
 }
 
 /* Top bar with settlement selection and actions */
@@ -190,7 +190,6 @@
     display: flex;
     flex-direction: row;
     gap: 20px;
-    flex: 1;
     min-height: 0;
     padding: 0 8px;
     justify-content: stretch;
