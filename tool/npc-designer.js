@@ -1,0 +1,245 @@
+// NPC Manager
+
+let npcState = {
+    npcs: [],
+    filtered: [],
+    selectedId: null,
+    settlements: []
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('npcs-content')) {
+        window.initNpcManager = initNpcManager;
+        window.loadNpcData = loadNpcData;
+    }
+});
+
+async function initNpcManager() {
+    console.log('👥 Initializing NPC Manager...');
+    setupNpcListeners();
+    await loadNpcData();
+    console.log('✅ NPC Manager initialized');
+}
+
+function setupNpcListeners() {
+    document.getElementById('npcNewBtn')?.addEventListener('click', createNewNpc);
+    document.getElementById('npcSearch')?.addEventListener('input', filterNpcs);
+    document.getElementById('npcSettlementFilter')?.addEventListener('change', filterNpcs);
+
+    const form = document.getElementById('npcForm');
+    if (form) form.addEventListener('submit', saveNpc);
+
+    document.getElementById('npcDeleteBtn')?.addEventListener('click', deleteNpc);
+}
+
+async function loadNpcData() {
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        // Load settlements for filters
+        if (typeof loadSettlementsData === 'function') {
+            await loadSettlementsData();
+            npcState.settlements = GlobalData.settlements || [];
+            populateNpcSettlementFilters();
+        }
+
+        const response = await fetch('http://localhost:8080/api/getNpcs', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!data.success) {
+            setNpcStatus(data.message || 'Failed to load NPCs', true);
+            return;
+        }
+
+        npcState.npcs = data.npcs || [];
+        npcState.filtered = [...npcState.npcs];
+        renderNpcTable();
+    } catch (error) {
+        console.error('Error loading NPCs:', error);
+        setNpcStatus('Failed to load NPCs', true);
+    }
+}
+
+function populateNpcSettlementFilters() {
+    const filter = document.getElementById('npcSettlementFilter');
+    const select = document.getElementById('npcSettlementSelect');
+    if (filter) {
+        filter.innerHTML = '<option value="">All Settlements</option>';
+        npcState.settlements.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.settlement_id;
+            opt.textContent = s.settlement_name;
+            filter.appendChild(opt);
+        });
+    }
+    if (select) {
+        select.innerHTML = '<option value="">-- None --</option>';
+        npcState.settlements.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.settlement_id;
+            opt.textContent = s.settlement_name;
+            select.appendChild(opt);
+        });
+    }
+}
+
+function filterNpcs() {
+    const search = document.getElementById('npcSearch')?.value.toLowerCase().trim() || '';
+    const settlementId = document.getElementById('npcSettlementFilter')?.value || '';
+
+    npcState.filtered = npcState.npcs.filter(npc => {
+        const nameMatch = (npc.name || '').toLowerCase().includes(search);
+        const settlementMatch = !settlementId || String(npc.settlement_id || '') === settlementId;
+        return nameMatch && settlementMatch;
+    });
+
+    renderNpcTable();
+}
+
+function renderNpcTable() {
+    const tbody = document.getElementById('npcTableBody');
+    if (!tbody) return;
+
+    if (!npcState.filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="npc-empty">No NPCs found</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = npcState.filtered.map(npc => `
+        <tr class="${npcState.selectedId === npc.npc_id ? 'selected' : ''}" data-id="${npc.npc_id}">
+            <td>${escapeHtml(npc.name)}</td>
+            <td>${escapeHtml(npc.settlement_name || '—')}</td>
+            <td><button type="button" class="btn-cancel" onclick="event.stopPropagation(); selectNpc(${npc.npc_id})">Edit</button></td>
+        </tr>
+    `).join('');
+
+    tbody.querySelectorAll('tr[data-id]').forEach(row => {
+        row.addEventListener('click', () => selectNpc(parseInt(row.dataset.id, 10)));
+    });
+}
+
+function selectNpc(npcId) {
+    const npc = npcState.npcs.find(n => n.npc_id === npcId);
+    if (!npc) return;
+
+    npcState.selectedId = npcId;
+    document.getElementById('npcId').value = npc.npc_id;
+    document.getElementById('npcName').value = npc.name || '';
+    document.getElementById('npcContext').value = npc.context || '';
+    document.getElementById('npcSettlementSelect').value = npc.settlement_id || '';
+
+    document.getElementById('npcDeleteBtn').disabled = false;
+    renderNpcTable();
+}
+
+function createNewNpc() {
+    npcState.selectedId = null;
+    document.getElementById('npcId').value = '';
+    document.getElementById('npcName').value = '';
+    document.getElementById('npcContext').value = '';
+    document.getElementById('npcSettlementSelect').value = '';
+    document.getElementById('npcDeleteBtn').disabled = true;
+    renderNpcTable();
+}
+
+async function saveNpc(e) {
+    e.preventDefault();
+
+    const payload = {
+        npcId: document.getElementById('npcId').value ? parseInt(document.getElementById('npcId').value, 10) : null,
+        name: document.getElementById('npcName').value.trim(),
+        context: document.getElementById('npcContext').value.trim() || null,
+        settlementId: document.getElementById('npcSettlementSelect').value ? parseInt(document.getElementById('npcSettlementSelect').value, 10) : null
+    };
+
+    if (!payload.name) {
+        setNpcStatus('Name is required', true);
+        return;
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        const endpoint = payload.npcId ? 'updateNpc' : 'createNpc';
+        const response = await fetch(`http://localhost:8080/api/${endpoint}`, {
+            method: payload.npcId ? 'PUT' : 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            setNpcStatus(data.message || 'Save failed', true);
+            return;
+        }
+
+        const saved = data.npc;
+        const idx = npcState.npcs.findIndex(n => n.npc_id === saved.npc_id);
+        if (idx >= 0) {
+            npcState.npcs[idx] = saved;
+        } else {
+            npcState.npcs.unshift(saved);
+        }
+
+        npcState.filtered = [...npcState.npcs];
+        selectNpc(saved.npc_id);
+        setNpcStatus('Saved', false);
+    } catch (error) {
+        console.error('Error saving NPC:', error);
+        setNpcStatus('Save failed', true);
+    }
+}
+
+async function deleteNpc() {
+    if (!npcState.selectedId) return;
+    if (!confirm('Delete this NPC?')) return;
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        const response = await fetch(`http://localhost:8080/api/deleteNpc?npcId=${npcState.selectedId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            setNpcStatus(data.message || 'Delete failed', true);
+            return;
+        }
+
+        npcState.npcs = npcState.npcs.filter(n => n.npc_id !== npcState.selectedId);
+        npcState.filtered = [...npcState.npcs];
+        createNewNpc();
+        setNpcStatus('Deleted', false);
+        renderNpcTable();
+    } catch (error) {
+        console.error('Error deleting NPC:', error);
+        setNpcStatus('Delete failed', true);
+    }
+}
+
+function setNpcStatus(message, isError) {
+    const status = document.getElementById('npcStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.className = `npc-status ${isError ? 'error' : 'success'}`;
+    if (!isError) {
+        setTimeout(() => {
+            status.textContent = '';
+            status.className = 'npc-status';
+        }, 2000);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}

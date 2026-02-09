@@ -228,6 +228,12 @@ func main() {
 	http.HandleFunc("/api/getQuestAssets", corsHandler(handleGetQuestAssets))
 	http.HandleFunc("/api/uploadQuestAsset", corsHandler(handleUploadQuestAsset))
 
+	// NPC endpoints
+	http.HandleFunc("/api/getNpcs", corsHandler(handleGetNpcs))
+	http.HandleFunc("/api/createNpc", corsHandler(handleCreateNpc))
+	http.HandleFunc("/api/updateNpc", corsHandler(handleUpdateNpc))
+	http.HandleFunc("/api/deleteNpc", corsHandler(handleDeleteNpc))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")

@@ -420,53 +420,47 @@ function buildTalentTreeGrid() {
     const grid = document.getElementById('talentTreeGrid');
     if (!grid) return;
     
-    // Create 7x8 grid (row 0 at bottom, so iterate from 7 down to 0)
+    // Render based on talents_info positions (row 1 bottom, col 1 left)
     grid.innerHTML = '';
-    
-    for (let row = 7; row >= 0; row--) {
-        for (let col = 0; col < 7; col++) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'talent-cell-wrapper';
-            wrapper.dataset.row = row;
-            wrapper.dataset.col = col;
-            
-            const cell = document.createElement('div');
-            cell.className = 'talent-cell';
-            
-            // Find talent at this position
-            const talent = allTalents.find(t => t.row === row && t.col === col);
-            
-            if (talent) {
-                cell.dataset.talentId = talent.talentId;
-                const iconUrl = getTalentIconUrl(talent.assetId);
-                cell.innerHTML = `
-                    <div class="talent-max">${talent.maxPoints}</div>
-                    <div class="talent-current"><span class="current-points">0</span></div>
-                    <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
-                    ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
-                `;
 
-                const label = document.createElement('div');
-                label.className = 'talent-cell-label';
-                label.textContent = talent.talentName || '';
-                
-                cell.addEventListener('click', () => showTalentUpgradeModal(talent));
-                label.addEventListener('click', () => showTalentUpgradeModal(talent));
-                cell.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    handleTalentRightClick(talent);
-                });
+    allTalents.forEach(talent => {
+        const row = talent.row || 1;
+        const col = talent.col || 1;
+        if (row < 1 || row > 8 || col < 1 || col > 7) return;
 
-                wrapper.appendChild(cell);
-                wrapper.appendChild(label);
-            } else {
-                cell.classList.add('empty');
-                wrapper.appendChild(cell);
-            }
-            
-            grid.appendChild(wrapper);
-        }
-    }
+        const wrapper = document.createElement('div');
+        wrapper.className = 'talent-cell-wrapper';
+        const gridRow = 9 - row; // invert so row 1 is bottom
+        wrapper.style.gridRow = String(gridRow);
+        wrapper.style.gridColumn = String(col);
+
+        const cell = document.createElement('div');
+        cell.className = 'talent-cell';
+        cell.dataset.talentId = talent.talentId;
+
+        const iconUrl = getTalentIconUrl(talent.assetId);
+        cell.innerHTML = `
+            <div class="talent-max">${talent.maxPoints}</div>
+            <div class="talent-current"><span class="current-points">0</span></div>
+            <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
+            ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
+        `;
+
+        const label = document.createElement('div');
+        label.className = 'talent-cell-label';
+        label.textContent = talent.talentName || '';
+
+        cell.addEventListener('click', () => showTalentUpgradeModal(talent));
+        label.addEventListener('click', () => showTalentUpgradeModal(talent));
+        cell.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            handleTalentRightClick(talent);
+        });
+
+        wrapper.appendChild(cell);
+        wrapper.appendChild(label);
+        grid.appendChild(wrapper);
+    });
 }
 
 function getTalentIconUrl(assetId) {

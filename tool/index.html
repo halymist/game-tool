@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/talent-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/npc-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -1269,10 +1270,61 @@
 
         <!-- NPC Manager Section -->
         <div id="npcs-content" class="page-content" style="display: none;">
-            <div class="tool-header">
-                <div class="tool-icon">👥</div>
-                <h1>NPC Manager</h1>
-                <p>Create NPCs, manage dialogues, and set up interactive characters.</p>
+            <div class="npc-manager-container">
+                <div class="npc-list-panel">
+                    <div class="npc-list-header">
+                        <h3>NPCs</h3>
+                        <button type="button" id="npcNewBtn" class="btn-save">+ New NPC</button>
+                    </div>
+                    <div class="npc-filters">
+                        <input type="text" id="npcSearch" placeholder="Search by name..." autocomplete="off">
+                        <select id="npcSettlementFilter">
+                            <option value="">All Settlements</option>
+                        </select>
+                    </div>
+                    <div class="npc-table-wrapper">
+                        <table class="npc-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Settlement</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="npcTableBody">
+                                <tr><td colspan="3" class="npc-empty">No NPCs found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="npc-editor-panel">
+                    <div class="npc-editor-header">
+                        <h3>NPC Editor</h3>
+                        <span id="npcStatus" class="npc-status"></span>
+                    </div>
+                    <form id="npcForm" class="npc-form">
+                        <input type="hidden" id="npcId">
+                        <div class="npc-form-row">
+                            <label>Name</label>
+                            <input type="text" id="npcName" required>
+                        </div>
+                        <div class="npc-form-row">
+                            <label>Settlement</label>
+                            <select id="npcSettlementSelect">
+                                <option value="">-- None --</option>
+                            </select>
+                        </div>
+                        <div class="npc-form-row">
+                            <label>Context</label>
+                            <textarea id="npcContext" rows="6" placeholder="NPC context..."></textarea>
+                        </div>
+                        <div class="npc-form-actions">
+                            <button type="submit" id="npcSaveBtn" class="btn-save">💾 Save</button>
+                            <button type="button" id="npcDeleteBtn" class="btn-cancel" disabled>Delete</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -1785,6 +1837,18 @@
                     console.log('Loading perks and effects data...');
                     window.perkDesigner.loadPerksAndEffects();
                 }
+
+                // If showing the NPC manager, initialize or reload
+                if (pageName === 'npcs') {
+                    if (window.initNpcManager && !window.npcManagerInitialized) {
+                        console.log('Initializing NPC manager...');
+                        window.initNpcManager();
+                        window.npcManagerInitialized = true;
+                    }
+                    if (window.loadNpcData) {
+                        window.loadNpcData();
+                    }
+                }
                 
                 // If showing the expedition designer, auto-load data
                 if (pageName === 'dungeons') {
@@ -1868,6 +1932,7 @@
     <script src="http://localhost:8080/static/designer-base.js"></script>
     <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
     <script src="http://localhost:8080/static/talent-designer.js"></script>
+    <script src="http://localhost:8080/static/npc-designer.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>

@@ -1,0 +1,136 @@
+/* NPC Manager Styles */
+
+.npc-manager-container {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 20px;
+    padding: 20px;
+    height: calc(100vh - 140px);
+    box-sizing: border-box;
+}
+
+.npc-list-panel,
+.npc-editor-panel {
+    background: #1e2a4a;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.npc-list-header,
+.npc-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.npc-list-header h3,
+.npc-editor-header h3 {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 18px;
+}
+
+.npc-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.npc-filters input,
+.npc-filters select {
+    padding: 8px 10px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+}
+
+.npc-table-wrapper {
+    overflow: auto;
+    flex: 1;
+}
+
+.npc-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.npc-table th,
+.npc-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #0f3460;
+    color: #e2e8f0;
+}
+
+.npc-table th {
+    text-align: left;
+    color: #a0aec0;
+    font-weight: 600;
+}
+
+.npc-table tr:hover {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+.npc-table tr.selected {
+    background: rgba(56, 161, 105, 0.2);
+}
+
+.npc-empty {
+    text-align: center;
+    color: #a0aec0;
+    padding: 20px;
+}
+
+.npc-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+}
+
+.npc-form-row label {
+    display: block;
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 6px;
+}
+
+.npc-form-row input,
+.npc-form-row select,
+.npc-form-row textarea {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+}
+
+.npc-form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.npc-status {
+    font-size: 13px;
+    color: #a0aec0;
+}
+
+.npc-status.success {
+    color: #48bb78;
+}
+
+.npc-status.error {
+    color: #fc8181;
+}
