@@ -56,9 +56,9 @@
     flex: 1;
     display: grid;
     grid-template-columns: repeat(7, minmax(90px, 1fr));
-    grid-template-rows: repeat(8, minmax(96px, 1fr));
+    grid-template-rows: repeat(8, minmax(120px, 1fr));
     gap: 8px;
-    overflow: auto;
+    overflow: visible;
     padding: 4px;
 }
 
@@ -120,6 +120,22 @@
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 8px;
+}
+
+.talent-cell .talent-perk-indicator {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56, 161, 105, 0.2);
+    border: 1px solid rgba(56, 161, 105, 0.6);
+    color: #68d391;
+    font-size: 11px;
+    border-radius: 999px;
 }
 
 .talent-cell .talent-name {

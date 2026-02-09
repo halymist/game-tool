@@ -24,13 +24,6 @@ async function initTalentDesigner() {
 }
 
 function setupTalentEditorListeners() {
-    const searchInput = document.getElementById('talentSearch');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            renderTalentGrid(searchInput.value);
-        });
-    }
-
     const effectSelect = document.getElementById('talentEffectId');
     if (effectSelect) {
         effectSelect.addEventListener('change', () => {
@@ -280,16 +273,7 @@ function renderTalentGrid(filterText = '') {
     const grid = document.getElementById('talentGrid');
     if (!grid) return;
 
-    const search = filterText.trim().toLowerCase();
     let talents = talentEditorState.talents;
-
-    if (search) {
-        talents = talents.filter(t => {
-            const name = (t.talentName || '').toLowerCase();
-            const idStr = String(t.talentId || '');
-            return name.includes(search) || idStr.includes(search);
-        });
-    }
 
     grid.innerHTML = '';
 
@@ -307,7 +291,9 @@ function renderTalentGrid(filterText = '') {
         cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '');
 
         const iconUrl = getTalentAssetIcon(talent.assetId);
+        const perkIndicator = (talent.perkSlot === true || talent.perkSlot === 1) ? '<div class="talent-perk-indicator">★</div>' : '';
         cell.innerHTML = `
+            ${perkIndicator}
             <div class="talent-max">${talent.maxPoints ?? ''}</div>
             <img class="talent-icon" src="${iconUrl}" alt="Talent ${talent.talentId}" onerror="this.style.display='none'">
         `;
@@ -349,7 +335,7 @@ function selectTalent(talentId) {
     updateTalentAssetPreview(talent.assetId, getTalentAssetIcon(talent.assetId));
     updateEffectDescription(talent.effectId);
 
-    renderTalentGrid(document.getElementById('talentSearch')?.value || '');
+    renderTalentGrid();
 }
 
 function resetTalentForm() {
