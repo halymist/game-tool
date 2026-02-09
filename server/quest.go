@@ -22,7 +22,6 @@ import (
 type QuestChain struct {
 	QuestchainID int    `json:"questchain_id"`
 	Name         string `json:"name"`
-	Description  string `json:"description"`
 	Context      string `json:"context"`
 	SettlementID int    `json:"settlement_id"`
 }
@@ -100,11 +99,11 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	var chainQuery string
 	var chainArgs []interface{}
 	if settlementID != nil {
-		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(context, ''), settlement_id 
+		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id 
 			FROM game.questchain WHERE settlement_id = $1 ORDER BY questchain_id`
 		chainArgs = []interface{}{*settlementID}
 	} else {
-		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(context, ''), settlement_id 
+		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id 
 			FROM game.questchain ORDER BY questchain_id`
 	}
 
@@ -122,7 +121,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	chainIDs := []int{}
 	for chainRows.Next() {
 		var c QuestChain
-		err := chainRows.Scan(&c.QuestchainID, &c.Name, &c.Description, &c.Context, &c.SettlementID)
+		err := chainRows.Scan(&c.QuestchainID, &c.Name, &c.Context, &c.SettlementID)
 		if err != nil {
 			log.Printf("Error scanning quest chain: %v", err)
 			continue
@@ -265,7 +264,7 @@ func handleCreateQuest(w http.ResponseWriter, r *http.Request) {
 
 	// Create a new questchain for this quest
 	var questchainID int
-	err := db.QueryRow(`INSERT INTO game.questchain (description) VALUES ($1) RETURNING questchain_id`, req.QuestName).Scan(&questchainID)
+	err := db.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id) VALUES ($1, '', $2) RETURNING questchain_id`, req.QuestName, req.SettlementID).Scan(&questchainID)
 	if err != nil {
 		log.Printf("Error creating questchain: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
@@ -440,8 +439,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	// Create new chain if isNewChain
 	if req.IsNewChain {
-		err := tx.QueryRow(`INSERT INTO game.questchain (name, description, context, settlement_id)
-			VALUES ($1, '', $2, $3) RETURNING questchain_id`,
+		err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id)
+			VALUES ($1, $2, $3) RETURNING questchain_id`,
 			req.ChainName, req.ChainContext, req.SettlementID).Scan(&questchainID)
 		if err != nil {
 			log.Printf("Error creating new chain: %v", err)
