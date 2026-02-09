@@ -223,6 +223,17 @@
     font-size: 13px;
 }
 
+.talent-form-row.perk-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.talent-form-row.perk-row label {
+    margin-bottom: 0;
+    min-width: 90px;
+}
+
 .talent-grid-coords {
     display: grid;
     grid-template-columns: 1fr 1fr;

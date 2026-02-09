@@ -188,6 +188,10 @@
                             <label>Name:</label>
                             <input type="text" id="questChainNameInput" placeholder="Chain name..." oninput="window.updateChainName && window.updateChainName(this.value)">
                         </div>
+                        <div class="quest-chain-context">
+                            <label>Context:</label>
+                            <textarea id="questChainContextInput" placeholder="Quest chain context..." oninput="window.updateChainContext && window.updateChainContext(this.value)"></textarea>
+                        </div>
                         <span id="questOptionCounter">0 options</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <button class="quest-zoom-btn" title="Zoom Out" onclick="window.changeQuestZoom(-0.1)">−</button>
@@ -636,11 +640,12 @@
                             <label>Max Points</label>
                             <input type="number" id="talentMaxPoints" min="1" max="20" required>
                         </div>
-                        <div class="talent-form-row">
-                            <label>Perk Slot</label>
-                            <label class="talent-checkbox">
+                        <div class="talent-form-row perk-row">
+                            <label for="talentPerkSlot">Perk Slot</label>
+                            <div class="talent-checkbox">
                                 <input type="checkbox" id="talentPerkSlot">
-                            </label>
+                                <span>Enabled</span>
+                            </div>
                         </div>
                         <div class="talent-form-row">
                             <label>Effect</label>
@@ -1341,10 +1346,6 @@
                                 <option value="">-- New Settlement --</option>
                             </select>
                         </div>
-                        <div class="settlement-description-field">
-                            <label for="settlementDescription">Description:</label>
-                            <textarea id="settlementDescription" placeholder="Settlement description..."></textarea>
-                        </div>
                         <div class="settlement-context-field">
                             <label for="settlementContext">Context:</label>
                             <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
@@ -1391,6 +1392,10 @@
                                     <input type="text" id="settlementName" placeholder="Settlement name...">
                                 </div>
                                 <div>
+                                    <label for="settlementDescription">Description</label>
+                                    <textarea id="settlementDescription" placeholder="Settlement description..."></textarea>
+                                </div>
+                                <div>
                                     <label for="factionSelect">Faction</label>
                                     <select id="factionSelect" class="faction-select">
                                         <option value="">-- None --</option>
@@ -1399,6 +1404,43 @@
                                         <option value="3">Faction 3</option>
                                     </select>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Arena Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Arena</h3>
+                        <div class="settlement-card">
+                            <div id="arenaAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expedition Card -->
+                    <div class="settlement-card-wrapper">
+                        <h3 class="settlement-card-title">Expedition</h3>
+                        <div class="settlement-card">
+                            <div id="expeditionAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                            </div>
+                            <div class="expedition-description-overlay">
+                                <textarea id="expeditionDescription" placeholder="Enter expedition description..." class="expedition-textarea"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1433,23 +1475,20 @@
 
                     <!-- Utility Card -->
                     <div class="settlement-card-wrapper">
-                        <div class="utility-type-cards">
-                            <div class="utility-type-card" data-type="blacksmith" onclick="selectUtilityType('blacksmith')">
-                                Blacksmith
+                        <h3 class="settlement-card-title">Utility</h3>
+                        <div class="utility-type-selector">
+                            <label for="utilityTypeSelect">Type</label>
+                            <div class="utility-type-row">
+                                <select id="utilityTypeSelect">
+                                    <option value="">-- Select Utility --</option>
+                                    <option value="blacksmith">Blacksmith</option>
+                                    <option value="alchemist">Alchemist</option>
+                                    <option value="enchanter">Enchanter</option>
+                                    <option value="trainer">Trainer</option>
+                                    <option value="church">Church</option>
+                                </select>
+                                <button class="responses-btn" onclick="openResponsesModal('utility')">💬</button>
                             </div>
-                            <div class="utility-type-card" data-type="alchemist" onclick="selectUtilityType('alchemist')">
-                                Alchemist
-                            </div>
-                            <div class="utility-type-card" data-type="enchanter" onclick="selectUtilityType('enchanter')">
-                                Enchanter
-                            </div>
-                            <div class="utility-type-card" data-type="trainer" onclick="selectUtilityType('trainer')">
-                                Trainer
-                            </div>
-                            <div class="utility-type-card" data-type="church" onclick="selectUtilityType('church')">
-                                Church
-                            </div>
-                            <button class="responses-btn" onclick="openResponsesModal('utility')">💬</button>
                         </div>
                         <div class="settlement-card">
                             <div id="utilityAssetArea" class="settlement-card-asset" data-asset-id="">
@@ -1463,16 +1502,6 @@
                                 </div>
                             </div>
                             <div class="settlement-card-info">
-                                <!-- Hidden select for form data -->
-                                <select id="utilityTypeSelect" style="display: none;">
-                                    <option value="">-- Select Utility --</option>
-                                    <option value="blacksmith">Blacksmith</option>
-                                    <option value="alchemist">Alchemist</option>
-                                    <option value="enchanter">Enchanter</option>
-                                    <option value="trainer">Trainer</option>
-                                    <option value="church">Church</option>
-                                </select>
-                                
                                 <!-- Church: Blessings -->
                                 <div id="utilityChurchContent" class="utility-content">
                                     <label>Blessings (Perks)</label>
@@ -1503,43 +1532,6 @@
                                 <!-- Blacksmith/Alchemist/Trainer: No extra content -->
                                 <div id="utilityEmptyContent" class="utility-content">
                                     <p class="utility-empty-msg">No additional configuration needed</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Expedition Card -->
-                    <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Expedition</h3>
-                        <div class="settlement-card">
-                            <div id="expeditionAssetArea" class="settlement-card-asset" data-asset-id="">
-                                <div class="no-asset">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                    </svg>
-                                    <span>Click to select asset</span>
-                                </div>
-                            </div>
-                            <div class="expedition-description-overlay">
-                                <textarea id="expeditionDescription" placeholder="Enter expedition description..." class="expedition-textarea"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Arena Card -->
-                    <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Arena</h3>
-                        <div class="settlement-card">
-                            <div id="arenaAssetArea" class="settlement-card-asset" data-asset-id="">
-                                <div class="no-asset">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                    </svg>
-                                    <span>Click to select asset</span>
                                 </div>
                             </div>
                         </div>

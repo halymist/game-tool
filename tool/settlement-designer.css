@@ -352,7 +352,8 @@
 }
 
 .settlement-card-info input,
-.settlement-card-info select {
+.settlement-card-info select,
+.settlement-card-info textarea {
     width: 100%;
     padding: 8px 12px;
     background: #0d1b2a;
@@ -364,14 +365,30 @@
 }
 
 .settlement-card-info input:focus,
-.settlement-card-info select:focus {
+.settlement-card-info select:focus,
+.settlement-card-info textarea:focus {
     outline: none;
     border-color: #3182ce;
+}
+
+.settlement-card-info textarea {
+    min-height: 70px;
+    resize: vertical;
 }
 
 /* Utility type selector */
 .utility-type-selector {
     margin-bottom: 8px;
+}
+
+.utility-type-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.utility-type-row select {
+    flex: 1;
 }
 
 .utility-type-selector select {

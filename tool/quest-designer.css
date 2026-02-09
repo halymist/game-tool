@@ -37,7 +37,8 @@
 
 .quest-settlement-select,
 .quest-select,
-.quest-chain-name {
+.quest-chain-name,
+.quest-chain-context {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -45,7 +46,8 @@
 
 .quest-settlement-select label,
 .quest-select label,
-.quest-chain-name label {
+.quest-chain-name label,
+.quest-chain-context label {
     color: #888;
     font-size: 0.85rem;
 }
@@ -59,6 +61,18 @@
     color: #fff;
     padding: 6px 10px;
     font-size: 0.85rem;
+}
+
+.quest-chain-context textarea {
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    min-width: 220px;
+    min-height: 34px;
+    resize: vertical;
 }
 
 #questOptionCounter {

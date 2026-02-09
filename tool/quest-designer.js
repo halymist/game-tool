@@ -32,6 +32,7 @@ const questState = {
     chains: new Map(),
     selectedChain: null,
     chainName: '',
+    chainContext: '',
     selectedSettlementId: null,
     
     // Quest assets
@@ -1180,6 +1181,9 @@ function clearQuestCanvas() {
     // Reset chain name input
     const nameInput = document.getElementById('questChainNameInput');
     if (nameInput) nameInput.value = '';
+
+    const contextInput = document.getElementById('questChainContextInput');
+    if (contextInput) contextInput.value = '';
 }
 
 // Load quest chains for current settlement
@@ -1238,6 +1242,8 @@ async function onQuestChange() {
             nameInput.value = '';
             nameInput.focus();
         }
+        const contextInput = document.getElementById('questChainContextInput');
+        if (contextInput) contextInput.value = '';
         return;
     }
     
@@ -1252,6 +1258,12 @@ async function onQuestChange() {
     if (nameInput && chain) {
         nameInput.value = chain.name || '';
     }
+
+    const contextInput = document.getElementById('questChainContextInput');
+    if (contextInput && chain) {
+        contextInput.value = chain.context || '';
+    }
+    questState.chainContext = chain?.context || '';
     
     // Load quests, options, and requirements for this chain
     await loadQuestChainData(chainId);
@@ -1263,6 +1275,11 @@ function updateChainName(name) {
     questState.chainName = name;
 }
 window.updateChainName = updateChainName;
+
+function updateChainContext(value) {
+    questState.chainContext = value;
+}
+window.updateChainContext = updateChainContext;
 
 // Load full data for a quest chain
 async function loadQuestChainData(chainId) {
@@ -1870,6 +1887,8 @@ async function saveQuest() {
     
     const chainNameInput = document.getElementById('questChainNameInput');
     const chainName = chainNameInput?.value || questState.chainName || '';
+    const chainContextInput = document.getElementById('questChainContextInput');
+    const chainContext = chainContextInput?.value || questState.chainContext || '';
     
     if (!chainName.trim()) {
         alert('Please enter a chain name');
@@ -1890,6 +1909,7 @@ async function saveQuest() {
         const saveData = {
             questchainId: questState.selectedChain || 0,
             chainName: chainName,
+            chainContext: chainContext,
             isNewChain: isNewChain,
             settlementId: questState.selectedSettlementId,
             newQuests: [],

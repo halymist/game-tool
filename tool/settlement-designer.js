@@ -137,7 +137,9 @@ function setupSettlementEventListeners() {
     // Utility type selector
     const utilityTypeSelect = document.getElementById('utilityTypeSelect');
     if (utilityTypeSelect) {
-        utilityTypeSelect.addEventListener('change', updateUtilityContent);
+        utilityTypeSelect.addEventListener('change', (e) => {
+            selectUtilityType(e.target.value);
+        });
     }
 
     // Add vendor item button
@@ -610,20 +612,11 @@ function updateUtilityContent() {
 }
 
 function selectUtilityType(type) {
-    // Update the hidden select to keep form submission working
+    // Update the select value
     const utilityTypeSelect = document.getElementById('utilityTypeSelect');
     if (utilityTypeSelect) {
         utilityTypeSelect.value = type;
     }
-
-    // Update active card styling
-    const cards = document.querySelectorAll('.utility-type-card');
-    cards.forEach(card => {
-        card.classList.remove('active');
-        if (card.dataset.type === type) {
-            card.classList.add('active');
-        }
-    });
 
     // Update utility content
     updateUtilityContent();

@@ -636,7 +636,7 @@ function populateEffectDropdown() {
     if (selectedType === 'ration') {
         const rationEffect = effects.find(e => e.id === RATION_EFFECT_ID);
         const label = rationEffect ? rationEffect.name : `Effect ${RATION_EFFECT_ID}`;
-        effectSelect.innerHTML = `<option value="${RATION_EFFECT_ID}">${label}</option>`;
+        effectSelect.innerHTML = `<option value="${RATION_EFFECT_ID}">${label} (ID ${RATION_EFFECT_ID})</option>`;
         effectSelect.value = String(RATION_EFFECT_ID);
         effectSelect.disabled = true;
         return;
