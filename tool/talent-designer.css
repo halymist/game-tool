@@ -70,7 +70,8 @@
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: center;
     transition: all 0.15s ease;
     position: relative;
 }
@@ -85,25 +86,33 @@
     box-shadow: 0 0 0 2px rgba(56, 161, 105, 0.3);
 }
 
-.talent-cell .talent-id {
+.talent-cell .talent-icon {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    margin-bottom: 6px;
+}
+
+.talent-cell .talent-max {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #e2e8f0;
     font-size: 11px;
-    color: #a0aec0;
+    padding: 2px 6px;
+    border-radius: 8px;
 }
 
 .talent-cell .talent-name {
     font-size: 12px;
     color: #e2e8f0;
     font-weight: 600;
-    margin-top: 4px;
     line-height: 1.2;
+    text-align: center;
     max-height: 2.4em;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.talent-cell .talent-meta {
-    font-size: 10px;
-    color: #718096;
 }
 
 .talent-editor-status {
@@ -159,6 +168,13 @@
     border-color: #63b3ed;
 }
 
+.talent-effect-description {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #a0aec0;
+    line-height: 1.4;
+}
+
 .talent-checkbox {
     display: flex;
     align-items: center;
@@ -171,6 +187,160 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+}
+
+.talent-asset-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.talent-asset-preview {
+    width: 110px;
+    height: 110px;
+    border-radius: 12px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.talent-asset-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: none;
+}
+
+.talent-asset-preview.has-image img {
+    display: block;
+}
+
+.talent-asset-preview span {
+    color: #718096;
+    font-size: 12px;
+}
+
+.talent-asset-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.talent-asset-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.talent-asset-buttons .btn-browse-assets,
+.talent-asset-buttons .btn-upload-new {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #1a365d;
+    background: #0d1b2a;
+    color: #e2e8f0;
+    cursor: pointer;
+}
+
+/* Talent asset gallery */
+.talent-asset-gallery-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.talent-asset-gallery-overlay.hidden {
+    display: none;
+}
+
+.talent-asset-gallery {
+    background: #1e2a4a;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 16px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.talent-asset-gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #0f3460;
+}
+
+.talent-asset-gallery-header h3 {
+    margin: 0;
+    color: #e2e8f0;
+}
+
+.talent-asset-gallery-close {
+    background: none;
+    border: none;
+    color: #e2e8f0;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+
+.talent-asset-gallery-actions {
+    margin-bottom: 8px;
+}
+
+.talent-asset-gallery-actions .btn-upload {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: none;
+    background: #3182ce;
+    color: white;
+    cursor: pointer;
+}
+
+.talent-asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.talent-asset-grid .asset-item {
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.talent-asset-grid .asset-item img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+}
+
+.talent-asset-grid .asset-id {
+    font-size: 11px;
+    color: #a0aec0;
 }
 
 .talent-form-actions {

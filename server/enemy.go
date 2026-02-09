@@ -15,6 +15,7 @@ import (
 type TalentInfo struct {
 	TalentID    int     `json:"talentId" db:"talent_id"`
 	TalentName  string  `json:"talentName" db:"talent_name"`
+	AssetID     int     `json:"assetId" db:"asset_id"`
 	MaxPoints   int     `json:"maxPoints" db:"max_points"`
 	PerkSlot    *bool   `json:"perkSlot" db:"perk_slot"`
 	EffectID    *int    `json:"effectId" db:"effect_id"`
@@ -492,7 +493,7 @@ func handleRemovePendingEnemy(w http.ResponseWriter, r *http.Request) {
 // getAllTalentsInfo retrieves all talents from game.talents_info
 func getAllTalentsInfo() ([]TalentInfo, error) {
 	query := `
-		SELECT talent_id, talent_name, max_points, perk_slot, effect_id, factor, 
+		SELECT talent_id, talent_name, asset_id, max_points, perk_slot, effect_id, factor, 
 		       description, row, col, COALESCE(version, 1)
 		FROM game.talents_info
 		ORDER BY row, col
@@ -507,7 +508,7 @@ func getAllTalentsInfo() ([]TalentInfo, error) {
 	var talents []TalentInfo
 	for rows.Next() {
 		var t TalentInfo
-		err := rows.Scan(&t.TalentID, &t.TalentName, &t.MaxPoints, &t.PerkSlot,
+		err := rows.Scan(&t.TalentID, &t.TalentName, &t.AssetID, &t.MaxPoints, &t.PerkSlot,
 			&t.EffectID, &t.Factor, &t.Description, &t.Row, &t.Col, &t.Version)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning talent: %v", err)

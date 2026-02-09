@@ -196,6 +196,8 @@ func main() {
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
 	http.HandleFunc("/api/getTalentsInfo", corsHandler(handleGetTalentsInfo))
 	http.HandleFunc("/api/updateTalentInfo", corsHandler(handleUpdateTalentInfo))
+	http.HandleFunc("/api/getTalentAssets", corsHandler(CreateGetAssetsHandler("perks")))
+	http.HandleFunc("/api/uploadTalentAsset", corsHandler(CreateUploadAssetHandler("perks")))
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/toggleApproveEnemy", corsHandler(handleToggleApproveEnemy))
 	http.HandleFunc("/api/mergeEnemies", corsHandler(handleMergeEnemies))

@@ -21,6 +21,7 @@ type TalentInfoResponse struct {
 type UpdateTalentInfoRequest struct {
 	TalentID    int     `json:"talentId"`
 	TalentName  string  `json:"talentName"`
+	AssetID     int     `json:"assetId"`
 	MaxPoints   int     `json:"maxPoints"`
 	PerkSlot    *bool   `json:"perkSlot"`
 	EffectID    *int    `json:"effectId"`
@@ -93,7 +94,7 @@ func handleUpdateTalentInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.TalentID == 0 || strings.TrimSpace(req.TalentName) == "" || req.MaxPoints == 0 {
+	if req.TalentID == 0 || strings.TrimSpace(req.TalentName) == "" || req.MaxPoints == 0 || req.AssetID == 0 {
 		json.NewEncoder(w).Encode(TalentInfoResponse{Success: false, Message: "Missing required fields"})
 		return
 	}
@@ -109,21 +110,23 @@ func handleUpdateTalentInfo(w http.ResponseWriter, r *http.Request) {
 
 	// Update and return updated talent
 	query := `
-        UPDATE game.talents_info
-        SET talent_name = $1,
-            max_points = $2,
-            perk_slot = $3,
-            effect_id = $4,
-            factor = $5,
-            description = $6,
-            version = COALESCE(version, 1) + 1
-        WHERE talent_id = $7
-        RETURNING talent_id, talent_name, max_points, perk_slot, effect_id, factor, description, row, col, COALESCE(version, 1)
-    `
+	    UPDATE game.talents_info
+	    SET talent_name = $1,
+	        asset_id = $2,
+	        max_points = $3,
+	        perk_slot = $4,
+	        effect_id = $5,
+	        factor = $6,
+	        description = $7,
+	        version = COALESCE(version, 1) + 1
+	    WHERE talent_id = $8
+	    RETURNING talent_id, talent_name, asset_id, max_points, perk_slot, effect_id, factor, description, row, col, COALESCE(version, 1)
+	`
 
 	var updated TalentInfo
 	err := db.QueryRow(query,
 		req.TalentName,
+		req.AssetID,
 		req.MaxPoints,
 		req.PerkSlot,
 		req.EffectID,
@@ -133,6 +136,7 @@ func handleUpdateTalentInfo(w http.ResponseWriter, r *http.Request) {
 	).Scan(
 		&updated.TalentID,
 		&updated.TalentName,
+		&updated.AssetID,
 		&updated.MaxPoints,
 		&updated.PerkSlot,
 		&updated.EffectID,

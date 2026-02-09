@@ -612,6 +612,24 @@
                             <label>Talent ID</label>
                             <input type="text" id="talentId" readonly>
                         </div>
+                        <input type="hidden" id="talentAssetId" value="1">
+                        <div class="talent-form-row">
+                            <label>Talent Icon</label>
+                            <div class="talent-asset-row">
+                                <div class="talent-asset-preview" id="talentAssetPreview">
+                                    <img id="talentAssetImage" src="" alt="No asset">
+                                    <span id="talentAssetPlaceholder">Select asset</span>
+                                </div>
+                                <div class="talent-asset-info">
+                                    <span id="talentAssetIdDisplay">Asset ID: None</span>
+                                    <div class="talent-asset-buttons">
+                                        <button type="button" id="talentAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
+                                        <button type="button" id="talentUploadNewBtn" class="btn-upload-new">📤 Upload New</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="file" id="talentAssetFile" accept="image/*" style="display: none;">
+                        </div>
                         <div class="talent-form-row">
                             <label>Talent Name</label>
                             <input type="text" id="talentName" required>
@@ -636,23 +654,31 @@
                         <div class="talent-form-row">
                             <label>Effect Factor</label>
                             <input type="number" id="talentFactor" placeholder="e.g. 5">
+                            <div id="talentEffectDescription" class="talent-effect-description"></div>
                         </div>
                         <div class="talent-form-row">
                             <label>Description</label>
                             <textarea id="talentDescription" rows="4" placeholder="Talent description..."></textarea>
-                        </div>
-                        <div class="talent-form-row">
-                            <label>Grid Position</label>
-                            <div class="talent-grid-coords">
-                                <input type="text" id="talentRow" readonly>
-                                <input type="text" id="talentCol" readonly>
-                            </div>
                         </div>
                         <div class="talent-form-actions">
                             <button type="button" id="talentSaveBtn" class="btn-save">💾 Save</button>
                             <button type="button" id="talentResetBtn" class="btn-cancel">Reset</button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Talent Asset Gallery Overlay -->
+            <div id="talentAssetGalleryOverlay" class="talent-asset-gallery-overlay hidden">
+                <div class="talent-asset-gallery">
+                    <div class="talent-asset-gallery-header">
+                        <h3>Talent Assets</h3>
+                        <button type="button" id="talentAssetGalleryClose" class="talent-asset-gallery-close">✕</button>
+                    </div>
+                    <div class="talent-asset-gallery-actions">
+                        <button type="button" id="talentUploadNewBtnOverlay" class="btn-upload">📤 Upload New</button>
+                    </div>
+                    <div id="talentAssetGrid" class="talent-asset-grid"></div>
                 </div>
             </div>
         </div>
