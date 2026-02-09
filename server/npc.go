@@ -11,6 +11,9 @@ type Npc struct {
 	NpcID          int     `json:"npc_id"`
 	Name           string  `json:"name"`
 	Context        *string `json:"context"`
+	Role           *string `json:"role"`
+	Personality    *string `json:"personality"`
+	Goals          *string `json:"goals"`
 	SettlementID   *int64  `json:"settlement_id"`
 	SettlementName *string `json:"settlement_name"`
 }
@@ -26,6 +29,9 @@ type NpcRequest struct {
 	NpcID        *int    `json:"npcId"`
 	Name         string  `json:"name"`
 	Context      *string `json:"context"`
+	Role         *string `json:"role"`
+	Personality  *string `json:"personality"`
+	Goals        *string `json:"goals"`
 	SettlementID *int64  `json:"settlementId"`
 }
 
@@ -53,7 +59,7 @@ func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-        SELECT n.npc_id, n.name, n.context, n.settlement_id, w.settlement_name
+		SELECT n.npc_id, n.name, n.context, n.role, n.personality, n.goals, n.settlement_id, w.settlement_name
         FROM game.npc n
         LEFT JOIN game.world_info w ON w.settlement_id = n.settlement_id
         ORDER BY n.npc_id DESC
@@ -70,7 +76,7 @@ func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
 	var npcs []Npc
 	for rows.Next() {
 		var npc Npc
-		if err := rows.Scan(&npc.NpcID, &npc.Name, &npc.Context, &npc.SettlementID, &npc.SettlementName); err != nil {
+		if err := rows.Scan(&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID, &npc.SettlementName); err != nil {
 			log.Printf("Error scanning NPC: %v", err)
 			json.NewEncoder(w).Encode(NpcResponse{Success: false, Message: err.Error()})
 			return
@@ -116,14 +122,14 @@ func handleCreateNpc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := `
-        INSERT INTO game.npc (name, context, settlement_id)
-        VALUES ($1, $2, $3)
-        RETURNING npc_id, name, context, settlement_id
+		INSERT INTO game.npc (name, context, role, personality, goals, settlement_id)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING npc_id, name, context, role, personality, goals, settlement_id
     `
 
 	var npc Npc
-	err := db.QueryRow(query, req.Name, req.Context, req.SettlementID).Scan(
-		&npc.NpcID, &npc.Name, &npc.Context, &npc.SettlementID,
+	err := db.QueryRow(query, req.Name, req.Context, req.Role, req.Personality, req.Goals, req.SettlementID).Scan(
+		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID,
 	)
 	if err != nil {
 		log.Printf("Error creating NPC: %v", err)
@@ -176,15 +182,18 @@ func handleUpdateNpc(w http.ResponseWriter, r *http.Request) {
 	query := `
         UPDATE game.npc
         SET name = $1,
-            context = $2,
-            settlement_id = $3
-        WHERE npc_id = $4
-        RETURNING npc_id, name, context, settlement_id
+			context = $2,
+			role = $3,
+			personality = $4,
+			goals = $5,
+			settlement_id = $6
+		WHERE npc_id = $7
+		RETURNING npc_id, name, context, role, personality, goals, settlement_id
     `
 
 	var npc Npc
-	err := db.QueryRow(query, req.Name, req.Context, req.SettlementID, *req.NpcID).Scan(
-		&npc.NpcID, &npc.Name, &npc.Context, &npc.SettlementID,
+	err := db.QueryRow(query, req.Name, req.Context, req.Role, req.Personality, req.Goals, req.SettlementID, *req.NpcID).Scan(
+		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID,
 	)
 	if err != nil {
 		log.Printf("Error updating NPC: %v", err)

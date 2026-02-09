@@ -63,12 +63,6 @@
     flex: 1;
 }
 
-.settlement-context-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1.4;
-}
 
 .settlement-description-field label {
     color: #cbd5e1;
@@ -76,11 +70,6 @@
     font-weight: 500;
 }
 
-.settlement-context-field label {
-    color: #cbd5e1;
-    font-size: 11px;
-    font-weight: 500;
-}
 
 .settlement-description-field textarea {
     width: 100%;
@@ -96,26 +85,43 @@
     max-height: 60px;
 }
 
-.settlement-context-field textarea {
-    width: 100%;
-    padding: 6px 10px;
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 6px;
-    color: #e2e8f0;
-    font-size: 12px;
-    font-family: inherit;
-    resize: vertical;
-    min-height: 110px;
-    max-height: 200px;
-}
 
 .settlement-description-field textarea:focus {
     outline: none;
     border-color: #3182ce;
 }
 
-.settlement-context-field textarea:focus {
+.settlement-context-section {
+    margin: 8px 8px 0;
+    padding: 12px 16px;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #1e2a4a, #16213e);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.settlement-context-section label {
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.settlement-context-section textarea {
+    width: 100%;
+    padding: 8px 12px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 140px;
+}
+
+.settlement-context-section textarea:focus {
     outline: none;
     border-color: #3182ce;
 }

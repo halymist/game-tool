@@ -129,6 +129,9 @@ function selectNpc(npcId) {
     document.getElementById('npcId').value = npc.npc_id;
     document.getElementById('npcName').value = npc.name || '';
     document.getElementById('npcContext').value = npc.context || '';
+    document.getElementById('npcRole').value = npc.role || '';
+    document.getElementById('npcPersonality').value = npc.personality || '';
+    document.getElementById('npcGoals').value = npc.goals || '';
     document.getElementById('npcSettlementSelect').value = npc.settlement_id || '';
 
     document.getElementById('npcDeleteBtn').disabled = false;
@@ -140,6 +143,9 @@ function createNewNpc() {
     document.getElementById('npcId').value = '';
     document.getElementById('npcName').value = '';
     document.getElementById('npcContext').value = '';
+    document.getElementById('npcRole').value = '';
+    document.getElementById('npcPersonality').value = '';
+    document.getElementById('npcGoals').value = '';
     document.getElementById('npcSettlementSelect').value = '';
     document.getElementById('npcDeleteBtn').disabled = true;
     renderNpcTable();
@@ -152,6 +158,9 @@ async function saveNpc(e) {
         npcId: document.getElementById('npcId').value ? parseInt(document.getElementById('npcId').value, 10) : null,
         name: document.getElementById('npcName').value.trim(),
         context: document.getElementById('npcContext').value.trim() || null,
+        role: document.getElementById('npcRole').value.trim() || null,
+        personality: document.getElementById('npcPersonality').value.trim() || null,
+        goals: document.getElementById('npcGoals').value.trim() || null,
         settlementId: document.getElementById('npcSettlementSelect').value ? parseInt(document.getElementById('npcSettlementSelect').value, 10) : null
     };
 

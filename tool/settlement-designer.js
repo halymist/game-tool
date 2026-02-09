@@ -454,6 +454,16 @@ function populateSettlementForm(settlement) {
         descriptionInput.value = settlement.description || '';
     }
 
+    const keyIssuesInput = document.getElementById('settlementKeyIssues');
+    if (keyIssuesInput) {
+        keyIssuesInput.value = settlement.key_issues || '';
+    }
+
+    const recentEventsInput = document.getElementById('settlementRecentEvents');
+    if (recentEventsInput) {
+        recentEventsInput.value = settlement.recent_events || '';
+    }
+
     const contextInput = document.getElementById('settlementContext');
     if (contextInput) {
         contextInput.value = settlement.context || '';
@@ -1021,6 +1031,8 @@ function createNewSettlement() {
     // Clear form
     document.getElementById('settlementName').value = '';
     document.getElementById('settlementDescription').value = '';
+    document.getElementById('settlementKeyIssues').value = '';
+    document.getElementById('settlementRecentEvents').value = '';
     document.getElementById('settlementContext').value = '';
     document.getElementById('factionSelect').value = '';
     document.getElementById('utilityTypeSelect').value = '';
@@ -1383,6 +1395,8 @@ async function saveSettlement() {
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
     const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
+    const keyIssues = document.getElementById('settlementKeyIssues')?.value.trim() || null;
+    const recentEvents = document.getElementById('settlementRecentEvents')?.value.trim() || null;
     const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
 
@@ -1411,6 +1425,8 @@ async function saveSettlement() {
     const settlement = {
         settlement_name: name,
         description: description,
+        key_issues: keyIssues,
+        recent_events: recentEvents,
         context: context,
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
