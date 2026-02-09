@@ -2197,12 +2197,16 @@ function escapeHtml(text) {
 // ==================== QUEST GENERATOR ====================
 const questGenerateState = {
     npcs: [],
+    allQuests: [],
 };
 
 function setupQuestGeneratePanel() {
     document.getElementById('questGenerateBtn')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateClose')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateRun')?.addEventListener('click', generateQuestPreview);
+    document.getElementById('questGenerateSettlement')?.addEventListener('change', (e) => {
+        populateQuestGenerateLocations(e.target.value);
+    });
 }
 
 function toggleQuestGeneratePanel() {
@@ -2210,14 +2214,23 @@ function toggleQuestGeneratePanel() {
     if (!panel) return;
     const isOpen = panel.style.display === 'block';
     panel.style.display = isOpen ? 'none' : 'block';
+    const optionSidebar = document.getElementById('questOptionSidebar');
+    if (optionSidebar) {
+        optionSidebar.style.display = isOpen ? 'block' : 'none';
+    }
     if (!isOpen) {
         populateQuestGeneratePanel();
     }
 }
 
 async function populateQuestGeneratePanel() {
+    if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
+        await loadSettlementsData();
+    }
     populateQuestGenerateSettlements();
+    populateQuestGenerateLocations(document.getElementById('questGenerateSettlement')?.value || '');
     await loadQuestGenerateNpcs();
+    await loadQuestGenerateAllQuests();
     populateQuestGenerateNpcs();
     populateQuestGenerateEnemies();
     populateQuestGenerateRewards();
@@ -2240,6 +2253,36 @@ function populateQuestGenerateSettlements() {
     });
 }
 
+function populateQuestGenerateLocations(settlementId) {
+    const select = document.getElementById('questGenerateLocation');
+    if (!select) return;
+    const settlements = GlobalData?.settlements || [];
+    select.innerHTML = '<option value="">-- Any Location --</option>';
+
+    let locations = [];
+    if (settlementId) {
+        const settlement = settlements.find(s => String(s.world_id || s.id || s.settlement_id) === String(settlementId));
+        locations = settlement?.locations || [];
+        locations.forEach(loc => {
+            const opt = document.createElement('option');
+            opt.value = loc.location_id || loc.id || '';
+            opt.textContent = loc.name || `Location ${opt.value}`;
+            select.appendChild(opt);
+        });
+        return;
+    }
+
+    settlements.forEach(settlement => {
+        const settlementName = settlement.name || `Settlement ${settlement.world_id || settlement.id || settlement.settlement_id}`;
+        (settlement.locations || []).forEach(loc => {
+            const opt = document.createElement('option');
+            opt.value = loc.location_id || loc.id || '';
+            opt.textContent = `${settlementName} — ${loc.name || `Location ${opt.value}`}`;
+            select.appendChild(opt);
+        });
+    });
+}
+
 async function loadQuestGenerateNpcs() {
     if (questGenerateState.npcs.length) return;
     try {
@@ -2254,6 +2297,23 @@ async function loadQuestGenerateNpcs() {
         }
     } catch (error) {
         console.error('Failed to load NPCs for generator:', error);
+    }
+}
+
+async function loadQuestGenerateAllQuests() {
+    if (questGenerateState.allQuests.length) return;
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('http://localhost:8080/api/getQuests', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data && Array.isArray(data.quests)) {
+            questGenerateState.allQuests = data.quests;
+        }
+    } catch (error) {
+        console.error('Failed to load quests for generator:', error);
     }
 }
 
@@ -2296,7 +2356,20 @@ function populateQuestGenerateRewards() {
     if (!select) return;
     const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
     const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
+    const stats = ['strength', 'stamina', 'agility', 'luck', 'armor'];
     select.innerHTML = '';
+    const talentOpt = document.createElement('option');
+    talentOpt.value = 'talent';
+    talentOpt.textContent = 'Talent Point';
+    select.appendChild(talentOpt);
+
+    stats.forEach(stat => {
+        const opt = document.createElement('option');
+        opt.value = `stat:${stat}`;
+        opt.textContent = `Stat Boost: ${stat}`;
+        select.appendChild(opt);
+    });
+
     items.forEach(item => {
         const id = item.item_id || item.id;
         const name = item.item_name || item.name || `Item ${id}`;
@@ -2319,10 +2392,11 @@ function populateQuestGenerateQuests() {
     const select = document.getElementById('questGenerateQuests');
     if (!select) return;
     select.innerHTML = '';
-    questState.quests.forEach(quest => {
+    const quests = questGenerateState.allQuests.length ? questGenerateState.allQuests : Array.from(questState.quests.values());
+    quests.forEach(quest => {
         const opt = document.createElement('option');
-        opt.value = quest.serverId || quest.questId || quest.quest_id || '';
-        opt.textContent = quest.name || quest.quest_name || `Quest ${opt.value}`;
+        opt.value = quest.quest_id || quest.serverId || quest.questId || '';
+        opt.textContent = quest.quest_name || quest.name || `Quest ${opt.value}`;
         select.appendChild(opt);
     });
 }
@@ -2335,9 +2409,11 @@ function collectMultiSelectValues(selectId) {
 
 function generateQuestPreview() {
     const settlementId = document.getElementById('questGenerateSettlement')?.value || '';
+    const locationId = document.getElementById('questGenerateLocation')?.value || '';
     const prompt = document.getElementById('questGeneratePrompt')?.value || '';
     const payload = {
         settlementId,
+        locationId,
         npcs: collectMultiSelectValues('questGenerateNpcs'),
         enemies: collectMultiSelectValues('questGenerateEnemies'),
         rewards: collectMultiSelectValues('questGenerateRewards'),
@@ -2346,10 +2422,6 @@ function generateQuestPreview() {
     };
 
     console.log('Quest generate payload:', payload);
-    const output = document.getElementById('questGenerateOutput');
-    if (output) {
-        output.textContent = JSON.stringify(payload, null, 2);
-    }
 }
 
 // Export for window

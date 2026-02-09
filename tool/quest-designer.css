@@ -118,11 +118,19 @@
     gap: 10px;
 }
 
-/* ==================== QUEST GENERATOR PANEL ==================== */
-.quest-generate-panel {
+/* ==================== QUEST GENERATOR SIDEBAR ==================== */
+.quest-generate-sidebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 420px;
     background: #101c36;
-    border-bottom: 1px solid #0f3460;
-    padding: 16px 20px 20px;
+    border-left: 1px solid #0f3460;
+    box-shadow: -12px 0 30px rgba(0, 0, 0, 0.35);
+    padding: 16px 18px 20px;
+    overflow-y: auto;
+    z-index: 30;
 }
 
 .quest-generate-header {
@@ -185,15 +193,6 @@
     gap: 10px;
 }
 
-.quest-generate-output {
-    background: #0b152c;
-    border: 1px solid #1a4a7a;
-    border-radius: 8px;
-    color: #a5b4fc;
-    padding: 10px 12px;
-    min-height: 80px;
-    white-space: pre-wrap;
-}
 
 /* ==================== BUTTONS ==================== */
 .btn-primary {
@@ -247,6 +246,7 @@
     flex: 1;
     display: flex;
     overflow: hidden;
+    position: relative;
 }
 
 .quest-canvas-wrapper {

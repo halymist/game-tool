@@ -217,45 +217,6 @@
                         <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
                     </div>
                 </div>
-
-                <div id="questGeneratePanel" class="quest-generate-panel" style="display:none;">
-                    <div class="quest-generate-header">
-                        <h3>🧠 Generate Quest</h3>
-                        <button id="questGenerateClose" class="btn-secondary">Close</button>
-                    </div>
-                    <div class="quest-generate-body">
-                        <div class="quest-generate-field">
-                            <label>Location (Settlement)</label>
-                            <select id="questGenerateSettlement"></select>
-                        </div>
-                        <div class="quest-generate-row">
-                            <div class="quest-generate-field">
-                                <label>NPCs</label>
-                                <select id="questGenerateNpcs" multiple></select>
-                            </div>
-                            <div class="quest-generate-field">
-                                <label>Enemies</label>
-                                <select id="questGenerateEnemies" multiple></select>
-                            </div>
-                            <div class="quest-generate-field">
-                                <label>Rewards</label>
-                                <select id="questGenerateRewards" multiple></select>
-                            </div>
-                            <div class="quest-generate-field">
-                                <label>Existing Quests</label>
-                                <select id="questGenerateQuests" multiple></select>
-                            </div>
-                        </div>
-                        <div class="quest-generate-field">
-                            <label>Prompt</label>
-                            <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
-                        </div>
-                        <div class="quest-generate-actions">
-                            <button id="questGenerateRun" class="btn-primary">Generate</button>
-                            <pre id="questGenerateOutput" class="quest-generate-output"></pre>
-                        </div>
-                    </div>
-                </div>
                 
                 <!-- Main content area with canvas and sidebar -->
                 <div class="quest-main-area">
@@ -489,6 +450,48 @@
                             <!-- Actions -->
                             <div class="sidebar-actions">
                                 <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">🗑️ Delete Option</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="questGeneratePanel" class="quest-generate-sidebar" style="display:none;">
+                        <div class="quest-generate-header">
+                            <h3>🧠 Generate Quest</h3>
+                            <button id="questGenerateClose" class="btn-secondary">Close</button>
+                        </div>
+                        <div class="quest-generate-body">
+                            <div class="quest-generate-field">
+                                <label>Settlement</label>
+                                <select id="questGenerateSettlement"></select>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Location</label>
+                                <select id="questGenerateLocation"></select>
+                            </div>
+                            <div class="quest-generate-row">
+                                <div class="quest-generate-field">
+                                    <label>NPCs</label>
+                                    <select id="questGenerateNpcs" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Enemies</label>
+                                    <select id="questGenerateEnemies" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Rewards</label>
+                                    <select id="questGenerateRewards" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Relevant Quests</label>
+                                    <select id="questGenerateQuests" multiple></select>
+                                </div>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Prompt</label>
+                                <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
+                            </div>
+                            <div class="quest-generate-actions">
+                                <button id="questGenerateRun" class="btn-primary">Generate</button>
                             </div>
                         </div>
                     </div>
