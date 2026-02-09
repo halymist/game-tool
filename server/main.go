@@ -234,6 +234,10 @@ func main() {
 	http.HandleFunc("/api/updateNpc", corsHandler(handleUpdateNpc))
 	http.HandleFunc("/api/deleteNpc", corsHandler(handleDeleteNpc))
 
+	// Server management endpoints
+	http.HandleFunc("/api/getServers", corsHandler(handleGetServers))
+	http.HandleFunc("/api/createServer", corsHandler(handleCreateServer))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")

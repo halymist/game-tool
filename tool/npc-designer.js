@@ -22,7 +22,6 @@ async function initNpcManager() {
 }
 
 function setupNpcListeners() {
-    document.getElementById('npcNewBtn')?.addEventListener('click', createNewNpc);
     document.getElementById('npcSearch')?.addEventListener('input', filterNpcs);
     document.getElementById('npcSettlementFilter')?.addEventListener('change', filterNpcs);
 
@@ -56,6 +55,9 @@ async function loadNpcData() {
         npcState.npcs = data.npcs || [];
         npcState.filtered = [...npcState.npcs];
         renderNpcTable();
+        if (!npcState.selectedId) {
+            createNewNpc();
+        }
     } catch (error) {
         console.error('Error loading NPCs:', error);
         setNpcStatus('Failed to load NPCs', true);
@@ -103,7 +105,7 @@ function renderNpcTable() {
     if (!tbody) return;
 
     if (!npcState.filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="npc-empty">No NPCs found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="2" class="npc-empty">No NPCs found</td></tr>';
         return;
     }
 
@@ -111,7 +113,6 @@ function renderNpcTable() {
         <tr class="${npcState.selectedId === npc.npc_id ? 'selected' : ''}" data-id="${npc.npc_id}">
             <td>${escapeHtml(npc.name)}</td>
             <td>${escapeHtml(npc.settlement_name || '—')}</td>
-            <td><button type="button" class="btn-cancel" onclick="event.stopPropagation(); selectNpc(${npc.npc_id})">Edit</button></td>
         </tr>
     `).join('');
 

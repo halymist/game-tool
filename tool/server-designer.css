@@ -1,0 +1,108 @@
+/* Server Manager Styles */
+
+.server-manager-container {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 20px;
+    padding: 20px;
+    height: calc(100vh - 140px);
+    box-sizing: border-box;
+}
+
+.server-list-panel,
+.server-editor-panel {
+    background: #1e2a4a;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.server-list-header,
+.server-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.server-list-header h3,
+.server-editor-header h3 {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 18px;
+}
+
+.server-status {
+    font-size: 13px;
+    color: #a0aec0;
+}
+
+.server-status.success {
+    color: #48bb78;
+}
+
+.server-status.error {
+    color: #fc8181;
+}
+
+.server-table-wrapper {
+    overflow: auto;
+    flex: 1;
+}
+
+.server-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.server-table th,
+.server-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #0f3460;
+    color: #e2e8f0;
+}
+
+.server-table th {
+    text-align: left;
+    color: #a0aec0;
+    font-weight: 600;
+}
+
+.server-empty {
+    text-align: center;
+    color: #a0aec0;
+    padding: 20px;
+}
+
+.server-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.server-form-row label {
+    display: block;
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 6px;
+}
+
+.server-form-row input {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+}
+
+.server-form-actions {
+    display: flex;
+    justify-content: flex-end;
+}

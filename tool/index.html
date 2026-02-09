@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/talent-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/npc-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/server-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -638,7 +639,6 @@
                             <label>Perk Slot</label>
                             <label class="talent-checkbox">
                                 <input type="checkbox" id="talentPerkSlot">
-                                <span>Perk slot</span>
                             </label>
                         </div>
                         <div class="talent-form-row">
@@ -1274,7 +1274,6 @@
                 <div class="npc-list-panel">
                     <div class="npc-list-header">
                         <h3>NPCs</h3>
-                        <button type="button" id="npcNewBtn" class="btn-save">+ New NPC</button>
                     </div>
                     <div class="npc-filters">
                         <input type="text" id="npcSearch" placeholder="Search by name..." autocomplete="off">
@@ -1288,7 +1287,6 @@
                                 <tr>
                                     <th>Name</th>
                                     <th>Settlement</th>
-                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody id="npcTableBody">
@@ -1670,10 +1668,49 @@
 
         <!-- Server Management Section -->
         <div id="servers-content" class="page-content" style="display: none;">
-            <div class="tool-header">
-                <div class="tool-icon">🖥️</div>
-                <h1>Server Management</h1>
-                <p>Monitor server health, performance, and manage game instances.</p>
+            <div class="server-manager-container">
+                <div class="server-list-panel">
+                    <div class="server-list-header">
+                        <h3>Servers</h3>
+                        <span id="serverStatus" class="server-status"></span>
+                    </div>
+                    <div class="server-table-wrapper">
+                        <table class="server-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Starts</th>
+                                    <th>Ends</th>
+                                    <th>Characters</th>
+                                    <th>Players</th>
+                                    <th>Plan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serverTableBody">
+                                <tr><td colspan="6" class="server-empty">No servers found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="server-editor-panel">
+                    <div class="server-editor-header">
+                        <h3>Add Server</h3>
+                    </div>
+                    <form id="serverForm" class="server-form">
+                        <div class="server-form-row">
+                            <label>Name</label>
+                            <input type="text" id="serverName" placeholder="Server name...">
+                        </div>
+                        <div class="server-form-row">
+                            <label>Starts At</label>
+                            <input type="datetime-local" id="serverStartsAt">
+                        </div>
+                        <div class="server-form-actions">
+                            <button type="submit" id="serverCreateBtn" class="btn-save">Create Server</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -1849,6 +1886,18 @@
                         window.loadNpcData();
                     }
                 }
+
+                // If showing the server manager, initialize or reload
+                if (pageName === 'servers') {
+                    if (window.initServerManager && !window.serverManagerInitialized) {
+                        console.log('Initializing server manager...');
+                        window.initServerManager();
+                        window.serverManagerInitialized = true;
+                    }
+                    if (window.loadServerData) {
+                        window.loadServerData();
+                    }
+                }
                 
                 // If showing the expedition designer, auto-load data
                 if (pageName === 'dungeons') {
@@ -1933,6 +1982,7 @@
     <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
     <script src="http://localhost:8080/static/talent-designer.js"></script>
     <script src="http://localhost:8080/static/npc-designer.js"></script>
+    <script src="http://localhost:8080/static/server-designer.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>
