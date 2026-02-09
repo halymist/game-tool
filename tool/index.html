@@ -1711,20 +1711,12 @@
                 </div>
                 <div class="concept-body">
                     <div class="concept-editor">
+                        <label for="conceptSystemPrompt">System Prompt</label>
+                        <textarea id="conceptSystemPrompt" placeholder="Enter global system prompt..."></textarea>
+                        <label for="conceptWildsPrompt">Wilds Prompt</label>
+                        <textarea id="conceptWildsPrompt" placeholder="Enter wilds prompt..."></textarea>
                         <label for="conceptJson">Concept JSON</label>
                         <textarea id="conceptJson" placeholder="Enter concept JSON..."></textarea>
-                    </div>
-                    <div class="concept-tools">
-                        <h3>Add to array</h3>
-                        <div class="concept-tool-row">
-                            <label for="conceptPath">Path</label>
-                            <input type="text" id="conceptPath" placeholder="e.g. tone or questDesignPhilosophy.choiceDesign">
-                        </div>
-                        <div class="concept-tool-row">
-                            <label for="conceptValue">Value</label>
-                            <textarea id="conceptValue" placeholder="String or JSON value"></textarea>
-                        </div>
-                        <button id="conceptAddBtn" class="btn-secondary">Add to array</button>
                     </div>
                 </div>
             </div>
@@ -1923,6 +1915,7 @@
             'settlements': { title: 'Settlement Designer', element: 'settlements-content' },
             'npcs': { title: 'NPC Manager', element: 'npcs-content' },
             'players': { title: 'Player Management', element: 'players-content' },
+            'concept': { title: 'Concept', element: 'concept-content' },
             'servers': { title: 'Server Management', element: 'servers-content' },
             'moderation': { title: 'Chat Moderation', element: 'moderation-content' },
             'analytics': { title: 'Game Analytics', element: 'analytics-content' }
@@ -2001,6 +1994,18 @@
                     }
                     if (window.loadServerData) {
                         window.loadServerData();
+                    }
+                }
+
+                // If showing concept editor, initialize or reload
+                if (pageName === 'concept') {
+                    if (window.initConceptManager && !window.conceptManagerInitialized) {
+                        console.log('Initializing concept editor...');
+                        window.initConceptManager();
+                        window.conceptManagerInitialized = true;
+                    }
+                    if (window.loadConceptData) {
+                        window.loadConceptData();
                     }
                 }
 
@@ -2106,5 +2111,6 @@
     <script src="http://localhost:8080/static/expedition-designer.js"></script>
     <script src="http://localhost:8080/static/settlement-designer.js"></script>
     <script src="http://localhost:8080/static/quest-designer.js"></script>
+    <script src="http://localhost:8080/static/concept-designer.js"></script>
 </body>
 </html>

@@ -13,5 +13,11 @@ ALTER TABLE game.npc
 CREATE TABLE IF NOT EXISTS game.concept (
     id INTEGER PRIMARY KEY DEFAULT 1,
     payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    system_prompt JSONB NOT NULL DEFAULT '{}'::jsonb,
+    wilds_prompt JSONB NOT NULL DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE game.concept
+    ADD COLUMN IF NOT EXISTS system_prompt JSONB NOT NULL DEFAULT '{}'::jsonb,
+    ADD COLUMN IF NOT EXISTS wilds_prompt JSONB NOT NULL DEFAULT '{}'::jsonb;
