@@ -277,6 +277,7 @@ var validItemTypes = map[string]bool{
 	"gem":        true,
 	"scroll":     true,
 	"potion":     true,
+	"ration":     true,
 	"ingredient": true,
 }
 

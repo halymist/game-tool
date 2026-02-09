@@ -2,7 +2,8 @@
 
 let moderationState = {
     words: [],
-    filter: ''
+    filter: '',
+    servers: []
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -48,6 +49,7 @@ async function loadModerationData() {
 
         moderationState.words = data.words || [];
         renderBannedWords();
+        await loadActiveServers();
     } catch (error) {
         console.error('Error loading banned words:', error);
         setModerationStatus('Failed to load banned words', true);
@@ -55,26 +57,74 @@ async function loadModerationData() {
 }
 
 function renderBannedWords() {
-    const tbody = document.getElementById('bannedWordTableBody');
-    if (!tbody) return;
+    const list = document.getElementById('bannedWordList');
+    if (!list) return;
 
     const filter = moderationState.filter;
     const filtered = moderationState.words.filter(w => (w.word || '').toLowerCase().includes(filter));
 
     if (!filtered.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="moderation-empty">No banned words found</td></tr>';
+        list.innerHTML = '<div class="moderation-empty">No banned words found</div>';
         return;
     }
 
-    tbody.innerHTML = filtered.map(w => `
-        <tr>
-            <td>${escapeHtml(w.word || '')}</td>
-            <td><span class="severity-pill severity-${w.severity}">${w.severity ?? 1}</span></td>
-            <td>
-                <button class="btn-danger btn-small" onclick="deleteBannedWord(${w.id})">Delete</button>
-            </td>
-        </tr>
+    list.innerHTML = filtered.map(w => `
+        <div class="banned-word-item">
+            <div class="banned-word-text">${escapeHtml(w.word || '')}</div>
+            <span class="severity-badge severity-${w.severity ?? 1}">Severity ${w.severity ?? 1}</span>
+            <button class="banned-word-delete" onclick="deleteBannedWord(${w.id})" title="Delete">✕</button>
+        </div>
     `).join('');
+}
+
+async function loadActiveServers() {
+    const serverList = document.getElementById('chatServerList');
+    if (!serverList) return;
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+
+        const response = await fetch('http://localhost:8080/api/getServers', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!data.success) {
+            serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+            return;
+        }
+
+        moderationState.servers = data.servers || [];
+        window.servers = moderationState.servers;
+        renderActiveServers();
+    } catch (error) {
+        console.error('Error loading servers:', error);
+        serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+    }
+}
+
+function renderActiveServers() {
+    const serverList = document.getElementById('chatServerList');
+    if (!serverList) return;
+
+    const now = new Date();
+    const active = moderationState.servers.filter(s => {
+        const start = s.created_at ? new Date(s.created_at) : null;
+        const end = s.ends_at ? new Date(s.ends_at) : null;
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+        return start <= now && end >= now;
+    });
+
+    if (!active.length) {
+        serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+        return;
+    }
+
+    serverList.innerHTML = active.map(s => {
+        const day = getServerDayFromDates(s.created_at, now);
+        const name = escapeHtml(s.name || `Server ${s.id}`);
+        return `<div class="chat-server-item">${name} • Day ${day}</div>`;
+    }).join('');
 }
 
 async function addBannedWord(e) {
@@ -162,6 +212,16 @@ function setModerationStatus(message, isError) {
             status.className = 'moderation-status';
         }, 2000);
     }
+}
+
+function getServerDayFromDates(startValue, nowValue) {
+    const start = new Date(startValue);
+    if (Number.isNaN(start.getTime())) return 1;
+    const now = nowValue instanceof Date ? nowValue : new Date(nowValue);
+    const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.max(0, Math.floor((nowDate - startDate) / 86400000));
+    return diffDays + 1;
 }
 
 function escapeHtml(str) {

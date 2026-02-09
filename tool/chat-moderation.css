@@ -1,21 +1,28 @@
-.moderation-container {
+.moderation-layout {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr 1.2fr;
     gap: 20px;
-    margin-top: 20px;
+    padding: 20px;
+    height: calc(100vh - 160px);
+    box-sizing: border-box;
 }
 
 .moderation-panel {
-    background: #fff;
-    border-radius: 12px;
+    background: #141a2a;
+    border: 1px solid #24304a;
+    border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .moderation-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
     margin-bottom: 12px;
 }
 
@@ -24,96 +31,177 @@
     font-size: 18px;
 }
 
-.moderation-actions input {
+.moderation-filter {
     padding: 8px 10px;
-    border: 1px solid #d4d8e1;
+    border: 1px solid #334155;
     border-radius: 8px;
-    min-width: 200px;
+    background: #0b1220;
+    color: #e2e8f0;
+    min-width: 180px;
+}
+
+.moderation-add-row {
+    display: grid;
+    grid-template-columns: 1.2fr 0.7fr auto;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.moderation-add-row input,
+.moderation-add-row select {
+    padding: 8px 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0b1220;
+    color: #e2e8f0;
 }
 
 .moderation-status {
     min-height: 20px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     font-size: 13px;
 }
 
 .moderation-status.success {
-    color: #1b7f2b;
+    color: #68d391;
 }
 
 .moderation-status.error {
-    color: #c0392b;
+    color: #fc8181;
 }
 
-.moderation-table-wrapper {
-    max-height: 520px;
+.moderation-list {
     overflow: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.moderation-table {
-    width: 100%;
-    border-collapse: collapse;
+.banned-word-item {
+    position: relative;
+    background: #0f172a;
+    border: 1px solid #253148;
+    border-radius: 10px;
+    padding: 10px 36px 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
-.moderation-table th,
-.moderation-table td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #eef0f4;
-    text-align: left;
-}
-
-.moderation-table th {
+.banned-word-text {
     font-weight: 600;
-    color: #4a5568;
-    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.severity-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid transparent;
+}
+
+.severity-1 { background: rgba(72, 187, 120, 0.15); color: #68d391; border-color: rgba(72, 187, 120, 0.4); }
+.severity-2 { background: rgba(99, 179, 237, 0.15); color: #63b3ed; border-color: rgba(99, 179, 237, 0.4); }
+.severity-3 { background: rgba(246, 224, 94, 0.15); color: #f6e05e; border-color: rgba(246, 224, 94, 0.4); }
+.severity-4 { background: rgba(245, 101, 101, 0.15); color: #f56565; border-color: rgba(245, 101, 101, 0.4); }
+.severity-5 { background: rgba(229, 62, 62, 0.15); color: #fc8181; border-color: rgba(229, 62, 62, 0.4); }
+
+.banned-word-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid #334155;
+    background: transparent;
+    color: #a0aec0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.banned-word-delete:hover {
+    color: #fc8181;
+    border-color: rgba(252, 129, 129, 0.6);
 }
 
 .moderation-empty {
     text-align: center;
-    color: #8a94a6;
+    color: #94a3b8;
     padding: 24px 0;
 }
 
-.moderation-form {
-    display: flex;
-    flex-direction: column;
+.chat-panel {
     gap: 12px;
 }
 
-.moderation-form label {
-    font-size: 13px;
-    color: #4a5568;
-}
-
-.moderation-form input,
-.moderation-form select {
-    padding: 8px 10px;
-    border: 1px solid #d4d8e1;
-    border-radius: 8px;
-}
-
-.btn-small {
-    padding: 6px 10px;
+.chat-subtitle {
     font-size: 12px;
+    color: #94a3b8;
 }
 
-.severity-pill {
-    display: inline-block;
-    padding: 4px 8px;
+.chat-servers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.chat-server-item {
+    background: #0b1220;
+    border: 1px solid #253148;
+    color: #e2e8f0;
+    padding: 6px 10px;
     border-radius: 999px;
     font-size: 12px;
-    background: #eef2f7;
-    color: #374151;
 }
 
-.severity-1 { background: #e8f5e9; color: #1b7f2b; }
-.severity-2 { background: #f1f8e9; color: #4a7f1b; }
-.severity-3 { background: #fff8e1; color: #8a6d1b; }
-.severity-4 { background: #ffebee; color: #b23a3a; }
-.severity-5 { background: #fdecea; color: #a4161a; }
+.chat-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #253148;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #0b1220;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 12px;
+    overflow: auto;
+}
+
+.chat-empty {
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 24px;
+}
+
+.chat-input-row {
+    border-top: 1px solid #253148;
+    padding: 10px;
+}
+
+.chat-input-row input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #94a3b8;
+}
 
 @media (max-width: 1100px) {
-    .moderation-container {
+    .moderation-layout {
         grid-template-columns: 1fr;
+        height: auto;
     }
 }

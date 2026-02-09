@@ -15,6 +15,7 @@ type ServerRecord struct {
 	EndsAt         time.Time   `json:"ends_at"`
 	CharacterCount int         `json:"character_count"`
 	PlayerCount    int         `json:"player_count"`
+	CurrentDay     int         `json:"current_day"`
 	Plan           []WorldPlan `json:"plan"`
 }
 
@@ -94,6 +95,7 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: err.Error()})
 			return
 		}
+		s.CurrentDay = calculateServerDay(s.CreatedAt, time.Now())
 		plan, planErr := getWorldPlanForServer(s.ID)
 		if planErr != nil {
 			log.Printf("Warning: could not load world plan for server %d: %v", s.ID, planErr)
@@ -171,6 +173,17 @@ func nullTimePtr(t time.Time) *time.Time {
 		return nil
 	}
 	return &t
+}
+
+func calculateServerDay(start time.Time, now time.Time) int {
+	startDate := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, start.Location())
+	current := now.In(start.Location())
+	currentDate := time.Date(current.Year(), current.Month(), current.Day(), 0, 0, 0, 0, start.Location())
+	if currentDate.Before(startDate) {
+		return 1
+	}
+	days := int(currentDate.Sub(startDate).Hours() / 24)
+	return days + 1
 }
 
 func getWorldPlanForServer(serverID int) ([]WorldPlan, error) {

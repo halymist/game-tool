@@ -707,6 +707,7 @@
                             <option value="gem">Gem</option>
                             <option value="scroll">Scroll</option>
                             <option value="potion">Potion</option>
+                            <option value="ration">Ration</option>
                         </select>
                     </div>
                     
@@ -752,6 +753,7 @@
                                         <option value="gem">Gem</option>
                                         <option value="scroll">Scroll</option>
                                         <option value="potion">Potion</option>
+                                        <option value="ration">Ration</option>
                                         <option value="elixir">Elixir</option>
                                         <option value="ingredient">Ingredient</option>
                                     </select>
@@ -1722,51 +1724,40 @@
                 <h1>Chat Moderation</h1>
                 <p>Manage banned words and severity levels for chat moderation.</p>
             </div>
-            <div class="moderation-container">
+            <div class="moderation-layout">
                 <div class="moderation-panel">
                     <div class="moderation-header">
                         <h3>Banned Words</h3>
-                        <div class="moderation-actions">
-                            <input type="text" id="bannedWordFilter" placeholder="Filter words...">
-                        </div>
+                        <input type="text" id="bannedWordFilter" class="moderation-filter" placeholder="Filter words...">
                     </div>
-                    <div id="bannedWordStatus" class="moderation-status"></div>
-                    <div class="moderation-table-wrapper">
-                        <table class="moderation-table">
-                            <thead>
-                                <tr>
-                                    <th>Word</th>
-                                    <th>Severity</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bannedWordTableBody">
-                                <tr><td colspan="3" class="moderation-empty">No banned words found</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="moderation-panel">
-                    <div class="moderation-header">
-                        <h3>Add Banned Word</h3>
-                    </div>
-                    <form id="bannedWordForm" class="moderation-form">
-                        <div>
-                            <label for="bannedWordInput">Word</label>
-                            <input type="text" id="bannedWordInput" placeholder="Enter banned word...">
-                        </div>
-                        <div>
-                            <label for="bannedWordSeverity">Severity</label>
-                            <select id="bannedWordSeverity">
-                                <option value="1" selected>1 - Low</option>
-                                <option value="2">2</option>
-                                <option value="3">3 - Medium</option>
-                                <option value="4">4</option>
-                                <option value="5">5 - High</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-save">Add Word</button>
+                    <form id="bannedWordForm" class="moderation-add-row">
+                        <input type="text" id="bannedWordInput" placeholder="Add banned word...">
+                        <select id="bannedWordSeverity">
+                            <option value="1" selected>Severity 1</option>
+                            <option value="2">Severity 2</option>
+                            <option value="3">Severity 3</option>
+                            <option value="4">Severity 4</option>
+                            <option value="5">Severity 5</option>
+                        </select>
+                        <button type="submit" class="btn-save">Add</button>
                     </form>
+                    <div id="bannedWordStatus" class="moderation-status"></div>
+                    <div class="moderation-list" id="bannedWordList"></div>
+                </div>
+                <div class="moderation-panel chat-panel">
+                    <div class="moderation-header">
+                        <h3>Live Chat</h3>
+                        <span class="chat-subtitle">Active servers</span>
+                    </div>
+                    <div class="chat-servers" id="chatServerList"></div>
+                    <div class="chat-window">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-empty">Chat stream will appear here.</div>
+                        </div>
+                        <div class="chat-input-row">
+                            <input type="text" placeholder="Reply tools coming soon..." disabled>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

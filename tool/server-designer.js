@@ -38,6 +38,7 @@ async function loadServerData() {
         }
 
         serverState.servers = data.servers || [];
+        window.servers = serverState.servers;
         renderServerTable();
     } catch (error) {
         console.error('Error loading servers:', error);
@@ -61,7 +62,7 @@ function renderServerTable() {
             <td>${formatDateTime(s.ends_at)}</td>
             <td>${s.character_count ?? 0}</td>
             <td>${s.player_count ?? 0}</td>
-            <td>${renderServerPlan(s.plan || [])}</td>
+            <td>${renderServerPlan(s.plan || [], s.current_day)}</td>
         </tr>
     `).join('');
 }
@@ -130,8 +131,9 @@ function escapeHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderServerPlan(plan) {
+function renderServerPlan(plan, currentDay) {
     if (!plan || plan.length === 0) return '<span class="server-plan">—</span>';
+    const currentLabel = currentDay ? `<span class="server-plan-current">Current day: ${currentDay}</span>` : '';
     const items = plan.map(p => {
         const flags = [
             p.blacksmith ? 'B' : '',
@@ -142,7 +144,8 @@ function renderServerPlan(plan) {
         ].filter(Boolean).join('');
         const blessings = [p.blessing1, p.blessing2, p.blessing3].filter(v => v != null).join(',');
         const settlement = p.settlement_name || `#${p.settlement_id}`;
-        return `<span class="server-plan-item">Day ${p.server_day} • F${p.faction} • ${settlement}${flags ? ' • ' + flags : ''}${blessings ? ' • Blessings ' + blessings : ''}</span>`;
+        const isCurrent = currentDay && p.server_day === currentDay;
+        return `<span class="server-plan-item ${isCurrent ? 'current' : ''}">Day ${p.server_day} • F${p.faction} • ${settlement}${flags ? ' • ' + flags : ''}${blessings ? ' • Blessings ' + blessings : ''}</span>`;
     }).join('');
-    return `<div class="server-plan">${items}</div>`;
+    return `<div class="server-plan">${currentLabel}${items}</div>`;
 }

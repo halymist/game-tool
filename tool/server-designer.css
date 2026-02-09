@@ -114,7 +114,18 @@
     line-height: 1.4;
 }
 
+.server-plan-current {
+    display: block;
+    margin-bottom: 6px;
+    color: #63b3ed;
+    font-weight: 600;
+}
+
 .server-plan-item {
     display: block;
     margin-bottom: 4px;
+}
+
+.server-plan-item.current {
+    color: #f6e05e;
 }

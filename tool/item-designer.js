@@ -3,11 +3,12 @@
 // Item type constants matching database enum
 const ITEM_TYPES = [
     'head', 'chest', 'hands', 'feet', 'belt', 'legs', 'back',
-    'amulet', 'weapon', 'hammer', 'gem', 'scroll', 'potion'
+    'amulet', 'weapon', 'hammer', 'gem', 'scroll', 'potion', 'ration'
 ];
 
 // Weapon types that show damage fields
 const WEAPON_TYPES = ['weapon', 'hammer'];
+const RATION_EFFECT_ID = 201;
 
 // Current state
 let allItems = [];
@@ -617,6 +618,7 @@ function toggleWeaponStats() {
     
     // Also update effect dropdown based on type
     populateEffectDropdown();
+    applyItemTypeRules();
 }
 
 function populateEffectDropdown() {
@@ -631,6 +633,16 @@ function populateEffectDropdown() {
     
     console.log('Populating item effect dropdown with', effects.length, 'effects for type:', selectedType);
     
+    if (selectedType === 'ration') {
+        const rationEffect = effects.find(e => e.id === RATION_EFFECT_ID);
+        const label = rationEffect ? rationEffect.name : `Effect ${RATION_EFFECT_ID}`;
+        effectSelect.innerHTML = `<option value="${RATION_EFFECT_ID}">${label}</option>`;
+        effectSelect.value = String(RATION_EFFECT_ID);
+        effectSelect.disabled = true;
+        return;
+    }
+
+    effectSelect.disabled = false;
     effectSelect.innerHTML = '<option value="">-- No Effect --</option>';
     
     // Filter effects: slot must match item type OR slot is null (applicable to all)
@@ -652,17 +664,69 @@ function populateEffectDropdown() {
     }
 }
 
+function applyItemTypeRules() {
+    const itemType = document.getElementById('itemType')?.value || '';
+    const isRation = itemType === 'ration';
+    const form = document.getElementById('itemForm');
+    const isLocked = form?.classList.contains('form-locked');
+
+    const statIds = ['itemStrength', 'itemStamina', 'itemAgility', 'itemLuck', 'itemArmor'];
+    const weaponIds = ['itemMinDamage', 'itemMaxDamage'];
+    const socketInput = document.getElementById('itemSocket');
+    const effectSelect = document.getElementById('itemEffect');
+
+    if (isRation) {
+        statIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (!isLocked) el.disabled = true;
+            }
+        });
+        weaponIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.value = '';
+                if (!isLocked) el.disabled = true;
+            }
+        });
+        if (socketInput) {
+            socketInput.checked = false;
+            if (!isLocked) socketInput.disabled = true;
+        }
+        if (effectSelect) {
+            effectSelect.value = String(RATION_EFFECT_ID);
+            if (!isLocked) effectSelect.disabled = true;
+        }
+        return;
+    }
+
+    if (!isLocked) {
+        statIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = false;
+        });
+        weaponIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = false;
+        });
+        if (socketInput) socketInput.disabled = false;
+        if (effectSelect) effectSelect.disabled = false;
+    }
+}
+
 async function saveItem(e) {
     e.preventDefault();
     
     const itemId = document.getElementById('itemId').value;
     const isUpdate = !!itemId;
+    const itemType = document.getElementById('itemType').value;
     
     // Gather form data
     const itemData = {
         id: itemId ? parseInt(itemId) : null,
         name: document.getElementById('itemName').value,
-        type: document.getElementById('itemType').value,
+        type: itemType,
         assetID: parseInt(document.getElementById('itemAssetID').value) || 1,
         silver: parseInt(document.getElementById('itemSilver').value) || 10,
         strength: parseIntOrNull(document.getElementById('itemStrength').value),
@@ -676,6 +740,18 @@ async function saveItem(e) {
         minDamage: parseIntOrNull(document.getElementById('itemMinDamage').value),
         maxDamage: parseIntOrNull(document.getElementById('itemMaxDamage').value)
     };
+
+    if (itemType === 'ration') {
+        itemData.effectID = RATION_EFFECT_ID;
+        itemData.strength = null;
+        itemData.stamina = null;
+        itemData.agility = null;
+        itemData.luck = null;
+        itemData.armor = null;
+        itemData.socket = false;
+        itemData.minDamage = null;
+        itemData.maxDamage = null;
+    }
     
     console.log('Saving item:', itemData);
     
