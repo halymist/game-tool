@@ -442,7 +442,7 @@ function buildTalentTreeGrid() {
                     <div class="talent-points">
                         <span class="current-points">0</span>/<span class="max-points">${talent.maxPoints}</span>
                     </div>
-                    ${talent.perkSlot > 0 ? '<div class="perk-indicator">⭐</div>' : ''}
+                    ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
                 `;
                 
                 cell.addEventListener('click', () => showTalentUpgradeModal(talent));
@@ -484,7 +484,7 @@ function showTalentUpgradeModal(talent) {
                     <span class="current">${current.points}</span> / <span class="max">${talent.maxPoints}</span> points
                 </div>
                 <p class="talent-upgrade-desc">${escapeHtml(descText)}</p>
-                ${talent.perkSlot > 0 ? '<p class="talent-perk-note">⭐ This talent has a perk slot when maxed</p>' : ''}
+                ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<p class="talent-perk-note">⭐ This talent has a perk slot when maxed</p>' : ''}
             </div>
             <div class="talent-upgrade-actions">
                 ${canUpgrade ? `<button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})">⬆️ Add Point</button>` : '<span class="maxed-text">MAXED</span>'}
@@ -523,7 +523,7 @@ function upgradeTalent(talentId) {
         closeTalentUpgradeModal();
         
         // If max points reached and has perk slot, prompt for perk
-        if (current.points + 1 === talent.maxPoints && talent.perkSlot > 0) {
+        if (current.points + 1 === talent.maxPoints && (talent.perkSlot === true || talent.perkSlot > 0)) {
             showPerkSelectionModal(talent);
         }
     }

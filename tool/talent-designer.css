@@ -1,0 +1,181 @@
+/* Talent Designer Styles */
+
+.talent-designer-container {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 20px;
+    padding: 20px;
+    height: calc(100vh - 140px);
+    box-sizing: border-box;
+}
+
+.talent-grid-panel,
+.talent-editor-panel {
+    background: #1e2a4a;
+    border: 1px solid #0f3460;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.talent-grid-header,
+.talent-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.talent-grid-header h3,
+.talent-editor-header h3 {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 18px;
+}
+
+.talent-grid-header input {
+    flex: 1;
+    max-width: 260px;
+    padding: 8px 10px;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+}
+
+.talent-grid-header input:focus {
+    outline: none;
+    border-color: #38a169;
+    box-shadow: 0 0 0 2px rgba(56, 161, 105, 0.2);
+}
+
+.talent-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(7, minmax(90px, 1fr));
+    grid-template-rows: repeat(8, minmax(72px, 1fr));
+    gap: 8px;
+    overflow: auto;
+    padding: 4px;
+}
+
+.talent-cell {
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.talent-cell:hover {
+    border-color: #63b3ed;
+    transform: translateY(-1px);
+}
+
+.talent-cell.selected {
+    border-color: #38a169;
+    box-shadow: 0 0 0 2px rgba(56, 161, 105, 0.3);
+}
+
+.talent-cell .talent-id {
+    font-size: 11px;
+    color: #a0aec0;
+}
+
+.talent-cell .talent-name {
+    font-size: 12px;
+    color: #e2e8f0;
+    font-weight: 600;
+    margin-top: 4px;
+    line-height: 1.2;
+    max-height: 2.4em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.talent-cell .talent-meta {
+    font-size: 10px;
+    color: #718096;
+}
+
+.talent-editor-status {
+    font-size: 12px;
+    color: #a0aec0;
+}
+
+.talent-editor-status.success {
+    color: #48bb78;
+}
+
+.talent-editor-status.error {
+    color: #fc8181;
+}
+
+.talent-editor-empty {
+    color: #a0aec0;
+    font-size: 14px;
+    margin-top: 16px;
+}
+
+.talent-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.talent-form-row label {
+    display: block;
+    font-size: 12px;
+    color: #a0aec0;
+    margin-bottom: 6px;
+}
+
+.talent-form-row input,
+.talent-form-row select,
+.talent-form-row textarea {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+}
+
+.talent-form-row input:focus,
+.talent-form-row select:focus,
+.talent-form-row textarea:focus {
+    outline: none;
+    border-color: #63b3ed;
+}
+
+.talent-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e2e8f0;
+    font-size: 13px;
+}
+
+.talent-grid-coords {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.talent-form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}

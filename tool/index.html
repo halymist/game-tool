@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/talent-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -50,6 +51,16 @@
                         </div>
                         <div class="tool-card-body">
                             <p class="tool-card-description">Design monsters, bosses, and enemy encounters for your game world.</p>
+                        </div>
+                    </a>
+
+                    <a href="#" onclick="showPage('talents'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🌟</span>
+                            <h4 class="tool-card-title">Talent Editor</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Edit talent definitions, effects, and max points for the talent tree.</p>
                         </div>
                     </a>
 
@@ -571,6 +582,77 @@
                         <button type="button" id="enemyUploadNewBtn" class="btn-upload">📤 Upload New</button>
                     </div>
                     <div id="enemyAssetGrid" class="asset-gallery-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Talent Editor Section -->
+        <div id="talents-content" class="page-content" style="display: none;">
+            <div class="talent-designer-container">
+                <div class="talent-grid-panel">
+                    <div class="talent-grid-header">
+                        <h3>Talent Grid</h3>
+                        <input type="text" id="talentSearch" placeholder="Search talent name or ID..." autocomplete="off">
+                    </div>
+                    <div id="talentGrid" class="talent-grid">
+                        <!-- 7x8 grid will be populated by JS -->
+                    </div>
+                </div>
+
+                <div class="talent-editor-panel">
+                    <div class="talent-editor-header">
+                        <h3>Talent Editor</h3>
+                        <span id="talentEditorStatus" class="talent-editor-status"></span>
+                    </div>
+                    <div id="talentEditorEmpty" class="talent-editor-empty">
+                        Select a talent to edit its settings.
+                    </div>
+                    <form id="talentEditorForm" class="talent-editor-form" style="display: none;">
+                        <div class="talent-form-row">
+                            <label>Talent ID</label>
+                            <input type="text" id="talentId" readonly>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Talent Name</label>
+                            <input type="text" id="talentName" required>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Max Points</label>
+                            <input type="number" id="talentMaxPoints" min="1" max="20" required>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Perk Slot</label>
+                            <label class="talent-checkbox">
+                                <input type="checkbox" id="talentPerkSlot">
+                                <span>Has perk slot at max points</span>
+                            </label>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Effect</label>
+                            <select id="talentEffectId">
+                                <option value="">-- No Effect --</option>
+                            </select>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Effect Factor</label>
+                            <input type="number" id="talentFactor" placeholder="e.g. 5">
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Description</label>
+                            <textarea id="talentDescription" rows="4" placeholder="Talent description..."></textarea>
+                        </div>
+                        <div class="talent-form-row">
+                            <label>Grid Position</label>
+                            <div class="talent-grid-coords">
+                                <input type="text" id="talentRow" readonly>
+                                <input type="text" id="talentCol" readonly>
+                            </div>
+                        </div>
+                        <div class="talent-form-actions">
+                            <button type="button" id="talentSaveBtn" class="btn-save">💾 Save</button>
+                            <button type="button" id="talentResetBtn" class="btn-cancel">Reset</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -1618,6 +1700,7 @@
             'dashboard': { title: 'Dashboard', element: 'dashboard-content' },
             'quests': { title: 'Quest Manager', element: 'quests-content' },
             'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
+            'talents': { title: 'Talent Editor', element: 'talents-content' },
             'items': { title: 'Item Designer', element: 'items-content' },
             'perks': { title: 'Perk Designer', element: 'perks-content' },
             'dungeons': { title: 'Expeditions', element: 'dungeons-content' },
@@ -1655,6 +1738,18 @@
                 if (pageName === 'enemies' && window.enemyDesigner) {
                     console.log('Loading enemies and effects data...');
                     window.enemyDesigner.loadEnemiesAndEffects();
+                }
+
+                // If showing the talent editor, initialize or reload
+                if (pageName === 'talents') {
+                    if (window.initTalentDesigner && !window.talentDesignerInitialized) {
+                        console.log('Initializing talent editor...');
+                        window.initTalentDesigner();
+                        window.talentDesignerInitialized = true;
+                    }
+                    if (window.loadTalentEditorData) {
+                        window.loadTalentEditorData();
+                    }
                 }
                 
                 // If showing the item designer, load data
@@ -1750,6 +1845,7 @@
     <script src="http://localhost:8080/static/global-data.js"></script>
     <script src="http://localhost:8080/static/designer-base.js"></script>
     <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
+    <script src="http://localhost:8080/static/talent-designer.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>

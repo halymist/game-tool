@@ -70,7 +70,7 @@ func init() {
 		DB_PORT = "5432"
 	}
 	if DB_NAME == "" {
-		DB_NAME = "game_server_2"
+		DB_NAME = "Game"
 	}
 	if DB_USER == "" {
 		DB_USER = "postgres"
@@ -194,6 +194,8 @@ func main() {
 
 	// Enemy endpoints (uses tooling schema)
 	http.HandleFunc("/api/getEnemies", corsHandler(handleGetEnemies))
+	http.HandleFunc("/api/getTalentsInfo", corsHandler(handleGetTalentsInfo))
+	http.HandleFunc("/api/updateTalentInfo", corsHandler(handleUpdateTalentInfo))
 	http.HandleFunc("/api/createEnemy", corsHandler(handleCreateEnemy))
 	http.HandleFunc("/api/toggleApproveEnemy", corsHandler(handleToggleApproveEnemy))
 	http.HandleFunc("/api/mergeEnemies", corsHandler(handleMergeEnemies))
