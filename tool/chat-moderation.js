@@ -78,8 +78,8 @@ function renderBannedWords() {
 }
 
 async function loadActiveServers() {
-    const serverList = document.getElementById('chatServerList');
-    if (!serverList) return;
+    const serverSelect = document.getElementById('chatServerSelect');
+    if (!serverSelect) return;
 
     try {
         const token = await getCurrentAccessToken();
@@ -90,7 +90,7 @@ async function loadActiveServers() {
         });
         const data = await response.json();
         if (!data.success) {
-            serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+            renderServerSelect([]);
             return;
         }
 
@@ -99,13 +99,13 @@ async function loadActiveServers() {
         renderActiveServers();
     } catch (error) {
         console.error('Error loading servers:', error);
-        serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+        renderServerSelect([]);
     }
 }
 
 function renderActiveServers() {
-    const serverList = document.getElementById('chatServerList');
-    if (!serverList) return;
+    const serverSelect = document.getElementById('chatServerSelect');
+    if (!serverSelect) return;
 
     const now = new Date();
     const active = moderationState.servers.filter(s => {
@@ -115,16 +115,34 @@ function renderActiveServers() {
         return start <= now && end >= now;
     });
 
-    if (!active.length) {
-        serverList.innerHTML = '<div class="moderation-empty">No active servers</div>';
+    renderServerSelect(active);
+}
+
+function renderServerSelect(servers) {
+    const serverSelect = document.getElementById('chatServerSelect');
+    if (!serverSelect) return;
+
+    serverSelect.innerHTML = '';
+    const globalOption = document.createElement('option');
+    globalOption.value = 'global';
+    globalOption.textContent = 'Global';
+    serverSelect.appendChild(globalOption);
+
+    if (!servers.length) {
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = 'No active servers';
+        serverSelect.appendChild(emptyOption);
         return;
     }
 
-    serverList.innerHTML = active.map(s => {
-        const day = getServerDayFromDates(s.created_at, now);
-        const name = escapeHtml(s.name || `Server ${s.id}`);
-        return `<div class="chat-server-item">${name} • Day ${day}</div>`;
-    }).join('');
+    servers.forEach(s => {
+        const day = getServerDayFromDates(s.created_at, new Date());
+        const option = document.createElement('option');
+        option.value = String(s.id);
+        option.textContent = `${s.name || `Server ${s.id}`} • Day ${day}`;
+        serverSelect.appendChild(option);
+    });
 }
 
 async function addBannedWord(e) {

@@ -452,6 +452,11 @@ function populateSettlementForm(settlement) {
         descriptionInput.value = settlement.description || '';
     }
 
+    const contextInput = document.getElementById('settlementContext');
+    if (contextInput) {
+        contextInput.value = settlement.context || '';
+    }
+
     // Faction
     const factionSelect = document.getElementById('factionSelect');
     if (factionSelect) {
@@ -1023,6 +1028,7 @@ function createNewSettlement() {
     // Clear form
     document.getElementById('settlementName').value = '';
     document.getElementById('settlementDescription').value = '';
+    document.getElementById('settlementContext').value = '';
     document.getElementById('factionSelect').value = '';
     document.getElementById('utilityTypeSelect').value = '';
     document.getElementById('blessing1Select').value = '';
@@ -1384,6 +1390,7 @@ async function saveSettlement() {
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
     const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
+    const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
 
     // Build vendor responses JSONB from dynamic entries
@@ -1411,6 +1418,7 @@ async function saveSettlement() {
     const settlement = {
         settlement_name: name,
         description: description,
+        context: context,
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
         vendor_asset_id: vendorAssetId,

@@ -56,6 +56,22 @@
     color: #e2e8f0;
 }
 
+.moderation-panel .btn-save {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.moderation-panel .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
+}
+
 .moderation-status {
     min-height: 20px;
     margin-bottom: 8px;
@@ -147,20 +163,24 @@
     color: #94a3b8;
 }
 
-.chat-servers {
+.chat-server-select {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     margin-bottom: 8px;
 }
 
-.chat-server-item {
-    background: #0b1220;
-    border: 1px solid #253148;
-    color: #e2e8f0;
-    padding: 6px 10px;
-    border-radius: 999px;
+.chat-server-select label {
     font-size: 12px;
+    color: #94a3b8;
+}
+
+.chat-server-select select {
+    padding: 8px 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: #0b1220;
+    color: #e2e8f0;
 }
 
 .chat-window {

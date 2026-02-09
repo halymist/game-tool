@@ -1,7 +1,8 @@
 // Server Manager
 
 let serverState = {
-    servers: []
+    servers: [],
+    selectedServerId: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -39,7 +40,12 @@ async function loadServerData() {
 
         serverState.servers = data.servers || [];
         window.servers = serverState.servers;
+        if (!serverState.selectedServerId && serverState.servers.length) {
+            serverState.selectedServerId = serverState.servers[0].id;
+        }
         renderServerTable();
+        const selected = serverState.servers.find(s => s.id === serverState.selectedServerId);
+        renderServerPlanDetails(selected || null);
     } catch (error) {
         console.error('Error loading servers:', error);
         setServerStatus('Failed to load servers', true);
@@ -52,19 +58,27 @@ function renderServerTable() {
 
     if (!serverState.servers.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="server-empty">No servers found</td></tr>';
+        renderServerPlanDetails(null);
         return;
     }
 
     tbody.innerHTML = serverState.servers.map(s => `
-        <tr>
+        <tr class="${serverState.selectedServerId === s.id ? 'selected' : ''}" onclick="selectServer(${s.id})">
             <td>${escapeHtml(s.name || '')}</td>
             <td>${formatDateTime(s.created_at)}</td>
             <td>${formatDateTime(s.ends_at)}</td>
             <td>${s.character_count ?? 0}</td>
             <td>${s.player_count ?? 0}</td>
-            <td>${renderServerPlan(s.plan || [], s.current_day)}</td>
+            <td>${s.current_day ?? '—'}</td>
         </tr>
     `).join('');
+}
+
+function selectServer(serverId) {
+    serverState.selectedServerId = serverId;
+    renderServerTable();
+    const server = serverState.servers.find(s => s.id === serverId);
+    renderServerPlanDetails(server);
 }
 
 async function createServer(e) {
@@ -131,10 +145,22 @@ function escapeHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderServerPlan(plan, currentDay) {
-    if (!plan || plan.length === 0) return '<span class="server-plan">—</span>';
-    const currentLabel = currentDay ? `<span class="server-plan-current">Current day: ${currentDay}</span>` : '';
-    const items = plan.map(p => {
+function renderServerPlanDetails(server) {
+    const container = document.getElementById('serverPlanDetails');
+    if (!container) return;
+    if (!server) {
+        container.innerHTML = '<div class="server-plan-empty">Select a server to view its world plan.</div>';
+        return;
+    }
+
+    const plan = server.plan || [];
+    if (!plan.length) {
+        container.innerHTML = '<div class="server-plan-empty">No plan rows found for this server.</div>';
+        return;
+    }
+
+    const currentLabel = server.current_day ? `<div class="server-plan-current">Current day: ${server.current_day}</div>` : '';
+    const rows = plan.map(p => {
         const flags = [
             p.blacksmith ? 'B' : '',
             p.alchemist ? 'A' : '',
@@ -144,8 +170,17 @@ function renderServerPlan(plan, currentDay) {
         ].filter(Boolean).join('');
         const blessings = [p.blessing1, p.blessing2, p.blessing3].filter(v => v != null).join(',');
         const settlement = p.settlement_name || `#${p.settlement_id}`;
-        const isCurrent = currentDay && p.server_day === currentDay;
-        return `<span class="server-plan-item ${isCurrent ? 'current' : ''}">Day ${p.server_day} • F${p.faction} • ${settlement}${flags ? ' • ' + flags : ''}${blessings ? ' • Blessings ' + blessings : ''}</span>`;
+        const isCurrent = server.current_day && p.server_day === server.current_day;
+        return `
+            <div class="server-plan-row ${isCurrent ? 'current' : ''}">
+                <span class="server-plan-day">Day ${p.server_day}</span>
+                <span class="server-plan-faction">F${p.faction}</span>
+                <span class="server-plan-settlement">${settlement}</span>
+                ${flags ? `<span class="server-plan-flags">${flags}</span>` : ''}
+                ${blessings ? `<span class="server-plan-blessings">Blessings ${blessings}</span>` : ''}
+            </div>
+        `;
     }).join('');
-    return `<div class="server-plan">${currentLabel}${items}</div>`;
+
+    container.innerHTML = `${currentLabel}<div class="server-plan-list">${rows}</div>`;
 }
