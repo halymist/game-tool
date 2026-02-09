@@ -238,6 +238,11 @@ func main() {
 	http.HandleFunc("/api/getServers", corsHandler(handleGetServers))
 	http.HandleFunc("/api/createServer", corsHandler(handleCreateServer))
 
+	// Chat moderation endpoints
+	http.HandleFunc("/api/getBannedWords", corsHandler(handleGetBannedWords))
+	http.HandleFunc("/api/addBannedWord", corsHandler(handleAddBannedWord))
+	http.HandleFunc("/api/deleteBannedWord", corsHandler(handleDeleteBannedWord))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")

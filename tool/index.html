@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/talent-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/npc-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/server-designer.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/chat-moderation.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -1719,7 +1720,54 @@
             <div class="tool-header">
                 <div class="tool-icon">🛡️</div>
                 <h1>Chat Moderation</h1>
-                <p>Manage chat messages, moderate conversations, and handle reports.</p>
+                <p>Manage banned words and severity levels for chat moderation.</p>
+            </div>
+            <div class="moderation-container">
+                <div class="moderation-panel">
+                    <div class="moderation-header">
+                        <h3>Banned Words</h3>
+                        <div class="moderation-actions">
+                            <input type="text" id="bannedWordFilter" placeholder="Filter words...">
+                        </div>
+                    </div>
+                    <div id="bannedWordStatus" class="moderation-status"></div>
+                    <div class="moderation-table-wrapper">
+                        <table class="moderation-table">
+                            <thead>
+                                <tr>
+                                    <th>Word</th>
+                                    <th>Severity</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bannedWordTableBody">
+                                <tr><td colspan="3" class="moderation-empty">No banned words found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="moderation-panel">
+                    <div class="moderation-header">
+                        <h3>Add Banned Word</h3>
+                    </div>
+                    <form id="bannedWordForm" class="moderation-form">
+                        <div>
+                            <label for="bannedWordInput">Word</label>
+                            <input type="text" id="bannedWordInput" placeholder="Enter banned word...">
+                        </div>
+                        <div>
+                            <label for="bannedWordSeverity">Severity</label>
+                            <select id="bannedWordSeverity">
+                                <option value="1" selected>1 - Low</option>
+                                <option value="2">2</option>
+                                <option value="3">3 - Medium</option>
+                                <option value="4">4</option>
+                                <option value="5">5 - High</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-save">Add Word</button>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -1898,6 +1946,18 @@
                         window.loadServerData();
                     }
                 }
+
+                // If showing chat moderation, initialize or reload
+                if (pageName === 'moderation') {
+                    if (window.initModerationManager && !window.moderationManagerInitialized) {
+                        console.log('Initializing chat moderation...');
+                        window.initModerationManager();
+                        window.moderationManagerInitialized = true;
+                    }
+                    if (window.loadModerationData) {
+                        window.loadModerationData();
+                    }
+                }
                 
                 // If showing the expedition designer, auto-load data
                 if (pageName === 'dungeons') {
@@ -1983,6 +2043,7 @@
     <script src="http://localhost:8080/static/talent-designer.js"></script>
     <script src="http://localhost:8080/static/npc-designer.js"></script>
     <script src="http://localhost:8080/static/server-designer.js"></script>
+    <script src="http://localhost:8080/static/chat-moderation.js"></script>
     <script src="http://localhost:8080/static/item-designer.js"></script>
     <script src="http://localhost:8080/static/perk-designer.js"></script>
     <script src="http://localhost:8080/static/expedition-designer.js"></script>

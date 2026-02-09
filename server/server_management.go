@@ -71,7 +71,7 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	query := `
         SELECT s.id, s.name, s.created_at, s.ends_at,
                COUNT(c.character_id) AS character_count,
-               COUNT(DISTINCT c.user_id) AS player_count
+	       COUNT(DISTINCT c.player_id) AS player_count
         FROM management.servers s
 	LEFT JOIN public.characters c ON c.server_id = s.id
         GROUP BY s.id
