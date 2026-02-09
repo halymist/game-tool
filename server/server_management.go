@@ -9,12 +9,28 @@ import (
 )
 
 type ServerRecord struct {
-	ID             int       `json:"id"`
-	Name           *string   `json:"name"`
-	CreatedAt      time.Time `json:"created_at"`
-	EndsAt         time.Time `json:"ends_at"`
-	CharacterCount int       `json:"character_count"`
-	PlayerCount    int       `json:"player_count"`
+	ID             int         `json:"id"`
+	Name           *string     `json:"name"`
+	CreatedAt      time.Time   `json:"created_at"`
+	EndsAt         time.Time   `json:"ends_at"`
+	CharacterCount int         `json:"character_count"`
+	PlayerCount    int         `json:"player_count"`
+	Plan           []WorldPlan `json:"plan"`
+}
+
+type WorldPlan struct {
+	ServerDay      int     `json:"server_day"`
+	Faction        int     `json:"faction"`
+	SettlementID   int     `json:"settlement_id"`
+	SettlementName *string `json:"settlement_name"`
+	Blacksmith     bool    `json:"blacksmith"`
+	Alchemist      bool    `json:"alchemist"`
+	Enchanter      bool    `json:"enchanter"`
+	Trainer        bool    `json:"trainer"`
+	Church         bool    `json:"church"`
+	Blessing1      *int    `json:"blessing1"`
+	Blessing2      *int    `json:"blessing2"`
+	Blessing3      *int    `json:"blessing3"`
 }
 
 type ServerResponse struct {
@@ -25,8 +41,8 @@ type ServerResponse struct {
 }
 
 type CreateServerRequest struct {
-	Name   *string `json:"name"`
-	EndsAt *string `json:"endsAt"`
+	Name     *string `json:"name"`
+	StartsAt *string `json:"startsAt"`
 }
 
 func handleGetServers(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +73,7 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
                COUNT(c.character_id) AS character_count,
                COUNT(DISTINCT c.user_id) AS player_count
         FROM management.servers s
-        LEFT JOIN game.characters c ON c.server_id = s.id
+	LEFT JOIN public.characters c ON c.server_id = s.id
         GROUP BY s.id
         ORDER BY s.id DESC
     `
@@ -77,6 +93,13 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Error scanning server: %v", err)
 			json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: err.Error()})
 			return
+		}
+		plan, planErr := getWorldPlanForServer(s.ID)
+		if planErr != nil {
+			log.Printf("Warning: could not load world plan for server %d: %v", s.ID, planErr)
+			s.Plan = []WorldPlan{}
+		} else {
+			s.Plan = plan
 		}
 		servers = append(servers, s)
 	}
@@ -113,24 +136,25 @@ func handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var endsAt time.Time
-	var err error
-	if req.EndsAt != nil && *req.EndsAt != "" {
-		endsAt, err = time.Parse("2006-01-02T15:04", *req.EndsAt)
+	startAt := time.Now()
+	if req.StartsAt != nil && *req.StartsAt != "" {
+		parsed, err := time.Parse("2006-01-02T15:04", *req.StartsAt)
 		if err != nil {
-			json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: "Invalid endsAt"})
+			json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: "Invalid startsAt"})
 			return
 		}
+		startAt = parsed
 	}
+	endsAt := startAt.Add(70 * 24 * time.Hour)
 
 	query := `
-        INSERT INTO management.servers (name, ends_at)
-        VALUES ($1, COALESCE($2, (now() + '70 days'::interval)))
-        RETURNING id, name, created_at, ends_at
-    `
+		INSERT INTO management.servers (name, created_at, ends_at)
+		VALUES ($1, $2, $3)
+		RETURNING id, name, created_at, ends_at
+	`
 
 	var s ServerRecord
-	if err := db.QueryRow(query, req.Name, nullTimePtr(endsAt)).Scan(&s.ID, &s.Name, &s.CreatedAt, &s.EndsAt); err != nil {
+	if err := db.QueryRow(query, req.Name, startAt, endsAt).Scan(&s.ID, &s.Name, &s.CreatedAt, &s.EndsAt); err != nil {
 		log.Printf("Error creating server: %v", err)
 		json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: fmt.Sprintf("Create failed: %v", err)})
 		return
@@ -147,4 +171,34 @@ func nullTimePtr(t time.Time) *time.Time {
 		return nil
 	}
 	return &t
+}
+
+func getWorldPlanForServer(serverID int) ([]WorldPlan, error) {
+	query := `
+		SELECT w.server_day, w.faction, w.settlement_id, wi.settlement_name,
+		       w.blacksmith, w.alchemist, w.enchanter, w.trainer, w.church,
+		       w.blessing1, w.blessing2, w.blessing3
+		FROM public.world w
+		LEFT JOIN game.world_info wi ON wi.settlement_id = w.settlement_id
+		WHERE w.server_id = $1
+		ORDER BY w.server_day, w.settlement_id
+	`
+
+	rows, err := db.Query(query, serverID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var plan []WorldPlan
+	for rows.Next() {
+		var p WorldPlan
+		if err := rows.Scan(&p.ServerDay, &p.Faction, &p.SettlementID, &p.SettlementName,
+			&p.Blacksmith, &p.Alchemist, &p.Enchanter, &p.Trainer, &p.Church,
+			&p.Blessing1, &p.Blessing2, &p.Blessing3); err != nil {
+			return nil, err
+		}
+		plan = append(plan, p)
+	}
+	return plan, nil
 }

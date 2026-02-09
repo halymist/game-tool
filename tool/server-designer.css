@@ -65,6 +65,7 @@
     padding: 8px 10px;
     border-bottom: 1px solid #0f3460;
     color: #e2e8f0;
+    vertical-align: top;
 }
 
 .server-table th {
@@ -105,4 +106,15 @@
 .server-form-actions {
     display: flex;
     justify-content: flex-end;
+}
+
+.server-plan {
+    font-size: 12px;
+    color: #a0aec0;
+    line-height: 1.4;
+}
+
+.server-plan-item {
+    display: block;
+    margin-bottom: 4px;
 }

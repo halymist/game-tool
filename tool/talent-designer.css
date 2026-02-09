@@ -5,7 +5,7 @@
     grid-template-columns: 1.2fr 1fr;
     gap: 20px;
     padding: 20px;
-    height: calc(100vh - 100px);
+    height: calc(100vh - 80px);
     box-sizing: border-box;
 }
 
@@ -55,8 +55,8 @@
 .talent-grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(7, minmax(90px, 1fr));
-    grid-template-rows: repeat(8, minmax(96px, 1fr));
+    grid-template-columns: repeat(7, minmax(80px, 1fr));
+    grid-template-rows: repeat(8, minmax(92px, 1fr));
     gap: 8px;
     overflow: auto;
     padding: 4px;
@@ -105,8 +105,8 @@
 }
 
 .talent-cell .talent-icon {
-    width: 40px;
-    height: 40px;
+    width: 34px;
+    height: 34px;
     object-fit: contain;
     margin-bottom: 6px;
 }

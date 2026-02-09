@@ -50,7 +50,7 @@ function renderServerTable() {
     if (!tbody) return;
 
     if (!serverState.servers.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="server-empty">No servers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="server-empty">No servers found</td></tr>';
         return;
     }
 
@@ -61,6 +61,7 @@ function renderServerTable() {
             <td>${formatDateTime(s.ends_at)}</td>
             <td>${s.character_count ?? 0}</td>
             <td>${s.player_count ?? 0}</td>
+            <td>${renderServerPlan(s.plan || [])}</td>
         </tr>
     `).join('');
 }
@@ -69,7 +70,7 @@ async function createServer(e) {
     e.preventDefault();
 
     const name = document.getElementById('serverName').value.trim();
-    const endsAt = document.getElementById('serverEndsAt').value;
+    const startsAt = document.getElementById('serverStartsAt').value;
 
     try {
         const token = await getCurrentAccessToken();
@@ -83,7 +84,7 @@ async function createServer(e) {
             },
             body: JSON.stringify({
                 name: name || null,
-                endsAt: endsAt || null
+                startsAt: startsAt || null
             })
         });
 
@@ -96,7 +97,7 @@ async function createServer(e) {
         serverState.servers.unshift(data.server);
         renderServerTable();
         document.getElementById('serverName').value = '';
-        document.getElementById('serverEndsAt').value = '';
+        document.getElementById('serverStartsAt').value = '';
         setServerStatus('Server created', false);
     } catch (error) {
         console.error('Error creating server:', error);
@@ -127,4 +128,21 @@ function formatDateTime(value) {
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderServerPlan(plan) {
+    if (!plan || plan.length === 0) return '<span class="server-plan">—</span>';
+    const items = plan.map(p => {
+        const flags = [
+            p.blacksmith ? 'B' : '',
+            p.alchemist ? 'A' : '',
+            p.enchanter ? 'E' : '',
+            p.trainer ? 'T' : '',
+            p.church ? 'C' : ''
+        ].filter(Boolean).join('');
+        const blessings = [p.blessing1, p.blessing2, p.blessing3].filter(v => v != null).join(',');
+        const settlement = p.settlement_name || `#${p.settlement_id}`;
+        return `<span class="server-plan-item">Day ${p.server_day} • F${p.faction} • ${settlement}${flags ? ' • ' + flags : ''}${blessings ? ' • Blessings ' + blessings : ''}</span>`;
+    }).join('');
+    return `<div class="server-plan">${items}</div>`;
 }
