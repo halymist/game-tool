@@ -102,6 +102,12 @@
     gap: 6px;
 }
 
+.settlement-context-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
 .settlement-context-section label {
     color: #cbd5e1;
     font-size: 12px;

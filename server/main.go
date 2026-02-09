@@ -243,6 +243,10 @@ func main() {
 	http.HandleFunc("/api/addBannedWord", corsHandler(handleAddBannedWord))
 	http.HandleFunc("/api/deleteBannedWord", corsHandler(handleDeleteBannedWord))
 
+	// Concept endpoints
+	http.HandleFunc("/api/getConcept", corsHandler(handleGetConcept))
+	http.HandleFunc("/api/saveConcept", corsHandler(handleSaveConcept))
+
 	fmt.Println("Server starting on :8080")
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")

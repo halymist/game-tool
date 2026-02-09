@@ -8,3 +8,10 @@ ALTER TABLE game.npc
     ADD COLUMN IF NOT EXISTS role TEXT,
     ADD COLUMN IF NOT EXISTS personality TEXT,
     ADD COLUMN IF NOT EXISTS goals TEXT;
+
+-- Concept prompt storage
+CREATE TABLE IF NOT EXISTS game.concept (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

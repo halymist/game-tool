@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="http://localhost:8080/static/npc-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/server-designer.css">
     <link rel="stylesheet" href="http://localhost:8080/static/chat-moderation.css">
+    <link rel="stylesheet" href="http://localhost:8080/static/concept-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -123,6 +124,16 @@
             <div class="management-tools">
                 <h3 class="section-title">⚙️ Management Tools</h3>
                 <div class="tools-grid">
+                    <a href="#" onclick="showPage('concept'); return false;" class="tool-card">
+                        <div class="tool-card-header">
+                            <span class="tool-card-icon">🧭</span>
+                            <h4 class="tool-card-title">Concept</h4>
+                        </div>
+                        <div class="tool-card-body">
+                            <p class="tool-card-description">Define world tone, factions, and design philosophy prompts.</p>
+                        </div>
+                    </a>
+
                     <a href="#" onclick="showPage('servers'); return false;" class="tool-card">
                         <div class="tool-card-header">
                             <span class="tool-card-icon">🖥️</span>
@@ -1404,14 +1415,6 @@
                                     <textarea id="settlementDescription" placeholder="Settlement description..."></textarea>
                                 </div>
                                 <div>
-                                    <label for="settlementKeyIssues">Key Issues</label>
-                                    <textarea id="settlementKeyIssues" placeholder="Key issues affecting the settlement..."></textarea>
-                                </div>
-                                <div>
-                                    <label for="settlementRecentEvents">Recent Events</label>
-                                    <textarea id="settlementRecentEvents" placeholder="Recent events in the settlement..."></textarea>
-                                </div>
-                                <div>
                                     <label for="factionSelect">Faction</label>
                                     <select id="factionSelect" class="faction-select">
                                         <option value="">-- None --</option>
@@ -1553,8 +1556,20 @@
                 </div>
 
                 <div class="settlement-context-section">
-                    <label for="settlementContext">Context</label>
-                    <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
+                    <div class="settlement-context-grid">
+                        <div>
+                            <label for="settlementKeyIssues">Key Issues</label>
+                            <textarea id="settlementKeyIssues" placeholder="Key issues affecting the settlement..."></textarea>
+                        </div>
+                        <div>
+                            <label for="settlementRecentEvents">Recent Events</label>
+                            <textarea id="settlementRecentEvents" placeholder="Recent events in the settlement..."></textarea>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="settlementContext">Context</label>
+                        <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
+                    </div>
                 </div>
 
                 <!-- Locations Section -->
@@ -1681,6 +1696,37 @@
                 <div class="tool-icon">👤</div>
                 <h1>Player Management</h1>
                 <p>Monitor player activity, handle reports, and manage user accounts.</p>
+            </div>
+        </div>
+
+        <!-- Concept Section -->
+        <div id="concept-content" class="page-content" style="display: none;">
+            <div class="concept-container">
+                <div class="concept-header">
+                    <h2>🧭 World Concept</h2>
+                    <div class="concept-actions">
+                        <button id="conceptSaveBtn" class="btn-save">Save</button>
+                        <span id="conceptStatus" class="concept-status"></span>
+                    </div>
+                </div>
+                <div class="concept-body">
+                    <div class="concept-editor">
+                        <label for="conceptJson">Concept JSON</label>
+                        <textarea id="conceptJson" placeholder="Enter concept JSON..."></textarea>
+                    </div>
+                    <div class="concept-tools">
+                        <h3>Add to array</h3>
+                        <div class="concept-tool-row">
+                            <label for="conceptPath">Path</label>
+                            <input type="text" id="conceptPath" placeholder="e.g. tone or questDesignPhilosophy.choiceDesign">
+                        </div>
+                        <div class="concept-tool-row">
+                            <label for="conceptValue">Value</label>
+                            <textarea id="conceptValue" placeholder="String or JSON value"></textarea>
+                        </div>
+                        <button id="conceptAddBtn" class="btn-secondary">Add to array</button>
+                    </div>
+                </div>
             </div>
         </div>
 
