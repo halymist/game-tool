@@ -28,16 +28,10 @@ type TalentInfo struct {
 
 // EnemyTalent represents a talent assigned to an enemy
 type EnemyTalent struct {
-	TalentID      int  `json:"talentId" db:"talent_id"`
-	MaxPoints     int  `json:"maxPoints" db:"max_points"`
-	EffectID      int  `json:"effectId" db:"effect_id"`
-	Factor        int  `json:"factor" db:"factor"`
-	TalentOrder   int  `json:"talentOrder" db:"talent_order"`
-	PerkID        *int `json:"perkId" db:"perk_id"`
-	PerkEffectID1 *int `json:"perkEffectId1" db:"perk_effect_id_1"`
-	PerkFactor1   *int `json:"perkFactor1" db:"perk_factor_1"`
-	PerkEffectID2 *int `json:"perkEffectId2" db:"perk_effect_id_2"`
-	PerkFactor2   *int `json:"perkFactor2" db:"perk_factor_2"`
+	TalentID    int  `json:"talentId" db:"talent_id"`
+	MaxPoints   int  `json:"maxPoints" db:"max_points"`
+	TalentOrder int  `json:"talentOrder" db:"talent_order"`
+	PerkID      *int `json:"perkId" db:"perk_id"`
 }
 
 // Enemy represents an enemy from game.enemies
@@ -79,21 +73,15 @@ type PendingEnemy struct {
 
 // PendingEnemyTalent represents a pending talent from tooling.enemy_talents
 type PendingEnemyTalent struct {
-	ToolingID     int    `json:"toolingId" db:"tooling_id"`
-	GameID        *int   `json:"gameId" db:"game_id"`
-	Action        string `json:"action" db:"action"`
-	Approved      bool   `json:"approved" db:"approved"`
-	EnemyID       int    `json:"enemyId" db:"enemy_id"`
-	TalentID      int    `json:"talentId" db:"talent_id"`
-	MaxPoints     int    `json:"maxPoints" db:"max_points"`
-	EffectID      int    `json:"effectId" db:"effect_id"`
-	Factor        int    `json:"factor" db:"factor"`
-	TalentOrder   int    `json:"talentOrder" db:"talent_order"`
-	PerkID        *int   `json:"perkId" db:"perk_id"`
-	PerkEffectID1 *int   `json:"perkEffectId1" db:"perk_effect_id_1"`
-	PerkFactor1   *int   `json:"perkFactor1" db:"perk_factor_1"`
-	PerkEffectID2 *int   `json:"perkEffectId2" db:"perk_effect_id_2"`
-	PerkFactor2   *int   `json:"perkFactor2" db:"perk_factor_2"`
+	ToolingID   int    `json:"toolingId" db:"tooling_id"`
+	GameID      *int   `json:"gameId" db:"game_id"`
+	Action      string `json:"action" db:"action"`
+	Approved    bool   `json:"approved" db:"approved"`
+	EnemyID     int    `json:"enemyId" db:"enemy_id"`
+	TalentID    int    `json:"talentId" db:"talent_id"`
+	MaxPoints   int    `json:"maxPoints" db:"max_points"`
+	TalentOrder int    `json:"talentOrder" db:"talent_order"`
+	PerkID      *int   `json:"perkId" db:"perk_id"`
 }
 
 // EnemyResponse is the response for the getEnemies endpoint
@@ -562,8 +550,7 @@ func getAllEnemies() ([]GameEnemy, error) {
 // getEnemyTalents retrieves talents for a specific enemy
 func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT talent_id, max_points, effect_id, factor, talent_order,
-		       perk_id, perk_effect_id_1, perk_factor_1, perk_effect_id_2, perk_factor_2
+		SELECT talent_id, max_points, talent_order, perk_id
 		FROM game.enemy_talents
 		WHERE enemy_id = $1
 		ORDER BY talent_order
@@ -578,8 +565,7 @@ func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.EffectID, &t.Factor, &t.TalentOrder,
-			&t.PerkID, &t.PerkEffectID1, &t.PerkFactor1, &t.PerkEffectID2, &t.PerkFactor2)
+		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}
@@ -633,8 +619,7 @@ func getPendingEnemies() ([]PendingEnemy, error) {
 // getPendingEnemyTalents retrieves pending talents for a specific pending enemy
 func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT talent_id, max_points, effect_id, factor, talent_order,
-		       perk_id, perk_effect_id_1, perk_factor_1, perk_effect_id_2, perk_factor_2
+		SELECT talent_id, max_points, talent_order, perk_id
 		FROM tooling.enemy_talents
 		WHERE enemy_id = $1
 		ORDER BY talent_order
@@ -649,8 +634,7 @@ func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.EffectID, &t.Factor, &t.TalentOrder,
-			&t.PerkID, &t.PerkEffectID1, &t.PerkFactor1, &t.PerkEffectID2, &t.PerkFactor2)
+		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}

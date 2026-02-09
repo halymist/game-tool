@@ -465,6 +465,24 @@
     margin: 0 auto;
 }
 
+.talent-cell-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.talent-cell-label {
+    font-size: 0.7rem;
+    color: #e2e8f0;
+    text-align: center;
+    max-width: 70px;
+    line-height: 1.2;
+    max-height: 2.4em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .talent-cell {
     width: 70px;
     height: 70px;
@@ -472,7 +490,6 @@
     border: 2px solid #5d3a1a;
     border-radius: 8px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: pointer;
@@ -508,35 +525,31 @@
 }
 
 .talent-icon {
-    width: 32px;
-    height: 32px;
-    background: rgba(30, 20, 15, 0.9);
-    border: 1px solid #8b4513;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 4px;
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
 }
 
-.talent-abbrev {
-    color: #b8860b;
-    font-size: 0.7rem;
-    font-weight: bold;
-}
-
-.talent-points {
+.talent-max {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #e2e8f0;
     font-size: 0.65rem;
-    color: #b8860b;
+    padding: 2px 5px;
+    border-radius: 6px;
 }
 
-.talent-points .current-points {
+.talent-current {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    background: rgba(0, 0, 0, 0.6);
     color: #ffa500;
-    font-weight: bold;
-}
-
-.talent-cell.maxed .talent-points .current-points {
-    color: #ffd700;
+    font-size: 0.6rem;
+    padding: 2px 5px;
+    border-radius: 6px;
 }
 
 .perk-indicator {

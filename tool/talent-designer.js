@@ -294,24 +294,34 @@ function renderTalentGrid(filterText = '') {
     grid.innerHTML = '';
 
     talents.forEach(talent => {
-        const cell = document.createElement('div');
-        cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'talent-cell-wrapper';
         // Place in 7x8 grid, with row 1 at bottom
         const row = talent.row || 1;
         const col = talent.col || 1;
         const gridRow = 9 - row; // invert so row 1 is bottom
-        cell.style.gridRow = String(gridRow);
-        cell.style.gridColumn = String(col);
+        wrapper.style.gridRow = String(gridRow);
+        wrapper.style.gridColumn = String(col);
+
+        const cell = document.createElement('div');
+        cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '');
 
         const iconUrl = getTalentAssetIcon(talent.assetId);
         cell.innerHTML = `
             <div class="talent-max">${talent.maxPoints ?? ''}</div>
             <img class="talent-icon" src="${iconUrl}" alt="Talent ${talent.talentId}" onerror="this.style.display='none'">
-            <div class="talent-name">${escapeHtml(talent.talentName || '')}</div>
         `;
 
+        const label = document.createElement('div');
+        label.className = 'talent-cell-label';
+        label.textContent = talent.talentName || '';
+
         cell.addEventListener('click', () => selectTalent(talent.talentId));
-        grid.appendChild(cell);
+        label.addEventListener('click', () => selectTalent(talent.talentId));
+
+        wrapper.appendChild(cell);
+        wrapper.appendChild(label);
+        grid.appendChild(wrapper);
     });
 }
 

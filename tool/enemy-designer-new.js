@@ -425,38 +425,53 @@ function buildTalentTreeGrid() {
     
     for (let row = 7; row >= 0; row--) {
         for (let col = 0; col < 7; col++) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'talent-cell-wrapper';
+            wrapper.dataset.row = row;
+            wrapper.dataset.col = col;
+            
             const cell = document.createElement('div');
             cell.className = 'talent-cell';
-            cell.dataset.row = row;
-            cell.dataset.col = col;
             
             // Find talent at this position
             const talent = allTalents.find(t => t.row === row && t.col === col);
             
             if (talent) {
                 cell.dataset.talentId = talent.talentId;
+                const iconUrl = getTalentIconUrl(talent.assetId);
                 cell.innerHTML = `
-                    <div class="talent-icon" title="${escapeHtml(talent.talentName)}">
-                        <span class="talent-abbrev">${talent.talentName.substring(0, 2).toUpperCase()}</span>
-                    </div>
-                    <div class="talent-points">
-                        <span class="current-points">0</span>/<span class="max-points">${talent.maxPoints}</span>
-                    </div>
+                    <div class="talent-max">${talent.maxPoints}</div>
+                    <div class="talent-current"><span class="current-points">0</span></div>
+                    <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
                     ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
                 `;
+
+                const label = document.createElement('div');
+                label.className = 'talent-cell-label';
+                label.textContent = talent.talentName || '';
                 
                 cell.addEventListener('click', () => showTalentUpgradeModal(talent));
+                label.addEventListener('click', () => showTalentUpgradeModal(talent));
                 cell.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     handleTalentRightClick(talent);
                 });
+
+                wrapper.appendChild(cell);
+                wrapper.appendChild(label);
             } else {
                 cell.classList.add('empty');
+                wrapper.appendChild(cell);
             }
             
-            grid.appendChild(cell);
+            grid.appendChild(wrapper);
         }
     }
+}
+
+function getTalentIconUrl(assetId) {
+    if (!assetId) return '';
+    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/perks/${assetId}.webp`;
 }
 
 function showTalentUpgradeModal(talent) {
