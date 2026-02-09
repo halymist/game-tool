@@ -9,8 +9,8 @@ const questState = {
     selectedQuest: null,
     
     // Options (nodes with option text, node text, type, type-specific data)
-    // Type can be: dialogue, stat_check, effect_check, combat, end
-    options: new Map(),      // optionId -> { optionId, optionText, nodeText, x, y, isStart, type, statType, statRequired, effectId, effectAmount, enemyId, reward }
+    // Type can be: dialogue, stat_check, effect_check, combat, faction, end
+    options: new Map(),      // optionId -> { optionId, optionText, nodeText, x, y, isStart, type, statType, statRequired, effectId, effectAmount, optionEffectId, optionEffectFactor, factionRequired, enemyId, reward }
     nextOptionId: 1,
     selectedOption: null,
     
@@ -148,6 +148,9 @@ function initQuestDesigner() {
     
     // Sidebar event listeners
     setupSidebarEventListeners();
+
+    // Quest generator panel
+    setupQuestGeneratePanel();
     
     // Populate dropdowns from GlobalData or enemy-designer data - retry if not loaded yet
     let dropdownRetryCount = 0;
@@ -240,7 +243,7 @@ function addOption() {
         x: (rect.width / 2 - questState.canvasOffset.x) / questState.zoom - 100 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - questState.canvasOffset.y) / questState.zoom - 50 + (Math.random() - 0.5) * 100,
         isStart: isStart,
-        // Option type: dialogue, stat_check, effect_check, combat, end
+        // Option type: dialogue, stat_check, effect_check, combat, faction, end
         type: 'dialogue',
         // Stat check fields
         statType: null,
@@ -248,6 +251,11 @@ function addOption() {
         // Effect check fields
         effectId: null,
         effectAmount: null,
+        // Option effect fields
+        optionEffectId: null,
+        optionEffectFactor: null,
+        // Faction requirement
+        factionRequired: null,
         // Combat field
         enemyId: null,
         // Reward - same structure as expedition
@@ -783,6 +791,15 @@ function updateSidebar(optionId) {
     
     const effectAmount = document.getElementById('sidebarEffectAmount');
     if (effectAmount) effectAmount.value = option.effectAmount || '';
+
+    const optionEffectId = document.getElementById('sidebarOptionEffectId');
+    if (optionEffectId) optionEffectId.value = option.optionEffectId || '';
+
+    const optionEffectFactor = document.getElementById('sidebarOptionEffectFactor');
+    if (optionEffectFactor) optionEffectFactor.value = option.optionEffectFactor || '';
+
+    const factionRequired = document.getElementById('sidebarFactionRequired');
+    if (factionRequired) factionRequired.value = option.factionRequired || '';
     
     // Populate combat enemy
     const enemyIdInput = document.getElementById('sidebarEnemyId');
@@ -821,6 +838,7 @@ function updateSidebarTypeFields(type) {
     document.getElementById('optionTypeStatCheck')?.style && (document.getElementById('optionTypeStatCheck').style.display = 'none');
     document.getElementById('optionTypeEffectCheck')?.style && (document.getElementById('optionTypeEffectCheck').style.display = 'none');
     document.getElementById('optionTypeCombat')?.style && (document.getElementById('optionTypeCombat').style.display = 'none');
+    document.getElementById('optionTypeFaction')?.style && (document.getElementById('optionTypeFaction').style.display = 'none');
     
     // Show relevant section
     switch (type) {
@@ -836,6 +854,10 @@ function updateSidebarTypeFields(type) {
             const combatSection = document.getElementById('optionTypeCombat');
             if (combatSection) combatSection.style.display = 'block';
             populateEnemyGrid();
+            break;
+        case 'faction':
+            const factionSection = document.getElementById('optionTypeFaction');
+            if (factionSection) factionSection.style.display = 'block';
             break;
     }
 }
@@ -1349,6 +1371,9 @@ async function loadQuestChainData(chainId) {
                 statRequired: o.stat_required,
                 effectId: o.effect_id,
                 effectAmount: o.effect_amount,
+                optionEffectId: o.option_effect_id,
+                optionEffectFactor: o.option_effect_factor,
+                factionRequired: o.faction_required,
                 enemyId: o.enemy_id,
                 reward: extractReward(o),
             };
@@ -1380,6 +1405,7 @@ async function loadQuestChainData(chainId) {
 
 // Determine option type from DB fields
 function determineOptionType(o) {
+    if (o.faction_required) return 'faction';
     if (o.enemy_id) return 'combat';
     if (o.effect_id && o.effect_amount) return 'effect_check';
     if (o.stat_type && o.stat_required) return 'stat_check';
@@ -1564,14 +1590,30 @@ function convertQuestImageToWebP(file) {
 function populateEffectsDropdown() {
     const effects = typeof getEffects === 'function' ? getEffects() : (GlobalData?.effects || []);
     const select = document.getElementById('sidebarEffectId');
-    if (!select) return;
+    const optionEffectSelect = document.getElementById('sidebarOptionEffectId');
+    if (!select && !optionEffectSelect) return;
     
-    select.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
+    if (select) {
+        select.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
+    }
+    if (optionEffectSelect) {
+        optionEffectSelect.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
+    }
     effects.forEach(effect => {
-        const opt = document.createElement('option');
-        opt.value = effect.effect_id || effect.id;
-        opt.textContent = effect.effect_name || effect.name || `Effect ${effect.effect_id || effect.id}`;
-        select.appendChild(opt);
+        const value = effect.effect_id || effect.id;
+        const label = effect.effect_name || effect.name || `Effect ${value}`;
+        if (select) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            select.appendChild(opt);
+        }
+        if (optionEffectSelect) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            optionEffectSelect.appendChild(opt);
+        }
     });
 }
 
@@ -1766,6 +1808,33 @@ function setupSidebarEventListeners() {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
             if (option) option.effectAmount = parseInt(e.target.value) || null;
+        });
+    }
+
+    const optionEffectId = document.getElementById('sidebarOptionEffectId');
+    if (optionEffectId) {
+        optionEffectId.addEventListener('change', (e) => {
+            if (!questState.selectedOption) return;
+            const option = questState.options.get(questState.selectedOption);
+            if (option) option.optionEffectId = parseInt(e.target.value) || null;
+        });
+    }
+
+    const optionEffectFactor = document.getElementById('sidebarOptionEffectFactor');
+    if (optionEffectFactor) {
+        optionEffectFactor.addEventListener('input', (e) => {
+            if (!questState.selectedOption) return;
+            const option = questState.options.get(questState.selectedOption);
+            if (option) option.optionEffectFactor = parseInt(e.target.value) || null;
+        });
+    }
+
+    const factionRequired = document.getElementById('sidebarFactionRequired');
+    if (factionRequired) {
+        factionRequired.addEventListener('change', (e) => {
+            if (!questState.selectedOption) return;
+            const option = questState.options.get(questState.selectedOption);
+            if (option) option.factionRequired = e.target.value || null;
         });
     }
     
@@ -1979,6 +2048,9 @@ async function saveQuest() {
                 statRequired: option.type === 'stat_check' ? option.statRequired : null,
                 effectId: option.type === 'effect_check' ? option.effectId : null,
                 effectAmount: option.type === 'effect_check' ? option.effectAmount : null,
+                optionEffectId: option.optionEffectId || null,
+                optionEffectFactor: option.optionEffectFactor || null,
+                factionRequired: option.type === 'faction' ? option.factionRequired : null,
                 enemyId: option.type === 'combat' ? option.enemyId : null,
                 rewardStatType: option.reward?.type === 'stat' ? option.reward.statType : null,
                 rewardStatAmount: option.reward?.type === 'stat' ? option.reward.amount : null,
@@ -2120,6 +2192,164 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ==================== QUEST GENERATOR ====================
+const questGenerateState = {
+    npcs: [],
+};
+
+function setupQuestGeneratePanel() {
+    document.getElementById('questGenerateBtn')?.addEventListener('click', toggleQuestGeneratePanel);
+    document.getElementById('questGenerateClose')?.addEventListener('click', toggleQuestGeneratePanel);
+    document.getElementById('questGenerateRun')?.addEventListener('click', generateQuestPreview);
+}
+
+function toggleQuestGeneratePanel() {
+    const panel = document.getElementById('questGeneratePanel');
+    if (!panel) return;
+    const isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        populateQuestGeneratePanel();
+    }
+}
+
+async function populateQuestGeneratePanel() {
+    populateQuestGenerateSettlements();
+    await loadQuestGenerateNpcs();
+    populateQuestGenerateNpcs();
+    populateQuestGenerateEnemies();
+    populateQuestGenerateRewards();
+    populateQuestGenerateQuests();
+}
+
+function populateQuestGenerateSettlements() {
+    const select = document.getElementById('questGenerateSettlement');
+    if (!select) return;
+    const settlements = GlobalData?.settlements || [];
+    select.innerHTML = '<option value="">-- Any Settlement --</option>';
+    settlements.forEach(settlement => {
+        const opt = document.createElement('option');
+        opt.value = settlement.world_id || settlement.id || '';
+        opt.textContent = settlement.name || `Settlement ${opt.value}`;
+        if (questState.selectedSettlementId && String(opt.value) === String(questState.selectedSettlementId)) {
+            opt.selected = true;
+        }
+        select.appendChild(opt);
+    });
+}
+
+async function loadQuestGenerateNpcs() {
+    if (questGenerateState.npcs.length) return;
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('http://localhost:8080/api/getNpcs', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data && data.npcs) {
+            questGenerateState.npcs = data.npcs;
+        }
+    } catch (error) {
+        console.error('Failed to load NPCs for generator:', error);
+    }
+}
+
+function populateQuestGenerateNpcs() {
+    const select = document.getElementById('questGenerateNpcs');
+    if (!select) return;
+    select.innerHTML = '';
+    questGenerateState.npcs.forEach(npc => {
+        const opt = document.createElement('option');
+        opt.value = npc.npc_id || npc.id;
+        opt.textContent = npc.name || `NPC ${opt.value}`;
+        select.appendChild(opt);
+    });
+}
+
+function populateQuestGenerateEnemies() {
+    const select = document.getElementById('questGenerateEnemies');
+    if (!select) return;
+    let enemies = [];
+    if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+        enemies = allEnemies;
+    } else if (typeof getEnemies === 'function') {
+        enemies = getEnemies();
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+        enemies = GlobalData.enemies;
+    }
+    select.innerHTML = '';
+    enemies.forEach(enemy => {
+        const id = enemy.enemyId || enemy.enemy_id || enemy.id;
+        const name = enemy.enemyName || enemy.enemy_name || enemy.name || `Enemy ${id}`;
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = name;
+        select.appendChild(opt);
+    });
+}
+
+function populateQuestGenerateRewards() {
+    const select = document.getElementById('questGenerateRewards');
+    if (!select) return;
+    const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
+    const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
+    select.innerHTML = '';
+    items.forEach(item => {
+        const id = item.item_id || item.id;
+        const name = item.item_name || item.name || `Item ${id}`;
+        const opt = document.createElement('option');
+        opt.value = `item:${id}`;
+        opt.textContent = `Item: ${name}`;
+        select.appendChild(opt);
+    });
+    perks.forEach(perk => {
+        const id = perk.perk_id || perk.id;
+        const name = perk.perk_name || perk.name || `Perk ${id}`;
+        const opt = document.createElement('option');
+        opt.value = `perk:${id}`;
+        opt.textContent = `Perk: ${name}`;
+        select.appendChild(opt);
+    });
+}
+
+function populateQuestGenerateQuests() {
+    const select = document.getElementById('questGenerateQuests');
+    if (!select) return;
+    select.innerHTML = '';
+    questState.quests.forEach(quest => {
+        const opt = document.createElement('option');
+        opt.value = quest.serverId || quest.questId || quest.quest_id || '';
+        opt.textContent = quest.name || quest.quest_name || `Quest ${opt.value}`;
+        select.appendChild(opt);
+    });
+}
+
+function collectMultiSelectValues(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return [];
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+}
+
+function generateQuestPreview() {
+    const settlementId = document.getElementById('questGenerateSettlement')?.value || '';
+    const prompt = document.getElementById('questGeneratePrompt')?.value || '';
+    const payload = {
+        settlementId,
+        npcs: collectMultiSelectValues('questGenerateNpcs'),
+        enemies: collectMultiSelectValues('questGenerateEnemies'),
+        rewards: collectMultiSelectValues('questGenerateRewards'),
+        quests: collectMultiSelectValues('questGenerateQuests'),
+        prompt
+    };
+
+    console.log('Quest generate payload:', payload);
+    const output = document.getElementById('questGenerateOutput');
+    if (output) {
+        output.textContent = JSON.stringify(payload, null, 2);
+    }
 }
 
 // Export for window

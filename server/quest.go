@@ -44,23 +44,26 @@ type Quest struct {
 
 // QuestOption represents a quest option
 type QuestOption struct {
-	OptionID         int     `json:"option_id"`
-	QuestID          int     `json:"quest_id"`
-	NodeText         string  `json:"node_text"`
-	OptionText       string  `json:"option_text"`
-	StatType         *string `json:"stat_type"`
-	StatRequired     *int    `json:"stat_required"`
-	EffectID         *int    `json:"effect_id"`
-	EffectAmount     *int    `json:"effect_amount"`
-	EnemyID          *int    `json:"enemy_id"`
-	Start            bool    `json:"start"`
-	RewardStatType   *string `json:"reward_stat_type"`
-	RewardStatAmount *int    `json:"reward_stat_amount"`
-	RewardTalent     *bool   `json:"reward_talent"`
-	RewardItem       *int    `json:"reward_item"`
-	RewardPerk       *int    `json:"reward_perk"`
-	RewardBlessing   *int    `json:"reward_blessing"`
-	RewardPotion     *int    `json:"reward_potion"`
+	OptionID           int     `json:"option_id"`
+	QuestID            int     `json:"quest_id"`
+	NodeText           string  `json:"node_text"`
+	OptionText         string  `json:"option_text"`
+	StatType           *string `json:"stat_type"`
+	StatRequired       *int    `json:"stat_required"`
+	EffectID           *int    `json:"effect_id"`
+	EffectAmount       *int    `json:"effect_amount"`
+	OptionEffectID     *int    `json:"option_effect_id"`
+	OptionEffectFactor *int    `json:"option_effect_factor"`
+	FactionRequired    *string `json:"faction_required"`
+	EnemyID            *int    `json:"enemy_id"`
+	Start              bool    `json:"start"`
+	RewardStatType     *string `json:"reward_stat_type"`
+	RewardStatAmount   *int    `json:"reward_stat_amount"`
+	RewardTalent       *bool   `json:"reward_talent"`
+	RewardItem         *int    `json:"reward_item"`
+	RewardPerk         *int    `json:"reward_perk"`
+	RewardBlessing     *int    `json:"reward_blessing"`
+	RewardPotion       *int    `json:"reward_potion"`
 	// Position for designer
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -168,7 +171,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	if len(questIDs) > 0 {
 		// Build query with IN clause
 		optionQuery := `SELECT option_id, quest_id, node_text, option_text, stat_type, stat_required, 
-			effect_id, effect_amount, enemy_id, start, reward_stat_type, reward_stat_amount, 
+			effect_id, effect_amount, option_effect_id, option_effect_factor, faction_required, enemy_id, start, reward_stat_type, reward_stat_amount, 
 			reward_talent, reward_item, reward_perk, reward_blessing, reward_potion,
 			COALESCE(pos_x, 0) as pos_x, COALESCE(pos_y, 0) as pos_y
 			FROM game.quest_options WHERE quest_id = ANY($1) ORDER BY quest_id, option_id`
@@ -184,7 +187,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 		for optionRows.Next() {
 			var o QuestOption
 			err := optionRows.Scan(&o.OptionID, &o.QuestID, &o.NodeText, &o.OptionText, &o.StatType, &o.StatRequired,
-				&o.EffectID, &o.EffectAmount, &o.EnemyID, &o.Start, &o.RewardStatType, &o.RewardStatAmount,
+				&o.EffectID, &o.EffectAmount, &o.OptionEffectID, &o.OptionEffectFactor, &o.FactionRequired, &o.EnemyID, &o.Start, &o.RewardStatType, &o.RewardStatAmount,
 				&o.RewardTalent, &o.RewardItem, &o.RewardPerk, &o.RewardBlessing, &o.RewardPotion,
 				&o.X, &o.Y)
 			if err != nil {
@@ -360,48 +363,54 @@ type PendingRequirement struct {
 
 // NewQuestOption represents a new option to create
 type NewQuestOption struct {
-	LocalID          int     `json:"localId"`
-	QuestID          int     `json:"questId"`
-	NodeText         string  `json:"nodeText"`
-	OptionText       string  `json:"optionText"`
-	IsStart          bool    `json:"isStart"`
-	X                float64 `json:"x"`
-	Y                float64 `json:"y"`
-	StatType         *string `json:"statType"`
-	StatRequired     *int    `json:"statRequired"`
-	EffectID         *int    `json:"effectId"`
-	EffectAmount     *int    `json:"effectAmount"`
-	EnemyID          *int    `json:"enemyId"`
-	RewardStatType   *string `json:"rewardStatType"`
-	RewardStatAmount *int    `json:"rewardStatAmount"`
-	RewardTalent     *bool   `json:"rewardTalent"`
-	RewardItem       *int    `json:"rewardItem"`
-	RewardPerk       *int    `json:"rewardPerk"`
-	RewardBlessing   *int    `json:"rewardBlessing"`
-	RewardPotion     *int    `json:"rewardPotion"`
+	LocalID            int     `json:"localId"`
+	QuestID            int     `json:"questId"`
+	NodeText           string  `json:"nodeText"`
+	OptionText         string  `json:"optionText"`
+	IsStart            bool    `json:"isStart"`
+	X                  float64 `json:"x"`
+	Y                  float64 `json:"y"`
+	StatType           *string `json:"statType"`
+	StatRequired       *int    `json:"statRequired"`
+	EffectID           *int    `json:"effectId"`
+	EffectAmount       *int    `json:"effectAmount"`
+	OptionEffectID     *int    `json:"optionEffectId"`
+	OptionEffectFactor *int    `json:"optionEffectFactor"`
+	FactionRequired    *string `json:"factionRequired"`
+	EnemyID            *int    `json:"enemyId"`
+	RewardStatType     *string `json:"rewardStatType"`
+	RewardStatAmount   *int    `json:"rewardStatAmount"`
+	RewardTalent       *bool   `json:"rewardTalent"`
+	RewardItem         *int    `json:"rewardItem"`
+	RewardPerk         *int    `json:"rewardPerk"`
+	RewardBlessing     *int    `json:"rewardBlessing"`
+	RewardPotion       *int    `json:"rewardPotion"`
 }
 
 // QuestOptionUpdate represents an update to an existing option
 type QuestOptionUpdate struct {
-	OptionID         int     `json:"optionId"`
-	LocalID          int     `json:"localId"`
-	NodeText         string  `json:"nodeText"`
-	OptionText       string  `json:"optionText"`
-	IsStart          bool    `json:"isStart"`
-	X                float64 `json:"x"`
-	Y                float64 `json:"y"`
-	StatType         *string `json:"statType"`
-	StatRequired     *int    `json:"statRequired"`
-	EffectID         *int    `json:"effectId"`
-	EffectAmount     *int    `json:"effectAmount"`
-	EnemyID          *int    `json:"enemyId"`
-	RewardStatType   *string `json:"rewardStatType"`
-	RewardStatAmount *int    `json:"rewardStatAmount"`
-	RewardTalent     *bool   `json:"rewardTalent"`
-	RewardItem       *int    `json:"rewardItem"`
-	RewardPerk       *int    `json:"rewardPerk"`
-	RewardBlessing   *int    `json:"rewardBlessing"`
-	RewardPotion     *int    `json:"rewardPotion"`
+	OptionID           int     `json:"optionId"`
+	LocalID            int     `json:"localId"`
+	NodeText           string  `json:"nodeText"`
+	OptionText         string  `json:"optionText"`
+	IsStart            bool    `json:"isStart"`
+	X                  float64 `json:"x"`
+	Y                  float64 `json:"y"`
+	StatType           *string `json:"statType"`
+	StatRequired       *int    `json:"statRequired"`
+	EffectID           *int    `json:"effectId"`
+	EffectAmount       *int    `json:"effectAmount"`
+	OptionEffectID     *int    `json:"optionEffectId"`
+	OptionEffectFactor *int    `json:"optionEffectFactor"`
+	FactionRequired    *string `json:"factionRequired"`
+	EnemyID            *int    `json:"enemyId"`
+	RewardStatType     *string `json:"rewardStatType"`
+	RewardStatAmount   *int    `json:"rewardStatAmount"`
+	RewardTalent       *bool   `json:"rewardTalent"`
+	RewardItem         *int    `json:"rewardItem"`
+	RewardPerk         *int    `json:"rewardPerk"`
+	RewardBlessing     *int    `json:"rewardBlessing"`
+	RewardPotion       *int    `json:"rewardPotion"`
 }
 
 // handleSaveQuest saves quest options and visibility
@@ -609,13 +618,13 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 			opt.LocalID, opt.QuestID, opt.NodeText, opt.OptionText)
 		var optionID int
 		err := tx.QueryRow(`INSERT INTO game.quest_options 
-			(quest_id, node_text, option_text, start, stat_type, stat_required, effect_id, effect_amount, enemy_id,
+			(quest_id, node_text, option_text, start, stat_type, stat_required, effect_id, effect_amount, option_effect_id, option_effect_factor, faction_required, enemy_id,
 			 reward_stat_type, reward_stat_amount, reward_talent, reward_item, reward_perk, reward_blessing, reward_potion,
 			 pos_x, pos_y)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
 			RETURNING option_id`,
 			opt.QuestID, opt.NodeText, opt.OptionText, opt.IsStart,
-			opt.StatType, opt.StatRequired, opt.EffectID, opt.EffectAmount, opt.EnemyID,
+			opt.StatType, opt.StatRequired, opt.EffectID, opt.EffectAmount, opt.OptionEffectID, opt.OptionEffectFactor, opt.FactionRequired, opt.EnemyID,
 			opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem, opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion,
 			opt.X, opt.Y).Scan(&optionID)
 
@@ -635,12 +644,12 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	for _, opt := range req.OptionUpdates {
 		_, err := tx.Exec(`UPDATE game.quest_options SET
 			node_text = $1, option_text = $2, start = $3, stat_type = $4, stat_required = $5,
-			effect_id = $6, effect_amount = $7, enemy_id = $8,
-			reward_stat_type = $9, reward_stat_amount = $10, reward_talent = $11, reward_item = $12,
-			reward_perk = $13, reward_blessing = $14, reward_potion = $15, pos_x = $16, pos_y = $17
-			WHERE option_id = $18`,
+			effect_id = $6, effect_amount = $7, option_effect_id = $8, option_effect_factor = $9, faction_required = $10, enemy_id = $11,
+			reward_stat_type = $12, reward_stat_amount = $13, reward_talent = $14, reward_item = $15,
+			reward_perk = $16, reward_blessing = $17, reward_potion = $18, pos_x = $19, pos_y = $20
+			WHERE option_id = $21`,
 			opt.NodeText, opt.OptionText, opt.IsStart, opt.StatType, opt.StatRequired,
-			opt.EffectID, opt.EffectAmount, opt.EnemyID,
+			opt.EffectID, opt.EffectAmount, opt.OptionEffectID, opt.OptionEffectFactor, opt.FactionRequired, opt.EnemyID,
 			opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem,
 			opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion, opt.X, opt.Y,
 			opt.OptionID)

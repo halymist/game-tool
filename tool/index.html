@@ -213,7 +213,47 @@
                     <div class="quest-toolbar-right">
                         <button id="addQuestBtn" class="btn-secondary" onclick="window.addQuestSlide()">+ Add Quest</button>
                         <button id="addOptionBtn" class="btn-primary">+ Add Option</button>
+                        <button id="questGenerateBtn" class="btn-secondary">🧠 Generate Quest</button>
                         <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
+                    </div>
+                </div>
+
+                <div id="questGeneratePanel" class="quest-generate-panel" style="display:none;">
+                    <div class="quest-generate-header">
+                        <h3>🧠 Generate Quest</h3>
+                        <button id="questGenerateClose" class="btn-secondary">Close</button>
+                    </div>
+                    <div class="quest-generate-body">
+                        <div class="quest-generate-field">
+                            <label>Location (Settlement)</label>
+                            <select id="questGenerateSettlement"></select>
+                        </div>
+                        <div class="quest-generate-row">
+                            <div class="quest-generate-field">
+                                <label>NPCs</label>
+                                <select id="questGenerateNpcs" multiple></select>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Enemies</label>
+                                <select id="questGenerateEnemies" multiple></select>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Rewards</label>
+                                <select id="questGenerateRewards" multiple></select>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Existing Quests</label>
+                                <select id="questGenerateQuests" multiple></select>
+                            </div>
+                        </div>
+                        <div class="quest-generate-field">
+                            <label>Prompt</label>
+                            <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
+                        </div>
+                        <div class="quest-generate-actions">
+                            <button id="questGenerateRun" class="btn-primary">Generate</button>
+                            <pre id="questGenerateOutput" class="quest-generate-output"></pre>
+                        </div>
                     </div>
                 </div>
                 
@@ -283,6 +323,7 @@
                                         <option value="stat_check">📊 Stat Check</option>
                                         <option value="effect_check">✨ Effect Check</option>
                                         <option value="combat">⚔️ Combat</option>
+                                        <option value="faction">🏰 Faction</option>
                                         <option value="end">🏁 Quest End</option>
                                     </select>
                                 </div>
@@ -331,6 +372,36 @@
                                         <div id="questEnemyPickerGrid" class="quest-enemy-picker-grid">
                                             <!-- Enemy items populated by JS -->
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- Faction Fields -->
+                                <div id="optionTypeFaction" class="option-type-fields" style="display:none;">
+                                    <div class="sidebar-field">
+                                        <label>Faction Required:</label>
+                                        <select id="sidebarFactionRequired">
+                                            <option value="">-- Select Faction --</option>
+                                            <option value="order">Order</option>
+                                            <option value="guild">Guild</option>
+                                            <option value="companions">Companions</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Option Effect -->
+                            <div class="sidebar-section">
+                                <h4>✨ Option Effect</h4>
+                                <div class="sidebar-row">
+                                    <div class="sidebar-field">
+                                        <label>Effect:</label>
+                                        <select id="sidebarOptionEffectId">
+                                            <!-- Populated by JS from GlobalData.effects -->
+                                        </select>
+                                    </div>
+                                    <div class="sidebar-field">
+                                        <label>Factor:</label>
+                                        <input type="number" id="sidebarOptionEffectFactor" placeholder="0">
                                     </div>
                                 </div>
                             </div>

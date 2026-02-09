@@ -21,3 +21,12 @@ CREATE TABLE IF NOT EXISTS game.concept (
 ALTER TABLE game.concept
     ADD COLUMN IF NOT EXISTS system_prompt JSONB NOT NULL DEFAULT '{}'::jsonb,
     ADD COLUMN IF NOT EXISTS wilds_prompt JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Quest option effects and faction gating
+ALTER TABLE game.quest_options
+    ADD COLUMN IF NOT EXISTS option_effect_id INTEGER,
+    ADD COLUMN IF NOT EXISTS option_effect_factor INTEGER,
+    ADD COLUMN IF NOT EXISTS faction_required TEXT;
+
+
+

@@ -118,6 +118,83 @@
     gap: 10px;
 }
 
+/* ==================== QUEST GENERATOR PANEL ==================== */
+.quest-generate-panel {
+    background: #101c36;
+    border-bottom: 1px solid #0f3460;
+    padding: 16px 20px 20px;
+}
+
+.quest-generate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.quest-generate-header h3 {
+    margin: 0;
+    color: #e2e8f0;
+}
+
+.quest-generate-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.quest-generate-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.quest-generate-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.quest-generate-field label {
+    color: #9fb3c8;
+    font-size: 0.85rem;
+}
+
+.quest-generate-field select,
+.quest-generate-field textarea {
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    color: #fff;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+}
+
+.quest-generate-field select[multiple] {
+    min-height: 120px;
+}
+
+.quest-generate-field textarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.quest-generate-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quest-generate-output {
+    background: #0b152c;
+    border: 1px solid #1a4a7a;
+    border-radius: 8px;
+    color: #a5b4fc;
+    padding: 10px 12px;
+    min-height: 80px;
+    white-space: pre-wrap;
+}
+
 /* ==================== BUTTONS ==================== */
 .btn-primary {
     background: #e94560;
