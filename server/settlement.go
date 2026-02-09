@@ -16,6 +16,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/lib/pq"
 )
 
 // Settlement represents a settlement from game.world_info
@@ -39,8 +40,8 @@ type Settlement struct {
 	TrainerAssetID        *int             `json:"trainer_asset_id"`
 	ChurchAssetID         *int             `json:"church_asset_id"`
 	Description           *string          `json:"description"`
-	KeyIssues             *string          `json:"key_issues"`
-	RecentEvents          *string          `json:"recent_events"`
+	KeyIssues             []string         `json:"key_issues"`
+	RecentEvents          []string         `json:"recent_events"`
 	Context               *string          `json:"context"`
 	Version               int              `json:"version"`
 	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
@@ -104,8 +105,8 @@ type SaveSettlementRequest struct {
 	TrainerAssetID        *int             `json:"trainer_asset_id"`
 	ChurchAssetID         *int             `json:"church_asset_id"`
 	Description           *string          `json:"description"`
-	KeyIssues             *string          `json:"key_issues"`
-	RecentEvents          *string          `json:"recent_events"`
+	KeyIssues             []string         `json:"key_issues"`
+	RecentEvents          []string         `json:"recent_events"`
 	Context               *string          `json:"context"`
 	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
 	ExpeditionDescription *string          `json:"expedition_description"`
@@ -191,7 +192,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.Blessing1, &s.Blessing2, &s.Blessing3,
 			&s.SettlementAssetID, &s.VendorAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
 			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID,
-			&s.Description, &s.KeyIssues, &s.RecentEvents, &s.Context, &s.Version,
+			&s.Description, pq.Array(&s.KeyIssues), pq.Array(&s.RecentEvents), &s.Context, &s.Version,
 			&s.ExpeditionAssetID, &s.ExpeditionDescription, &s.ArenaAssetID,
 			&s.VendorOnEntered, &s.VendorOnSold, &s.VendorOnBought,
 			&s.UtilityOnEntered, &s.UtilityOnPlaced, &s.UtilityOnAction,
@@ -538,7 +539,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
-			req.Description, req.KeyIssues, req.RecentEvents, req.Context,
+			req.Description, pq.Array(req.KeyIssues), pq.Array(req.RecentEvents), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
@@ -575,7 +576,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
-			req.Description, req.KeyIssues, req.RecentEvents, req.Context,
+			req.Description, pq.Array(req.KeyIssues), pq.Array(req.RecentEvents), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction).Scan(&settlementID)

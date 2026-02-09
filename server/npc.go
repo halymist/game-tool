@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/lib/pq"
 )
 
 type Npc struct {
-	NpcID          int     `json:"npc_id"`
-	Name           string  `json:"name"`
-	Context        *string `json:"context"`
-	Role           *string `json:"role"`
-	Personality    *string `json:"personality"`
-	Goals          *string `json:"goals"`
-	SettlementID   *int64  `json:"settlement_id"`
-	SettlementName *string `json:"settlement_name"`
+	NpcID          int      `json:"npc_id"`
+	Name           string   `json:"name"`
+	Context        *string  `json:"context"`
+	Role           *string  `json:"role"`
+	Personality    []string `json:"personality"`
+	Goals          []string `json:"goals"`
+	SettlementID   *int64   `json:"settlement_id"`
+	SettlementName *string  `json:"settlement_name"`
 }
 
 type NpcResponse struct {
@@ -26,13 +28,13 @@ type NpcResponse struct {
 }
 
 type NpcRequest struct {
-	NpcID        *int    `json:"npcId"`
-	Name         string  `json:"name"`
-	Context      *string `json:"context"`
-	Role         *string `json:"role"`
-	Personality  *string `json:"personality"`
-	Goals        *string `json:"goals"`
-	SettlementID *int64  `json:"settlementId"`
+	NpcID        *int     `json:"npcId"`
+	Name         string   `json:"name"`
+	Context      *string  `json:"context"`
+	Role         *string  `json:"role"`
+	Personality  []string `json:"personality"`
+	Goals        []string `json:"goals"`
+	SettlementID *int64   `json:"settlementId"`
 }
 
 func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +78,7 @@ func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
 	var npcs []Npc
 	for rows.Next() {
 		var npc Npc
-		if err := rows.Scan(&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID, &npc.SettlementName); err != nil {
+		if err := rows.Scan(&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, pq.Array(&npc.Personality), pq.Array(&npc.Goals), &npc.SettlementID, &npc.SettlementName); err != nil {
 			log.Printf("Error scanning NPC: %v", err)
 			json.NewEncoder(w).Encode(NpcResponse{Success: false, Message: err.Error()})
 			return
@@ -128,8 +130,8 @@ func handleCreateNpc(w http.ResponseWriter, r *http.Request) {
     `
 
 	var npc Npc
-	err := db.QueryRow(query, req.Name, req.Context, req.Role, req.Personality, req.Goals, req.SettlementID).Scan(
-		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID,
+	err := db.QueryRow(query, req.Name, req.Context, req.Role, pq.Array(req.Personality), pq.Array(req.Goals), req.SettlementID).Scan(
+		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, pq.Array(&npc.Personality), pq.Array(&npc.Goals), &npc.SettlementID,
 	)
 	if err != nil {
 		log.Printf("Error creating NPC: %v", err)
@@ -192,8 +194,8 @@ func handleUpdateNpc(w http.ResponseWriter, r *http.Request) {
     `
 
 	var npc Npc
-	err := db.QueryRow(query, req.Name, req.Context, req.Role, req.Personality, req.Goals, req.SettlementID, *req.NpcID).Scan(
-		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, &npc.Personality, &npc.Goals, &npc.SettlementID,
+	err := db.QueryRow(query, req.Name, req.Context, req.Role, pq.Array(req.Personality), pq.Array(req.Goals), req.SettlementID, *req.NpcID).Scan(
+		&npc.NpcID, &npc.Name, &npc.Context, &npc.Role, pq.Array(&npc.Personality), pq.Array(&npc.Goals), &npc.SettlementID,
 	)
 	if err != nil {
 		log.Printf("Error updating NPC: %v", err)

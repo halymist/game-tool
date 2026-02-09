@@ -456,12 +456,12 @@ function populateSettlementForm(settlement) {
 
     const keyIssuesInput = document.getElementById('settlementKeyIssues');
     if (keyIssuesInput) {
-        keyIssuesInput.value = settlement.key_issues || '';
+        keyIssuesInput.value = formatListOutput(settlement.key_issues);
     }
 
     const recentEventsInput = document.getElementById('settlementRecentEvents');
     if (recentEventsInput) {
-        recentEventsInput.value = settlement.recent_events || '';
+        recentEventsInput.value = formatListOutput(settlement.recent_events);
     }
 
     const contextInput = document.getElementById('settlementContext');
@@ -1395,8 +1395,8 @@ async function saveSettlement() {
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
     const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
-    const keyIssues = document.getElementById('settlementKeyIssues')?.value.trim() || null;
-    const recentEvents = document.getElementById('settlementRecentEvents')?.value.trim() || null;
+    const keyIssues = parseListInput(document.getElementById('settlementKeyIssues')?.value || '');
+    const recentEvents = parseListInput(document.getElementById('settlementRecentEvents')?.value || '');
     const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
 
@@ -1512,6 +1512,19 @@ async function saveSettlement() {
         console.error('Error saving settlement:', error);
         alert('Error saving settlement: ' + error.message);
     }
+}
+
+function parseListInput(text) {
+    return text
+        .split(/[\n,]/)
+        .map(entry => entry.trim())
+        .filter(Boolean);
+}
+
+function formatListOutput(value) {
+    if (!value) return '';
+    if (Array.isArray(value)) return value.join('\n');
+    return String(value);
 }
 
 async function deleteSettlement() {
