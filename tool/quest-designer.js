@@ -2198,6 +2198,8 @@ function escapeHtml(text) {
 const questGenerateState = {
     npcs: [],
     allQuests: [],
+    rewardItems: [],
+    rewardPerks: [],
 };
 
 function setupQuestGeneratePanel() {
@@ -2206,6 +2208,18 @@ function setupQuestGeneratePanel() {
     document.getElementById('questGenerateRun')?.addEventListener('click', generateQuestPreview);
     document.getElementById('questGenerateSettlement')?.addEventListener('change', (e) => {
         populateQuestGenerateLocations(e.target.value);
+    });
+    document.getElementById('questGenerateNpcFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateNpcs(e.target.value);
+    });
+    document.getElementById('questGenerateItemRewardFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateRewardItems(e.target.value);
+    });
+    document.getElementById('questGeneratePerkRewardFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateRewardPerks(e.target.value);
+    });
+    document.getElementById('questGenerateQuestFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateQuests(e.target.value);
     });
 }
 
@@ -2244,8 +2258,8 @@ function populateQuestGenerateSettlements() {
     select.innerHTML = '<option value="">-- Any Settlement --</option>';
     settlements.forEach(settlement => {
         const opt = document.createElement('option');
-        opt.value = settlement.world_id || settlement.id || '';
-        opt.textContent = settlement.name || `Settlement ${opt.value}`;
+        opt.value = settlement.settlement_id || settlement.world_id || settlement.id || '';
+        opt.textContent = settlement.settlement_name || settlement.name || `Settlement ${opt.value}`;
         if (questState.selectedSettlementId && String(opt.value) === String(questState.selectedSettlementId)) {
             opt.selected = true;
         }
@@ -2261,7 +2275,7 @@ function populateQuestGenerateLocations(settlementId) {
 
     let locations = [];
     if (settlementId) {
-        const settlement = settlements.find(s => String(s.world_id || s.id || s.settlement_id) === String(settlementId));
+        const settlement = settlements.find(s => String(s.settlement_id || s.world_id || s.id) === String(settlementId));
         locations = settlement?.locations || [];
         locations.forEach(loc => {
             const opt = document.createElement('option');
@@ -2273,11 +2287,10 @@ function populateQuestGenerateLocations(settlementId) {
     }
 
     settlements.forEach(settlement => {
-        const settlementName = settlement.name || `Settlement ${settlement.world_id || settlement.id || settlement.settlement_id}`;
         (settlement.locations || []).forEach(loc => {
             const opt = document.createElement('option');
             opt.value = loc.location_id || loc.id || '';
-            opt.textContent = `${settlementName} — ${loc.name || `Location ${opt.value}`}`;
+            opt.textContent = loc.name || `Location ${opt.value}`;
             select.appendChild(opt);
         });
     });
@@ -2317,11 +2330,18 @@ async function loadQuestGenerateAllQuests() {
     }
 }
 
-function populateQuestGenerateNpcs() {
+function populateQuestGenerateNpcs(filterText = '') {
     const select = document.getElementById('questGenerateNpcs');
     if (!select) return;
     select.innerHTML = '';
-    questGenerateState.npcs.forEach(npc => {
+    const search = filterText.trim().toLowerCase();
+    questGenerateState.npcs
+        .filter(npc => {
+            if (!search) return true;
+            const name = (npc.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(npc => {
         const opt = document.createElement('option');
         opt.value = npc.npc_id || npc.id;
         opt.textContent = npc.name || `NPC ${opt.value}`;
@@ -2352,48 +2372,82 @@ function populateQuestGenerateEnemies() {
 }
 
 function populateQuestGenerateRewards() {
-    const select = document.getElementById('questGenerateRewards');
-    if (!select) return;
     const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
     const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
-    const stats = ['strength', 'stamina', 'agility', 'luck', 'armor'];
-    select.innerHTML = '';
-    const talentOpt = document.createElement('option');
-    talentOpt.value = 'talent';
-    talentOpt.textContent = 'Talent Point';
-    select.appendChild(talentOpt);
+    questGenerateState.rewardItems = items;
+    questGenerateState.rewardPerks = perks;
 
-    stats.forEach(stat => {
-        const opt = document.createElement('option');
-        opt.value = `stat:${stat}`;
-        opt.textContent = `Stat Boost: ${stat}`;
-        select.appendChild(opt);
-    });
+    populateQuestGenerateRewardItems('');
+    populateQuestGenerateRewardPerks('');
 
-    items.forEach(item => {
-        const id = item.item_id || item.id;
-        const name = item.item_name || item.name || `Item ${id}`;
-        const opt = document.createElement('option');
-        opt.value = `item:${id}`;
-        opt.textContent = `Item: ${name}`;
-        select.appendChild(opt);
-    });
-    perks.forEach(perk => {
-        const id = perk.perk_id || perk.id;
-        const name = perk.perk_name || perk.name || `Perk ${id}`;
-        const opt = document.createElement('option');
-        opt.value = `perk:${id}`;
-        opt.textContent = `Perk: ${name}`;
-        select.appendChild(opt);
-    });
+    const statsSelect = document.getElementById('questGenerateRewardStats');
+    if (statsSelect) {
+        const stats = ['strength', 'stamina', 'agility', 'luck', 'armor'];
+        statsSelect.innerHTML = '';
+        stats.forEach(stat => {
+            const opt = document.createElement('option');
+            opt.value = stat;
+            opt.textContent = stat;
+            statsSelect.appendChild(opt);
+        });
+    }
 }
 
-function populateQuestGenerateQuests() {
+function populateQuestGenerateRewardItems(filterText = '') {
+    const select = document.getElementById('questGenerateRewardItems');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    questGenerateState.rewardItems
+        .filter(item => {
+            if (!search) return true;
+            const name = (item.item_name || item.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(item => {
+            const id = item.item_id || item.id;
+            const name = item.item_name || item.name || `Item ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateQuestGenerateRewardPerks(filterText = '') {
+    const select = document.getElementById('questGenerateRewardPerks');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    questGenerateState.rewardPerks
+        .filter(perk => {
+            if (!search) return true;
+            const name = (perk.perk_name || perk.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(perk => {
+            const id = perk.perk_id || perk.id;
+            const name = perk.perk_name || perk.name || `Perk ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateQuestGenerateQuests(filterText = '') {
     const select = document.getElementById('questGenerateQuests');
     if (!select) return;
     select.innerHTML = '';
     const quests = questGenerateState.allQuests.length ? questGenerateState.allQuests : Array.from(questState.quests.values());
-    quests.forEach(quest => {
+    const search = filterText.trim().toLowerCase();
+    quests
+        .filter(quest => {
+            if (!search) return true;
+            const name = (quest.quest_name || quest.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(quest => {
         const opt = document.createElement('option');
         opt.value = quest.quest_id || quest.serverId || quest.questId || '';
         opt.textContent = quest.quest_name || quest.name || `Quest ${opt.value}`;
@@ -2407,17 +2461,137 @@ function collectMultiSelectValues(selectId) {
     return Array.from(select.selectedOptions).map(opt => opt.value);
 }
 
-function generateQuestPreview() {
+async function generateQuestPreview() {
     const settlementId = document.getElementById('questGenerateSettlement')?.value || '';
     const locationId = document.getElementById('questGenerateLocation')?.value || '';
     const prompt = document.getElementById('questGeneratePrompt')?.value || '';
+    const selectedNpcIds = collectMultiSelectValues('questGenerateNpcs').map(id => parseInt(id, 10));
+    const selectedEnemyIds = collectMultiSelectValues('questGenerateEnemies').map(id => parseInt(id, 10));
+    const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
+    const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
+    const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
+    const selectedStats = collectMultiSelectValues('questGenerateRewardStats');
+    const silverAmount = parseInt(document.getElementById('questGenerateRewardSilver')?.value || '0', 10) || 0;
+
+    let conceptPayload = {};
+    let conceptSystemPrompt = {};
+    let conceptWildsPrompt = {};
+    try {
+        const token = await getCurrentAccessToken();
+        if (token) {
+            const response = await fetch('http://localhost:8080/api/getConcept', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data?.success) {
+                conceptPayload = data.payload || {};
+                conceptSystemPrompt = data.systemPrompt || {};
+                conceptWildsPrompt = data.wildsPrompt || {};
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load concept for generator:', error);
+    }
+
+    const schema = conceptPayload?.json_schema ?? conceptPayload ?? {};
+
+    const settlements = GlobalData?.settlements || [];
+    const settlement = settlements.find(s => String(s.settlement_id || s.world_id || s.id) === String(settlementId));
+    let location = null;
+    if (settlement && locationId) {
+        location = (settlement.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId)) || null;
+    } else if (locationId) {
+        settlements.some(s => {
+            const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
+            if (found) {
+                location = found;
+                return true;
+            }
+            return false;
+        });
+    }
+
+    const npcLookup = new Map(questGenerateState.npcs.map(npc => [npc.npc_id || npc.id, npc]));
+    const npcs = selectedNpcIds
+        .map(id => npcLookup.get(id))
+        .filter(Boolean)
+        .map(npc => ({
+            id: npc.npc_id || npc.id,
+            name: npc.name || '',
+            context: npc.context || '',
+            role: npc.role || '',
+            personality: npc.personality || '',
+            goals: npc.goals || ''
+        }));
+
+    const enemies = selectedEnemyIds
+        .map(id => {
+            if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+                return allEnemies.find(enemy => (enemy.enemyId || enemy.enemy_id || enemy.id) === id);
+            }
+            if (typeof getEnemies === 'function') {
+                return getEnemies().find(enemy => (enemy.enemyId || enemy.enemy_id || enemy.id) === id);
+            }
+            return (GlobalData?.enemies || []).find(enemy => (enemy.enemyId || enemy.enemy_id || enemy.id) === id);
+        })
+        .filter(Boolean)
+        .map(enemy => ({
+            id: enemy.enemyId || enemy.enemy_id || enemy.id,
+            name: enemy.enemyName || enemy.enemy_name || enemy.name || ''
+        }));
+
+    const quests = (questGenerateState.allQuests.length ? questGenerateState.allQuests : Array.from(questState.quests.values()))
+        .filter(q => selectedQuestIds.includes(q.quest_id || q.questId || q.serverId))
+        .map(q => ({
+            id: q.quest_id || q.questId || q.serverId,
+            name: q.quest_name || q.name || ''
+        }));
+
+    const items = questGenerateState.rewardItems
+        .filter(item => selectedItemIds.includes(item.item_id || item.id))
+        .map(item => ({
+            id: item.item_id || item.id,
+            name: item.item_name || item.name || ''
+        }));
+
+    const perks = questGenerateState.rewardPerks
+        .filter(perk => selectedPerkIds.includes(perk.perk_id || perk.id))
+        .map(perk => ({
+            id: perk.perk_id || perk.id,
+            name: perk.perk_name || perk.name || ''
+        }));
+
     const payload = {
-        settlementId,
-        locationId,
-        npcs: collectMultiSelectValues('questGenerateNpcs'),
-        enemies: collectMultiSelectValues('questGenerateEnemies'),
-        rewards: collectMultiSelectValues('questGenerateRewards'),
-        quests: collectMultiSelectValues('questGenerateQuests'),
+        system_prompt: conceptSystemPrompt,
+        output_struct: schema,
+        world_wilds_prompt: conceptWildsPrompt,
+        local_context: {
+            settlement: settlement
+                ? {
+                    id: settlement.settlement_id || settlement.id,
+                    name: settlement.settlement_name || settlement.name || '',
+                    context: settlement.context || '',
+                    key_issues: settlement.key_issues || '',
+                    recent_events: settlement.recent_events || ''
+                }
+                : null,
+            location: location
+                ? {
+                    id: location.location_id || location.id || null,
+                    name: location.name || '',
+                    description: location.description || ''
+                }
+                : null
+        },
+        npcs,
+        enemies,
+        rewards: {
+            items,
+            perks,
+            stat_boosts: selectedStats,
+            silver: silverAmount
+        },
+        relevant_quests: quests,
         prompt
     };
 

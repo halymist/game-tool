@@ -124,7 +124,7 @@
     top: 0;
     right: 0;
     height: 100%;
-    width: 420px;
+    width: 560px;
     background: #101c36;
     border-left: 1px solid #0f3460;
     box-shadow: -12px 0 30px rgba(0, 0, 0, 0.35);
@@ -155,6 +155,20 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
+}
+
+.quest-generate-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(15, 52, 96, 0.6);
+}
+
+.quest-generate-section h4 {
+    margin: 0;
+    color: #cbd5f5;
+    font-size: 0.95rem;
 }
 
 .quest-generate-field {
@@ -1211,4 +1225,14 @@
     padding: 10px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
+}
+
+.quest-generate-filter,
+.quest-generate-input {
+    background: #0b2a4a;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    color: #fff;
+    padding: 6px 8px;
+    font-size: 0.8rem;
 }
