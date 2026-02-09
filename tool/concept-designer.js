@@ -48,9 +48,9 @@ async function loadConceptData() {
 
         conceptState.payload = data.payload || {};
         const systemPrompt = document.getElementById('conceptSystemPrompt');
-        if (systemPrompt) systemPrompt.value = toKeyValueLines(data.systemPrompt || {});
+        if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt);
         const wildsPrompt = document.getElementById('conceptWildsPrompt');
-        if (wildsPrompt) wildsPrompt.value = toKeyValueLines(data.wildsPrompt || {});
+        if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt);
         renderConceptJson();
     } catch (error) {
         console.error('Error loading concept:', error);
@@ -83,8 +83,8 @@ async function saveConcept() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const systemPromptJson = parseKeyValueLines(systemPrompt?.value || '');
-        const wildsPromptJson = parseKeyValueLines(wildsPrompt?.value || '');
+        const systemPromptJson = systemPrompt?.value || '';
+        const wildsPromptJson = wildsPrompt?.value || '';
 
         const schemaPayload = parsed;
         const promptPayload = buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson);
@@ -108,8 +108,8 @@ async function saveConcept() {
         }
 
         conceptState.payload = data.payload || promptPayload;
-        if (systemPrompt) systemPrompt.value = toKeyValueLines(data.systemPrompt || systemPromptJson);
-        if (wildsPrompt) wildsPrompt.value = toKeyValueLines(data.wildsPrompt || wildsPromptJson);
+        if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt ?? systemPromptJson);
+        if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt ?? wildsPromptJson);
         renderConceptJson();
         setConceptStatus('Saved', false);
     } catch (error) {
@@ -118,41 +118,14 @@ async function saveConcept() {
     }
 }
 
-function parseKeyValueLines(text) {
-    const result = {};
-    text.split('\n').forEach((line) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-        const idx = trimmed.indexOf(':');
-        if (idx === -1) return;
-        const key = trimmed.slice(0, idx).trim();
-        if (!key) return;
-        const valueText = trimmed.slice(idx + 1).trim();
-        if (!valueText) {
-            result[key] = '';
-            return;
-        }
-        const parsed = tryParseJsonValue(valueText);
-        result[key] = parsed;
-    });
-    return result;
-}
-
-function toKeyValueLines(value) {
-    if (!value) return '';
-    if (typeof value === 'string') {
-        try {
-            value = JSON.parse(value);
-        } catch {
-            return value;
-        }
+function jsonbToText(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+        if (typeof value.text === 'string') return value.text;
+        return JSON.stringify(value, null, 2);
     }
-    if (typeof value !== 'object') {
-        return String(value);
-    }
-    return Object.entries(value)
-        .map(([key, val]) => `${key}: ${typeof val === 'string' ? val : JSON.stringify(val)}`)
-        .join('\n');
+    return String(value);
 }
 
 function buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson) {
@@ -171,16 +144,6 @@ function buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson) {
     return base;
 }
 
-function tryParseJsonValue(valueText) {
-    const firstChar = valueText[0];
-    const looksJson = firstChar === '{' || firstChar === '[' || firstChar === '"' || firstChar === '-' || /\d/.test(firstChar) || valueText === 'true' || valueText === 'false' || valueText === 'null';
-    if (!looksJson) return valueText;
-    try {
-        return JSON.parse(valueText);
-    } catch {
-        return valueText;
-    }
-}
 
 function setConceptStatus(message, isError) {
     const status = document.getElementById('conceptStatus');

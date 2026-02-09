@@ -2459,8 +2459,8 @@ async function generateQuestPreview() {
     const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
     const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
     let conceptPayload = {};
-    let conceptSystemPrompt = {};
-    let conceptWildsPrompt = {};
+    let conceptSystemPrompt = '';
+    let conceptWildsPrompt = '';
     try {
         const token = await getCurrentAccessToken();
         if (token) {
@@ -2470,8 +2470,8 @@ async function generateQuestPreview() {
             const data = await response.json();
             if (data?.success) {
                 conceptPayload = data.payload || {};
-                conceptSystemPrompt = data.systemPrompt || {};
-                conceptWildsPrompt = data.wildsPrompt || {};
+                conceptSystemPrompt = toPromptText(data.systemPrompt);
+                conceptWildsPrompt = toPromptText(data.wildsPrompt);
             }
         }
     } catch (error) {
@@ -2580,6 +2580,16 @@ async function generateQuestPreview() {
     };
 
     console.log('Quest generate payload:', JSON.stringify(payload, null, 2));
+}
+
+function toPromptText(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+        if (typeof value.text === 'string') return value.text;
+        return JSON.stringify(value, null, 2);
+    }
+    return String(value);
 }
 
 // Export for window
