@@ -2379,18 +2379,6 @@ function populateQuestGenerateRewards() {
 
     populateQuestGenerateRewardItems('');
     populateQuestGenerateRewardPerks('');
-
-    const statsSelect = document.getElementById('questGenerateRewardStats');
-    if (statsSelect) {
-        const stats = ['strength', 'stamina', 'agility', 'luck', 'armor'];
-        statsSelect.innerHTML = '';
-        stats.forEach(stat => {
-            const opt = document.createElement('option');
-            opt.value = stat;
-            opt.textContent = stat;
-            statsSelect.appendChild(opt);
-        });
-    }
 }
 
 function populateQuestGenerateRewardItems(filterText = '') {
@@ -2470,9 +2458,6 @@ async function generateQuestPreview() {
     const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
     const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
     const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
-    const selectedStats = collectMultiSelectValues('questGenerateRewardStats');
-    const silverAmount = parseInt(document.getElementById('questGenerateRewardSilver')?.value || '0', 10) || 0;
-
     let conceptPayload = {};
     let conceptSystemPrompt = {};
     let conceptWildsPrompt = {};
@@ -2588,14 +2573,13 @@ async function generateQuestPreview() {
         rewards: {
             items,
             perks,
-            stat_boosts: selectedStats,
-            silver: silverAmount
+            possible_reward_types: ['silver', 'stat_boost']
         },
         relevant_quests: quests,
         prompt
     };
 
-    console.log('Quest generate payload:', payload);
+    console.log('Quest generate payload:', JSON.stringify(payload, null, 2));
 }
 
 // Export for window
