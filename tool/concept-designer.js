@@ -51,6 +51,8 @@ async function loadConceptData() {
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt);
         const wildsPrompt = document.getElementById('conceptWildsPrompt');
         if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt);
+        const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
+        if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt);
         renderConceptJson();
     } catch (error) {
         console.error('Error loading concept:', error);
@@ -69,6 +71,7 @@ async function saveConcept() {
     const textarea = document.getElementById('conceptJson');
     const systemPrompt = document.getElementById('conceptSystemPrompt');
     const wildsPrompt = document.getElementById('conceptWildsPrompt');
+    const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
     if (!textarea) return;
 
     let parsed;
@@ -85,6 +88,7 @@ async function saveConcept() {
 
         const systemPromptJson = systemPrompt?.value || '';
         const wildsPromptJson = wildsPrompt?.value || '';
+        const expeditionClusterPromptJson = expeditionClusterPrompt?.value || '';
 
         const schemaPayload = parsed;
         const promptPayload = buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson);
@@ -98,7 +102,8 @@ async function saveConcept() {
             body: JSON.stringify({
                 payload: promptPayload,
                 systemPrompt: systemPromptJson,
-                wildsPrompt: wildsPromptJson
+                wildsPrompt: wildsPromptJson,
+                expeditionClusterPrompt: expeditionClusterPromptJson
             })
         });
         const data = await response.json();
@@ -110,6 +115,7 @@ async function saveConcept() {
         conceptState.payload = data.payload || promptPayload;
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt ?? systemPromptJson);
         if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt ?? wildsPromptJson);
+        if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt ?? expeditionClusterPromptJson);
         renderConceptJson();
         setConceptStatus('Saved', false);
     } catch (error) {

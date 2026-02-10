@@ -535,6 +535,8 @@ function populateSettlementForm(settlement) {
     
     const expeditionDesc = document.getElementById('expeditionDescription');
     if (expeditionDesc) expeditionDesc.value = settlement.expedition_description || '';
+    const expeditionContext = document.getElementById('expeditionContext');
+    if (expeditionContext) expeditionContext.value = settlement.expedition_context || '';
 
     // Parse expedition failure texts
     settlementState.expeditionResponses = [];
@@ -1067,6 +1069,7 @@ function createNewSettlement() {
     document.getElementById('blessing2Select').value = '';
     document.getElementById('blessing3Select').value = '';
     document.getElementById('expeditionDescription').value = '';
+    document.getElementById('expeditionContext').value = '';
 
     // Clear asset previews
     updateAssetPreview('settlement', null);
@@ -1426,6 +1429,7 @@ async function saveSettlement() {
     const recentEvents = parseListInput(document.getElementById('settlementRecentEvents')?.value || '');
     const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
+    const expeditionContext = document.getElementById('expeditionContext')?.value.trim() || null;
 
     // Build vendor responses JSONB from dynamic entries
     const vendorResponsesObj = {};
@@ -1481,6 +1485,7 @@ async function saveSettlement() {
         // New expedition and arena fields
         expedition_asset_id: expeditionAssetId,
         expedition_description: expeditionDescription,
+        expedition_context: expeditionContext,
         arena_asset_id: arenaAssetId,
         // Vendor responses (JSONB with arrays per type)
         vendor_on_entered: vendorResponsesObj.on_entered?.length ? vendorResponsesObj.on_entered : null,

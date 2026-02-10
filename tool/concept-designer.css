@@ -79,6 +79,12 @@
     font-size: 13px;
 }
 
+#conceptExpeditionClusterPrompt {
+    min-height: 180px;
+    font-family: inherit;
+    font-size: 13px;
+}
+
 #conceptJson {
     min-height: 360px;
 }

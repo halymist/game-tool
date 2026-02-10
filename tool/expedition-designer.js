@@ -26,6 +26,15 @@ const expeditionState = {
     originalOptions: new Map() // "localSlideId-optionIndex" -> { text, type, statType, statRequired, ... }
 };
 
+const expeditionGenerateState = {
+    npcs: [],
+    rewardItems: [],
+    rewardPerks: [],
+    rewardPotions: [],
+    rewardBlessings: [],
+    lastRequest: null
+};
+
 // ==================== INITIALIZATION ====================
 function initExpeditionDesigner() {
     console.log('🗺️ initExpeditionDesigner called');
@@ -187,6 +196,8 @@ function initExpeditionDesigner() {
     
     // Load settlements for dropdown
     loadExpeditionSettlements();
+
+    setupExpeditionGeneratePanel();
 }
 
 // ==================== ADD SLIDE ====================
@@ -1693,6 +1704,266 @@ function applyBgUrl(url) {
         renderConnections();
     }
     closeExpeditionAssetGallery();
+}
+
+function clearSlideBg() {
+    if (!expeditionEditingSlide) return;
+    const slide = expeditionState.slides.get(expeditionEditingSlide);
+    if (slide) {
+        slide.assetUrl = null;
+        renderSlide(slide);
+        renderConnections();
+    }
+    closeExpeditionAssetGallery();
+}
+
+function setupExpeditionGeneratePanel() {
+    document.getElementById('expeditionGenerateBtn')?.addEventListener('click', toggleExpeditionGeneratePanel);
+    document.getElementById('expeditionGenerateClose')?.addEventListener('click', toggleExpeditionGeneratePanel);
+    document.getElementById('expeditionGenerateRun')?.addEventListener('click', generateExpeditionClusterPreview);
+    document.getElementById('expeditionGenerateLocationFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateLocations(e.target.value);
+    });
+    document.getElementById('expeditionGenerateNpcFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateNpcs(e.target.value);
+    });
+    document.getElementById('expeditionGenerateEnemyFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateEnemies(e.target.value);
+    });
+    document.getElementById('expeditionGenerateItemRewardFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateRewardItems(e.target.value);
+    });
+    document.getElementById('expeditionGeneratePerkRewardFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateRewardPerks(e.target.value);
+    });
+    document.getElementById('expeditionGeneratePotionRewardFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateRewardPotions(e.target.value);
+    });
+    document.getElementById('expeditionGenerateBlessingRewardFilter')?.addEventListener('input', (e) => {
+        populateExpeditionGenerateRewardBlessings(e.target.value);
+    });
+}
+
+function toggleExpeditionGeneratePanel() {
+    const panel = document.getElementById('expeditionGeneratePanel');
+    if (!panel) return;
+    const isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        populateExpeditionGeneratePanel();
+    }
+}
+
+async function populateExpeditionGeneratePanel() {
+    if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
+        await loadSettlementsData();
+    }
+    populateExpeditionGenerateLocations(document.getElementById('expeditionGenerateLocationFilter')?.value || '');
+    await loadExpeditionGenerateNpcs();
+    populateExpeditionGenerateNpcs(document.getElementById('expeditionGenerateNpcFilter')?.value || '');
+    populateExpeditionGenerateEnemies(document.getElementById('expeditionGenerateEnemyFilter')?.value || '');
+    populateExpeditionGenerateRewards();
+}
+
+function populateExpeditionGenerateLocations(filterText = '') {
+    const select = document.getElementById('expeditionGenerateLocation');
+    if (!select) return;
+    const settlements = GlobalData?.settlements || [];
+    select.innerHTML = '<option value="">-- Any Location --</option>';
+    const search = filterText.trim().toLowerCase();
+    settlements.forEach(settlement => {
+        (settlement.locations || []).forEach(loc => {
+            const name = loc.name || '';
+            if (search && !name.toLowerCase().includes(search)) return;
+            const opt = document.createElement('option');
+            opt.value = loc.location_id || loc.id || '';
+            opt.textContent = name || `Location ${opt.value}`;
+            select.appendChild(opt);
+        });
+    });
+}
+
+async function loadExpeditionGenerateNpcs() {
+    if (expeditionGenerateState.npcs.length) return;
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('http://localhost:8080/api/getNpcs', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data && data.npcs) {
+            expeditionGenerateState.npcs = data.npcs;
+        }
+    } catch (error) {
+        console.error('Failed to load NPCs for expedition generator:', error);
+    }
+}
+
+function populateExpeditionGenerateNpcs(filterText = '') {
+    const select = document.getElementById('expeditionGenerateNpcs');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    expeditionGenerateState.npcs
+        .filter(npc => {
+            if (!search) return true;
+            const name = (npc.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(npc => {
+            const opt = document.createElement('option');
+            opt.value = npc.npc_id || npc.id;
+            opt.textContent = npc.name || `NPC ${opt.value}`;
+            select.appendChild(opt);
+        });
+}
+
+function populateExpeditionGenerateEnemies(filterText = '') {
+    const select = document.getElementById('expeditionGenerateEnemies');
+    if (!select) return;
+    let enemies = [];
+    if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+        enemies = allEnemies;
+    } else if (typeof getEnemies === 'function') {
+        enemies = getEnemies();
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+        enemies = GlobalData.enemies;
+    }
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    enemies
+        .filter(enemy => {
+            if (!search) return true;
+            const name = (enemy.enemyName || enemy.enemy_name || enemy.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(enemy => {
+            const id = enemy.enemyId || enemy.enemy_id || enemy.id;
+            const name = enemy.enemyName || enemy.enemy_name || enemy.name || `Enemy ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateExpeditionGenerateRewards() {
+    const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
+    const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
+    expeditionGenerateState.rewardItems = items;
+    expeditionGenerateState.rewardPerks = perks;
+    expeditionGenerateState.rewardPotions = items.filter(item => item.type === 'potion');
+    expeditionGenerateState.rewardBlessings = perks.filter(perk => perk.is_blessing);
+    populateExpeditionGenerateRewardItems();
+    populateExpeditionGenerateRewardPerks();
+    populateExpeditionGenerateRewardPotions();
+    populateExpeditionGenerateRewardBlessings();
+}
+
+function populateExpeditionGenerateRewardItems(filterText = '') {
+    const select = document.getElementById('expeditionGenerateRewardItems');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    expeditionGenerateState.rewardItems
+        .filter(item => {
+            if (!search) return true;
+            const name = (item.itemName || item.item_name || item.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(item => {
+            const id = item.itemId || item.item_id || item.id;
+            const name = item.itemName || item.item_name || item.name || `Item ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateExpeditionGenerateRewardPerks(filterText = '') {
+    const select = document.getElementById('expeditionGenerateRewardPerks');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    expeditionGenerateState.rewardPerks
+        .filter(perk => {
+            if (!search) return true;
+            const name = (perk.perk_name || perk.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(perk => {
+            const id = perk.perk_id || perk.id;
+            const name = perk.perk_name || perk.name || `Perk ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateExpeditionGenerateRewardPotions(filterText = '') {
+    const select = document.getElementById('expeditionGenerateRewardPotions');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    expeditionGenerateState.rewardPotions
+        .filter(item => {
+            if (!search) return true;
+            const name = (item.itemName || item.item_name || item.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(item => {
+            const id = item.itemId || item.item_id || item.id;
+            const name = item.itemName || item.item_name || item.name || `Item ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateExpeditionGenerateRewardBlessings(filterText = '') {
+    const select = document.getElementById('expeditionGenerateRewardBlessings');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    expeditionGenerateState.rewardBlessings
+        .filter(perk => {
+            if (!search) return true;
+            const name = (perk.perk_name || perk.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(perk => {
+            const id = perk.perk_id || perk.id;
+            const name = perk.perk_name || perk.name || `Perk ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function getSelectedValues(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return [];
+    return Array.from(select.selectedOptions).map(opt => opt.value).filter(Boolean);
+}
+
+function generateExpeditionClusterPreview() {
+    const prompt = document.getElementById('expeditionGeneratePrompt')?.value.trim() || '';
+    expeditionGenerateState.lastRequest = {
+        locationId: document.getElementById('expeditionGenerateLocation')?.value || null,
+        npcIds: getSelectedValues('expeditionGenerateNpcs'),
+        enemyIds: getSelectedValues('expeditionGenerateEnemies'),
+        rewardItems: getSelectedValues('expeditionGenerateRewardItems'),
+        rewardPerks: getSelectedValues('expeditionGenerateRewardPerks'),
+        rewardPotions: getSelectedValues('expeditionGenerateRewardPotions'),
+        rewardBlessings: getSelectedValues('expeditionGenerateRewardBlessings'),
+        prompt
+    };
+    console.log('Expedition cluster request:', expeditionGenerateState.lastRequest);
 }
 
 // Upload expedition asset (uses quest assets endpoint for shared folder)

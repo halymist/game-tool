@@ -9,19 +9,21 @@ import (
 )
 
 type ConceptRecord struct {
-	ID           int             `json:"id"`
-	Payload      json.RawMessage `json:"payload"`
-	SystemPrompt json.RawMessage `json:"system_prompt"`
-	WildsPrompt  json.RawMessage `json:"wilds_prompt"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID                      int             `json:"id"`
+	Payload                 json.RawMessage `json:"payload"`
+	SystemPrompt            json.RawMessage `json:"system_prompt"`
+	WildsPrompt             json.RawMessage `json:"wilds_prompt"`
+	ExpeditionClusterPrompt json.RawMessage `json:"expedition_cluster_prompt"`
+	UpdatedAt               time.Time       `json:"updated_at"`
 }
 
 type ConceptResponse struct {
-	Success      bool            `json:"success"`
-	Message      string          `json:"message,omitempty"`
-	Payload      json.RawMessage `json:"payload,omitempty"`
-	SystemPrompt json.RawMessage `json:"systemPrompt,omitempty"`
-	WildsPrompt  json.RawMessage `json:"wildsPrompt,omitempty"`
+	Success                 bool            `json:"success"`
+	Message                 string          `json:"message,omitempty"`
+	Payload                 json.RawMessage `json:"payload,omitempty"`
+	SystemPrompt            json.RawMessage `json:"systemPrompt,omitempty"`
+	WildsPrompt             json.RawMessage `json:"wildsPrompt,omitempty"`
+	ExpeditionClusterPrompt json.RawMessage `json:"expeditionClusterPrompt,omitempty"`
 }
 
 func handleGetConcept(w http.ResponseWriter, r *http.Request) {
@@ -39,15 +41,16 @@ func handleGetConcept(w http.ResponseWriter, r *http.Request) {
 	var payload json.RawMessage
 	var systemPrompt json.RawMessage
 	var wildsPrompt json.RawMessage
-	err := db.QueryRow(`SELECT payload, system_prompt, wilds_prompt FROM game.concept ORDER BY id LIMIT 1`).Scan(&payload, &systemPrompt, &wildsPrompt)
+	var expeditionClusterPrompt json.RawMessage
+	err := db.QueryRow(`SELECT payload, system_prompt, wilds_prompt, expedition_cluster_prompt FROM game.concept ORDER BY id LIMIT 1`).Scan(&payload, &systemPrompt, &wildsPrompt, &expeditionClusterPrompt)
 	if err != nil {
 		// Return empty payload if not found
 		empty := json.RawMessage([]byte("{}"))
-		json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty})
+		json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty, ExpeditionClusterPrompt: empty})
 		return
 	}
 
-	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt})
+	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: expeditionClusterPrompt})
 }
 
 func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
@@ -63,9 +66,10 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var req struct {
-		Payload      json.RawMessage `json:"payload"`
-		SystemPrompt json.RawMessage `json:"systemPrompt"`
-		WildsPrompt  json.RawMessage `json:"wildsPrompt"`
+		Payload                 json.RawMessage `json:"payload"`
+		SystemPrompt            json.RawMessage `json:"systemPrompt"`
+		WildsPrompt             json.RawMessage `json:"wildsPrompt"`
+		ExpeditionClusterPrompt json.RawMessage `json:"expeditionClusterPrompt"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -83,20 +87,25 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 	if len(req.WildsPrompt) == 0 {
 		req.WildsPrompt = json.RawMessage([]byte("{}"))
 	}
+	if len(req.ExpeditionClusterPrompt) == 0 {
+		req.ExpeditionClusterPrompt = json.RawMessage([]byte("{}"))
+	}
 
 	var payload json.RawMessage
 	var systemPrompt json.RawMessage
 	var wildsPrompt json.RawMessage
+	var expeditionClusterPrompt json.RawMessage
 	err := db.QueryRow(`
-		INSERT INTO game.concept (id, payload, system_prompt, wilds_prompt, updated_at)
-		VALUES (1, $1, $2, $3, NOW())
+		INSERT INTO game.concept (id, payload, system_prompt, wilds_prompt, expedition_cluster_prompt, updated_at)
+		VALUES (1, $1, $2, $3, $4, NOW())
 		ON CONFLICT (id) DO UPDATE
 		SET payload = EXCLUDED.payload,
 			system_prompt = EXCLUDED.system_prompt,
 			wilds_prompt = EXCLUDED.wilds_prompt,
+			expedition_cluster_prompt = EXCLUDED.expedition_cluster_prompt,
 			updated_at = NOW()
-		RETURNING payload, system_prompt, wilds_prompt
-	`, req.Payload, req.SystemPrompt, req.WildsPrompt).Scan(&payload, &systemPrompt, &wildsPrompt)
+		RETURNING payload, system_prompt, wilds_prompt, expedition_cluster_prompt
+	`, req.Payload, req.SystemPrompt, req.WildsPrompt, req.ExpeditionClusterPrompt).Scan(&payload, &systemPrompt, &wildsPrompt, &expeditionClusterPrompt)
 
 	if err != nil {
 		log.Printf("Error saving concept: %v", err)
@@ -104,5 +113,5 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt})
+	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: expeditionClusterPrompt})
 }

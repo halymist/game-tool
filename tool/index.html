@@ -1172,6 +1172,7 @@
                     </div>
                     <div class="toolbar-right">
                         <button id="addSlideBtn" class="btn-primary">+ Add Slide</button>
+                        <button id="expeditionGenerateBtn" class="btn-secondary">🧠 Generate Cluster</button>
                         <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">💾 Save</button>
                     </div>
                 </div>
@@ -1192,6 +1193,64 @@
                             <button class="nav-btn" onclick="window.panCanvas(-100, 0)" title="Pan Right">▶</button>
                         </div>
                         <button class="nav-btn" onclick="window.panCanvas(0, -100)" title="Pan Down">▼</button>
+                    </div>
+                </div>
+                
+                <div id="expeditionGeneratePanel" class="expedition-generate-sidebar" style="display:none;">
+                    <div class="quest-generate-header">
+                        <h3>🧠 Generate Cluster</h3>
+                        <button id="expeditionGenerateClose" class="btn-secondary">Close</button>
+                    </div>
+                    <div class="quest-generate-body">
+                        <div class="quest-generate-field">
+                            <label>Location</label>
+                            <input type="text" id="expeditionGenerateLocationFilter" class="quest-generate-filter" placeholder="Search locations...">
+                            <select id="expeditionGenerateLocation"></select>
+                        </div>
+                        <div class="quest-generate-row">
+                            <div class="quest-generate-field">
+                                <label>NPCs</label>
+                                <input type="text" id="expeditionGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
+                                <select id="expeditionGenerateNpcs" multiple></select>
+                            </div>
+                            <div class="quest-generate-field">
+                                <label>Enemies</label>
+                                <input type="text" id="expeditionGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
+                                <select id="expeditionGenerateEnemies" multiple></select>
+                            </div>
+                        </div>
+                        <div class="quest-generate-section">
+                            <h4>Rewards</h4>
+                            <div class="quest-generate-row">
+                                <div class="quest-generate-field">
+                                    <label>Item Rewards</label>
+                                    <input type="text" id="expeditionGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
+                                    <select id="expeditionGenerateRewardItems" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Perk Rewards</label>
+                                    <input type="text" id="expeditionGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
+                                    <select id="expeditionGenerateRewardPerks" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Potion Rewards</label>
+                                    <input type="text" id="expeditionGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
+                                    <select id="expeditionGenerateRewardPotions" multiple></select>
+                                </div>
+                                <div class="quest-generate-field">
+                                    <label>Blessing Rewards</label>
+                                    <input type="text" id="expeditionGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
+                                    <select id="expeditionGenerateRewardBlessings" multiple></select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="quest-generate-field">
+                            <label>Prompt</label>
+                            <textarea id="expeditionGeneratePrompt" placeholder="What kind of expedition cluster do you want?"></textarea>
+                        </div>
+                        <div class="quest-generate-actions">
+                            <button id="expeditionGenerateRun" class="btn-primary">Generate</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1681,6 +1740,10 @@
                         <label for="settlementContext">Context</label>
                         <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
                     </div>
+                    <div>
+                        <label for="expeditionContext">Expedition Context</label>
+                        <textarea id="expeditionContext" placeholder="Expedition-specific context..."></textarea>
+                    </div>
                 </div>
 
                 <!-- Locations Section -->
@@ -1826,6 +1889,8 @@
                         <textarea id="conceptSystemPrompt" placeholder="Enter global system prompt..."></textarea>
                         <label for="conceptWildsPrompt">Wilds Prompt</label>
                         <textarea id="conceptWildsPrompt" placeholder="Enter wilds prompt..."></textarea>
+                        <label for="conceptExpeditionClusterPrompt">Expedition Cluster Prompt</label>
+                        <textarea id="conceptExpeditionClusterPrompt" placeholder="Enter expedition cluster system prompt..."></textarea>
                         <label for="conceptJson">Concept JSON</label>
                         <textarea id="conceptJson" placeholder="Enter concept JSON..."></textarea>
                     </div>
