@@ -2867,7 +2867,12 @@ async function generateQuestPreview() {
         const data = await response.json();
         console.log('Quest generate response:', data);
 
-        const content = data?.choices?.[0]?.message?.content;
+        let content = data?.choices?.[0]?.message?.content;
+        if (!content && Array.isArray(data?.output)) {
+            const message = data.output.find(item => item.type === 'message');
+            const outputText = message?.content?.find(part => part.type === 'output_text');
+            content = outputText?.text || '';
+        }
         if (content) {
             try {
                 const parsed = JSON.parse(content);
