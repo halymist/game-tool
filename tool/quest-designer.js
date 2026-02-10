@@ -797,7 +797,7 @@ function updateSidebar(optionId) {
     if (statTypeSelect) statTypeSelect.value = option.statType || 'strength';
     
     const statRequired = document.getElementById('sidebarStatRequired');
-    if (statRequired) statRequired.value = option.statRequired || '';
+    if (statRequired) statRequired.value = option.statRequired ?? '';
     
     // Populate effect check fields
     const effectIdSelect = document.getElementById('sidebarEffectId');
@@ -1461,7 +1461,7 @@ function determineOptionType(o) {
     if (o.faction_required) return 'faction';
     if (o.enemy_id) return 'combat';
     if (o.effect_id && o.effect_amount) return 'effect_check';
-    if (o.stat_type && o.stat_required) return 'stat_check';
+    if (o.stat_type || (o.stat_required !== null && o.stat_required !== undefined)) return 'stat_check';
     return 'dialogue';
 }
 
@@ -1825,6 +1825,10 @@ function setupSidebarEventListeners() {
             if (option) {
                 option.type = e.target.value;
                 updateSidebarTypeFields(option.type);
+                if (option.type === 'stat_check' && !option.statType) {
+                    const statTypeSelect = document.getElementById('sidebarStatType');
+                    option.statType = statTypeSelect?.value || 'strength';
+                }
             }
         });
     }
@@ -1844,7 +1848,10 @@ function setupSidebarEventListeners() {
         statRequired.addEventListener('input', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.statRequired = parseInt(e.target.value) || null;
+            if (option) {
+                const value = e.target.value;
+                option.statRequired = value === '' ? null : parseInt(value, 10);
+            }
         });
     }
     
