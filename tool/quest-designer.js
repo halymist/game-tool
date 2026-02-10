@@ -85,6 +85,11 @@ function initQuestDesigner() {
         const galleryOverlay = document.getElementById('questAssetGalleryOverlay');
         if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
         
+        const panel = document.getElementById('questGeneratePanel');
+        if (panel && panel.style.display === 'block') {
+            return;
+        }
+
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
                             e.clientY >= canvasRect.top && e.clientY <= canvasRect.bottom;
@@ -883,6 +888,11 @@ function updateSidebarTypeFields(type) {
     document.getElementById('optionTypeEffectCheck')?.style && (document.getElementById('optionTypeEffectCheck').style.display = 'none');
     document.getElementById('optionTypeCombat')?.style && (document.getElementById('optionTypeCombat').style.display = 'none');
     document.getElementById('optionTypeFaction')?.style && (document.getElementById('optionTypeFaction').style.display = 'none');
+
+    const optionEffectSection = document.getElementById('optionEffectSection');
+    if (optionEffectSection) {
+        optionEffectSection.style.display = type === 'combat' ? 'none' : 'block';
+    }
     
     // Show relevant section
     switch (type) {
@@ -2382,11 +2392,14 @@ function setupQuestGeneratePanel() {
     document.getElementById('questGenerateBtn')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateClose')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateRun')?.addEventListener('click', generateQuestPreview);
-    document.getElementById('questGenerateSettlement')?.addEventListener('change', (e) => {
+    document.getElementById('questGenerateLocationFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateLocations(e.target.value);
     });
     document.getElementById('questGenerateNpcFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateNpcs(e.target.value);
+    });
+    document.getElementById('questGenerateEnemyFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateEnemies(e.target.value);
     });
     document.getElementById('questGenerateItemRewardFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateRewardItems(e.target.value);
@@ -2423,56 +2436,28 @@ async function populateQuestGeneratePanel() {
     if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
         await loadSettlementsData();
     }
-    populateQuestGenerateSettlements();
-    populateQuestGenerateLocations(document.getElementById('questGenerateSettlement')?.value || '');
+    populateQuestGenerateLocations(document.getElementById('questGenerateLocationFilter')?.value || '');
     await loadQuestGenerateNpcs();
     await loadQuestGenerateAllQuests();
     populateQuestGenerateNpcs();
-    populateQuestGenerateEnemies();
+    populateQuestGenerateEnemies(document.getElementById('questGenerateEnemyFilter')?.value || '');
     populateQuestGenerateRewards();
     populateQuestGenerateQuests();
 }
 
-function populateQuestGenerateSettlements() {
-    const select = document.getElementById('questGenerateSettlement');
-    if (!select) return;
-    const settlements = GlobalData?.settlements || [];
-    select.innerHTML = '<option value="">-- Any Settlement --</option>';
-    settlements.forEach(settlement => {
-        const opt = document.createElement('option');
-        opt.value = settlement.settlement_id || settlement.world_id || settlement.id || '';
-        opt.textContent = settlement.settlement_name || settlement.name || `Settlement ${opt.value}`;
-        if (questState.selectedSettlementId && String(opt.value) === String(questState.selectedSettlementId)) {
-            opt.selected = true;
-        }
-        select.appendChild(opt);
-    });
-}
-
-function populateQuestGenerateLocations(settlementId) {
+function populateQuestGenerateLocations(filterText = '') {
     const select = document.getElementById('questGenerateLocation');
     if (!select) return;
     const settlements = GlobalData?.settlements || [];
     select.innerHTML = '<option value="">-- Any Location --</option>';
-
-    let locations = [];
-    if (settlementId) {
-        const settlement = settlements.find(s => String(s.settlement_id || s.world_id || s.id) === String(settlementId));
-        locations = settlement?.locations || [];
-        locations.forEach(loc => {
-            const opt = document.createElement('option');
-            opt.value = loc.location_id || loc.id || '';
-            opt.textContent = loc.name || `Location ${opt.value}`;
-            select.appendChild(opt);
-        });
-        return;
-    }
-
+    const search = filterText.trim().toLowerCase();
     settlements.forEach(settlement => {
         (settlement.locations || []).forEach(loc => {
+            const name = loc.name || '';
+            if (search && !name.toLowerCase().includes(search)) return;
             const opt = document.createElement('option');
             opt.value = loc.location_id || loc.id || '';
-            opt.textContent = loc.name || `Location ${opt.value}`;
+            opt.textContent = name || `Location ${opt.value}`;
             select.appendChild(opt);
         });
     });
@@ -2531,7 +2516,7 @@ function populateQuestGenerateNpcs(filterText = '') {
     });
 }
 
-function populateQuestGenerateEnemies() {
+function populateQuestGenerateEnemies(filterText = '') {
     const select = document.getElementById('questGenerateEnemies');
     if (!select) return;
     let enemies = [];
@@ -2543,7 +2528,14 @@ function populateQuestGenerateEnemies() {
         enemies = GlobalData.enemies;
     }
     select.innerHTML = '';
-    enemies.forEach(enemy => {
+    const search = filterText.trim().toLowerCase();
+    enemies
+        .filter(enemy => {
+            if (!search) return true;
+            const name = (enemy.enemyName || enemy.enemy_name || enemy.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(enemy => {
         const id = enemy.enemyId || enemy.enemy_id || enemy.id;
         const name = enemy.enemyName || enemy.enemy_name || enemy.name || `Enemy ${id}`;
         const opt = document.createElement('option');
@@ -2680,7 +2672,6 @@ function collectMultiSelectValues(selectId) {
 }
 
 async function generateQuestPreview() {
-    const settlementId = document.getElementById('questGenerateSettlement')?.value || '';
     const locationId = document.getElementById('questGenerateLocation')?.value || '';
     const prompt = document.getElementById('questGeneratePrompt')?.value || '';
     const selectedNpcIds = collectMultiSelectValues('questGenerateNpcs').map(id => parseInt(id, 10));
@@ -2713,15 +2704,14 @@ async function generateQuestPreview() {
     const schema = conceptPayload?.json_schema ?? conceptPayload ?? {};
 
     const settlements = GlobalData?.settlements || [];
-    const settlement = settlements.find(s => String(s.settlement_id || s.world_id || s.id) === String(settlementId));
+    let settlement = null;
     let location = null;
-    if (settlement && locationId) {
-        location = (settlement.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId)) || null;
-    } else if (locationId) {
+    if (locationId) {
         settlements.some(s => {
             const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
             if (found) {
                 location = found;
+                settlement = s;
                 return true;
             }
             return false;
