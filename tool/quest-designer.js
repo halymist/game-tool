@@ -1437,6 +1437,76 @@ async function loadQuestChainData(chainId) {
         // Set next IDs
         questState.nextQuestId = maxQuestId + 1;
         questState.nextOptionId = maxOptionId + 1;
+
+        // Log a valid template based on existing data
+        if (chainQuests.length > 0 && chainOptions.length > 0) {
+            const q = chainQuests[0];
+            const o = chainOptions[0];
+            const r = chainRequirements[0] || { optionId: o.option_id, requiredOptionId: o.option_id };
+            const template = {
+                chains: [
+                    {
+                        name: q.questchain_name || '',
+                        context: q.questchain_context || '',
+                        questchain_id: q.questchain_id,
+                        settlement_id: q.settlement_id || null
+                    }
+                ],
+                quests: [
+                    {
+                        pos_x: q.pos_x || 0,
+                        pos_y: q.pos_y || 0,
+                        ending: q.ending ?? null,
+                        asset_id: q.asset_id ?? null,
+                        quest_id: q.quest_id,
+                        quest_name: q.quest_name || '',
+                        sort_order: q.sort_order || 0,
+                        start_text: q.start_text || '',
+                        travel_text: q.travel_text || '',
+                        failure_text: q.failure_text || '',
+                        default_entry: q.default_entry ?? null,
+                        questchain_id: q.questchain_id,
+                        settlement_id: q.settlement_id || null,
+                        requisite_option_id: q.requisite_option_id ?? null
+                    }
+                ],
+                options: [
+                    {
+                        pos_x: o.pos_x || o.x || 0,
+                        pos_y: o.pos_y || o.y || 0,
+                        start: o.start ?? null,
+                        enemy_id: o.enemy_id ?? null,
+                        quest_id: o.quest_id,
+                        effect_id: o.effect_id ?? null,
+                        node_text: o.node_text || '',
+                        option_id: o.option_id,
+                        quest_end: o.quest_end ?? false,
+                        stat_type: o.stat_type ?? null,
+                        stat_required: o.stat_required ?? null,
+                        option_text: o.option_text || '',
+                        reward_item: o.reward_item ?? null,
+                        reward_perk: o.reward_perk ?? null,
+                        reward_potion: o.reward_potion ?? null,
+                        reward_blessing: o.reward_blessing ?? null,
+                        reward_talent: o.reward_talent ?? null,
+                        reward_stat_type: o.reward_stat_type ?? null,
+                        reward_stat_amount: o.reward_stat_amount ?? null,
+                        reward_silver: o.reward_silver ?? null,
+                        effect_amount: o.effect_amount ?? null,
+                        faction_required: o.faction_required ?? null,
+                        option_effect_id: o.option_effect_id ?? null,
+                        option_effect_factor: o.option_effect_factor ?? null
+                    }
+                ],
+                requirements: [
+                    {
+                        optionId: r.optionId,
+                        requiredOptionId: r.requiredOptionId
+                    }
+                ]
+            };
+            console.log('Valid quest template (from existing data):', template);
+        }
         
         // Build connections based on questId:
         // - For each quest, find its START options and create quest -> option connections
@@ -2730,8 +2800,37 @@ async function generateQuestPreview() {
         }
         : null;
 
+    const userContent = {
+        output_struct: schema,
+        world_wilds_prompt: conceptWildsPrompt,
+        local_context: {
+            settlement: settlementPayload,
+            location: location
+                ? {
+                    id: location.location_id || location.id || null,
+                    name: location.name || '',
+                    description: location.description || ''
+                }
+                : null
+        },
+        npcs,
+        enemies,
+        rewards: {
+            possible_item_rewards: items,
+            possible_perk_rewards: perks,
+            possible_potion_rewards: potions,
+            possible_blessing_rewards: blessings,
+            possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
+            reward_silver: true,
+            reward_talent: true
+        },
+        relevant_quests: quests,
+        prompt
+    };
+
     const payload = {
         model: 'gpt-4.1',
+        response_format: { type: 'json_object' },
         messages: [
             {
                 role: 'system',
@@ -2739,38 +2838,241 @@ async function generateQuestPreview() {
             },
             {
                 role: 'user',
-                content: {
-                    output_struct: schema,
-                    world_wilds_prompt: conceptWildsPrompt,
-                    local_context: {
-                        settlement: settlementPayload,
-                        location: location
-                            ? {
-                                id: location.location_id || location.id || null,
-                                name: location.name || '',
-                                description: location.description || ''
-                            }
-                            : null
-                    },
-                    npcs,
-                    enemies,
-                    rewards: {
-                        possible_item_rewards: items,
-                        possible_perk_rewards: perks,
-                        possible_potion_rewards: potions,
-                        possible_blessing_rewards: blessings,
-                        possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
-                        reward_silver: true,
-                        reward_talent: true
-                    },
-                    relevant_quests: quests,
-                    prompt
-                }
+                content: JSON.stringify(userContent)
             }
         ]
     };
 
     console.log('Quest generate payload:', JSON.stringify(payload, null, 2));
+    console.log('Valid quest JSON template:', JSON.stringify(getValidQuestJsonTemplate(), null, 2));
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Not authenticated');
+            return;
+        }
+
+        const response = await fetch('http://localhost:8080/api/generateQuestAi', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        console.log('Quest generate response:', data);
+
+        const content = data?.choices?.[0]?.message?.content;
+        if (content) {
+            try {
+                const parsed = JSON.parse(content);
+                console.log('Quest generate JSON:', parsed);
+                applyGeneratedQuest(parsed);
+            } catch (err) {
+                console.warn('Failed to parse quest JSON:', err, content);
+            }
+        }
+    } catch (error) {
+        console.error('Quest generate failed:', error);
+        alert(`❌ Quest generation failed: ${error.message || error}`);
+    }
+}
+
+function getValidQuestJsonTemplate() {
+    return {
+        chains: [
+            {
+                name: '',
+                context: '',
+                questchain_id: 1,
+                settlement_id: 1
+            }
+        ],
+        quests: [
+            {
+                pos_x: 0,
+                pos_y: 0,
+                ending: null,
+                asset_id: null,
+                quest_id: 1,
+                quest_name: '',
+                sort_order: 0,
+                start_text: '',
+                travel_text: '',
+                failure_text: '',
+                default_entry: null,
+                questchain_id: 1,
+                settlement_id: 1,
+                requisite_option_id: null
+            }
+        ],
+        options: [
+            {
+                pos_x: 0,
+                pos_y: 0,
+                start: null,
+                enemy_id: null,
+                quest_id: 1,
+                effect_id: null,
+                node_text: '',
+                option_id: 1,
+                quest_end: false,
+                stat_type: null,
+                stat_required: null,
+                option_text: '',
+                reward_item: null,
+                reward_perk: null,
+                reward_potion: null,
+                reward_blessing: null,
+                reward_talent: null,
+                reward_stat_type: null,
+                reward_stat_amount: null,
+                reward_silver: null,
+                effect_amount: null,
+                faction_required: null,
+                option_effect_id: null,
+                option_effect_factor: null
+            }
+        ],
+        requirements: [
+            {
+                optionId: 1,
+                requiredOptionId: 2
+            }
+        ]
+    };
+}
+
+function normalizeGeneratedOptions(options = []) {
+    return options.map(opt => ({
+        option_id: opt.option_id ?? opt.optionId ?? null,
+        quest_id: opt.quest_id ?? opt.questId ?? null,
+        option_text: opt.option_text ?? opt.optionText ?? '',
+        node_text: opt.node_text ?? opt.nodeText ?? '',
+        quest_end: opt.quest_end ?? opt.questEnd ?? false,
+        start: opt.start ?? null,
+        stat_type: opt.stat_type ?? opt.statType ?? null,
+        stat_required: opt.stat_required ?? opt.statRequired ?? null,
+        effect_id: opt.effect_id ?? opt.effectId ?? null,
+        effect_amount: opt.effect_amount ?? opt.effectAmount ?? null,
+        option_effect_id: opt.option_effect_id ?? opt.optionEffectId ?? null,
+        option_effect_factor: opt.option_effect_factor ?? opt.optionEffectFactor ?? null,
+        faction_required: opt.faction_required ?? opt.factionRequired ?? null,
+        enemy_id: opt.enemy_id ?? opt.enemyId ?? null,
+        reward_item: opt.reward_item ?? opt.rewardItem ?? null,
+        reward_perk: opt.reward_perk ?? opt.rewardPerk ?? null,
+        reward_potion: opt.reward_potion ?? opt.rewardPotion ?? null,
+        reward_blessing: opt.reward_blessing ?? opt.rewardBlessing ?? null,
+        reward_talent: opt.reward_talent ?? opt.rewardTalent ?? null,
+        reward_stat_type: opt.reward_stat_type ?? opt.rewardStatType ?? null,
+        reward_stat_amount: opt.reward_stat_amount ?? opt.rewardStatAmount ?? null,
+        reward_silver: opt.reward_silver ?? opt.rewardSilver ?? null,
+        x: opt.x ?? opt.pos_x ?? 0,
+        y: opt.y ?? opt.pos_y ?? 0
+    }));
+}
+
+function applyGeneratedQuest(data) {
+    if (!data || !Array.isArray(data.quests) || data.quests.length === 0) {
+        console.warn('Generated quest missing quests array');
+        return;
+    }
+
+    const questRaw = data.quests[0];
+    const localQuestId = questState.nextQuestId++;
+
+    const quest = {
+        questId: localQuestId,
+        serverId: null,
+        name: questRaw.quest_name || questRaw.questName || `Quest ${localQuestId}`,
+        text: questRaw.start_text || questRaw.startText || '',
+        travelText: questRaw.travel_text || questRaw.travelText || '',
+        failureText: questRaw.failure_text || questRaw.failureText || '',
+        assetId: questRaw.asset_id || questRaw.assetId || null,
+        assetUrl: questRaw.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${questRaw.asset_id}.webp` : null,
+        sortOrder: questRaw.sort_order || questRaw.sortOrder || 0,
+        x: questRaw.pos_x ?? questRaw.x ?? 50,
+        y: questRaw.pos_y ?? questRaw.y ?? 100,
+        requisiteOptionId: null
+    };
+
+    questState.quests.set(localQuestId, quest);
+
+    const optionMapping = new Map();
+    const normalizedOptions = normalizeGeneratedOptions(data.options || []);
+
+    normalizedOptions.forEach((opt, index) => {
+        const localOptionId = questState.nextOptionId++;
+        optionMapping.set(opt.option_id ?? index, localOptionId);
+
+        const option = {
+            optionId: localOptionId,
+            serverId: null,
+            questId: localQuestId,
+            optionText: opt.option_text || 'Option',
+            nodeText: opt.node_text || '',
+            x: opt.x || 0,
+            y: opt.y || 0,
+            isStart: opt.start === true || false,
+            type: determineOptionType(opt),
+            questEnd: !!opt.quest_end,
+            statType: opt.stat_type,
+            statRequired: opt.stat_required,
+            effectId: opt.effect_id,
+            effectAmount: opt.effect_amount,
+            optionEffectId: opt.option_effect_id,
+            optionEffectFactor: opt.option_effect_factor,
+            factionRequired: opt.faction_required,
+            enemyId: opt.enemy_id,
+            reward: extractReward(opt)
+        };
+
+        questState.options.set(localOptionId, option);
+    });
+
+    // If no start option provided, mark first option as start
+    const hasStart = Array.from(questState.options.values()).some(opt => opt.questId === localQuestId && opt.isStart);
+    if (!hasStart) {
+        const first = Array.from(questState.options.values()).find(opt => opt.questId === localQuestId);
+        if (first) first.isStart = true;
+    }
+
+    // Add connections
+    normalizedOptions.forEach((opt, index) => {
+        const localOptionId = optionMapping.get(opt.option_id ?? index);
+        if (localOptionId && (opt.start === true || (!hasStart && index === 0))) {
+            questState.connections.push({
+                fromType: 'quest',
+                fromId: localQuestId,
+                toType: 'option',
+                toId: localOptionId
+            });
+        }
+    });
+
+    (data.requirements || []).forEach(req => {
+        const toId = optionMapping.get(req.optionId ?? req.option_id ?? req.optionID);
+        const fromId = optionMapping.get(req.requiredOptionId ?? req.required_option_id ?? req.requiredOptionID);
+        if (fromId && toId) {
+            questState.connections.push({
+                fromType: 'option',
+                fromId,
+                toType: 'option',
+                toId
+            });
+        }
+    });
+
+    // Render new items
+    renderQuest(quest);
+    questState.options.forEach(option => {
+        if (option.questId === localQuestId) renderOption(option);
+    });
+    questRenderConnections();
+    updateCounter();
 }
 
 function toPromptText(value) {

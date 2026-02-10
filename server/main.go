@@ -30,6 +30,7 @@ var (
 	S3_REGION             string
 	AWS_ACCESS_KEY_ID     string
 	AWS_SECRET_ACCESS_KEY string
+	OPENAI_API_KEY        string
 	DB_HOST               string
 	DB_PORT               string
 	DB_NAME               string
@@ -56,6 +57,7 @@ func init() {
 	S3_REGION = os.Getenv("S3_REGION")
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
 	AWS_SECRET_ACCESS_KEY = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	OPENAI_API_KEY = os.Getenv("OPENAI_API_KEY")
 	DB_HOST = os.Getenv("DB_HOST")
 	DB_PORT = os.Getenv("DB_PORT")
 	DB_NAME = os.Getenv("DB_NAME")
@@ -175,6 +177,7 @@ func main() {
 	http.HandleFunc("/api/getEffects", corsHandler(handleGetEffects))
 	http.HandleFunc("/api/getItems", corsHandler(handleGetItems))
 	http.HandleFunc("/api/getPerks", corsHandler(getPerksHandler))
+	http.HandleFunc("/api/generateQuestAi", corsHandler(handleGenerateQuestAi))
 
 	// Item endpoints (uses tooling schema)
 	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
