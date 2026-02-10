@@ -3,8 +3,8 @@ console.log('📦 quest-designer.js LOADED');
 
 // ==================== STATE ====================
 const questState = {
-    // Quests (slides with asset, name, text, sortOrder for tree depth)
-    quests: new Map(),       // questId -> { questId, name, text, assetId, assetUrl, x, y, sortOrder }
+    // Quests (slides with asset, name, text, travelText, failureText, sortOrder for tree depth)
+    quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, assetId, assetUrl, x, y, sortOrder }
     nextQuestId: 1,
     selectedQuest: null,
     
@@ -197,6 +197,8 @@ function addQuest() {
         questId: id,
         name: `Quest ${id}`,
         text: '',
+        travelText: '',
+        failureText: '',
         assetId: null,
         assetUrl: null,
         sortOrder: questState.quests.size, // Tree depth indicator
@@ -695,6 +697,13 @@ function deleteQuest(id) {
     document.getElementById(`quest-${id}`)?.remove();
     questState.quests.delete(id);
     questState.selectedQuest = null;
+
+    const noSelection = document.getElementById('sidebarNoSelection');
+    const optionContent = document.getElementById('sidebarContent');
+    const questContent = document.getElementById('sidebarQuestContent');
+    if (noSelection) noSelection.style.display = 'flex';
+    if (optionContent) optionContent.style.display = 'none';
+    if (questContent) questContent.style.display = 'none';
     
     questRenderConnections();
     updateCounter();
@@ -734,6 +743,8 @@ function selectQuest(id) {
     document.querySelectorAll('.option-node').forEach(el => {
         el.classList.remove('selected');
     });
+
+    updateQuestSidebar(id);
 }
 
 function selectOption(id) {
@@ -754,15 +765,18 @@ function updateSidebar(optionId) {
     const option = questState.options.get(optionId);
     const noSelection = document.getElementById('sidebarNoSelection');
     const content = document.getElementById('sidebarContent');
+    const questContent = document.getElementById('sidebarQuestContent');
     
     if (!option) {
         if (noSelection) noSelection.style.display = 'flex';
         if (content) content.style.display = 'none';
+        if (questContent) questContent.style.display = 'none';
         return;
     }
     
     if (noSelection) noSelection.style.display = 'none';
     if (content) content.style.display = 'block';
+    if (questContent) questContent.style.display = 'none';
     
     // Basic info
     const idSpan = document.getElementById('sidebarOptionId');
@@ -831,6 +845,33 @@ function updateSidebar(optionId) {
     
     const rewardBlessing = document.getElementById('sidebarRewardBlessing');
     if (rewardBlessing) rewardBlessing.value = reward.blessingId || '';
+}
+
+function updateQuestSidebar(questId) {
+    const quest = questState.quests.get(questId);
+    const noSelection = document.getElementById('sidebarNoSelection');
+    const optionContent = document.getElementById('sidebarContent');
+    const questContent = document.getElementById('sidebarQuestContent');
+
+    if (!quest) {
+        if (noSelection) noSelection.style.display = 'flex';
+        if (optionContent) optionContent.style.display = 'none';
+        if (questContent) questContent.style.display = 'none';
+        return;
+    }
+
+    if (noSelection) noSelection.style.display = 'none';
+    if (optionContent) optionContent.style.display = 'none';
+    if (questContent) questContent.style.display = 'block';
+
+    const questIdSpan = document.getElementById('sidebarQuestId');
+    if (questIdSpan) questIdSpan.textContent = `Quest ID: ${quest.serverId || quest.questId}`;
+
+    const travelInput = document.getElementById('sidebarTravelText');
+    if (travelInput) travelInput.value = quest.travelText || '';
+
+    const failureInput = document.getElementById('sidebarFailureText');
+    if (failureInput) failureInput.value = quest.failureText || '';
 }
 
 function updateSidebarTypeFields(type) {
@@ -1343,6 +1384,8 @@ async function loadQuestChainData(chainId) {
                 serverId: q.quest_id,
                 name: q.quest_name || `Quest ${q.quest_id}`,
                 text: q.start_text || '',
+                travelText: q.travel_text || '',
+                failureText: q.failure_text || '',
                 assetId: q.asset_id,
                 assetUrl: q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null,
                 sortOrder: q.sort_order || 0,
@@ -1929,6 +1972,26 @@ function setupSidebarEventListeners() {
             }
         });
     }
+
+    // Quest travel text
+    const travelText = document.getElementById('sidebarTravelText');
+    if (travelText) {
+        travelText.addEventListener('input', (e) => {
+            if (!questState.selectedQuest) return;
+            const quest = questState.quests.get(questState.selectedQuest);
+            if (quest) quest.travelText = e.target.value;
+        });
+    }
+
+    // Quest failure text
+    const failureText = document.getElementById('sidebarFailureText');
+    if (failureText) {
+        failureText.addEventListener('input', (e) => {
+            if (!questState.selectedQuest) return;
+            const quest = questState.quests.get(questState.selectedQuest);
+            if (quest) quest.failureText = e.target.value;
+        });
+    }
 }
 
 // Delete selected option from sidebar
@@ -2004,6 +2067,8 @@ async function saveQuest() {
                     localQuestId: id,
                     questName: quest.name,
                     startText: quest.text || '',
+                    travelText: quest.travelText || '',
+                    failureText: quest.failureText || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -2015,6 +2080,8 @@ async function saveQuest() {
                     questId: quest.serverId,
                     questName: quest.name,
                     startText: quest.text || '',
+                    travelText: quest.travelText || '',
+                    failureText: quest.failureText || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -2505,8 +2572,8 @@ async function generateQuestPreview() {
             name: npc.name || '',
             context: npc.context || '',
             role: npc.role || '',
-            personality: npc.personality || '',
-            goals: npc.goals || ''
+            personality: Array.isArray(npc.personality) ? npc.personality : (npc.personality ? [npc.personality] : []),
+            goals: Array.isArray(npc.goals) ? npc.goals : (npc.goals ? [npc.goals] : [])
         }));
 
     const enemies = selectedEnemyIds
@@ -2546,37 +2613,50 @@ async function generateQuestPreview() {
             name: perk.perk_name || perk.name || ''
         }));
 
+    const settlementPayload = settlement
+        ? {
+            id: settlement.settlement_id || settlement.id,
+            name: settlement.settlement_name || settlement.name || '',
+            context: settlement.context || '',
+            key_issues: Array.isArray(settlement.key_issues) ? settlement.key_issues : (settlement.key_issues ? [settlement.key_issues] : []),
+            recent_events: Array.isArray(settlement.recent_events) ? settlement.recent_events : (settlement.recent_events ? [settlement.recent_events] : [])
+        }
+        : null;
+
     const payload = {
-        system_prompt: conceptSystemPrompt,
-        output_struct: schema,
-        world_wilds_prompt: conceptWildsPrompt,
-        local_context: {
-            settlement: settlement
-                ? {
-                    id: settlement.settlement_id || settlement.id,
-                    name: settlement.settlement_name || settlement.name || '',
-                    context: settlement.context || '',
-                    key_issues: settlement.key_issues || '',
-                    recent_events: settlement.recent_events || ''
+        model: 'gpt-4.1',
+        messages: [
+            {
+                role: 'system',
+                content: conceptSystemPrompt
+            },
+            {
+                role: 'user',
+                content: {
+                    output_struct: schema,
+                    world_wilds_prompt: conceptWildsPrompt,
+                    local_context: {
+                        settlement: settlementPayload,
+                        location: location
+                            ? {
+                                id: location.location_id || location.id || null,
+                                name: location.name || '',
+                                description: location.description || ''
+                            }
+                            : null
+                    },
+                    npcs,
+                    enemies,
+                    rewards: {
+                        items,
+                        perks,
+                        possible_reward_types: ['silver', 'stat_boost']
+                    },
+                    relevant_quests: quests,
+                    prompt
                 }
-                : null,
-            location: location
-                ? {
-                    id: location.location_id || location.id || null,
-                    name: location.name || '',
-                    description: location.description || ''
-                }
-                : null
-        },
-        npcs,
-        enemies,
-        rewards: {
-            items,
-            perks,
-            possible_reward_types: ['silver', 'stat_boost']
-        },
-        relevant_quests: quests,
-        prompt
+            }
+        ]
     };
 
     console.log('Quest generate payload:', JSON.stringify(payload, null, 2));

@@ -255,7 +255,26 @@
                         <!-- No selection state -->
                         <div id="sidebarNoSelection" class="sidebar-no-selection">
                             <span>📋</span>
-                            <p>Select an option node to edit its properties</p>
+                            <p>Select a quest slide or option node to edit its properties</p>
+                        </div>
+
+                        <!-- Quest content (hidden until quest selection) -->
+                        <div id="sidebarQuestContent" class="sidebar-content" style="display: none;">
+                            <div class="sidebar-header">
+                                <h3>Quest Properties</h3>
+                                <span id="sidebarQuestId" class="sidebar-option-id">Quest ID: --</span>
+                            </div>
+
+                            <div class="sidebar-section">
+                                <div class="sidebar-field">
+                                    <label>Travel Text</label>
+                                    <textarea id="sidebarTravelText" placeholder="What happens during travel..."></textarea>
+                                </div>
+                                <div class="sidebar-field">
+                                    <label>Failure Text</label>
+                                    <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- Option content (hidden until selection) -->

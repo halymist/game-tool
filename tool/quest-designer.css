@@ -857,7 +857,8 @@
 }
 
 .sidebar-field input,
-.sidebar-field select {
+.sidebar-field select,
+.sidebar-field textarea {
     width: 100%;
     background: #0f3460;
     border: 1px solid #1a4a7a;
@@ -868,7 +869,8 @@
 }
 
 .sidebar-field input:focus,
-.sidebar-field select:focus {
+.sidebar-field select:focus,
+.sidebar-field textarea:focus {
     outline: none;
     border-color: #e94560;
 }
