@@ -28,6 +28,31 @@
     gap: 20px;
 }
 
+.expedition-settlement-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.expedition-settlement-select label {
+    color: #888;
+    font-size: 0.85rem;
+}
+
+.expedition-settlement-select select {
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #fff;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+}
+
+.expedition-settlement-select select:focus {
+    outline: none;
+    border-color: #e94560;
+}
+
 .toolbar-left h2 {
     margin: 0;
     color: #e94560;

@@ -1684,6 +1684,17 @@ function selectExpeditionAsset(assetId, assetUrl) {
     closeExpeditionAssetGallery();
 }
 
+function applyBgUrl(url) {
+    if (!expeditionEditingSlide) return;
+    const slide = expeditionState.slides.get(expeditionEditingSlide);
+    if (slide) {
+        slide.assetUrl = url || null;
+        renderSlide(slide);
+        renderConnections();
+    }
+    closeExpeditionAssetGallery();
+}
+
 // Upload expedition asset (uses quest assets endpoint for shared folder)
 async function uploadExpeditionAsset(file) {
     if (!file.type.startsWith('image/')) {

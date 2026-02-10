@@ -202,7 +202,6 @@
                             <label>Context:</label>
                             <textarea id="questChainContextInput" placeholder="Quest chain context..." oninput="window.updateChainContext && window.updateChainContext(this.value)"></textarea>
                         </div>
-                        <span id="questOptionCounter">0 options</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <button class="quest-zoom-btn" title="Zoom Out" onclick="window.changeQuestZoom(-0.1)">−</button>
                             <span id="questZoomIndicator" class="quest-zoom-indicator">100%</span>
@@ -284,18 +283,10 @@
                                 <span id="sidebarSaveStatus" class="sidebar-save-status"></span>
                             </div>
                             
-                            <!-- Starting Option Checkbox -->
-                            <div class="sidebar-section">
-                                <div class="sidebar-checkbox">
-                                    <input type="checkbox" id="sidebarIsStart">
-                                </div>
-                            </div>
-                            
                             <!-- Option Type -->
                             <div class="sidebar-section">
                                 <h4>🎯 Option Type</h4>
                                 <div class="sidebar-field">
-                                    <label>Type:</label>
                                     <select id="sidebarOptionType">
                                         <option value="dialogue">💬 Dialogue</option>
                                         <option value="stat_check">📊 Stat Check</option>
@@ -372,7 +363,6 @@
                                 <h4>✨ Option Effect</h4>
                                 <div class="sidebar-row">
                                     <div class="sidebar-field">
-                                        <label>Effect:</label>
                                         <select id="sidebarOptionEffectId">
                                             <!-- Populated by JS from GlobalData.effects -->
                                         </select>
