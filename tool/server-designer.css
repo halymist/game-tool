@@ -80,6 +80,32 @@
     background: rgba(99, 179, 237, 0.18);
 }
 
+.server-table tr.server-create-row {
+    background: rgba(15, 52, 96, 0.35);
+    cursor: default;
+}
+
+.server-table tr.server-create-row:hover {
+    background: rgba(15, 52, 96, 0.45);
+}
+
+.server-table tr.server-create-row input {
+    width: 100%;
+    background: #0d1b2a;
+    border: 1px solid #1a365d;
+    border-radius: 6px;
+    color: #e2e8f0;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    font-size: 12px;
+}
+
+.server-table tr.server-create-row button {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
 .server-table th {
     text-align: left;
     color: #a0aec0;

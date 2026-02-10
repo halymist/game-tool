@@ -20,8 +20,13 @@ async function initServerManager() {
 }
 
 function setupServerListeners() {
-    const form = document.getElementById('serverForm');
-    if (form) form.addEventListener('submit', createServer);
+    document.getElementById('serverTableBody')?.addEventListener('click', (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.id === 'serverCreateBtn') {
+            createServer(e);
+        }
+    });
 }
 
 async function loadServerData() {
@@ -56,13 +61,22 @@ function renderServerTable() {
     const tbody = document.getElementById('serverTableBody');
     if (!tbody) return;
 
+    const createRow = `
+        <tr class="server-create-row">
+            <td><input type="text" id="serverName" placeholder="Server name..."></td>
+            <td><input type="datetime-local" id="serverStartsAt"></td>
+            <td colspan="3"></td>
+            <td><button type="button" id="serverCreateBtn" class="btn-save">Create</button></td>
+        </tr>
+    `;
+
     if (!serverState.servers.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="server-empty">No servers found</td></tr>';
+        tbody.innerHTML = `${createRow}<tr><td colspan="6" class="server-empty">No servers found</td></tr>`;
         renderServerPlanDetails(null);
         return;
     }
 
-    tbody.innerHTML = serverState.servers.map(s => `
+    const rows = serverState.servers.map(s => `
         <tr class="${serverState.selectedServerId === s.id ? 'selected' : ''}" onclick="selectServer(${s.id})">
             <td>${escapeHtml(s.name || '')}</td>
             <td>${formatDateTime(s.created_at)}</td>
@@ -72,6 +86,8 @@ function renderServerTable() {
             <td>${s.current_day ?? '—'}</td>
         </tr>
     `).join('');
+
+    tbody.innerHTML = `${createRow}${rows}`;
 }
 
 function selectServer(serverId) {
@@ -110,6 +126,7 @@ async function createServer(e) {
         }
 
         serverState.servers.unshift(data.server);
+        serverState.selectedServerId = data.server?.id ?? serverState.selectedServerId;
         renderServerTable();
         document.getElementById('serverName').value = '';
         document.getElementById('serverStartsAt').value = '';

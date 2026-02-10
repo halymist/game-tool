@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -41,16 +42,25 @@ func handleGetConcept(w http.ResponseWriter, r *http.Request) {
 	var payload json.RawMessage
 	var systemPrompt json.RawMessage
 	var wildsPrompt json.RawMessage
-	var expeditionClusterPrompt json.RawMessage
+	var expeditionClusterPrompt sql.NullString
 	err := db.QueryRow(`SELECT payload, system_prompt, wilds_prompt, expedition_cluster_prompt FROM game.concept ORDER BY id LIMIT 1`).Scan(&payload, &systemPrompt, &wildsPrompt, &expeditionClusterPrompt)
 	if err != nil {
-		// Return empty payload if not found
-		empty := json.RawMessage([]byte("{}"))
-		json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty, ExpeditionClusterPrompt: empty})
+		if err == sql.ErrNoRows {
+			// Return empty payload if not found
+			empty := json.RawMessage([]byte("{}"))
+			json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty, ExpeditionClusterPrompt: empty})
+			return
+		}
+		log.Printf("Error loading concept: %v", err)
+		json.NewEncoder(w).Encode(ConceptResponse{Success: false, Message: "Failed to load concept"})
 		return
 	}
 
-	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: expeditionClusterPrompt})
+	clusterPrompt := json.RawMessage([]byte("{}"))
+	if expeditionClusterPrompt.Valid {
+		clusterPrompt = json.RawMessage([]byte(expeditionClusterPrompt.String))
+	}
+	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: clusterPrompt})
 }
 
 func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
