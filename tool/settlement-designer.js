@@ -15,6 +15,7 @@ let settlementState = {
     enchanterEffects: [], // current enchanter's effects
     vendorResponses: [], // [{type: 'on_entered', text: '...'}, ...]
     utilityResponses: [], // [{type: 'on_entered', text: '...'}, ...]
+    expeditionResponses: [], // [{type: 'failure', text: '...'}, ...]
     locations: [], // [{id: 1, name: '...', description: '...', texture_id: ...}, ...]
     editingLocationIndex: null // index of location being edited, null for new
 };
@@ -535,6 +536,16 @@ function populateSettlementForm(settlement) {
     const expeditionDesc = document.getElementById('expeditionDescription');
     if (expeditionDesc) expeditionDesc.value = settlement.expedition_description || '';
 
+    // Parse expedition failure texts
+    settlementState.expeditionResponses = [];
+    if (settlement.failure_texts) {
+        const arr = Array.isArray(settlement.failure_texts) ? settlement.failure_texts : [settlement.failure_texts];
+        arr.forEach(text => {
+            if (typeof text === 'string') settlementState.expeditionResponses.push({ type: 'failure', text });
+            else if (text?.text) settlementState.expeditionResponses.push({ type: 'failure', text: text.text });
+        });
+    }
+
     // Parse and populate vendor responses (arrays per type -> flat list)
     settlementState.vendorResponses = [];
     if (settlement.vendor_on_entered) {
@@ -931,8 +942,9 @@ function removeEnchanterEffect(index) {
 // Response modal management
 const VENDOR_RESPONSE_TYPES = ['on_entered', 'on_sold', 'on_bought'];
 const UTILITY_RESPONSE_TYPES = ['on_entered', 'on_placed', 'on_action'];
+const EXPEDITION_RESPONSE_TYPES = ['failure'];
 
-let currentResponsesTarget = null; // 'vendor' or 'utility'
+let currentResponsesTarget = null; // 'vendor', 'utility', 'expedition'
 
 function openResponsesModal(target) {
     currentResponsesTarget = target;
@@ -940,7 +952,11 @@ function openResponsesModal(target) {
     const title = document.getElementById('responsesModalTitle');
     
     if (title) {
-        title.textContent = target === 'vendor' ? 'Vendor Responses' : 'Utility Responses';
+        title.textContent = target === 'vendor'
+            ? 'Vendor Responses'
+            : target === 'utility'
+                ? 'Utility Responses'
+                : 'Expedition Failure Messages';
     }
     
     renderModalResponses();
@@ -963,6 +979,8 @@ function addResponseEntry() {
         settlementState.vendorResponses.push({ type: 'on_entered', text: '' });
     } else if (currentResponsesTarget === 'utility') {
         settlementState.utilityResponses.push({ type: 'on_entered', text: '' });
+    } else if (currentResponsesTarget === 'expedition') {
+        settlementState.expeditionResponses.push({ type: 'failure', text: '' });
     }
     renderModalResponses();
 }
@@ -972,14 +990,18 @@ function removeResponseEntry(index) {
         settlementState.vendorResponses.splice(index, 1);
     } else if (currentResponsesTarget === 'utility') {
         settlementState.utilityResponses.splice(index, 1);
+    } else if (currentResponsesTarget === 'expedition') {
+        settlementState.expeditionResponses.splice(index, 1);
     }
     renderModalResponses();
 }
 
 function updateResponseEntry(index, field, value) {
-    const responses = currentResponsesTarget === 'vendor' 
-        ? settlementState.vendorResponses 
-        : settlementState.utilityResponses;
+    const responses = currentResponsesTarget === 'vendor'
+        ? settlementState.vendorResponses
+        : currentResponsesTarget === 'utility'
+            ? settlementState.utilityResponses
+            : settlementState.expeditionResponses;
     if (responses[index]) {
         responses[index][field] = value;
     }
@@ -994,12 +1016,16 @@ function renderModalResponses() {
     const content = document.getElementById('responsesModalContent');
     if (!content) return;
     
-    const responses = currentResponsesTarget === 'vendor' 
-        ? settlementState.vendorResponses 
-        : settlementState.utilityResponses;
-    const types = currentResponsesTarget === 'vendor' 
-        ? VENDOR_RESPONSE_TYPES 
-        : UTILITY_RESPONSE_TYPES;
+    const responses = currentResponsesTarget === 'vendor'
+        ? settlementState.vendorResponses
+        : currentResponsesTarget === 'utility'
+            ? settlementState.utilityResponses
+            : settlementState.expeditionResponses;
+    const types = currentResponsesTarget === 'vendor'
+        ? VENDOR_RESPONSE_TYPES
+        : currentResponsesTarget === 'utility'
+            ? UTILITY_RESPONSE_TYPES
+            : EXPEDITION_RESPONSE_TYPES;
     
     if (responses.length === 0) {
         content.innerHTML = '<div style="color: #4a5568; font-style: italic; text-align: center; padding: 20px;">No responses yet. Click "Add Response" to create one.</div>';
@@ -1026,6 +1052,7 @@ function createNewSettlement() {
     settlementState.enchanterEffects = [];
     settlementState.vendorResponses = [];
     settlementState.utilityResponses = [];
+    settlementState.expeditionResponses = [];
     settlementState.locations = [];
 
     // Clear form
@@ -1422,6 +1449,10 @@ async function saveSettlement() {
         }
     });
 
+    const expeditionFailureTexts = settlementState.expeditionResponses
+        .filter(resp => resp.text)
+        .map(resp => resp.text);
+
     const settlement = {
         settlement_name: name,
         description: description,
@@ -1459,6 +1490,8 @@ async function saveSettlement() {
         utility_on_entered: utilityResponsesObj.on_entered?.length ? utilityResponsesObj.on_entered : null,
         utility_on_placed: utilityResponsesObj.on_placed?.length ? utilityResponsesObj.on_placed : null,
         utility_on_action: utilityResponsesObj.on_action?.length ? utilityResponsesObj.on_action : null,
+        // Expedition failure texts (JSONB array)
+        failure_texts: expeditionFailureTexts.length ? expeditionFailureTexts : null,
         // Inventory arrays
         vendor_items: settlementState.vendorItems,
         enchanter_effects: settlementState.enchanterEffects,

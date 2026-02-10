@@ -394,6 +394,7 @@
                                     <select id="sidebarRewardType">
                                         <option value="">-- None --</option>
                                         <option value="stat">📊 Stat Bonus</option>
+                                        <option value="silver">🪙 Silver</option>
                                         <option value="talent">⭐ Talent Point</option>
                                         <option value="item">🎒 Item</option>
                                         <option value="potion">🧪 Potion</option>
@@ -419,6 +420,14 @@
                                             <label>Amount:</label>
                                             <input type="number" id="sidebarRewardStatAmount" placeholder="0">
                                         </div>
+                                    </div>
+                                </div>
+
+                                <!-- Silver Reward Fields -->
+                                <div id="rewardTypeSilver" class="reward-type-fields" style="display:none;">
+                                    <div class="sidebar-field">
+                                        <label>Silver Amount:</label>
+                                        <input type="number" id="sidebarRewardSilver" placeholder="0" min="0">
                                     </div>
                                 </div>
                                 
@@ -516,6 +525,16 @@
                                         <label>Perk Rewards</label>
                                         <input type="text" id="questGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
                                         <select id="questGenerateRewardPerks" multiple></select>
+                                    </div>
+                                    <div class="quest-generate-field">
+                                        <label>Potion Rewards</label>
+                                        <input type="text" id="questGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
+                                        <select id="questGenerateRewardPotions" multiple></select>
+                                    </div>
+                                    <div class="quest-generate-field">
+                                        <label>Blessing Rewards</label>
+                                        <input type="text" id="questGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
+                                        <select id="questGenerateRewardBlessings" multiple></select>
                                     </div>
                                 </div>
                             </div>
@@ -1553,7 +1572,7 @@
 
                     <!-- Expedition Card -->
                     <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Expedition</h3>
+                        <h3 class="settlement-card-title">Expedition <button class="responses-btn" onclick="openResponsesModal('expedition')">💬</button></h3>
                         <div class="settlement-card">
                             <div id="expeditionAssetArea" class="settlement-card-asset" data-asset-id="">
                                 <div class="no-asset">

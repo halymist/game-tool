@@ -59,6 +59,7 @@ type QuestOption struct {
 	FactionRequired    *string `json:"faction_required"`
 	EnemyID            *int    `json:"enemy_id"`
 	Start              bool    `json:"start"`
+	QuestEnd           *bool   `json:"quest_end"`
 	RewardStatType     *string `json:"reward_stat_type"`
 	RewardStatAmount   *int    `json:"reward_stat_amount"`
 	RewardTalent       *bool   `json:"reward_talent"`
@@ -66,6 +67,7 @@ type QuestOption struct {
 	RewardPerk         *int    `json:"reward_perk"`
 	RewardBlessing     *int    `json:"reward_blessing"`
 	RewardPotion       *int    `json:"reward_potion"`
+	RewardSilver       *int    `json:"reward_silver"`
 	// Position for designer
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
@@ -173,8 +175,8 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	if len(questIDs) > 0 {
 		// Build query with IN clause
 		optionQuery := `SELECT option_id, quest_id, node_text, option_text, stat_type, stat_required, 
-			effect_id, effect_amount, option_effect_id, option_effect_factor, faction_required, enemy_id, start, reward_stat_type, reward_stat_amount, 
-			reward_talent, reward_item, reward_perk, reward_blessing, reward_potion,
+			effect_id, effect_amount, option_effect_id, option_effect_factor, faction_required, enemy_id, start, quest_end, reward_stat_type, reward_stat_amount, 
+			reward_talent, reward_item, reward_perk, reward_blessing, reward_potion, reward_silver,
 			COALESCE(pos_x, 0) as pos_x, COALESCE(pos_y, 0) as pos_y
 			FROM game.quest_options WHERE quest_id = ANY($1) ORDER BY quest_id, option_id`
 
@@ -189,8 +191,8 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 		for optionRows.Next() {
 			var o QuestOption
 			err := optionRows.Scan(&o.OptionID, &o.QuestID, &o.NodeText, &o.OptionText, &o.StatType, &o.StatRequired,
-				&o.EffectID, &o.EffectAmount, &o.OptionEffectID, &o.OptionEffectFactor, &o.FactionRequired, &o.EnemyID, &o.Start, &o.RewardStatType, &o.RewardStatAmount,
-				&o.RewardTalent, &o.RewardItem, &o.RewardPerk, &o.RewardBlessing, &o.RewardPotion,
+				&o.EffectID, &o.EffectAmount, &o.OptionEffectID, &o.OptionEffectFactor, &o.FactionRequired, &o.EnemyID, &o.Start, &o.QuestEnd, &o.RewardStatType, &o.RewardStatAmount,
+				&o.RewardTalent, &o.RewardItem, &o.RewardPerk, &o.RewardBlessing, &o.RewardPotion, &o.RewardSilver,
 				&o.X, &o.Y)
 			if err != nil {
 				log.Printf("Error scanning quest option: %v", err)
@@ -384,6 +386,7 @@ type NewQuestOption struct {
 	OptionEffectFactor *int    `json:"optionEffectFactor"`
 	FactionRequired    *string `json:"factionRequired"`
 	EnemyID            *int    `json:"enemyId"`
+	QuestEnd           *bool   `json:"questEnd"`
 	RewardStatType     *string `json:"rewardStatType"`
 	RewardStatAmount   *int    `json:"rewardStatAmount"`
 	RewardTalent       *bool   `json:"rewardTalent"`
@@ -391,6 +394,7 @@ type NewQuestOption struct {
 	RewardPerk         *int    `json:"rewardPerk"`
 	RewardBlessing     *int    `json:"rewardBlessing"`
 	RewardPotion       *int    `json:"rewardPotion"`
+	RewardSilver       *int    `json:"rewardSilver"`
 }
 
 // QuestOptionUpdate represents an update to an existing option
@@ -410,6 +414,7 @@ type QuestOptionUpdate struct {
 	OptionEffectFactor *int    `json:"optionEffectFactor"`
 	FactionRequired    *string `json:"factionRequired"`
 	EnemyID            *int    `json:"enemyId"`
+	QuestEnd           *bool   `json:"questEnd"`
 	RewardStatType     *string `json:"rewardStatType"`
 	RewardStatAmount   *int    `json:"rewardStatAmount"`
 	RewardTalent       *bool   `json:"rewardTalent"`
@@ -417,6 +422,7 @@ type QuestOptionUpdate struct {
 	RewardPerk         *int    `json:"rewardPerk"`
 	RewardBlessing     *int    `json:"rewardBlessing"`
 	RewardPotion       *int    `json:"rewardPotion"`
+	RewardSilver       *int    `json:"rewardSilver"`
 }
 
 // handleSaveQuest saves quest options and visibility
@@ -625,13 +631,13 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		var optionID int
 		err := tx.QueryRow(`INSERT INTO game.quest_options 
 			(quest_id, node_text, option_text, start, stat_type, stat_required, effect_id, effect_amount, option_effect_id, option_effect_factor, faction_required, enemy_id,
-			 reward_stat_type, reward_stat_amount, reward_talent, reward_item, reward_perk, reward_blessing, reward_potion,
+			 quest_end, reward_stat_type, reward_stat_amount, reward_talent, reward_item, reward_perk, reward_blessing, reward_potion, reward_silver,
 			 pos_x, pos_y)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 			RETURNING option_id`,
 			opt.QuestID, opt.NodeText, opt.OptionText, opt.IsStart,
 			opt.StatType, opt.StatRequired, opt.EffectID, opt.EffectAmount, opt.OptionEffectID, opt.OptionEffectFactor, opt.FactionRequired, opt.EnemyID,
-			opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem, opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion,
+			opt.QuestEnd, opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem, opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion, opt.RewardSilver,
 			opt.X, opt.Y).Scan(&optionID)
 
 		if err != nil {
@@ -651,13 +657,13 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		_, err := tx.Exec(`UPDATE game.quest_options SET
 			node_text = $1, option_text = $2, start = $3, stat_type = $4, stat_required = $5,
 			effect_id = $6, effect_amount = $7, option_effect_id = $8, option_effect_factor = $9, faction_required = $10, enemy_id = $11,
-			reward_stat_type = $12, reward_stat_amount = $13, reward_talent = $14, reward_item = $15,
-			reward_perk = $16, reward_blessing = $17, reward_potion = $18, pos_x = $19, pos_y = $20
-			WHERE option_id = $21`,
+			quest_end = $12, reward_stat_type = $13, reward_stat_amount = $14, reward_talent = $15, reward_item = $16,
+			reward_perk = $17, reward_blessing = $18, reward_potion = $19, reward_silver = $20, pos_x = $21, pos_y = $22
+			WHERE option_id = $23`,
 			opt.NodeText, opt.OptionText, opt.IsStart, opt.StatType, opt.StatRequired,
 			opt.EffectID, opt.EffectAmount, opt.OptionEffectID, opt.OptionEffectFactor, opt.FactionRequired, opt.EnemyID,
-			opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem,
-			opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion, opt.X, opt.Y,
+			opt.QuestEnd, opt.RewardStatType, opt.RewardStatAmount, opt.RewardTalent, opt.RewardItem,
+			opt.RewardPerk, opt.RewardBlessing, opt.RewardPotion, opt.RewardSilver, opt.X, opt.Y,
 			opt.OptionID)
 
 		if err != nil {

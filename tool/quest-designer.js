@@ -833,6 +833,9 @@ function updateSidebar(optionId) {
     
     const rewardStatAmount = document.getElementById('sidebarRewardStatAmount');
     if (rewardStatAmount) rewardStatAmount.value = reward.amount || '';
+
+    const rewardSilver = document.getElementById('sidebarRewardSilver');
+    if (rewardSilver) rewardSilver.value = reward.amount || '';
     
     const rewardItem = document.getElementById('sidebarRewardItem');
     if (rewardItem) rewardItem.value = reward.itemId || '';
@@ -906,6 +909,7 @@ function updateSidebarTypeFields(type) {
 function updateSidebarRewardFields(type) {
     // Hide all reward-specific sections
     document.getElementById('rewardTypeStat')?.style && (document.getElementById('rewardTypeStat').style.display = 'none');
+    document.getElementById('rewardTypeSilver')?.style && (document.getElementById('rewardTypeSilver').style.display = 'none');
     document.getElementById('rewardTypeItem')?.style && (document.getElementById('rewardTypeItem').style.display = 'none');
     document.getElementById('rewardTypePotion')?.style && (document.getElementById('rewardTypePotion').style.display = 'none');
     document.getElementById('rewardTypePerk')?.style && (document.getElementById('rewardTypePerk').style.display = 'none');
@@ -916,6 +920,10 @@ function updateSidebarRewardFields(type) {
         case 'stat':
             const statSection = document.getElementById('rewardTypeStat');
             if (statSection) statSection.style.display = 'block';
+            break;
+        case 'silver':
+            const silverSection = document.getElementById('rewardTypeSilver');
+            if (silverSection) silverSection.style.display = 'block';
             break;
         case 'item':
             const itemSection = document.getElementById('rewardTypeItem');
@@ -1410,6 +1418,7 @@ async function loadQuestChainData(chainId) {
                 y: o.y || o.pos_y || 0,
                 isStart: o.start || false,
                 type: determineOptionType(o),
+                questEnd: !!o.quest_end,
                 statType: o.stat_type,
                 statRequired: o.stat_required,
                 effectId: o.effect_id,
@@ -1448,6 +1457,7 @@ async function loadQuestChainData(chainId) {
 
 // Determine option type from DB fields
 function determineOptionType(o) {
+    if (o.quest_end) return 'end';
     if (o.faction_required) return 'faction';
     if (o.enemy_id) return 'combat';
     if (o.effect_id && o.effect_amount) return 'effect_check';
@@ -1459,6 +1469,9 @@ function determineOptionType(o) {
 function extractReward(o) {
     if (o.reward_stat_type && o.reward_stat_amount) {
         return { type: 'stat', statType: o.reward_stat_type, amount: o.reward_stat_amount };
+    }
+    if (o.reward_silver) {
+        return { type: 'silver', amount: o.reward_silver };
     }
     if (o.reward_talent) {
         return { type: 'talent' };
@@ -1920,6 +1933,19 @@ function setupSidebarEventListeners() {
             }
         });
     }
+
+    // Reward silver amount
+    const rewardSilver = document.getElementById('sidebarRewardSilver');
+    if (rewardSilver) {
+        rewardSilver.addEventListener('input', (e) => {
+            if (!questState.selectedOption) return;
+            const option = questState.options.get(questState.selectedOption);
+            if (option) {
+                if (!option.reward) option.reward = {};
+                option.reward.amount = parseInt(e.target.value) || null;
+            }
+        });
+    }
     
     // Reward item select
     const rewardItem = document.getElementById('sidebarRewardItem');
@@ -2111,6 +2137,7 @@ async function saveQuest() {
                 isStart: option.isStart || false,
                 x: option.x,
                 y: option.y,
+                questEnd: option.type === 'end' ? true : null,
                 statType: option.type === 'stat_check' ? option.statType : null,
                 statRequired: option.type === 'stat_check' ? option.statRequired : null,
                 effectId: option.type === 'effect_check' ? option.effectId : null,
@@ -2126,6 +2153,7 @@ async function saveQuest() {
                 rewardPotion: option.reward?.type === 'potion' ? option.reward.potionId : null,
                 rewardPerk: option.reward?.type === 'perk' ? option.reward.perkId : null,
                 rewardBlessing: option.reward?.type === 'blessing' ? option.reward.blessingId : null,
+                rewardSilver: option.reward?.type === 'silver' ? option.reward.amount : null,
             };
             
             if (!option.serverId) {
@@ -2267,6 +2295,8 @@ const questGenerateState = {
     allQuests: [],
     rewardItems: [],
     rewardPerks: [],
+    rewardPotions: [],
+    rewardBlessings: [],
 };
 
 function setupQuestGeneratePanel() {
@@ -2284,6 +2314,12 @@ function setupQuestGeneratePanel() {
     });
     document.getElementById('questGeneratePerkRewardFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateRewardPerks(e.target.value);
+    });
+    document.getElementById('questGeneratePotionRewardFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateRewardPotions(e.target.value);
+    });
+    document.getElementById('questGenerateBlessingRewardFilter')?.addEventListener('input', (e) => {
+        populateQuestGenerateRewardBlessings(e.target.value);
     });
     document.getElementById('questGenerateQuestFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateQuests(e.target.value);
@@ -2441,11 +2477,17 @@ function populateQuestGenerateEnemies() {
 function populateQuestGenerateRewards() {
     const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
     const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
+    const potions = items.filter(item => item.type === 'potion');
+    const blessings = perks.filter(perk => perk.is_blessing);
     questGenerateState.rewardItems = items;
     questGenerateState.rewardPerks = perks;
+    questGenerateState.rewardPotions = potions;
+    questGenerateState.rewardBlessings = blessings;
 
     populateQuestGenerateRewardItems('');
     populateQuestGenerateRewardPerks('');
+    populateQuestGenerateRewardPotions('');
+    populateQuestGenerateRewardBlessings('');
 }
 
 function populateQuestGenerateRewardItems(filterText = '') {
@@ -2490,6 +2532,48 @@ function populateQuestGenerateRewardPerks(filterText = '') {
         });
 }
 
+function populateQuestGenerateRewardPotions(filterText = '') {
+    const select = document.getElementById('questGenerateRewardPotions');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    questGenerateState.rewardPotions
+        .filter(item => {
+            if (!search) return true;
+            const name = (item.item_name || item.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(item => {
+            const id = item.item_id || item.id;
+            const name = item.item_name || item.name || `Potion ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
+function populateQuestGenerateRewardBlessings(filterText = '') {
+    const select = document.getElementById('questGenerateRewardBlessings');
+    if (!select) return;
+    select.innerHTML = '';
+    const search = filterText.trim().toLowerCase();
+    questGenerateState.rewardBlessings
+        .filter(perk => {
+            if (!search) return true;
+            const name = (perk.perk_name || perk.name || '').toLowerCase();
+            return name.includes(search);
+        })
+        .forEach(perk => {
+            const id = perk.perk_id || perk.id;
+            const name = perk.perk_name || perk.name || `Blessing ${id}`;
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
+}
+
 function populateQuestGenerateQuests(filterText = '') {
     const select = document.getElementById('questGenerateQuests');
     if (!select) return;
@@ -2525,6 +2609,8 @@ async function generateQuestPreview() {
     const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
     const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
     const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
+    const selectedPotionIds = collectMultiSelectValues('questGenerateRewardPotions').map(id => parseInt(id, 10));
+    const selectedBlessingIds = collectMultiSelectValues('questGenerateRewardBlessings').map(id => parseInt(id, 10));
     let conceptPayload = {};
     let conceptSystemPrompt = '';
     let conceptWildsPrompt = '';
@@ -2613,6 +2699,20 @@ async function generateQuestPreview() {
             name: perk.perk_name || perk.name || ''
         }));
 
+    const potions = questGenerateState.rewardPotions
+        .filter(item => selectedPotionIds.includes(item.item_id || item.id))
+        .map(item => ({
+            id: item.item_id || item.id,
+            name: item.item_name || item.name || ''
+        }));
+
+    const blessings = questGenerateState.rewardBlessings
+        .filter(perk => selectedBlessingIds.includes(perk.perk_id || perk.id))
+        .map(perk => ({
+            id: perk.perk_id || perk.id,
+            name: perk.perk_name || perk.name || ''
+        }));
+
     const settlementPayload = settlement
         ? {
             id: settlement.settlement_id || settlement.id,
@@ -2648,9 +2748,13 @@ async function generateQuestPreview() {
                     npcs,
                     enemies,
                     rewards: {
-                        items,
-                        perks,
-                        possible_reward_types: ['silver', 'stat_boost']
+                        possible_item_rewards: items,
+                        possible_perk_rewards: perks,
+                        possible_potion_rewards: potions,
+                        possible_blessing_rewards: blessings,
+                        possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
+                        reward_silver: true,
+                        reward_talent: true
                     },
                     relevant_quests: quests,
                     prompt
