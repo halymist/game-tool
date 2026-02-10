@@ -1279,6 +1279,8 @@ async function loadQuestChains() {
         if (!response.ok) throw new Error('Failed to fetch quest chains');
         
         const data = await response.json();
+
+        console.log('Loaded quest data (raw):', data);
         const chains = data.chains || [];
         
         chains.forEach(chain => {
@@ -2829,7 +2831,7 @@ async function generateQuestPreview() {
     };
 
     const payload = {
-        model: 'gpt-4.1',
+        model: 'o3',
         response_format: { type: 'json_object' },
         messages: [
             {
