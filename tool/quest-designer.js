@@ -313,7 +313,6 @@ function renderQuest(quest) {
             <input type="text" class="quest-name-input" value="${escapeHtml(quest.name)}" 
                    data-quest="${quest.questId}" placeholder="Quest name...">
             <button class="quest-bg-btn" data-quest="${quest.questId}" title="Set background">🖼️</button>
-            <button class="quest-delete-btn" data-quest="${quest.questId}" title="Delete quest">🗑️</button>
         </div>
         <div class="quest-connector quest-connector-left" data-quest="${quest.questId}" data-side="left" title="Drag to connect">●</div>
         <div class="quest-connector quest-connector-right" data-quest="${quest.questId}" data-side="right" title="Drag to connect">●</div>
@@ -348,11 +347,6 @@ function bindQuestEvents(el, quest) {
     });
     textArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
-    // Delete quest
-    el.querySelector('.quest-delete-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteQuest(quest.questId);
-    });
     
     // Background button
     el.querySelector('.quest-bg-btn')?.addEventListener('click', (e) => {
@@ -398,10 +392,6 @@ function renderOption(option) {
     el.innerHTML = `
         <div class="option-node-header">
             <span class="option-id">#${option.optionId}</span>
-            <label class="start-checkbox" title="Start option">
-                <input type="checkbox" ${option.isStart ? 'checked' : ''} data-option="${option.optionId}">
-                <span>START</span>
-            </label>
             <button class="option-delete-btn" data-option="${option.optionId}" title="Delete option">×</button>
         </div>
         <div class="option-connector option-connector-left" data-option="${option.optionId}" data-side="left" title="Drag to connect">●</div>
@@ -433,13 +423,6 @@ function bindOptionEvents(el, option) {
     });
     nodeTextArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
-    // Start checkbox
-    const startCb = el.querySelector('.start-checkbox input');
-    startCb?.addEventListener('change', (e) => {
-        e.stopPropagation();
-        option.isStart = e.target.checked;
-        el.classList.toggle('start-option', option.isStart);
-    });
     
     // Delete option
     el.querySelector('.option-delete-btn')?.addEventListener('click', (e) => {
@@ -459,7 +442,7 @@ function bindOptionEvents(el, option) {
     
     // Drag option
     el.addEventListener('mousedown', (e) => {
-        if (e.target.closest('input, textarea, button, .option-connector, .start-checkbox')) return;
+        if (e.target.closest('input, textarea, button, .option-connector')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
         
@@ -713,6 +696,13 @@ function deleteQuest(id) {
     questRenderConnections();
     updateCounter();
 }
+
+function deleteSelectedQuest() {
+    if (questState.selectedQuest) {
+        deleteQuest(questState.selectedQuest);
+    }
+}
+window.deleteSelectedQuest = deleteSelectedQuest;
 
 function deleteOption(id) {
     if (!confirm('Delete this option?')) return;

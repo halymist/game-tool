@@ -363,6 +363,7 @@
                                 <h4>✨ Option Effect</h4>
                                 <div class="sidebar-row">
                                     <div class="sidebar-field">
+                                        <label>Effect:</label>
                                         <select id="sidebarOptionEffectId">
                                             <!-- Populated by JS from GlobalData.effects -->
                                         </select>
@@ -473,6 +474,9 @@
                     <div id="questGenerateOverlay" class="generate-overlay" style="display:none;">
                         <div id="questGeneratePanel" class="generate-modal quest-generate-sidebar">
                             <div class="quest-generate-header">
+                                <div class="sidebar-actions">
+                                    <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
+                                </div>
                                 <h3>🧠 Generate Quest</h3>
                                 <button id="questGenerateClose" class="btn-secondary">Close</button>
                             </div>

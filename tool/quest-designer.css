@@ -870,10 +870,35 @@
 .sidebar-row {
     display: flex;
     gap: 12px;
+    align-items: flex-end;
 }
 
 .sidebar-row .sidebar-field {
     flex: 1;
+}
+
+#sidebarTravelText,
+#sidebarFailureText {
+    min-height: 140px;
+}
+
+#sidebarDeleteOption,
+#sidebarDeleteQuest {
+    width: 100%;
+    background: #7a1f2b;
+    border: 1px solid #a83847;
+    color: #f8d7da;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+#sidebarDeleteOption:hover,
+#sidebarDeleteQuest:hover {
+    background: #a12433;
+    border-color: #c43b4b;
 }
 
 .sidebar-checkbox {
