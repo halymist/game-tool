@@ -212,6 +212,7 @@ func main() {
 	http.HandleFunc("/api/getExpeditionAssets", corsHandler(handleGetExpeditionAssets))
 	http.HandleFunc("/api/uploadExpeditionAsset", corsHandler(handleUploadExpeditionAsset))
 	http.HandleFunc("/api/saveExpedition", corsHandler(handleSaveExpedition))
+	http.HandleFunc("/api/mergeExpeditions", corsHandler(handleMergeExpeditions))
 	http.HandleFunc("/api/getExpedition", corsHandler(handleGetExpedition))
 	http.HandleFunc("/api/deleteExpeditionSlide", corsHandler(handleDeleteExpeditionSlide))
 	http.HandleFunc("/api/deleteExpeditionOption", corsHandler(handleDeleteExpeditionOption))

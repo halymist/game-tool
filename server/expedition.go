@@ -982,3 +982,36 @@ func handleDeleteExpeditionOption(w http.ResponseWriter, r *http.Request) {
 		"message": fmt.Sprintf("Option %d deleted", req.ToolingID),
 	})
 }
+
+// handleMergeExpeditions copies the tooling expedition graph into the game schema
+func handleMergeExpeditions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if db == nil {
+		http.Error(w, "Database not connected", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Merging expeditions from tooling into game schema")
+	if _, err := db.Exec(`SELECT tooling.merge_expeditions()`); err != nil {
+		log.Printf("Failed to merge expeditions: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to merge expeditions: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"success": true,
+		"message": "Expeditions merged into game schema",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

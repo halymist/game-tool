@@ -2664,6 +2664,54 @@ async function saveExpedition() {
 }
 window.saveExpedition = saveExpedition;
 
+// ==================== MERGE EXPEDITION ====================
+async function mergeExpedition() {
+    if (!confirm('Publish the current tooling expedition graph to the live game schema?')) {
+        return;
+    }
+
+    const mergeBtn = document.getElementById('mergeExpeditionBtn');
+    if (mergeBtn) {
+        mergeBtn.disabled = true;
+        mergeBtn.textContent = '🚀 Publishing...';
+    }
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        const response = await fetch('http://localhost:8080/api/mergeExpeditions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Server error');
+        }
+
+        const payload = await response.json();
+        if (!payload.success) {
+            throw new Error(payload.message || 'Merge failed');
+        }
+
+        alert('✅ Expedition graph published to the game schema. Clients will now see the latest approved version.');
+    } catch (error) {
+        console.error('Failed to merge expeditions:', error);
+        alert(`❌ Failed to publish expedition:\n${error.message}`);
+    } finally {
+        if (mergeBtn) {
+            mergeBtn.disabled = false;
+            mergeBtn.textContent = '🚀 Publish to Game';
+        }
+    }
+}
+window.mergeExpedition = mergeExpedition;
+
 // ==================== LOAD EXPEDITION ====================
 async function loadExpedition() {
     const loadBtn = document.getElementById('loadExpeditionBtn');
@@ -2725,7 +2773,7 @@ async function loadExpedition() {
                 x: serverSlide.posX || 100,
                 y: serverSlide.posY || 100,
                 options: [],
-                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
+                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId || null
@@ -3002,7 +3050,7 @@ async function loadExpeditionForSettlement(settlementId) {
                 x: serverSlide.posX || 100,
                 y: serverSlide.posY || 100,
                 options: [],
-                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/expedition/${serverSlide.assetId}.webp` : null,
+                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId
