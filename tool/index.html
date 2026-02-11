@@ -1298,16 +1298,7 @@
                             <option value="skill">🎯 Skill Check (stat requirement)</option>
                             <option value="effect">✨ Effect Check (effect requirement)</option>
                             <option value="combat">⚔️ Combat (enemy encounter)</option>
-                        </select>
-                    </div>
-
-                    <div class="modal-field">
-                        <label>Faction Requirement</label>
-                        <select id="optionFactionRequired">
-                            <option value="">All factions can see this option</option>
-                            <option value="order">Order</option>
-                            <option value="guild">Guild</option>
-                            <option value="companions">Companions</option>
+                            <option value="faction">🛡️ Faction Gate</option>
                         </select>
                     </div>
                     
@@ -1352,6 +1343,18 @@
                         <div id="enemyPickerGrid" class="enemy-picker-grid">
                             <!-- Populated dynamically with enemy icons -->
                         </div>
+                    </div>
+
+                    <!-- Faction Fields -->
+                    <div id="optionFactionFields" class="modal-field" style="display:none;">
+                        <label>Required Faction</label>
+                        <select id="optionFactionRequired">
+                            <option value="">Select faction...</option>
+                            <option value="order">Order</option>
+                            <option value="guild">Guild</option>
+                            <option value="companions">Companions</option>
+                        </select>
+                        <small style="color:#889;margin-top:6px;display:block;">Only members of this faction see the option.</small>
                     </div>
                     
                     <div class="modal-buttons">

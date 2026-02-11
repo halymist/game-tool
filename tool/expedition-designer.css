@@ -691,6 +691,7 @@
 .option-type-badge.skill { color: #4ecdc4; }
 .option-type-badge.effect { color: #c77dff; }
 .option-type-badge.item { color: #ffe66d; }
+.option-type-badge.faction { color: #f59e0b; }
 .option-type-badge.dialogue { color: #a8dadc; }
 
 .option-text-input {

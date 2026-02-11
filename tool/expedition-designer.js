@@ -294,8 +294,7 @@ function renderSlide(slide) {
             detailBadges.push(`<span class="option-detail-badge effect">E#${opt.effectId}:${opt.effectAmount || '?'}</span>`);
         } else if (opt.type === 'combat' && opt.enemyId) {
             detailBadges.push(`<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`);
-        }
-        if (opt.factionRequired) {
+        } else if (opt.type === 'faction' && opt.factionRequired) {
             const factionLabel = opt.factionRequired.charAt(0).toUpperCase() + opt.factionRequired.slice(1);
             detailBadges.push(`<span class="option-detail-badge faction">${factionLabel}</span>`);
         }
@@ -644,7 +643,7 @@ async function deleteOption(slideId, optionIndex) {
 }
 
 function getTypeIcon(type) {
-    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒' }[type] || '💬';
+    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒', faction: '🛡️' }[type] || '💬';
 }
 
 function getRewardIcon(type) {
@@ -1106,7 +1105,7 @@ function openOptionModal(slideId, optionIndex) {
 
     const factionSelect = document.getElementById('optionFactionRequired');
     if (factionSelect) {
-        factionSelect.value = opt.factionRequired || '';
+        factionSelect.value = opt.type === 'faction' ? (opt.factionRequired || '') : '';
     }
     
     // Show/hide relevant fields based on type
@@ -1119,11 +1118,13 @@ function updateOptionModalFields(type) {
     const statFields = document.getElementById('optionStatFields');
     const effectFields = document.getElementById('optionEffectFields');
     const combatFields = document.getElementById('optionCombatFields');
+    const factionFields = document.getElementById('optionFactionFields');
     
     // Hide all
     if (statFields) statFields.style.display = 'none';
     if (effectFields) effectFields.style.display = 'none';
     if (combatFields) combatFields.style.display = 'none';
+    if (factionFields) factionFields.style.display = 'none';
     
     // Show relevant
     if (type === 'skill' && statFields) {
@@ -1132,6 +1133,8 @@ function updateOptionModalFields(type) {
         effectFields.style.display = 'flex';
     } else if (type === 'combat' && combatFields) {
         combatFields.style.display = 'block';
+    } else if (type === 'faction' && factionFields) {
+        factionFields.style.display = 'block';
     }
 }
 
@@ -1165,8 +1168,23 @@ function saveOptionFromModal() {
         option.enemyId = parseInt(document.getElementById('optionEnemyId').value) || null;
     }
 
-    const factionSelect = document.getElementById('optionFactionRequired');
-    option.factionRequired = factionSelect ? (factionSelect.value || null) : null;
+    if (type !== 'skill') {
+        option.statType = null;
+        option.statRequired = null;
+    }
+    if (type !== 'effect') {
+        option.effectId = null;
+        option.effectAmount = null;
+    }
+    if (type !== 'combat') {
+        option.enemyId = null;
+    }
+
+    if (type === 'faction') {
+        option.factionRequired = document.getElementById('optionFactionRequired').value || null;
+    } else {
+        option.factionRequired = null;
+    }
     
     if (modalContext.optionIndex >= 0) {
         // Edit existing
@@ -2317,7 +2335,7 @@ async function saveExpedition() {
                             effectId: opt.type === 'effect' ? opt.effectId : null,
                             effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                             enemyId: opt.type === 'combat' ? opt.enemyId : null,
-                            factionRequired: opt.factionRequired || null,
+                            factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
                             connections: connections
                         });
                         console.log(`New option on existing slide ${localId} (tooling ${slideToolingId}):`, opt.text);
@@ -2433,7 +2451,7 @@ async function saveExpedition() {
                     effectId: opt.type === 'effect' ? opt.effectId : null,
                     effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                     enemyId: opt.type === 'combat' ? opt.enemyId : null,
-                    factionRequired: opt.factionRequired || null,
+                    factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
                     connections: connections
                 };
             });
@@ -2506,7 +2524,7 @@ async function saveExpedition() {
             effectId: option.type === 'effect' ? option.effectId : null,
             effectAmount: option.type === 'effect' ? option.effectAmount : null,
             enemyId: option.type === 'combat' ? option.enemyId : null,
-            factionRequired: option.factionRequired || null
+            factionRequired: option.type === 'faction' ? option.factionRequired : null
         }));
 
         // Check if there's anything to save
@@ -2592,11 +2610,12 @@ async function saveExpedition() {
                 expeditionState.originalOptions.set(optKey, {
                     text: option.text || '',
                     type: option.type || 'dialogue',
-                    statType: option.statType || null,
-                    statRequired: option.statRequired || null,
-                    effectId: option.effectId || null,
-                    effectAmount: option.effectAmount || null,
-                    enemyId: option.enemyId || null
+                    statType: option.type === 'skill' ? (option.statType || null) : null,
+                    statRequired: option.type === 'skill' ? (option.statRequired || null) : null,
+                    effectId: option.type === 'effect' ? (option.effectId || null) : null,
+                    effectAmount: option.type === 'effect' ? (option.effectAmount || null) : null,
+                    enemyId: option.type === 'combat' ? (option.enemyId || null) : null,
+                    factionRequired: option.type === 'faction' ? (option.factionRequired || null) : null
                 });
             }
             
@@ -2615,12 +2634,12 @@ async function saveExpedition() {
                         expeditionState.originalOptions.set(optionKey, {
                             text: opt.text || '',
                             type: opt.type || 'dialogue',
-                            statType: opt.statType || null,
-                            statRequired: opt.statRequired || null,
-                            effectId: opt.effectId || null,
-                            effectAmount: opt.effectAmount || null,
-                            enemyId: opt.enemyId || null,
-                            factionRequired: opt.factionRequired || null
+                            statType: opt.type === 'skill' ? (opt.statType || null) : null,
+                            statRequired: opt.type === 'skill' ? (opt.statRequired || null) : null,
+                            effectId: opt.type === 'effect' ? (opt.effectId || null) : null,
+                            effectAmount: opt.type === 'effect' ? (opt.effectAmount || null) : null,
+                            enemyId: opt.type === 'combat' ? (opt.enemyId || null) : null,
+                            factionRequired: opt.type === 'faction' ? (opt.factionRequired || null) : null
                         });
                     }
                 }
@@ -2853,19 +2872,20 @@ async function loadExpedition() {
                 
                 // Determine option type
                 let optType = 'dialogue';
-                if (serverOpt.statType) optType = 'skill';
+                if (serverOpt.factionRequired) optType = 'faction';
+                else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
 
                 const option = {
                     text: serverOpt.text || '',
                     type: optType,
-                    statType: serverOpt.statType,
-                    statRequired: serverOpt.statRequired,
-                    effectId: serverOpt.effectId,
-                    effectAmount: serverOpt.effectAmount,
-                    enemyId: serverOpt.enemyId,
-                    factionRequired: serverOpt.factionRequired || null
+                    statType: optType === 'skill' ? serverOpt.statType : null,
+                    statRequired: optType === 'skill' ? serverOpt.statRequired : null,
+                    effectId: optType === 'effect' ? serverOpt.effectId : null,
+                    effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
+                    enemyId: optType === 'combat' ? serverOpt.enemyId : null,
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
                 };
 
                 slide.options.push(option);
@@ -2878,12 +2898,12 @@ async function loadExpedition() {
                 expeditionState.originalOptions.set(optionKey, {
                     text: serverOpt.text || '',
                     type: optType,
-                    statType: serverOpt.statType || null,
-                    statRequired: serverOpt.statRequired || null,
-                    effectId: serverOpt.effectId || null,
-                    effectAmount: serverOpt.effectAmount || null,
-                    enemyId: serverOpt.enemyId || null,
-                    factionRequired: serverOpt.factionRequired || null
+                    statType: optType === 'skill' ? (serverOpt.statType || null) : null,
+                    statRequired: optType === 'skill' ? (serverOpt.statRequired || null) : null,
+                    effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
+                    effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
+                    enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
                 });
 
                 // Third pass: create connections from outcomes
@@ -3135,19 +3155,20 @@ async function loadExpeditionForSettlement(settlementId) {
                 
                 // Determine option type
                 let optType = 'dialogue';
-                if (serverOpt.statType) optType = 'skill';
+                if (serverOpt.factionRequired) optType = 'faction';
+                else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
 
                 const option = {
                     text: serverOpt.text || '',
                     type: optType,
-                    statType: serverOpt.statType,
-                    statRequired: serverOpt.statRequired,
-                    effectId: serverOpt.effectId,
-                    effectAmount: serverOpt.effectAmount,
-                    enemyId: serverOpt.enemyId,
-                    factionRequired: serverOpt.factionRequired || null
+                    statType: optType === 'skill' ? serverOpt.statType : null,
+                    statRequired: optType === 'skill' ? serverOpt.statRequired : null,
+                    effectId: optType === 'effect' ? serverOpt.effectId : null,
+                    effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
+                    enemyId: optType === 'combat' ? serverOpt.enemyId : null,
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
                 };
 
                 slide.options.push(option);
@@ -3160,12 +3181,12 @@ async function loadExpeditionForSettlement(settlementId) {
                 expeditionState.originalOptions.set(optionKey, {
                     text: serverOpt.text || '',
                     type: optType,
-                    statType: serverOpt.statType || null,
-                    statRequired: serverOpt.statRequired || null,
-                    effectId: serverOpt.effectId || null,
-                    effectAmount: serverOpt.effectAmount || null,
-                    enemyId: serverOpt.enemyId || null,
-                    factionRequired: serverOpt.factionRequired || null
+                    statType: optType === 'skill' ? (serverOpt.statType || null) : null,
+                    statRequired: optType === 'skill' ? (serverOpt.statRequired || null) : null,
+                    effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
+                    effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
+                    enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
                 });
 
                 // Third pass: build connections from outcomes
