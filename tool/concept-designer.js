@@ -1,7 +1,8 @@
 // Concept Editor
 
 let conceptState = {
-    payload: {}
+    payload: {},
+    expeditionSchema: {}
 };
 
 const defaultPromptPayload = {
@@ -47,6 +48,7 @@ async function loadConceptData() {
         }
 
         conceptState.payload = data.payload || {};
+        conceptState.expeditionSchema = getSchemaObject(data.expeditionJsonSchema);
         const systemPrompt = document.getElementById('conceptSystemPrompt');
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt);
         const wildsPrompt = document.getElementById('conceptWildsPrompt');
@@ -54,6 +56,7 @@ async function loadConceptData() {
         const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
         if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt);
         renderConceptJson();
+        renderExpeditionConceptJson();
     } catch (error) {
         console.error('Error loading concept:', error);
         setConceptStatus('Failed to load concept', true);
@@ -64,11 +67,18 @@ function renderConceptJson() {
     const textarea = document.getElementById('conceptJson');
     if (!textarea) return;
     const schema = conceptState.payload?.json_schema ?? conceptState.payload ?? {};
-    textarea.value = JSON.stringify(schema, null, 2);
+    textarea.value = stringifySchema(schema);
+}
+
+function renderExpeditionConceptJson() {
+    const textarea = document.getElementById('conceptExpeditionJson');
+    if (!textarea) return;
+    textarea.value = stringifySchema(conceptState.expeditionSchema || {});
 }
 
 async function saveConcept() {
     const textarea = document.getElementById('conceptJson');
+    const expeditionTextarea = document.getElementById('conceptExpeditionJson');
     const systemPrompt = document.getElementById('conceptSystemPrompt');
     const wildsPrompt = document.getElementById('conceptWildsPrompt');
     const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
@@ -81,6 +91,18 @@ async function saveConcept() {
         setConceptStatus('Invalid JSON', true);
         return;
     }
+
+    let parsedExpedition = {};
+    if (expeditionTextarea) {
+        try {
+            parsedExpedition = parseSchemaInput(expeditionTextarea.value);
+        } catch (err) {
+            setConceptStatus('Invalid Expedition JSON', true);
+            return;
+        }
+    }
+
+    conceptState.expeditionSchema = parsedExpedition;
 
     try {
         const token = await getCurrentAccessToken();
@@ -103,7 +125,8 @@ async function saveConcept() {
                 payload: promptPayload,
                 systemPrompt: systemPromptJson,
                 wildsPrompt: wildsPromptJson,
-                expeditionClusterPrompt: expeditionClusterPromptJson
+                expeditionClusterPrompt: expeditionClusterPromptJson,
+                expeditionJsonSchema: parsedExpedition
             })
         });
         const data = await response.json();
@@ -117,6 +140,8 @@ async function saveConcept() {
         if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt ?? wildsPromptJson);
         if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt ?? expeditionClusterPromptJson);
         renderConceptJson();
+        conceptState.expeditionSchema = getSchemaObject(data.expeditionJsonSchema ?? parsedExpedition);
+        renderExpeditionConceptJson();
         setConceptStatus('Saved', false);
     } catch (error) {
         console.error('Error saving concept:', error);
@@ -148,6 +173,35 @@ function buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson) {
     if (!Array.isArray(base.reference_quests)) base.reference_quests = [];
 
     return base;
+}
+
+function stringifySchema(schema) {
+    try {
+        const target = schema && typeof schema === 'object' ? schema : {};
+        return JSON.stringify(target, null, 2);
+    } catch (error) {
+        console.warn('Failed to stringify schema:', error);
+        return '{}';
+    }
+}
+
+function parseSchemaInput(value) {
+    if (!value || !value.trim()) return {};
+    return JSON.parse(value);
+}
+
+function getSchemaObject(value) {
+    if (!value) return {};
+    if (typeof value === 'string') {
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            console.warn('Failed to parse schema JSON string:', error);
+            return {};
+        }
+    }
+    if (typeof value === 'object') return value;
+    return {};
 }
 
 

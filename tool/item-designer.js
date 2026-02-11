@@ -8,7 +8,7 @@ const ITEM_TYPES = [
 
 // Weapon types that show damage fields
 const WEAPON_TYPES = ['weapon', 'hammer'];
-const RATION_EFFECT_ID = 201;
+const RATION_EFFECT_ID = 200;
 
 // Current state
 let allItems = [];

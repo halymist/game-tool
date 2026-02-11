@@ -85,6 +85,11 @@ function initExpeditionDesigner() {
         // Don't capture wheel if asset gallery overlay is open (allow scrolling in gallery)
         const galleryOverlay = document.getElementById('expeditionAssetGalleryOverlay');
         if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
+
+        const panel = document.getElementById('expeditionGenerateOverlay');
+        if (panel && panel.style.display === 'flex') {
+            return;
+        }
         
         // Check if mouse is over the canvas
         const canvasRect = canvas.getBoundingClientRect();
@@ -1995,19 +2000,178 @@ function getSelectedValues(selectId) {
     return Array.from(select.selectedOptions).map(opt => opt.value).filter(Boolean);
 }
 
-function generateExpeditionClusterPreview() {
-    const prompt = document.getElementById('expeditionGeneratePrompt')?.value.trim() || '';
-    expeditionGenerateState.lastRequest = {
-        locationId: document.getElementById('expeditionGenerateLocation')?.value || null,
-        npcIds: getSelectedValues('expeditionGenerateNpcs'),
-        enemyIds: getSelectedValues('expeditionGenerateEnemies'),
-        rewardItems: getSelectedValues('expeditionGenerateRewardItems'),
-        rewardPerks: getSelectedValues('expeditionGenerateRewardPerks'),
-        rewardPotions: getSelectedValues('expeditionGenerateRewardPotions'),
-        rewardBlessings: getSelectedValues('expeditionGenerateRewardBlessings'),
+function parseExpeditionSchema(rawValue) {
+    if (!rawValue) return {};
+    if (typeof rawValue === 'string') {
+        try {
+            return JSON.parse(rawValue);
+        } catch (error) {
+            console.warn('Failed to parse expedition schema string:', error);
+            return {};
+        }
+    }
+    if (typeof rawValue === 'object') return rawValue;
+    return {};
+}
+
+async function generateExpeditionClusterPreview() {
+    const locationId = document.getElementById('expeditionGenerateLocation')?.value || '';
+    const prompt = document.getElementById('expeditionGeneratePrompt')?.value || '';
+    const selectedNpcIds = getSelectedValues('expeditionGenerateNpcs').map(id => parseInt(id, 10));
+    const selectedEnemyIds = getSelectedValues('expeditionGenerateEnemies').map(id => parseInt(id, 10));
+    const selectedItemIds = getSelectedValues('expeditionGenerateRewardItems').map(id => parseInt(id, 10));
+    const selectedPerkIds = getSelectedValues('expeditionGenerateRewardPerks').map(id => parseInt(id, 10));
+    const selectedPotionIds = getSelectedValues('expeditionGenerateRewardPotions').map(id => parseInt(id, 10));
+    const selectedBlessingIds = getSelectedValues('expeditionGenerateRewardBlessings').map(id => parseInt(id, 10));
+
+    let conceptPayload = {};
+    let expeditionClusterPrompt = '';
+    let expeditionSchema = {};
+    try {
+        const token = await getCurrentAccessToken();
+        if (token) {
+            const response = await fetch('http://localhost:8080/api/getConcept', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data?.success) {
+                conceptPayload = data.payload || {};
+                expeditionClusterPrompt = typeof data.expeditionClusterPrompt === 'string' ? data.expeditionClusterPrompt : (data.expeditionClusterPrompt || '');
+                expeditionSchema = parseExpeditionSchema(data.expeditionJsonSchema);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load concept for expedition generator:', error);
+    }
+
+    const schemaFallback = conceptPayload?.expedition_json_schema ?? conceptPayload ?? {};
+    const schema = Object.keys(expeditionSchema).length ? expeditionSchema : schemaFallback;
+
+    const settlements = GlobalData?.settlements || [];
+    let settlement = null;
+    let location = null;
+    if (locationId) {
+        settlements.some(s => {
+            const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
+            if (found) {
+                location = found;
+                settlement = s;
+                return true;
+            }
+            return false;
+        });
+    }
+
+    const npcLookup = new Map((expeditionGenerateState.npcs || []).map(npc => [npc.npc_id || npc.id, npc]));
+    const npcs = selectedNpcIds
+        .map(id => npcLookup.get(id))
+        .filter(Boolean)
+        .map(npc => ({
+            id: npc.npc_id || npc.id,
+            name: npc.name || '',
+            context: npc.context || '',
+            role: npc.role || '',
+            personality: Array.isArray(npc.personality) ? npc.personality : (npc.personality ? [npc.personality] : []),
+            goals: Array.isArray(npc.goals) ? npc.goals : (npc.goals ? [npc.goals] : [])
+        }));
+
+    let enemies = [];
+    if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) {
+        enemies = allEnemies;
+    } else if (typeof getEnemies === 'function') {
+        enemies = getEnemies();
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.enemies) {
+        enemies = GlobalData.enemies;
+    }
+    const enemyLookup = new Map(enemies.map(enemy => [enemy.enemyId || enemy.enemy_id || enemy.id, enemy]));
+    const selectedEnemies = selectedEnemyIds
+        .map(id => enemyLookup.get(id))
+        .filter(Boolean)
+        .map(enemy => ({
+            id: enemy.enemyId || enemy.enemy_id || enemy.id,
+            name: enemy.enemyName || enemy.enemy_name || enemy.name || ''
+        }));
+
+    const items = (expeditionGenerateState.rewardItems || [])
+        .filter(item => selectedItemIds.includes(item.itemId || item.item_id || item.id))
+        .map(item => ({
+            id: item.itemId || item.item_id || item.id,
+            name: item.itemName || item.item_name || item.name || ''
+        }));
+
+    const perks = (expeditionGenerateState.rewardPerks || [])
+        .filter(perk => selectedPerkIds.includes(perk.perk_id || perk.id))
+        .map(perk => ({
+            id: perk.perk_id || perk.id,
+            name: perk.perk_name || perk.name || ''
+        }));
+
+    const potions = (expeditionGenerateState.rewardPotions || [])
+        .filter(item => selectedPotionIds.includes(item.itemId || item.item_id || item.id))
+        .map(item => ({
+            id: item.itemId || item.item_id || item.id,
+            name: item.itemName || item.item_name || item.name || ''
+        }));
+
+    const blessings = (expeditionGenerateState.rewardBlessings || [])
+        .filter(perk => selectedBlessingIds.includes(perk.perk_id || perk.id))
+        .map(perk => ({
+            id: perk.perk_id || perk.id,
+            name: perk.perk_name || perk.name || ''
+        }));
+
+    const settlementPayload = settlement
+        ? {
+            id: settlement.settlement_id || settlement.id,
+            name: settlement.settlement_name || settlement.name || '',
+            context: settlement.expedition_context || settlement.context || '',
+            key_issues: Array.isArray(settlement.key_issues) ? settlement.key_issues : (settlement.key_issues ? [settlement.key_issues] : []),
+            recent_events: Array.isArray(settlement.recent_events) ? settlement.recent_events : (settlement.recent_events ? [settlement.recent_events] : [])
+        }
+        : null;
+
+    const userContent = {
+        output_struct: schema,
+        local_context: {
+            settlement: settlementPayload,
+            location: location
+                ? {
+                    id: location.location_id || location.id || null,
+                    name: location.name || '',
+                    description: location.description || ''
+                }
+                : null
+        },
+        npcs,
+        enemies: selectedEnemies,
+        rewards: {
+            possible_item_rewards: items,
+            possible_perk_rewards: perks,
+            possible_potion_rewards: potions,
+            possible_blessing_rewards: blessings,
+            possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
+            reward_silver: true,
+            reward_talent: true
+        },
         prompt
     };
-    console.log('Expedition cluster request:', expeditionGenerateState.lastRequest);
+
+    const payload = {
+        model: 'o3',
+        response_format: { type: 'json_object' },
+        messages: [
+            {
+                role: 'system',
+                content: expeditionClusterPrompt
+            },
+            {
+                role: 'user',
+                content: JSON.stringify(userContent)
+            }
+        ]
+    };
+
+    console.log('Expedition cluster generate payload:', JSON.stringify(payload, null, 2));
 }
 
 // Upload expedition asset (uses quest assets endpoint for shared folder)
