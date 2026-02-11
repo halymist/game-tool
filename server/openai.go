@@ -85,3 +85,80 @@ func handleGenerateQuestAi(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
 }
+
+func handleGenerateExpeditionCluster(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !isAuthenticated(r) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if OPENAI_API_KEY == "" {
+		http.Error(w, "OpenAI API key not configured", http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err == nil {
+		if _, hasInput := payload["input"]; !hasInput {
+			if messages, hasMessages := payload["messages"]; hasMessages {
+				payload["input"] = messages
+				delete(payload, "messages")
+			}
+		}
+		if respFormat, ok := payload["response_format"]; ok {
+			payload["text"] = map[string]interface{}{
+				"format": respFormat,
+			}
+			delete(payload, "response_format")
+		}
+		if updated, err := json.Marshal(payload); err == nil {
+			body = updated
+		}
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/responses", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, "Failed to create OpenAI request", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+OPENAI_API_KEY)
+
+	log.Printf("OpenAI expedition proxy: sending %d bytes", len(body))
+	log.Printf("Expedition new-slide JSON template: %s", `{"settlementId":1,"slides":[{"id":1,"text":"","assetId":null,"effectId":null,"effectFactor":null,"isStart":false,"rewardStatType":null,"rewardStatAmount":null,"rewardTalent":null,"rewardItem":null,"rewardPerk":null,"rewardBlessing":null,"rewardPotion":null,"rewardSilver":null,"posX":0,"posY":0,"options":[{"text":"","statType":null,"statRequired":null,"effectId":null,"effectAmount":null,"enemyId":null,"factionRequired":null,"connections":[{"targetSlideId":1,"targetToolingId":null,"weight":1}]}]}],"newOptions":[],"newConnections":[],"slideUpdates":[],"optionUpdates":[]}`)
+
+	client := &http.Client{Timeout: 300 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("OpenAI expedition proxy request error: %v", err)
+		http.Error(w, "OpenAI request failed", http.StatusBadRequest)
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "Failed to read OpenAI response", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("OpenAI expedition proxy response: status=%d bytes=%d", resp.StatusCode, len(respBody))
+	if resp.StatusCode >= 400 {
+		log.Printf("OpenAI expedition proxy error body: %s", string(respBody))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	w.Write(respBody)
+}

@@ -1803,6 +1803,17 @@ function toggleExpeditionGeneratePanel() {
     }
 }
 
+function setExpeditionGenerateLoading(isLoading, message = 'Generating...') {
+    const status = document.getElementById('expeditionGenerateStatus');
+    const statusText = status?.querySelector('.generate-status-text');
+    const runBtn = document.getElementById('expeditionGenerateRun');
+    const closeBtn = document.getElementById('expeditionGenerateClose');
+    if (status) status.style.display = isLoading ? 'flex' : 'none';
+    if (statusText) statusText.textContent = message;
+    if (runBtn) runBtn.disabled = isLoading;
+    if (closeBtn) closeBtn.disabled = isLoading;
+}
+
 async function populateExpeditionGeneratePanel() {
     if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
         await loadSettlementsData();
@@ -2014,6 +2025,54 @@ function parseExpeditionSchema(rawValue) {
     return {};
 }
 
+function getExpeditionNewSlidesTemplate() {
+    return {
+        settlementId: 1,
+        slides: [
+            {
+                id: 1,
+                text: '',
+                assetId: null,
+                effectId: null,
+                effectFactor: null,
+                isStart: false,
+                rewardStatType: null,
+                rewardStatAmount: null,
+                rewardTalent: null,
+                rewardItem: null,
+                rewardPerk: null,
+                rewardBlessing: null,
+                rewardPotion: null,
+                rewardSilver: null,
+                posX: 0,
+                posY: 0,
+                options: [
+                    {
+                        text: '',
+                        statType: null,
+                        statRequired: null,
+                        effectId: null,
+                        effectAmount: null,
+                        enemyId: null,
+                        factionRequired: null,
+                        connections: [
+                            {
+                                targetSlideId: 1,
+                                targetToolingId: null,
+                                weight: 1
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        newOptions: [],
+        newConnections: [],
+        slideUpdates: [],
+        optionUpdates: []
+    };
+}
+
 async function generateExpeditionClusterPreview() {
     const locationId = document.getElementById('expeditionGenerateLocation')?.value || '';
     const prompt = document.getElementById('expeditionGeneratePrompt')?.value || '';
@@ -2172,6 +2231,53 @@ async function generateExpeditionClusterPreview() {
     };
 
     console.log('Expedition cluster generate payload:', JSON.stringify(payload, null, 2));
+    console.log('Expedition new-slide JSON template:', JSON.stringify(getExpeditionNewSlidesTemplate(), null, 2));
+
+    try {
+        setExpeditionGenerateLoading(true, 'Generating expedition cluster...');
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Not authenticated');
+            setExpeditionGenerateLoading(false);
+            return;
+        }
+
+        const response = await fetch('http://localhost:8080/api/generateExpeditionCluster', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        console.log('Expedition cluster response:', data);
+
+        let content = data?.choices?.[0]?.message?.content;
+        if (!content && Array.isArray(data?.output)) {
+            const message = data.output.find(item => item.type === 'message');
+            const outputText = message?.content?.find(part => part.type === 'output_text');
+            content = outputText?.text || '';
+        }
+
+        if (content) {
+            try {
+                const parsed = JSON.parse(content);
+                console.log('Expedition cluster JSON:', parsed);
+                setExpeditionGenerateLoading(false, 'Generation complete! Check console.');
+            } catch (err) {
+                console.warn('Failed to parse expedition cluster JSON:', err, content);
+                setExpeditionGenerateLoading(false, 'Failed to parse response.');
+            }
+        } else {
+            setExpeditionGenerateLoading(false, 'No content returned.');
+        }
+    } catch (error) {
+        console.error('Expedition cluster generate failed:', error);
+        alert(`❌ Expedition generation failed: ${error.message || error}`);
+        setExpeditionGenerateLoading(false, 'Generation failed.');
+    }
 }
 
 // Upload expedition asset (uses quest assets endpoint for shared folder)
@@ -2315,6 +2421,12 @@ function isSlideModified(localId) {
     if ((slide.text || '') !== original.text) return true;
     if ((slide.isStart || false) !== original.isStart) return true;
     if (getAssetIdFromUrl(slide.assetUrl) !== original.assetId) return true;
+    const slidePosX = slide.x ?? 100;
+    const slidePosY = slide.y ?? 100;
+    const originalPosX = original.posX ?? 100;
+    const originalPosY = original.posY ?? 100;
+    if (slidePosX !== originalPosX) return true;
+    if (slidePosY !== originalPosY) return true;
     
     // Check effect changes
     const slideEffectId = slide.effect?.effectId || null;
@@ -2750,6 +2862,8 @@ async function saveExpedition() {
                             assetId: getAssetIdFromUrl(slide.assetUrl),
                             effectId: slide.effect?.effectId || null,
                             effectFactor: slide.effect?.effectFactor || null,
+                            posX: slide.x || 100,
+                            posY: slide.y || 100,
                             reward: slide.reward ? JSON.parse(JSON.stringify(slide.reward)) : null
                         });
                     }
@@ -2764,6 +2878,8 @@ async function saveExpedition() {
                     assetId: getAssetIdFromUrl(slide.assetUrl),
                     effectId: slide.effect?.effectId || null,
                     effectFactor: slide.effect?.effectFactor || null,
+                    posX: slide.x || 100,
+                    posY: slide.y || 100,
                     reward: slide.reward ? JSON.parse(JSON.stringify(slide.reward)) : null
                 });
             }
@@ -3015,6 +3131,8 @@ async function loadExpedition() {
                 assetId: serverSlide.assetId || null,
                 effectId: serverSlide.effectId || null,
                 effectFactor: serverSlide.effectFactor || null,
+                posX: serverSlide.posX || 100,
+                posY: serverSlide.posY || 100,
                 reward: buildRewardFromServer(serverSlide)
             });
             
@@ -3298,6 +3416,8 @@ async function loadExpeditionForSettlement(settlementId) {
                 assetId: serverSlide.assetId || null,
                 effectId: serverSlide.effectId || null,
                 effectFactor: serverSlide.effectFactor || null,
+                posX: serverSlide.posX || 100,
+                posY: serverSlide.posY || 100,
                 reward: buildRewardFromServer(serverSlide)
             });
             

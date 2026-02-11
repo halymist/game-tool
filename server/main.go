@@ -178,6 +178,7 @@ func main() {
 	http.HandleFunc("/api/getItems", corsHandler(handleGetItems))
 	http.HandleFunc("/api/getPerks", corsHandler(getPerksHandler))
 	http.HandleFunc("/api/generateQuestAi", corsHandler(handleGenerateQuestAi))
+	http.HandleFunc("/api/generateExpeditionCluster", corsHandler(handleGenerateExpeditionCluster))
 
 	// Item endpoints (uses tooling schema)
 	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
