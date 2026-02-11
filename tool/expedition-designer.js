@@ -2265,7 +2265,20 @@ async function generateExpeditionClusterPreview() {
             try {
                 const parsed = JSON.parse(content);
                 console.log('Expedition cluster JSON:', parsed);
-                setExpeditionGenerateLoading(false, 'Generation complete! Check console.');
+                const responseSettlementId = parsed.settlementId ?? parsed.settlement_id ?? null;
+                const fallbackSettlementId = settlement?.settlement_id ?? settlement?.id ?? expeditionState.selectedSettlementId ?? null;
+                const targetSettlementId = responseSettlementId ?? fallbackSettlementId;
+                const normalizedSettlementId = normalizeNumericId(targetSettlementId);
+                if (normalizedSettlementId !== null) {
+                    expeditionState.selectedSettlementId = normalizedSettlementId;
+                    const settlementSelect = document.getElementById('expeditionSettlementSelect');
+                    if (settlementSelect) {
+                        settlementSelect.value = String(normalizedSettlementId);
+                    }
+                }
+                applyGeneratedExpedition(parsed, normalizedSettlementId);
+                setExpeditionGenerateLoading(false, 'Expedition applied to canvas.');
+                toggleExpeditionGeneratePanel();
             } catch (err) {
                 console.warn('Failed to parse expedition cluster JSON:', err, content);
                 setExpeditionGenerateLoading(false, 'Failed to parse response.');
@@ -2278,6 +2291,150 @@ async function generateExpeditionClusterPreview() {
         alert(`❌ Expedition generation failed: ${error.message || error}`);
         setExpeditionGenerateLoading(false, 'Generation failed.');
     }
+}
+
+// Apply freshly generated expedition slides to the local canvas
+function applyGeneratedExpedition(data, settlementIdOverride = null) {
+    if (!data || !Array.isArray(data.slides) || data.slides.length === 0) {
+        console.warn('Generated expedition missing slides array');
+        return;
+    }
+
+    const generatedSlides = data.slides;
+    const normalizedOverride = normalizeNumericId(settlementIdOverride);
+    const generatedIdMap = new Map();
+
+    generatedSlides.forEach((slideData, index) => {
+        const localId = expeditionState.nextSlideId++;
+        const referenceKey = getGeneratedSlideKey(slideData, index);
+        generatedIdMap.set(referenceKey, localId);
+
+        const assetIdValue = slideData.assetId ?? slideData.asset_id ?? null;
+        const effectId = slideData.effectId ?? slideData.effect_id ?? null;
+        const effectFactor = slideData.effectFactor ?? slideData.effect_factor ?? null;
+        const slideSettlementId = normalizeNumericId(
+            slideData.settlementId ?? slideData.settlement_id ?? normalizedOverride ?? expeditionState.selectedSettlementId
+        );
+
+        const slide = {
+            id: localId,
+            text: slideData.text || '',
+            isStart: Boolean(slideData.isStart ?? slideData.start ?? false),
+            x: slideData.posX ?? slideData.pos_x ?? slideData.x ?? (100 + index * 60),
+            y: slideData.posY ?? slideData.pos_y ?? slideData.y ?? (100 + index * 60),
+            options: [],
+            assetUrl: assetIdValue ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetIdValue}.webp` : null,
+            reward: buildRewardFromServer(slideData),
+            effect: effectId ? { effectId, effectFactor } : null,
+            settlementId: slideSettlementId ?? null
+        };
+
+        expeditionState.slides.set(localId, slide);
+    });
+
+    generatedSlides.forEach((slideData, index) => {
+        const referenceKey = getGeneratedSlideKey(slideData, index);
+        const localId = generatedIdMap.get(referenceKey);
+        const slide = expeditionState.slides.get(localId);
+        if (!slide) return;
+
+        const options = Array.isArray(slideData.options) ? slideData.options : [];
+        options.forEach((optData) => {
+            const optionIndex = slide.options.length;
+            slide.options.push(normalizeGeneratedExpeditionOption(optData));
+
+            const connections = Array.isArray(optData.connections) ? optData.connections : [];
+            connections.forEach((connection) => {
+                const targetLocalId = resolveGeneratedConnectionTarget(connection, generatedIdMap);
+                if (!targetLocalId) return;
+                const exists = expeditionState.connections.some(c => c.from === localId && c.option === optionIndex && c.to === targetLocalId);
+                if (exists) return;
+                expeditionState.connections.push({
+                    from: localId,
+                    option: optionIndex,
+                    to: targetLocalId,
+                    weight: connection?.weight || 1
+                });
+            });
+        });
+    });
+
+    filterAndRenderSlides();
+    console.log(`✅ Applied ${generatedSlides.length} generated expedition slides to the canvas`);
+}
+
+function normalizeGeneratedExpeditionOption(optData = {}) {
+    const text = optData.text ?? optData.option_text ?? '';
+    const statType = optData.statType ?? optData.stat_type ?? null;
+    const statRequired = optData.statRequired ?? optData.stat_required ?? null;
+    const effectId = optData.effectId ?? optData.effect_id ?? null;
+    const effectAmount = optData.effectAmount ?? optData.effect_amount ?? null;
+    const enemyId = optData.enemyId ?? optData.enemy_id ?? null;
+    const factionRequired = optData.factionRequired ?? optData.faction_required ?? null;
+
+    let optType = 'dialogue';
+    if (factionRequired) optType = 'faction';
+    else if (statType) optType = 'skill';
+    else if (effectId) optType = 'effect';
+    else if (enemyId) optType = 'combat';
+
+    return {
+        text,
+        type: optType,
+        statType,
+        statRequired,
+        effectId,
+        effectAmount,
+        enemyId,
+        factionRequired
+    };
+}
+
+function resolveGeneratedConnectionTarget(connection, generatedIdMap) {
+    if (!connection) return null;
+    const candidateKeys = [
+        connection.targetSlideId,
+        connection.target_slide_id,
+        connection.targetSlideID,
+        connection.targetId,
+        connection.target_id,
+        connection.targetLocalId,
+        connection.target_local_id
+    ];
+
+    for (const key of candidateKeys) {
+        if (key === undefined || key === null) continue;
+        const mapped = generatedIdMap.get(String(key));
+        if (mapped) return mapped;
+    }
+
+    const toolingId = connection.targetToolingId ?? connection.target_tooling_id;
+    if (toolingId !== undefined && toolingId !== null) {
+        return findLocalSlideIdByToolingId(toolingId);
+    }
+    return null;
+}
+
+function getGeneratedSlideKey(slideData, index) {
+    const rawKey = slideData?.id ?? slideData?.slideId ?? slideData?.slide_id ?? slideData?.toolingId ?? slideData?.tooling_id;
+    return rawKey !== undefined && rawKey !== null ? String(rawKey) : `generated-${index}`;
+}
+
+function findLocalSlideIdByToolingId(toolingId) {
+    if (toolingId === undefined || toolingId === null) return null;
+    const target = String(toolingId);
+    for (const [localId, serverToolingId] of expeditionState.serverSlides.entries()) {
+        if (String(serverToolingId) === target) {
+            return localId;
+        }
+    }
+    return null;
+}
+
+function normalizeNumericId(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
 }
 
 // Upload expedition asset (uses quest assets endpoint for shared folder)
