@@ -2890,6 +2890,18 @@ async function generateQuestPreview() {
             try {
                 const parsed = JSON.parse(content);
                 console.log('Quest generate JSON:', parsed);
+                if (settlement?.settlement_id || settlement?.id) {
+                    const targetId = String(settlement.settlement_id || settlement.id);
+                    const settlementSelect = document.getElementById('questSettlementSelect');
+                    if (settlementSelect) settlementSelect.value = targetId;
+                    if (typeof window.onQuestSettlementChange === 'function') {
+                        await window.onQuestSettlementChange();
+                    }
+                }
+
+                const chainSelect = document.getElementById('questSelect');
+                if (chainSelect) chainSelect.value = 'new';
+                if (typeof window.onQuestChange === 'function') await window.onQuestChange();
                 applyGeneratedQuest(parsed);
                 toggleQuestGeneratePanel();
             } catch (err) {

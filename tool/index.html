@@ -477,65 +477,71 @@
                                 <button id="questGenerateClose" class="btn-secondary">Close</button>
                             </div>
                             <div class="quest-generate-body">
-                            <div class="quest-generate-field">
-                                <label>Location</label>
-                                <input type="text" id="questGenerateLocationFilter" class="quest-generate-filter" placeholder="Search locations...">
-                                <select id="questGenerateLocation"></select>
-                            </div>
-                            <div class="quest-generate-row">
-                                <div class="quest-generate-field">
-                                    <label>NPCs</label>
-                                    <input type="text" id="questGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
-                                    <select id="questGenerateNpcs" multiple></select>
-                                </div>
-                                <div class="quest-generate-field">
-                                    <label>Enemies</label>
-                                    <input type="text" id="questGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
-                                    <select id="questGenerateEnemies" multiple></select>
-                                </div>
-                                <div class="quest-generate-field">
-                                    <label>Relevant Quests</label>
-                                    <input type="text" id="questGenerateQuestFilter" class="quest-generate-filter" placeholder="Search quests...">
-                                    <select id="questGenerateQuests" multiple></select>
-                                </div>
-                            </div>
+                                <div class="generate-columns">
+                                    <div class="generate-left">
+                                        <div class="quest-generate-field">
+                                            <label>Location</label>
+                                            <input type="text" id="questGenerateLocationFilter" class="quest-generate-filter" placeholder="Search locations...">
+                                            <select id="questGenerateLocation"></select>
+                                        </div>
+                                        <div class="quest-generate-row">
+                                            <div class="quest-generate-field">
+                                                <label>NPCs</label>
+                                                <input type="text" id="questGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
+                                                <select id="questGenerateNpcs" multiple></select>
+                                            </div>
+                                            <div class="quest-generate-field">
+                                                <label>Enemies</label>
+                                                <input type="text" id="questGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
+                                                <select id="questGenerateEnemies" multiple></select>
+                                            </div>
+                                            <div class="quest-generate-field">
+                                                <label>Relevant Quests</label>
+                                                <input type="text" id="questGenerateQuestFilter" class="quest-generate-filter" placeholder="Search quests...">
+                                                <select id="questGenerateQuests" multiple></select>
+                                            </div>
+                                        </div>
 
-                            <div class="quest-generate-section">
-                                <h4>Rewards</h4>
-                                <div class="quest-generate-row">
-                                    <div class="quest-generate-field">
-                                        <label>Item Rewards</label>
-                                        <input type="text" id="questGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
-                                        <select id="questGenerateRewardItems" multiple></select>
+                                        <div class="quest-generate-section">
+                                            <h4>Rewards</h4>
+                                            <div class="quest-generate-row">
+                                                <div class="quest-generate-field">
+                                                    <label>Item Rewards</label>
+                                                    <input type="text" id="questGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
+                                                    <select id="questGenerateRewardItems" multiple></select>
+                                                </div>
+                                                <div class="quest-generate-field">
+                                                    <label>Perk Rewards</label>
+                                                    <input type="text" id="questGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
+                                                    <select id="questGenerateRewardPerks" multiple></select>
+                                                </div>
+                                                <div class="quest-generate-field">
+                                                    <label>Potion Rewards</label>
+                                                    <input type="text" id="questGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
+                                                    <select id="questGenerateRewardPotions" multiple></select>
+                                                </div>
+                                                <div class="quest-generate-field">
+                                                    <label>Blessing Rewards</label>
+                                                    <input type="text" id="questGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
+                                                    <select id="questGenerateRewardBlessings" multiple></select>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="quest-generate-field">
-                                        <label>Perk Rewards</label>
-                                        <input type="text" id="questGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
-                                        <select id="questGenerateRewardPerks" multiple></select>
-                                    </div>
-                                    <div class="quest-generate-field">
-                                        <label>Potion Rewards</label>
-                                        <input type="text" id="questGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
-                                        <select id="questGenerateRewardPotions" multiple></select>
-                                    </div>
-                                    <div class="quest-generate-field">
-                                        <label>Blessing Rewards</label>
-                                        <input type="text" id="questGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
-                                        <select id="questGenerateRewardBlessings" multiple></select>
+                                    <div class="generate-right">
+                                        <div class="quest-generate-field generate-prompt">
+                                            <label>Prompt</label>
+                                            <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
+                                        </div>
+                                        <div class="quest-generate-actions">
+                                            <div id="questGenerateStatus" class="generate-status" style="display:none;">
+                                                <span class="loading"></span>
+                                                <span class="generate-status-text">Generating...</span>
+                                            </div>
+                                            <button id="questGenerateRun" class="btn-primary">Generate</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="quest-generate-field">
-                                <label>Prompt</label>
-                                <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
-                            </div>
-                            <div class="quest-generate-actions">
-                                <div id="questGenerateStatus" class="generate-status" style="display:none;">
-                                    <span class="loading"></span>
-                                    <span class="generate-status-text">Generating...</span>
-                                </div>
-                                <button id="questGenerateRun" class="btn-primary">Generate</button>
-                            </div>
                             </div>
                         </div>
                     </div>
@@ -1209,59 +1215,65 @@
                             <button id="expeditionGenerateClose" class="btn-secondary">Close</button>
                         </div>
                         <div class="quest-generate-body">
-                        <div class="quest-generate-field">
-                            <label>Location</label>
-                            <input type="text" id="expeditionGenerateLocationFilter" class="quest-generate-filter" placeholder="Search locations...">
-                            <select id="expeditionGenerateLocation"></select>
-                        </div>
-                        <div class="quest-generate-row">
-                            <div class="quest-generate-field">
-                                <label>NPCs</label>
-                                <input type="text" id="expeditionGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
-                                <select id="expeditionGenerateNpcs" multiple></select>
-                            </div>
-                            <div class="quest-generate-field">
-                                <label>Enemies</label>
-                                <input type="text" id="expeditionGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
-                                <select id="expeditionGenerateEnemies" multiple></select>
-                            </div>
-                        </div>
-                        <div class="quest-generate-section">
-                            <h4>Rewards</h4>
-                            <div class="quest-generate-row">
-                                <div class="quest-generate-field">
-                                    <label>Item Rewards</label>
-                                    <input type="text" id="expeditionGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
-                                    <select id="expeditionGenerateRewardItems" multiple></select>
+                            <div class="generate-columns">
+                                <div class="generate-left">
+                                    <div class="quest-generate-field">
+                                        <label>Location</label>
+                                        <input type="text" id="expeditionGenerateLocationFilter" class="quest-generate-filter" placeholder="Search locations...">
+                                        <select id="expeditionGenerateLocation"></select>
+                                    </div>
+                                    <div class="quest-generate-row">
+                                        <div class="quest-generate-field">
+                                            <label>NPCs</label>
+                                            <input type="text" id="expeditionGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
+                                            <select id="expeditionGenerateNpcs" multiple></select>
+                                        </div>
+                                        <div class="quest-generate-field">
+                                            <label>Enemies</label>
+                                            <input type="text" id="expeditionGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
+                                            <select id="expeditionGenerateEnemies" multiple></select>
+                                        </div>
+                                    </div>
+                                    <div class="quest-generate-section">
+                                        <h4>Rewards</h4>
+                                        <div class="quest-generate-row">
+                                            <div class="quest-generate-field">
+                                                <label>Item Rewards</label>
+                                                <input type="text" id="expeditionGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
+                                                <select id="expeditionGenerateRewardItems" multiple></select>
+                                            </div>
+                                            <div class="quest-generate-field">
+                                                <label>Perk Rewards</label>
+                                                <input type="text" id="expeditionGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
+                                                <select id="expeditionGenerateRewardPerks" multiple></select>
+                                            </div>
+                                            <div class="quest-generate-field">
+                                                <label>Potion Rewards</label>
+                                                <input type="text" id="expeditionGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
+                                                <select id="expeditionGenerateRewardPotions" multiple></select>
+                                            </div>
+                                            <div class="quest-generate-field">
+                                                <label>Blessing Rewards</label>
+                                                <input type="text" id="expeditionGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
+                                                <select id="expeditionGenerateRewardBlessings" multiple></select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="quest-generate-field">
-                                    <label>Perk Rewards</label>
-                                    <input type="text" id="expeditionGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
-                                    <select id="expeditionGenerateRewardPerks" multiple></select>
-                                </div>
-                                <div class="quest-generate-field">
-                                    <label>Potion Rewards</label>
-                                    <input type="text" id="expeditionGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
-                                    <select id="expeditionGenerateRewardPotions" multiple></select>
-                                </div>
-                                <div class="quest-generate-field">
-                                    <label>Blessing Rewards</label>
-                                    <input type="text" id="expeditionGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
-                                    <select id="expeditionGenerateRewardBlessings" multiple></select>
+                                <div class="generate-right">
+                                    <div class="quest-generate-field generate-prompt">
+                                        <label>Prompt</label>
+                                        <textarea id="expeditionGeneratePrompt" placeholder="What kind of expedition cluster do you want?"></textarea>
+                                    </div>
+                                    <div class="quest-generate-actions">
+                                        <div id="expeditionGenerateStatus" class="generate-status" style="display:none;">
+                                            <span class="loading"></span>
+                                            <span class="generate-status-text">Preparing...</span>
+                                        </div>
+                                        <button id="expeditionGenerateRun" class="btn-primary">Generate</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="quest-generate-field">
-                            <label>Prompt</label>
-                            <textarea id="expeditionGeneratePrompt" placeholder="What kind of expedition cluster do you want?"></textarea>
-                        </div>
-                        <div class="quest-generate-actions">
-                            <div id="expeditionGenerateStatus" class="generate-status" style="display:none;">
-                                <span class="loading"></span>
-                                <span class="generate-status-text">Preparing...</span>
-                            </div>
-                            <button id="expeditionGenerateRun" class="btn-primary">Generate</button>
-                        </div>
                         </div>
                     </div>
                 </div>
