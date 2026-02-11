@@ -411,7 +411,8 @@
 
 .quest-name-input {
     flex: 1;
-    max-width: 120px;
+    max-width: 100%;
+    min-width: 160px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 4px;
@@ -588,6 +589,24 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+.option-text-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.option-type-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-size: 0.95rem;
 }
 
 .option-text-input {

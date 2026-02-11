@@ -260,6 +260,9 @@
                             </div>
 
                             <div class="sidebar-section">
+                                <div class="sidebar-actions">
+                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">🖼️ Set Background</button>
+                                </div>
                                 <div class="sidebar-field">
                                     <label>Travel Text</label>
                                     <textarea id="sidebarTravelText" placeholder="What happens during travel..."></textarea>
@@ -269,7 +272,6 @@
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
                                 </div>
                                 <div class="sidebar-actions">
-                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">🖼️ Set Background</button>
                                     <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
                                 </div>
                             </div>

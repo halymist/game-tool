@@ -387,8 +387,11 @@ function renderOption(option) {
         <div class="option-connector option-connector-left" data-option="${option.optionId}" data-side="left" title="Drag to connect">●</div>
         <div class="option-connector option-connector-right" data-option="${option.optionId}" data-side="right" title="Drag to connect">●</div>
         <div class="option-node-body">
-            <input type="text" class="option-text-input" value="${option.optionText && option.optionText !== 'New Option' ? escapeHtml(option.optionText) : ''}" 
-                   data-option="${option.optionId}" placeholder="Option text...">
+            <div class="option-text-row">
+                <span class="option-type-badge" data-option="${option.optionId}">${getOptionTypeBadge(option.type)}</span>
+                <input type="text" class="option-text-input" value="${option.optionText && option.optionText !== 'New Option' ? escapeHtml(option.optionText) : ''}" 
+                       data-option="${option.optionId}" placeholder="Option text...">
+            </div>
             <textarea class="option-node-text-input" data-option="${option.optionId}" 
                       placeholder="Node description...">${escapeHtml(option.nodeText || '')}</textarea>
         </div>
@@ -396,6 +399,22 @@ function renderOption(option) {
     
     bindOptionEvents(el, option);
     container.appendChild(el);
+}
+
+function getOptionTypeBadge(type) {
+    switch (type) {
+        case 'stat_check': return '📊';
+        case 'effect_check': return '✨';
+        case 'combat': return '⚔️';
+        case 'faction': return '🏰';
+        case 'end': return '🏁';
+        default: return '💬';
+    }
+}
+
+function updateOptionTypeBadge(option) {
+    const badge = document.querySelector(`#option-${option.optionId} .option-type-badge`);
+    if (badge) badge.textContent = getOptionTypeBadge(option.type);
 }
 
 function bindOptionEvents(el, option) {
@@ -661,15 +680,36 @@ function deleteQuest(id) {
         console.log(`Marked quest ${quest.serverId} for deletion`);
     }
     
-    // Remove connections involving this quest
-    questState.connections = questState.connections.filter(c => 
-        !(c.fromType === 'quest' && c.fromId === id) && 
-        !(c.toType === 'quest' && c.toId === id)
-    );
+    const optionIds = Array.from(questState.options.values())
+        .filter(opt => opt.questId === id)
+        .map(opt => opt.optionId);
+
+    // Track options for deletion if they exist on server
+    optionIds.forEach(optionId => {
+        const option = questState.options.get(optionId);
+        if (option?.serverId) {
+            questState.deletedOptionIds.push(option.serverId);
+            console.log(`Marked option ${option.serverId} for deletion`);
+        }
+    });
+
+    // Remove connections involving this quest or its options
+    questState.connections = questState.connections.filter(c => {
+        if (c.fromType === 'quest' && c.fromId === id) return false;
+        if (c.toType === 'quest' && c.toId === id) return false;
+        if (c.fromType === 'option' && optionIds.includes(c.fromId)) return false;
+        if (c.toType === 'option' && optionIds.includes(c.toId)) return false;
+        return true;
+    });
     
     document.getElementById(`quest-${id}`)?.remove();
     questState.quests.delete(id);
     questState.selectedQuest = null;
+
+    optionIds.forEach(optionId => {
+        document.getElementById(`option-${optionId}`)?.remove();
+        questState.options.delete(optionId);
+    });
 
     const noSelection = document.getElementById('sidebarNoSelection');
     const optionContent = document.getElementById('sidebarContent');
@@ -1895,6 +1935,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 option.type = e.target.value;
                 updateSidebarTypeFields(option.type);
+                updateOptionTypeBadge(option);
                 if (option.type === 'stat_check' && !option.statType) {
                     const statTypeSelect = document.getElementById('sidebarStatType');
                     option.statType = statTypeSelect?.value || 'strength';
