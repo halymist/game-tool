@@ -286,16 +286,21 @@ function renderSlide(slide) {
     }
     
     const optionsHtml = slide.options.map((opt, i) => {
-        // Build details badge based on option type
-        let detailsBadge = '';
+        // Build detail badges for option metadata
+        const detailBadges = [];
         if (opt.type === 'skill' && opt.statType) {
-            detailsBadge = `<span class="option-detail-badge skill">${opt.statType.slice(0,3).toUpperCase()}:${opt.statRequired || '?'}</span>`;
+            detailBadges.push(`<span class="option-detail-badge skill">${opt.statType.slice(0,3).toUpperCase()}:${opt.statRequired || '?'}</span>`);
         } else if (opt.type === 'effect' && opt.effectId) {
-            detailsBadge = `<span class="option-detail-badge effect">E#${opt.effectId}:${opt.effectAmount || '?'}</span>`;
+            detailBadges.push(`<span class="option-detail-badge effect">E#${opt.effectId}:${opt.effectAmount || '?'}</span>`);
         } else if (opt.type === 'combat' && opt.enemyId) {
-            detailsBadge = `<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`;
+            detailBadges.push(`<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`);
         }
-        
+        if (opt.factionRequired) {
+            const factionLabel = opt.factionRequired.charAt(0).toUpperCase() + opt.factionRequired.slice(1);
+            detailBadges.push(`<span class="option-detail-badge faction">${factionLabel}</span>`);
+        }
+        const detailsBadge = detailBadges.join('');
+		
         return `
         <div class="slide-option" data-slide="${slide.id}" data-option="${i}">
             <div class="option-connector option-connector-left" data-slide="${slide.id}" data-option="${i}" data-side="left" title="Drag to connect">●</div>
@@ -649,7 +654,8 @@ function getRewardIcon(type) {
         item: '🎒',
         perk: '🔮',
         blessing: '✨',
-        potion: '🧪'
+        potion: '🧪',
+        silver: '🪙'
     };
     return icons[type] || '🎁';
 }
@@ -669,6 +675,8 @@ function getRewardLabel(reward) {
             return `Blessing #${reward.blessingId || '?'}`;
         case 'potion':
             return `Potion #${reward.potionId || '?'}`;
+        case 'silver':
+            return `${reward.amount || 0} silver`;
         default:
             return 'Unknown reward';
     }
@@ -777,6 +785,10 @@ function openRewardModal(slideId) {
     document.getElementById('rewardPerkId').value = reward.perkId || '';
     document.getElementById('rewardBlessingId').value = reward.blessingId || '';
     document.getElementById('rewardPotionId').value = reward.potionId || '';
+    const silverInput = document.getElementById('rewardSilverAmount');
+    if (silverInput) {
+        silverInput.value = reward.type === 'silver' ? (reward.amount || 0) : 100;
+    }
     
     // Highlight selected items in grids
     selectRewardItem(reward.itemId || null);
@@ -903,7 +915,8 @@ function updateRewardModalFields(type) {
         item: document.getElementById('rewardItemFields'),
         perk: document.getElementById('rewardPerkFields'),
         blessing: document.getElementById('rewardBlessingFields'),
-        potion: document.getElementById('rewardPotionFields')
+        potion: document.getElementById('rewardPotionFields'),
+        silver: document.getElementById('rewardSilverFields')
     };
     
     // Hide all
@@ -915,6 +928,7 @@ function updateRewardModalFields(type) {
     if (type === 'perk' && fields.perk) fields.perk.style.display = 'block';
     if (type === 'blessing' && fields.blessing) fields.blessing.style.display = 'block';
     if (type === 'potion' && fields.potion) fields.potion.style.display = 'block';
+    if (type === 'silver' && fields.silver) fields.silver.style.display = 'block';
 }
 window.updateRewardModalFields = updateRewardModalFields;
 
@@ -951,6 +965,9 @@ function saveRewardFromModal() {
             break;
         case 'potion':
             reward.potionId = parseInt(document.getElementById('rewardPotionId').value) || null;
+            break;
+        case 'silver':
+            reward.amount = parseInt(document.getElementById('rewardSilverAmount').value) || 0;
             break;
     }
     
@@ -1067,7 +1084,8 @@ function openOptionModal(slideId, optionIndex) {
         statRequired: null,
         effectId: null,
         effectAmount: null,
-        enemyId: null
+        enemyId: null,
+        factionRequired: null
     };
     
     document.getElementById('optionModalTitle').textContent = isEdit ? 'Edit Option' : 'Add Option';
@@ -1085,6 +1103,11 @@ function openOptionModal(slideId, optionIndex) {
     // Combat field - update hidden input and visual selection
     document.getElementById('optionEnemyId').value = opt.enemyId || '';
     selectEnemyForOption(opt.enemyId || null);
+
+    const factionSelect = document.getElementById('optionFactionRequired');
+    if (factionSelect) {
+        factionSelect.value = opt.factionRequired || '';
+    }
     
     // Show/hide relevant fields based on type
     updateOptionModalFields(opt.type || 'dialogue');
@@ -1141,6 +1164,9 @@ function saveOptionFromModal() {
     } else if (type === 'combat') {
         option.enemyId = parseInt(document.getElementById('optionEnemyId').value) || null;
     }
+
+    const factionSelect = document.getElementById('optionFactionRequired');
+    option.factionRequired = factionSelect ? (factionSelect.value || null) : null;
     
     if (modalContext.optionIndex >= 0) {
         // Edit existing
@@ -2149,6 +2175,7 @@ function isOptionModified(localId, optIdx) {
     if ((opt.effectId || null) !== original.effectId) return true;
     if ((opt.effectAmount || null) !== original.effectAmount) return true;
     if ((opt.enemyId || null) !== original.enemyId) return true;
+    if ((opt.factionRequired || null) !== (original.factionRequired || null)) return true;
     
     return false;
 }
@@ -2170,6 +2197,8 @@ function rewardsEqual(r1, r2) {
             return r1.blessingId === r2.blessingId;
         case 'potion':
             return r1.potionId === r2.potionId;
+        case 'silver':
+            return (r1.amount || null) === (r2.amount || null);
         case 'talent':
             return true;
         default:
@@ -2288,6 +2317,7 @@ async function saveExpedition() {
                             effectId: opt.type === 'effect' ? opt.effectId : null,
                             effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                             enemyId: opt.type === 'combat' ? opt.enemyId : null,
+                            factionRequired: opt.factionRequired || null,
                             connections: connections
                         });
                         console.log(`New option on existing slide ${localId} (tooling ${slideToolingId}):`, opt.text);
@@ -2330,6 +2360,7 @@ async function saveExpedition() {
             let rewardPerk = null;
             let rewardBlessing = null;
             let rewardPotion = null;
+            let rewardSilver = null;
 
             if (slide.reward) {
                 switch (slide.reward.type) {
@@ -2351,6 +2382,9 @@ async function saveExpedition() {
                         break;
                     case 'potion':
                         rewardPotion = slide.reward.potionId || null;
+                        break;
+                    case 'silver':
+                        rewardSilver = slide.reward.amount || null;
                         break;
                 }
             }
@@ -2399,6 +2433,7 @@ async function saveExpedition() {
                     effectId: opt.type === 'effect' ? opt.effectId : null,
                     effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                     enemyId: opt.type === 'combat' ? opt.enemyId : null,
+                    factionRequired: opt.factionRequired || null,
                     connections: connections
                 };
             });
@@ -2417,6 +2452,7 @@ async function saveExpedition() {
                 rewardPerk: rewardPerk,
                 rewardBlessing: rewardBlessing,
                 rewardPotion: rewardPotion,
+                rewardSilver: rewardSilver,
                 posX: slide.x || 100,
                 posY: slide.y || 100,
                 options: options
@@ -2429,6 +2465,7 @@ async function saveExpedition() {
             // Build reward fields
             let rewardStatType = null, rewardStatAmount = null, rewardTalent = null;
             let rewardItem = null, rewardPerk = null, rewardBlessing = null, rewardPotion = null;
+            let rewardSilver = null;
             
             if (slide.reward) {
                 switch (slide.reward.type) {
@@ -2441,6 +2478,7 @@ async function saveExpedition() {
                     case 'perk': rewardPerk = slide.reward.perkId || null; break;
                     case 'blessing': rewardBlessing = slide.reward.blessingId || null; break;
                     case 'potion': rewardPotion = slide.reward.potionId || null; break;
+                    case 'silver': rewardSilver = slide.reward.amount || null; break;
                 }
             }
             
@@ -2452,7 +2490,7 @@ async function saveExpedition() {
                 effectFactor: slide.effect?.effectFactor || null,
                 isStart: slide.isStart || false,
                 rewardStatType, rewardStatAmount, rewardTalent,
-                rewardItem, rewardPerk, rewardBlessing, rewardPotion,
+                rewardItem, rewardPerk, rewardBlessing, rewardPotion, rewardSilver,
                 posX: slide.x || 100,
                 posY: slide.y || 100
             };
@@ -2467,7 +2505,8 @@ async function saveExpedition() {
             statRequired: option.type === 'skill' ? option.statRequired : null,
             effectId: option.type === 'effect' ? option.effectId : null,
             effectAmount: option.type === 'effect' ? option.effectAmount : null,
-            enemyId: option.type === 'combat' ? option.enemyId : null
+            enemyId: option.type === 'combat' ? option.enemyId : null,
+            factionRequired: option.factionRequired || null
         }));
 
         // Check if there's anything to save
@@ -2580,7 +2619,8 @@ async function saveExpedition() {
                             statRequired: opt.statRequired || null,
                             effectId: opt.effectId || null,
                             effectAmount: opt.effectAmount || null,
-                            enemyId: opt.enemyId || null
+                            enemyId: opt.enemyId || null,
+                            factionRequired: opt.factionRequired || null
                         });
                     }
                 }
@@ -2824,7 +2864,8 @@ async function loadExpedition() {
                     statRequired: serverOpt.statRequired,
                     effectId: serverOpt.effectId,
                     effectAmount: serverOpt.effectAmount,
-                    enemyId: serverOpt.enemyId
+                    enemyId: serverOpt.enemyId,
+                    factionRequired: serverOpt.factionRequired || null
                 };
 
                 slide.options.push(option);
@@ -2841,7 +2882,8 @@ async function loadExpedition() {
                     statRequired: serverOpt.statRequired || null,
                     effectId: serverOpt.effectId || null,
                     effectAmount: serverOpt.effectAmount || null,
-                    enemyId: serverOpt.enemyId || null
+                    enemyId: serverOpt.enemyId || null,
+                    factionRequired: serverOpt.factionRequired || null
                 });
 
                 // Third pass: create connections from outcomes
@@ -2903,6 +2945,9 @@ function buildRewardFromServer(serverSlide) {
     }
     if (serverSlide.rewardPotion) {
         return { type: 'potion', potionId: serverSlide.rewardPotion };
+    }
+    if (serverSlide.rewardSilver != null) {
+        return { type: 'silver', amount: serverSlide.rewardSilver };
     }
     return null;
 }
@@ -3101,7 +3146,8 @@ async function loadExpeditionForSettlement(settlementId) {
                     statRequired: serverOpt.statRequired,
                     effectId: serverOpt.effectId,
                     effectAmount: serverOpt.effectAmount,
-                    enemyId: serverOpt.enemyId
+                    enemyId: serverOpt.enemyId,
+                    factionRequired: serverOpt.factionRequired || null
                 };
 
                 slide.options.push(option);
@@ -3118,7 +3164,8 @@ async function loadExpeditionForSettlement(settlementId) {
                     statRequired: serverOpt.statRequired || null,
                     effectId: serverOpt.effectId || null,
                     effectAmount: serverOpt.effectAmount || null,
-                    enemyId: serverOpt.enemyId || null
+                    enemyId: serverOpt.enemyId || null,
+                    factionRequired: serverOpt.factionRequired || null
                 });
 
                 // Third pass: build connections from outcomes

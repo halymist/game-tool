@@ -731,6 +731,11 @@
     color: #ff6b6b;
 }
 
+.option-detail-badge.faction {
+	background: rgba(245, 158, 11, 0.2);
+	color: #f59e0b;
+}
+
 .option-edit-btn,
 .option-delete-btn {
     background: none;

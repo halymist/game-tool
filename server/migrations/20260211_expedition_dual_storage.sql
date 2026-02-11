@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS game.expedition_slides (
     reward_perk INTEGER,
     reward_blessing INTEGER,
     reward_potion INTEGER,
+    reward_silver INTEGER NOT NULL DEFAULT 0,
     pos_x DOUBLE PRECISION NOT NULL DEFAULT 100,
     pos_y DOUBLE PRECISION NOT NULL DEFAULT 100,
     version INTEGER NOT NULL DEFAULT 1
@@ -29,6 +30,7 @@ CREATE TABLE IF NOT EXISTS game.expedition_options (
     effect_id INTEGER,
     effect_amount INTEGER,
     enemy_id INTEGER,
+    faction_required TEXT,
     version INTEGER NOT NULL DEFAULT 1
 );
 
@@ -44,6 +46,16 @@ CREATE TABLE IF NOT EXISTS game.expedition_outcomes (
 ALTER TABLE game.expedition_slides ALTER COLUMN tooling_id DROP DEFAULT;
 ALTER TABLE game.expedition_options ALTER COLUMN tooling_id DROP DEFAULT;
 ALTER TABLE game.expedition_outcomes ALTER COLUMN tooling_id DROP DEFAULT;
+
+-- Ensure new reward/faction columns exist across schemas
+ALTER TABLE IF EXISTS game.expedition_slides
+    ADD COLUMN IF NOT EXISTS reward_silver INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE IF EXISTS tooling.expedition_slides
+    ADD COLUMN IF NOT EXISTS reward_silver INTEGER DEFAULT 0;
+ALTER TABLE IF EXISTS game.expedition_options
+    ADD COLUMN IF NOT EXISTS faction_required TEXT;
+ALTER TABLE IF EXISTS tooling.expedition_options
+    ADD COLUMN IF NOT EXISTS faction_required TEXT;
 
 -- Enforce cascading relationships in the game schema
 DO $$
@@ -116,13 +128,13 @@ BEGIN
         tooling_id, slide_text, asset_id, effect_id, effect_factor,
         is_start, settlement_id, reward_stat_type, reward_stat_amount,
         reward_talent, reward_item, reward_perk, reward_blessing,
-        reward_potion, pos_x, pos_y, version
+        reward_potion, reward_silver, pos_x, pos_y, version
     )
     SELECT
         tooling_id, slide_text, asset_id, effect_id, effect_factor,
         is_start, settlement_id, reward_stat_type, reward_stat_amount,
         reward_talent, reward_item, reward_perk, reward_blessing,
-        reward_potion, pos_x, pos_y, version
+        reward_potion, reward_silver, pos_x, pos_y, version
     FROM tooling.expedition_slides
     ON CONFLICT (tooling_id) DO UPDATE SET
         slide_text = EXCLUDED.slide_text,
@@ -138,6 +150,7 @@ BEGIN
         reward_perk = EXCLUDED.reward_perk,
         reward_blessing = EXCLUDED.reward_blessing,
         reward_potion = EXCLUDED.reward_potion,
+        reward_silver = EXCLUDED.reward_silver,
         pos_x = EXCLUDED.pos_x,
         pos_y = EXCLUDED.pos_y,
         version = EXCLUDED.version
@@ -155,6 +168,7 @@ BEGIN
         ges.reward_perk IS DISTINCT FROM EXCLUDED.reward_perk OR
         ges.reward_blessing IS DISTINCT FROM EXCLUDED.reward_blessing OR
         ges.reward_potion IS DISTINCT FROM EXCLUDED.reward_potion OR
+        ges.reward_silver IS DISTINCT FROM EXCLUDED.reward_silver OR
         ges.pos_x IS DISTINCT FROM EXCLUDED.pos_x OR
         ges.pos_y IS DISTINCT FROM EXCLUDED.pos_y OR
         ges.version IS DISTINCT FROM EXCLUDED.version
@@ -163,12 +177,17 @@ BEGIN
     -- Options
     INSERT INTO game.expedition_options AS geo (
         tooling_id, slide_id, option_text, stat_type, stat_required,
-        effect_id, effect_amount, enemy_id, version
+        effect_id, effect_amount, enemy_id, faction_required, version
     )
     SELECT
-        tooling_id, slide_id, option_text, stat_type, stat_required,
-        effect_id, effect_amount, enemy_id, version
-    FROM tooling.expedition_options
+        teo.tooling_id, teo.slide_id, teo.option_text, teo.stat_type, teo.stat_required,
+        teo.effect_id, teo.effect_amount, teo.enemy_id, teo.faction_required, teo.version
+    FROM tooling.expedition_options teo
+    WHERE EXISTS (
+        SELECT 1
+        FROM tooling.expedition_slides ts
+        WHERE ts.tooling_id = teo.slide_id
+    )
     ON CONFLICT (tooling_id) DO UPDATE SET
         slide_id = EXCLUDED.slide_id,
         option_text = EXCLUDED.option_text,
@@ -177,6 +196,7 @@ BEGIN
         effect_id = EXCLUDED.effect_id,
         effect_amount = EXCLUDED.effect_amount,
         enemy_id = EXCLUDED.enemy_id,
+        faction_required = EXCLUDED.faction_required,
         version = EXCLUDED.version
     WHERE (
         geo.slide_id IS DISTINCT FROM EXCLUDED.slide_id OR
@@ -186,6 +206,7 @@ BEGIN
         geo.effect_id IS DISTINCT FROM EXCLUDED.effect_id OR
         geo.effect_amount IS DISTINCT FROM EXCLUDED.effect_amount OR
         geo.enemy_id IS DISTINCT FROM EXCLUDED.enemy_id OR
+        geo.faction_required IS DISTINCT FROM EXCLUDED.faction_required OR
         geo.version IS DISTINCT FROM EXCLUDED.version
     );
 
@@ -194,8 +215,18 @@ BEGIN
         tooling_id, option_id, target_slide_id, weight, version
     )
     SELECT
-        tooling_id, option_id, target_slide_id, weight, version
-    FROM tooling.expedition_outcomes
+        teo.tooling_id, teo.option_id, teo.target_slide_id, teo.weight, teo.version
+    FROM tooling.expedition_outcomes teo
+    WHERE EXISTS (
+        SELECT 1
+        FROM tooling.expedition_options too
+        WHERE too.tooling_id = teo.option_id
+    )
+      AND EXISTS (
+        SELECT 1
+        FROM tooling.expedition_slides ts
+        WHERE ts.tooling_id = teo.target_slide_id
+    )
     ON CONFLICT (tooling_id) DO UPDATE SET
         option_id = EXCLUDED.option_id,
         target_slide_id = EXCLUDED.target_slide_id,

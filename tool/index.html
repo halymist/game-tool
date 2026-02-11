@@ -1300,6 +1300,16 @@
                             <option value="combat">⚔️ Combat (enemy encounter)</option>
                         </select>
                     </div>
+
+                    <div class="modal-field">
+                        <label>Faction Requirement</label>
+                        <select id="optionFactionRequired">
+                            <option value="">All factions can see this option</option>
+                            <option value="order">Order</option>
+                            <option value="guild">Guild</option>
+                            <option value="companions">Companions</option>
+                        </select>
+                    </div>
                     
                     <!-- Skill Check Fields -->
                     <div id="optionStatFields" class="modal-field-row" style="display:none;">
@@ -1399,6 +1409,7 @@
                             <option value="perk">🔮 Perk</option>
                             <option value="blessing">✨ Blessing</option>
                             <option value="potion">🧪 Potion</option>
+                            <option value="silver">🪙 Silver</option>
                         </select>
                     </div>
                     
@@ -1450,6 +1461,13 @@
                         <div id="rewardPotionPickerGrid" class="item-picker-grid">
                             <!-- Populated dynamically -->
                         </div>
+                    </div>
+
+                    <!-- Silver Fields -->
+                    <div id="rewardSilverFields" class="modal-field" style="display:none;">
+                        <label>Silver Amount</label>
+                        <input type="number" id="rewardSilverAmount" value="0" min="0" step="10" placeholder="e.g. 250">
+                        <small style="color:#889;display:block;margin-top:6px;">Granted as pure currency instead of loot.</small>
                     </div>
                     
                     <div class="modal-buttons">
