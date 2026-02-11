@@ -581,65 +581,6 @@
     animation: pulse-target 1s ease-in-out infinite;
 }
 
-/* Option Node Header */
-.option-node-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.3);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px 8px 0 0;
-}
-
-.option-id {
-    color: #888;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.start-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-    font-size: 0.65rem;
-    color: #4ade80;
-    margin-left: auto;
-}
-
-.start-checkbox input {
-    accent-color: #4ade80;
-    cursor: pointer;
-    width: 12px;
-    height: 12px;
-}
-
-.start-checkbox span {
-    opacity: 0.5;
-    transition: opacity 0.2s;
-}
-
-.start-checkbox input:checked + span {
-    opacity: 1;
-    font-weight: 600;
-}
-
-.option-delete-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-    color: #888;
-    opacity: 0.4;
-    transition: opacity 0.2s, color 0.2s;
-    padding: 0 4px;
-}
-
-.option-delete-btn:hover {
-    opacity: 1;
-    color: #e94560;
-}
 
 /* Option Node Body */
 .option-node-body {
@@ -879,7 +820,7 @@
 
 #sidebarTravelText,
 #sidebarFailureText {
-    min-height: 140px;
+    min-height: 170px;
 }
 
 #sidebarDeleteOption,

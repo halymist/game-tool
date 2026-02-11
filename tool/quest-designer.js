@@ -312,7 +312,6 @@ function renderQuest(quest) {
                    data-quest="${quest.questId}" min="0" title="Sort order (tree depth)">
             <input type="text" class="quest-name-input" value="${escapeHtml(quest.name)}" 
                    data-quest="${quest.questId}" placeholder="Quest name...">
-            <button class="quest-bg-btn" data-quest="${quest.questId}" title="Set background">🖼️</button>
         </div>
         <div class="quest-connector quest-connector-left" data-quest="${quest.questId}" data-side="left" title="Drag to connect">●</div>
         <div class="quest-connector quest-connector-right" data-quest="${quest.questId}" data-side="right" title="Drag to connect">●</div>
@@ -348,11 +347,6 @@ function bindQuestEvents(el, quest) {
     textArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
     
-    // Background button
-    el.querySelector('.quest-bg-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openQuestAssetPicker(quest.questId);
-    });
     
     // Connectors - start drag connection
     el.querySelectorAll('.quest-connector').forEach(conn => {
@@ -390,10 +384,6 @@ function renderOption(option) {
     el.style.top = `${option.y}px`;
     
     el.innerHTML = `
-        <div class="option-node-header">
-            <span class="option-id">#${option.optionId}</span>
-            <button class="option-delete-btn" data-option="${option.optionId}" title="Delete option">×</button>
-        </div>
         <div class="option-connector option-connector-left" data-option="${option.optionId}" data-side="left" title="Drag to connect">●</div>
         <div class="option-connector option-connector-right" data-option="${option.optionId}" data-side="right" title="Drag to connect">●</div>
         <div class="option-node-body">
@@ -424,11 +414,6 @@ function bindOptionEvents(el, option) {
     nodeTextArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
     
-    // Delete option
-    el.querySelector('.option-delete-btn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        deleteOption(option.optionId);
-    });
     
     // Connectors - start drag connection
     el.querySelectorAll('.option-connector').forEach(conn => {
@@ -1073,6 +1058,7 @@ function openQuestAssetPicker(questId) {
         overlay.classList.add('active');
     }
 }
+window.openQuestAssetPicker = openQuestAssetPicker;
 
 function closeQuestAssetModal() {
     const overlay = document.getElementById('questAssetGalleryOverlay');

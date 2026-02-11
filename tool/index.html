@@ -198,10 +198,6 @@
                             <label>Name:</label>
                             <input type="text" id="questChainNameInput" placeholder="Chain name..." oninput="window.updateChainName && window.updateChainName(this.value)">
                         </div>
-                        <div class="quest-chain-context">
-                            <label>Context:</label>
-                            <textarea id="questChainContextInput" placeholder="Quest chain context..." oninput="window.updateChainContext && window.updateChainContext(this.value)"></textarea>
-                        </div>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <button class="quest-zoom-btn" title="Zoom Out" onclick="window.changeQuestZoom(-0.1)">−</button>
                             <span id="questZoomIndicator" class="quest-zoom-indicator">100%</span>
@@ -271,6 +267,10 @@
                                 <div class="sidebar-field">
                                     <label>Failure Text</label>
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
+                                </div>
+                                <div class="sidebar-actions">
+                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">🖼️ Set Background</button>
+                                    <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
                                 </div>
                             </div>
                         </div>
@@ -474,9 +474,6 @@
                     <div id="questGenerateOverlay" class="generate-overlay" style="display:none;">
                         <div id="questGeneratePanel" class="generate-modal quest-generate-sidebar">
                             <div class="quest-generate-header">
-                                <div class="sidebar-actions">
-                                    <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
-                                </div>
                                 <h3>🧠 Generate Quest</h3>
                                 <button id="questGenerateClose" class="btn-secondary">Close</button>
                             </div>
