@@ -85,8 +85,8 @@ function initQuestDesigner() {
         const galleryOverlay = document.getElementById('questAssetGalleryOverlay');
         if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
         
-        const panel = document.getElementById('questGeneratePanel');
-        if (panel && panel.style.display === 'block') {
+        const panel = document.getElementById('questGenerateOverlay');
+        if (panel && panel.style.display === 'flex') {
             return;
         }
 
@@ -1367,6 +1367,18 @@ window.updateChainContext = updateChainContext;
 // Load full data for a quest chain
 async function loadQuestChainData(chainId) {
     try {
+        questState.quests.clear();
+        questState.options.clear();
+        questState.serverQuests.clear();
+        questState.serverOptions.clear();
+        questState.connections = [];
+        questState.selectedQuest = null;
+        questState.selectedOption = null;
+        const container = document.getElementById('questOptionsContainer');
+        if (container) container.innerHTML = '';
+        questRenderConnections();
+        updateCounter();
+
         const token = await getCurrentAccessToken();
         if (!token) return;
         
@@ -2419,17 +2431,26 @@ function setupQuestGeneratePanel() {
 }
 
 function toggleQuestGeneratePanel() {
-    const panel = document.getElementById('questGeneratePanel');
-    if (!panel) return;
-    const isOpen = panel.style.display === 'block';
-    panel.style.display = isOpen ? 'none' : 'block';
-    const optionSidebar = document.getElementById('questOptionSidebar');
-    if (optionSidebar) {
-        optionSidebar.style.display = isOpen ? 'block' : 'none';
-    }
+    const overlay = document.getElementById('questGenerateOverlay');
+    if (!overlay) return;
+    const isOpen = overlay.style.display === 'flex';
+    overlay.style.display = isOpen ? 'none' : 'flex';
     if (!isOpen) {
         populateQuestGeneratePanel();
     }
+}
+
+function setQuestGenerateLoading(isLoading, message = 'Generating...') {
+    const status = document.getElementById('questGenerateStatus');
+    const statusText = status?.querySelector('.generate-status-text');
+    const runBtn = document.getElementById('questGenerateRun');
+    const closeBtn = document.getElementById('questGenerateClose');
+    if (status) {
+        status.style.display = isLoading ? 'flex' : 'none';
+    }
+    if (statusText) statusText.textContent = message;
+    if (runBtn) runBtn.disabled = isLoading;
+    if (closeBtn) closeBtn.disabled = isLoading;
 }
 
 async function populateQuestGeneratePanel() {
@@ -2839,9 +2860,11 @@ async function generateQuestPreview() {
     console.log('Valid quest JSON template:', JSON.stringify(getValidQuestJsonTemplate(), null, 2));
 
     try {
+        setQuestGenerateLoading(true, 'Generating quest...');
         const token = await getCurrentAccessToken();
         if (!token) {
             alert('Not authenticated');
+            setQuestGenerateLoading(false);
             return;
         }
 
@@ -2868,14 +2891,21 @@ async function generateQuestPreview() {
                 const parsed = JSON.parse(content);
                 console.log('Quest generate JSON:', parsed);
                 applyGeneratedQuest(parsed);
+                toggleQuestGeneratePanel();
             } catch (err) {
                 console.warn('Failed to parse quest JSON:', err, content);
+                setQuestGenerateLoading(false, 'Failed to parse response.');
+                return;
             }
         }
     } catch (error) {
         console.error('Quest generate failed:', error);
         alert(`❌ Quest generation failed: ${error.message || error}`);
+        setQuestGenerateLoading(false, 'Generation failed.');
+        return;
     }
+
+    setQuestGenerateLoading(false);
 }
 
 function getValidQuestJsonTemplate() {

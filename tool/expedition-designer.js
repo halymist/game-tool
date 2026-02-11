@@ -1745,10 +1745,10 @@ function setupExpeditionGeneratePanel() {
 }
 
 function toggleExpeditionGeneratePanel() {
-    const panel = document.getElementById('expeditionGeneratePanel');
-    if (!panel) return;
-    const isOpen = panel.style.display === 'block';
-    panel.style.display = isOpen ? 'none' : 'block';
+    const overlay = document.getElementById('expeditionGenerateOverlay');
+    if (!overlay) return;
+    const isOpen = overlay.style.display === 'flex';
+    overlay.style.display = isOpen ? 'none' : 'flex';
     if (!isOpen) {
         populateExpeditionGeneratePanel();
     }

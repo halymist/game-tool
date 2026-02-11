@@ -175,6 +175,37 @@ body {
     animation: spin 1s ease-in-out infinite;
 }
 
+.generate-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 15, 30, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    padding: 24px;
+    backdrop-filter: blur(2px);
+}
+
+.generate-modal {
+    width: min(980px, 92vw);
+    max-height: 85vh;
+    background: #101c36;
+    border: 1px solid #0f3460;
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+    padding: 18px 20px 22px;
+    overflow-y: auto;
+}
+
+.generate-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #cbd5f5;
+    font-size: 0.9rem;
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
