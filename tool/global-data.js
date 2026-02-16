@@ -16,6 +16,153 @@ const GlobalData = {
     questAssets: []        // Array of available quest assets from S3 (images/quests)
 };
 
+const globalDataSubscribers = new Map();
+const questAssetObjectUrlCache = new Map();
+
+function getGlobalDataSnapshot(key) {
+    if (!key) return undefined;
+    return GlobalData[key];
+}
+
+function notifyGlobalDataChange(key, payload) {
+    const listeners = globalDataSubscribers.get(key);
+    if (!listeners || listeners.size === 0) return;
+    const snapshot = payload !== undefined ? payload : getGlobalDataSnapshot(key);
+    listeners.forEach((handler) => {
+        try {
+            handler(snapshot);
+        } catch (error) {
+            console.error('Global data subscriber error for key', key, error);
+        }
+    });
+}
+
+function subscribeToGlobalData(key, handler, options = {}) {
+    if (!key || typeof handler !== 'function') {
+        return () => {};
+    }
+    if (!globalDataSubscribers.has(key)) {
+        globalDataSubscribers.set(key, new Set());
+    }
+    const listeners = globalDataSubscribers.get(key);
+    listeners.add(handler);
+    if (!options.skipInitial) {
+        try {
+            handler(getGlobalDataSnapshot(key));
+        } catch (error) {
+            console.error('Global data initial delivery failed for key', key, error);
+        }
+    }
+    return () => {
+        listeners.delete(handler);
+        if (listeners.size === 0) {
+            globalDataSubscribers.delete(key);
+        }
+    };
+}
+
+function setGlobalArray(key, values) {
+    if (!Array.isArray(GlobalData[key])) {
+        GlobalData[key] = [];
+    }
+    const target = GlobalData[key];
+    target.length = 0;
+    if (Array.isArray(values)) {
+        target.push(...values);
+    }
+    if (key === 'questAssets') {
+        pruneQuestAssetObjectUrls(values || []);
+    }
+    notifyGlobalDataChange(key, target);
+    return target;
+}
+
+if (typeof window !== 'undefined') {
+    window.subscribeToGlobalData = subscribeToGlobalData;
+    window.notifyGlobalDataChange = notifyGlobalDataChange;
+    window.getQuestAssetObjectUrl = getQuestAssetObjectUrl;
+    window.ensureQuestAssetObjectUrl = ensureQuestAssetObjectUrl;
+}
+
+function resolveQuestAssetReference(assetOrId) {
+    if (!assetOrId) return null;
+    if (typeof assetOrId === 'object') return assetOrId;
+    const id = parseInt(assetOrId, 10);
+    if (Number.isNaN(id)) return null;
+    return GlobalData.questAssets.find((asset) => asset.id === id) || null;
+}
+
+function pruneQuestAssetObjectUrls(latestAssets) {
+    const validIds = new Set(latestAssets.map((asset) => asset.id));
+    Array.from(questAssetObjectUrlCache.keys()).forEach((assetId) => {
+        if (!validIds.has(assetId)) {
+            invalidateQuestAssetCache(assetId);
+        }
+    });
+}
+
+function getQuestAssetObjectUrl(assetOrId) {
+    const asset = resolveQuestAssetReference(assetOrId);
+    if (!asset) return '';
+    if (asset.localUrl) return asset.localUrl;
+    const cached = questAssetObjectUrlCache.get(asset.id);
+    if (cached?.objectUrl) {
+        asset.localUrl = cached.objectUrl;
+        return asset.localUrl;
+    }
+    return '';
+}
+
+function ensureQuestAssetObjectUrl(assetOrId) {
+    const asset = resolveQuestAssetReference(assetOrId);
+    if (!asset || !asset.url || typeof fetch !== 'function') {
+        return Promise.resolve(asset?.url || '');
+    }
+
+    const cached = questAssetObjectUrlCache.get(asset.id);
+    if (cached?.objectUrl) {
+        asset.localUrl = cached.objectUrl;
+        return Promise.resolve(cached.objectUrl);
+    }
+    if (cached?.promise) {
+        return cached.promise;
+    }
+
+    const promise = fetch(asset.url, { cache: 'force-cache' })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`Failed to fetch quest asset ${asset.id}`);
+            }
+            return response.blob();
+        })
+        .then((blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            questAssetObjectUrlCache.set(asset.id, { objectUrl });
+            asset.localUrl = objectUrl;
+            return objectUrl;
+        })
+        .catch((error) => {
+            questAssetObjectUrlCache.delete(asset.id);
+            console.error('Quest asset cache error:', error);
+            throw error;
+        });
+
+    questAssetObjectUrlCache.set(asset.id, { promise });
+    return promise;
+}
+
+function invalidateQuestAssetCache(assetId) {
+    const cached = questAssetObjectUrlCache.get(assetId);
+    if (cached?.objectUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+        try {
+            URL.revokeObjectURL(cached.objectUrl);
+        } catch (error) {
+            console.warn('Failed to revoke object URL for quest asset', assetId, error);
+        }
+    }
+    questAssetObjectUrlCache.delete(assetId);
+}
+
 // === EFFECTS DATA STRUCTURE ===
 // Matches server-side database structure
 const Effect = {
@@ -110,7 +257,7 @@ async function loadEffectsData() {
 
             if (response.ok) {
                 const data = await response.json();
-                GlobalData.effects = data.effects || [];
+                setGlobalArray('effects', data.effects || []);
                 console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
                 return GlobalData.effects;
                 
@@ -157,10 +304,10 @@ async function loadEnemiesData() {
         if (response.ok) {
             const data = await response.json();
             console.log('Enemies count:', data.enemies ? data.enemies.length : 0);
-            GlobalData.enemies = data.enemies || [];
+            setGlobalArray('enemies', data.enemies || []);
             // Store effects if not already loaded
-            if (data.effects && GlobalData.effects.length === 0) {
-                GlobalData.effects = data.effects;
+            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                setGlobalArray('effects', data.effects);
                 console.log('Effects data also loaded from enemies endpoint');
             }
             
@@ -211,11 +358,11 @@ async function loadPerksData() {
             console.log('Pending perks count:', data.pendingPerks ? data.pendingPerks.length : 0);
             
             // Store the loaded perks data
-            GlobalData.perks = data.perks || [];
-            GlobalData.pendingPerks = data.pendingPerks || [];
+            setGlobalArray('perks', data.perks || []);
+            setGlobalArray('pendingPerks', data.pendingPerks || []);
             // Store effects if not already loaded
-            if (data.effects && GlobalData.effects.length === 0) {
-                GlobalData.effects = data.effects;
+            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                setGlobalArray('effects', data.effects);
                 console.log('Effects data also loaded from perks endpoint');
             }
             
@@ -267,11 +414,11 @@ async function loadItemsData() {
             console.log('Pending items count:', data.pendingItems ? data.pendingItems.length : 0);
             
             // Store the loaded items data
-            GlobalData.items = data.items || [];
-            GlobalData.pendingItems = data.pendingItems || [];
+            setGlobalArray('items', data.items || []);
+            setGlobalArray('pendingItems', data.pendingItems || []);
             // Store effects if not already loaded
-            if (data.effects && GlobalData.effects.length === 0) {
-                GlobalData.effects = data.effects;
+            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                setGlobalArray('effects', data.effects);
                 console.log('Effects data also loaded from items endpoint');
             }
             
@@ -333,7 +480,7 @@ async function loadPerkAssets() {
 
         if (response.ok) {
             const data = await response.json();
-            GlobalData.perkAssets = data.assets || [];
+            setGlobalArray('perkAssets', data.assets || []);
             console.log('✅ Perk assets loaded successfully:', GlobalData.perkAssets.length, 'assets');
             return GlobalData.perkAssets;
         } else {
@@ -381,7 +528,7 @@ async function loadItemAssets() {
 
         if (response.ok) {
             const data = await response.json();
-            GlobalData.itemAssets = data.assets || [];
+            setGlobalArray('itemAssets', data.assets || []);
             console.log('✅ Item assets loaded successfully:', GlobalData.itemAssets.length, 'assets');
             return GlobalData.itemAssets;
         } else {
@@ -446,7 +593,7 @@ async function loadSettlementsData() {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.settlements) {
-                    GlobalData.settlements = data.settlements;
+                    setGlobalArray('settlements', data.settlements);
                     console.log('✅ Settlements data loaded successfully:', GlobalData.settlements.length, 'settlements');
                 }
                 return GlobalData.settlements;
@@ -497,7 +644,7 @@ async function loadSettlementAssetsData() {
 
         if (response.ok) {
             const data = await response.json();
-            GlobalData.settlementAssets = data.assets || [];
+            setGlobalArray('settlementAssets', data.assets || []);
             console.log('✅ Settlement assets loaded successfully:', GlobalData.settlementAssets.length, 'assets');
             return GlobalData.settlementAssets;
         } else {
@@ -543,7 +690,7 @@ function getSettlementAssets() {
  * @returns {Promise<Array>} Promise that resolves to array of settlements
  */
 async function refreshSettlementsData() {
-    GlobalData.settlements = [];
+    setGlobalArray('settlements', []);
     return loadSettlementsData();
 }
 
@@ -588,7 +735,8 @@ async function loadQuestAssetsData() {
 
             if (response.ok) {
                 const data = await response.json();
-                GlobalData.questAssets = data || [];
+                const assets = Array.isArray(data) ? data : (data.assets || []);
+                setGlobalArray('questAssets', assets);
                 console.log('✅ Quest assets loaded successfully:', GlobalData.questAssets.length, 'assets');
                 return GlobalData.questAssets;
             } else {
@@ -620,7 +768,7 @@ function getQuestAssets() {
  * @returns {Promise<Array>} Promise that resolves to array of quest assets
  */
 async function refreshQuestAssetsData() {
-    GlobalData.questAssets = [];
+    setGlobalArray('questAssets', []);
     questAssetsLoadingPromise = null;
     return loadQuestAssetsData();
 }
@@ -733,6 +881,7 @@ function addEnemyToGlobal(enemy) {
     console.log('Adding enemy to global data:', enemy.name, 'ID:', enemy.id);
     GlobalData.enemies.push(enemy);
     console.log('✅ Enemy added. Total enemies:', GlobalData.enemies.length);
+    notifyGlobalDataChange('enemies', GlobalData.enemies);
 }
 
 /**
@@ -757,6 +906,7 @@ function updateEnemyInGlobal(updatedEnemy) {
         console.warn('Adding as new enemy instead:', updatedEnemy.name);
         GlobalData.enemies.push(updatedEnemy);
     }
+    notifyGlobalDataChange('enemies', GlobalData.enemies);
 }
 
 /**
@@ -836,6 +986,7 @@ function addPerkToGlobal(perk) {
     console.log('Adding perk to global data:', perk.name, 'ID:', perk.id);
     GlobalData.perks.push(perk);
     console.log('✅ Perk added. Total perks:', GlobalData.perks.length);
+    notifyGlobalDataChange('perks', GlobalData.perks);
 }
 
 /**
@@ -860,6 +1011,7 @@ function updatePerkInGlobal(updatedPerk) {
         console.warn('Adding as new perk instead:', updatedPerk.name);
         GlobalData.perks.push(updatedPerk);
     }
+    notifyGlobalDataChange('perks', GlobalData.perks);
 }
 
 /**
@@ -951,6 +1103,7 @@ function addItemToGlobal(item) {
     console.log('Adding item to global data:', item.name, 'ID:', item.id);
     GlobalData.items.push(item);
     console.log('✅ Item added. Total items:', GlobalData.items.length);
+    notifyGlobalDataChange('items', GlobalData.items);
 }
 
 /**
@@ -975,6 +1128,7 @@ function updateItemInGlobal(updatedItem) {
         console.warn('Adding as new item instead:', updatedItem.name);
         GlobalData.items.push(updatedItem);
     }
+    notifyGlobalDataChange('items', GlobalData.items);
 }
 
 /**

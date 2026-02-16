@@ -42,6 +42,9 @@ const expeditionPreviewState = {
     settlementId: null
 };
 
+const EXPEDITION_ASSET_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const expeditionDataSubscriptions = [];
+
 // ==================== INITIALIZATION ====================
 function initExpeditionDesigner() {
     console.log('🗺️ initExpeditionDesigner called');
@@ -203,6 +206,7 @@ function initExpeditionDesigner() {
     updateCounter();
     console.log('✅ Expedition Designer ready');
     
+    setupExpeditionDataSubscriptions();
     // Load expedition assets from GlobalData (shared quest assets)
     loadExpeditionAssets();
     
@@ -211,6 +215,48 @@ function initExpeditionDesigner() {
 
     setupExpeditionGeneratePanel();
     setupExpeditionPreviewOverlay();
+}
+
+function setupExpeditionDataSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') {
+        return;
+    }
+
+    if (expeditionDataSubscriptions.length > 0) {
+        expeditionDataSubscriptions.forEach((unsubscribe) => unsubscribe());
+        expeditionDataSubscriptions.length = 0;
+    }
+
+    expeditionDataSubscriptions.push(subscribeToGlobalData('settlements', () => {
+        expeditionState.settlements = GlobalData?.settlements || [];
+        populateSettlementDropdown();
+    }));
+
+    expeditionDataSubscriptions.push(subscribeToGlobalData('items', () => {
+        expeditionState.dropdownsPopulated = false;
+        populateDropdownsOnce();
+        populateRewardPickers();
+        populateExpeditionGenerateRewards();
+    }));
+
+    expeditionDataSubscriptions.push(subscribeToGlobalData('perks', () => {
+        expeditionState.dropdownsPopulated = false;
+        populateDropdownsOnce();
+        populateRewardPickers();
+        populateExpeditionGenerateRewards();
+    }));
+
+    expeditionDataSubscriptions.push(subscribeToGlobalData('effects', () => {
+        expeditionState.dropdownsPopulated = false;
+        populateDropdownsOnce();
+    }));
+
+    expeditionDataSubscriptions.push(subscribeToGlobalData('questAssets', () => {
+        if (isExpeditionAssetGalleryOpen()) {
+            const filterValue = document.getElementById('expeditionAssetFilter')?.value || '';
+            populateExpeditionAssetGallery(filterValue);
+        }
+    }));
 }
 
 // ==================== EXPEDITION PREVIEW ====================
@@ -345,8 +391,10 @@ function renderExpeditionPreview() {
 
     const sceneEl = document.getElementById('expeditionPreviewScene');
     if (sceneEl) {
-        if (slide.assetUrl) {
-            sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(5,10,25,0.1) 5%, rgba(5,10,25,0.85) 95%), url(${slide.assetUrl})`;
+        const previewUrl = slide.assetPreviewUrl;
+        const hasBackground = previewUrl && previewUrl !== EXPEDITION_ASSET_PLACEHOLDER;
+        if (hasBackground) {
+            sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(5,10,25,0.1) 5%, rgba(5,10,25,0.85) 95%), url(${previewUrl})`;
             sceneEl.style.backgroundSize = 'cover';
             sceneEl.style.backgroundPosition = 'center';
         } else {
@@ -611,7 +659,9 @@ function addSlide() {
         x: (rect.width / 2 - expeditionState.canvasOffset.x) / expeditionState.zoom - 180 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - expeditionState.canvasOffset.y) / expeditionState.zoom - 240 + (Math.random() - 0.5) * 100,
         options: [],
+        assetId: null,
         assetUrl: null,
+        assetPreviewUrl: null,
         reward: null,
         effect: null,  // { effectId, effectFactor }
         settlementId: expeditionState.selectedSettlementId || null
@@ -701,10 +751,12 @@ function renderSlide(slide) {
     `}).join('');
     
     // Build background style for slide body
-    const bodyBgStyle = slide.assetUrl 
-        ? `style="background-image: url(${slide.assetUrl});"` 
+    const previewUrl = slide.assetPreviewUrl;
+    const hasBackground = previewUrl && previewUrl !== EXPEDITION_ASSET_PLACEHOLDER;
+    const bodyBgStyle = hasBackground
+        ? `style="background-image: url(${previewUrl});"`
         : '';
-    const bodyClass = slide.assetUrl ? 'slide-body has-bg' : 'slide-body';
+    const bodyClass = hasBackground ? 'slide-body has-bg' : 'slide-body';
     
     el.innerHTML = `
         <div class="slide-header">
@@ -2028,6 +2080,84 @@ function closeExpeditionAssetGallery() {
 window.closeExpeditionAssetGallery = closeExpeditionAssetGallery;
 window.closeBgPicker = closeExpeditionAssetGallery; // Alias for compatibility
 
+function isExpeditionAssetGalleryOpen() {
+    const overlay = document.getElementById('expeditionAssetGalleryOverlay');
+    return overlay?.classList.contains('active') || false;
+}
+
+function getExpeditionAssetThumbSrc(asset) {
+    if (!asset) return EXPEDITION_ASSET_PLACEHOLDER;
+    if (asset.localUrl) return asset.localUrl;
+    if (typeof getQuestAssetObjectUrl === 'function') {
+        const cached = getQuestAssetObjectUrl(asset);
+        if (cached) return cached;
+    }
+    return EXPEDITION_ASSET_PLACEHOLDER;
+}
+
+function hydrateExpeditionAssetThumbnails(assets) {
+    if (typeof ensureQuestAssetObjectUrl !== 'function') return;
+    const gallery = document.getElementById('expeditionAssetGallery');
+    if (!gallery || !Array.isArray(assets)) return;
+
+    assets.forEach((asset) => {
+        ensureQuestAssetObjectUrl(asset)
+            .then((objectUrl) => {
+                const img = gallery.querySelector(`.expedition-asset-item[data-asset-id="${asset.id}"] img`);
+                if (img) {
+                    img.src = objectUrl;
+                    img.dataset.loaded = 'true';
+                }
+            })
+            .catch(() => {
+                const img = gallery.querySelector(`.expedition-asset-item[data-asset-id="${asset.id}"] img`);
+                if (img && !img.dataset.loaded) {
+                    img.src = asset.url;
+                    img.dataset.loaded = 'fallback';
+                }
+            });
+    });
+}
+
+function hydrateSlideAssetPreview(slideId, assetId, fallbackUrl = null) {
+    if (typeof ensureQuestAssetObjectUrl !== 'function' || !assetId) return;
+    ensureQuestAssetObjectUrl(assetId)
+        .then((objectUrl) => {
+            const slide = expeditionState.slides.get(slideId);
+            if (slide && slide.assetId === assetId) {
+                slide.assetPreviewUrl = objectUrl;
+                renderSlide(slide);
+                renderConnections();
+            }
+        })
+        .catch(() => {
+            if (!fallbackUrl) return;
+            const slide = expeditionState.slides.get(slideId);
+            if (slide && slide.assetId === assetId) {
+                slide.assetPreviewUrl = fallbackUrl;
+                renderSlide(slide);
+                renderConnections();
+            }
+        });
+}
+
+function primeSlideAssetPreview(slide, assetId, remoteUrl) {
+    if (!slide) return;
+    slide.assetId = assetId ?? null;
+    slide.assetUrl = remoteUrl ?? slide.assetUrl ?? null;
+    if (!slide.assetId || !slide.assetUrl) {
+        slide.assetPreviewUrl = null;
+        return;
+    }
+    const cachedPreview = typeof getQuestAssetObjectUrl === 'function'
+        ? getQuestAssetObjectUrl(slide.assetId)
+        : null;
+    slide.assetPreviewUrl = cachedPreview || EXPEDITION_ASSET_PLACEHOLDER;
+    if (!cachedPreview) {
+        hydrateSlideAssetPreview(slide.id, slide.assetId, slide.assetUrl);
+    }
+}
+
 async function loadExpeditionAssets() {
     // Use GlobalData.questAssets (shared with quests)
     if (typeof loadQuestAssetsData === 'function') {
@@ -2064,7 +2194,9 @@ function populateExpeditionAssetGallery(filterText = '') {
     
     // Get current asset ID for selected state
     const currentSlide = expeditionEditingSlide ? expeditionState.slides.get(expeditionEditingSlide) : null;
-    const currentAssetId = currentSlide ? getAssetIdFromUrl(currentSlide.assetUrl) : null;
+    const currentAssetId = currentSlide
+        ? (currentSlide.assetId ?? getAssetIdFromUrl(currentSlide.assetUrl))
+        : null;
     
     if (assets.length === 0) {
         gallery.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:40px;">No assets yet. Upload some!</p>';
@@ -2092,10 +2224,11 @@ function populateExpeditionAssetGallery(filterText = '') {
     gallery.innerHTML = filteredAssets.map(asset => {
         const locationNames = assetLocationMap.get(asset.id) || [];
         const locationLabel = locationNames.length > 0 ? locationNames.join(', ') : '';
+        const thumbSrc = getExpeditionAssetThumbSrc(asset);
         return `
             <div class="expedition-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
                  data-asset-id="${asset.id}">
-                <img src="${asset.url}" alt="Asset ${asset.id}">
+                <img src="${thumbSrc}" alt="Asset ${asset.id}" loading="lazy">
                 <div class="asset-id">${locationLabel || `ID: ${asset.id}`}</div>
             </div>
         `;
@@ -2111,6 +2244,8 @@ function populateExpeditionAssetGallery(filterText = '') {
             }
         });
     });
+
+    hydrateExpeditionAssetThumbnails(filteredAssets);
 }
 
 function selectExpeditionAsset(assetId, assetUrl) {
@@ -2118,7 +2253,12 @@ function selectExpeditionAsset(assetId, assetUrl) {
     
     const slide = expeditionState.slides.get(expeditionEditingSlide);
     if (slide) {
-        slide.assetUrl = assetUrl;
+        const sourceAssets = GlobalData.questAssets || [];
+        const asset = sourceAssets.find(a => a.id === assetId) || { id: assetId, url: assetUrl };
+        primeSlideAssetPreview(slide, assetId, assetUrl);
+        if (slide.assetPreviewUrl == null) {
+            slide.assetPreviewUrl = getExpeditionAssetThumbSrc(asset);
+        }
         renderSlide(slide);
         renderConnections();
     }
@@ -2130,7 +2270,9 @@ function applyBgUrl(url) {
     if (!expeditionEditingSlide) return;
     const slide = expeditionState.slides.get(expeditionEditingSlide);
     if (slide) {
+        slide.assetId = url ? getAssetIdFromUrl(url) : null;
         slide.assetUrl = url || null;
+        slide.assetPreviewUrl = url || null;
         renderSlide(slide);
         renderConnections();
     }
@@ -2141,7 +2283,9 @@ function clearSlideBg() {
     if (!expeditionEditingSlide) return;
     const slide = expeditionState.slides.get(expeditionEditingSlide);
     if (slide) {
+        slide.assetId = null;
         slide.assetUrl = null;
+        slide.assetPreviewUrl = null;
         renderSlide(slide);
         renderConnections();
     }
@@ -2698,6 +2842,7 @@ function applyGeneratedExpedition(data, settlementIdOverride = null) {
             slideData.settlementId ?? slideData.settlement_id ?? normalizedOverride ?? expeditionState.selectedSettlementId
         );
 
+        const remoteAssetUrl = assetIdValue ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetIdValue}.webp` : null;
         const slide = {
             id: localId,
             text: slideData.text || '',
@@ -2705,11 +2850,14 @@ function applyGeneratedExpedition(data, settlementIdOverride = null) {
             x: slideData.posX ?? slideData.pos_x ?? slideData.x ?? (100 + index * 60),
             y: slideData.posY ?? slideData.pos_y ?? slideData.y ?? (100 + index * 60),
             options: [],
-            assetUrl: assetIdValue ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetIdValue}.webp` : null,
+            assetId: assetIdValue,
+            assetUrl: remoteAssetUrl,
+            assetPreviewUrl: null,
             reward: buildRewardFromServer(slideData),
             effect: effectId ? { effectId, effectFactor } : null,
             settlementId: slideSettlementId ?? null
         };
+        primeSlideAssetPreview(slide, assetIdValue, remoteAssetUrl);
 
         expeditionState.slides.set(localId, slide);
     });
@@ -2873,6 +3021,12 @@ async function uploadExpeditionAsset(file) {
 
         // Add to GlobalData.questAssets (shared array)
         GlobalData.questAssets.push({ id: result.assetId, url: result.url });
+        if (typeof notifyGlobalDataChange === 'function') {
+            notifyGlobalDataChange('questAssets', GlobalData.questAssets);
+        }
+        if (typeof ensureQuestAssetObjectUrl === 'function') {
+            ensureQuestAssetObjectUrl({ id: result.assetId, url: result.url }).catch(() => {});
+        }
 
         // Refresh gallery and auto-select
         populateExpeditionAssetGallery();
@@ -2959,7 +3113,8 @@ function isSlideModified(localId) {
     // Check slide-level changes (normalize values same as when storing)
     if ((slide.text || '') !== original.text) return true;
     if ((slide.isStart || false) !== original.isStart) return true;
-    if (getAssetIdFromUrl(slide.assetUrl) !== original.assetId) return true;
+    const slideAssetId = slide.assetId ?? getAssetIdFromUrl(slide.assetUrl);
+    if (slideAssetId !== original.assetId) return true;
     const slidePosX = slide.x ?? 100;
     const slidePosY = slide.y ?? 100;
     const originalPosX = original.posX ?? 100;
@@ -3318,7 +3473,7 @@ async function saveExpedition() {
             return {
                 toolingId: toolingId,
                 text: slide.text || '',
-                assetId: getAssetIdFromUrl(slide.assetUrl),
+                assetId: slide.assetId ?? getAssetIdFromUrl(slide.assetUrl),
                 effectId: slide.effect?.effectId || null,
                 effectFactor: slide.effect?.effectFactor || null,
                 isStart: slide.isStart || false,
@@ -3398,7 +3553,7 @@ async function saveExpedition() {
                         expeditionState.originalSlides.set(localId, {
                             text: slide.text || '',
                             isStart: slide.isStart || false,
-                            assetId: getAssetIdFromUrl(slide.assetUrl),
+                            assetId: slide.assetId ?? getAssetIdFromUrl(slide.assetUrl),
                             effectId: slide.effect?.effectId || null,
                             effectFactor: slide.effect?.effectFactor || null,
                             posX: slide.x || 100,
@@ -3414,7 +3569,7 @@ async function saveExpedition() {
                 expeditionState.originalSlides.set(localId, {
                     text: slide.text || '',
                     isStart: slide.isStart || false,
-                    assetId: getAssetIdFromUrl(slide.assetUrl),
+                    assetId: slide.assetId ?? getAssetIdFromUrl(slide.assetUrl),
                     effectId: slide.effect?.effectId || null,
                     effectFactor: slide.effect?.effectFactor || null,
                     posX: slide.x || 100,
@@ -3651,11 +3806,15 @@ async function loadExpedition() {
                 x: serverSlide.posX || 100,
                 y: serverSlide.posY || 100,
                 options: [],
+                assetId: serverSlide.assetId || null,
                 assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
+                assetPreviewUrl: null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId || null
             };
+
+            primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
 
             // Map toolingId -> localId
             toolingIdToLocalId.set(serverSlide.toolingId, localId);
@@ -3820,8 +3979,21 @@ function populateSettlementDropdown() {
     const select = document.getElementById('expeditionSettlementSelect');
     if (!select) return;
 
-    // Clear and populate with settlements (no empty option)
+    const previousValue = select.value || (expeditionState.selectedSettlementId ? String(expeditionState.selectedSettlementId) : '');
     select.innerHTML = '';
+
+    if (expeditionState.settlements.length === 0) {
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '-- No Settlements --';
+        select.appendChild(emptyOption);
+        select.value = '';
+        if (expeditionState.selectedSettlementId !== null) {
+            expeditionState.selectedSettlementId = null;
+            filterAndRenderSlides();
+        }
+        return;
+    }
 
     expeditionState.settlements.forEach(settlement => {
         const option = document.createElement('option');
@@ -3829,12 +4001,16 @@ function populateSettlementDropdown() {
         option.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
         select.appendChild(option);
     });
-    
-    // Auto-select first settlement and trigger filter
-    if (expeditionState.settlements.length > 0) {
-        const firstSettlement = expeditionState.settlements[0];
-        select.value = firstSettlement.settlement_id;
-        expeditionState.selectedSettlementId = firstSettlement.settlement_id;
+
+    const hasPrevious = previousValue && select.querySelector(`option[value="${previousValue}"]`);
+    const nextValue = hasPrevious ? previousValue : (select.options[0]?.value || '');
+    select.value = nextValue;
+
+    const numericValue = nextValue ? parseInt(nextValue, 10) : null;
+    const sanitizedValue = Number.isNaN(numericValue) ? null : numericValue;
+    if (sanitizedValue !== expeditionState.selectedSettlementId) {
+        expeditionState.selectedSettlementId = sanitizedValue;
+        filterAndRenderSlides();
     }
 }
 
@@ -3937,11 +4113,15 @@ async function loadExpeditionForSettlement(settlementId) {
                 x: serverSlide.posX || 100,
                 y: serverSlide.posY || 100,
                 options: [],
+                assetId: serverSlide.assetId || null,
                 assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
+                assetPreviewUrl: null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId
             };
+
+            primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
 
             // Map toolingId -> localId
             toolingIdToLocalId.set(serverSlide.toolingId, localId);

@@ -54,6 +54,9 @@ const questPreviewState = {
     history: [],
 };
 
+const QUEST_ASSET_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+const questDataSubscriptions = [];
+
 // ==================== INITIALIZATION ====================
 function initQuestDesigner() {
     console.log('🗡️ initQuestDesigner called');
@@ -189,10 +192,48 @@ function initQuestDesigner() {
     console.log('✅ Quest Designer ready');
     
     // Load data
+    setupQuestDataSubscriptions();
     loadQuestSettlements();
     loadQuestAssets();
 }
 window.initQuestDesigner = initQuestDesigner;
+
+function setupQuestDataSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') {
+        return;
+    }
+
+    if (questDataSubscriptions.length > 0) {
+        questDataSubscriptions.forEach((unsubscribe) => unsubscribe());
+        questDataSubscriptions.length = 0;
+    }
+
+    questDataSubscriptions.push(subscribeToGlobalData('effects', () => {
+        populateEffectsDropdown();
+    }));
+
+    questDataSubscriptions.push(subscribeToGlobalData('items', () => {
+        populateItemsDropdown();
+        populatePotionsDropdown();
+    }));
+
+    questDataSubscriptions.push(subscribeToGlobalData('perks', () => {
+        populatePerksDropdown();
+        populateBlessingsDropdown();
+    }));
+
+    questDataSubscriptions.push(subscribeToGlobalData('settlements', () => {
+        populateQuestSettlementSelect();
+    }));
+
+    questDataSubscriptions.push(subscribeToGlobalData('questAssets', (assets) => {
+        questState.questAssets = assets || [];
+        if (isQuestAssetGalleryOpen()) {
+            const filterValue = document.getElementById('questAssetFilter')?.value || '';
+            populateQuestAssetGallery(filterValue);
+        }
+    }));
+}
 
 // ==================== ADD QUEST SLIDE ====================
 function addQuest() {
@@ -213,6 +254,7 @@ function addQuest() {
         failureText: '',
         assetId: null,
         assetUrl: null,
+        assetRemoteUrl: null,
         sortOrder: questState.quests.size, // Tree depth indicator
         x: (rect.width / 2 - questState.canvasOffset.x) / questState.zoom - 150 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - questState.canvasOffset.y) / questState.zoom - 200 + (Math.random() - 0.5) * 100,
@@ -310,8 +352,9 @@ function renderQuest(quest) {
     el.style.top = `${quest.y}px`;
     
     // Background style
-    const bodyStyle = quest.assetUrl ? `style="background-image: url(${quest.assetUrl});"` : '';
-    const bodyClass = quest.assetUrl ? 'quest-slide-body has-bg' : 'quest-slide-body';
+    const hasBackground = quest.assetUrl && quest.assetUrl !== QUEST_ASSET_PLACEHOLDER;
+    const bodyStyle = hasBackground ? `style="background-image: url(${quest.assetUrl});"` : '';
+    const bodyClass = hasBackground ? 'quest-slide-body has-bg' : 'quest-slide-body';
     
     el.innerHTML = `
         <div class="quest-slide-header">
@@ -1125,6 +1168,45 @@ function closeQuestAssetModal() {
 }
 window.closeQuestAssetModal = closeQuestAssetModal;
 
+function isQuestAssetGalleryOpen() {
+    const overlay = document.getElementById('questAssetGalleryOverlay');
+    return overlay?.classList.contains('active') || false;
+}
+
+function getQuestAssetThumbSrc(asset) {
+    if (!asset) return QUEST_ASSET_PLACEHOLDER;
+    if (asset.localUrl) return asset.localUrl;
+    if (typeof getQuestAssetObjectUrl === 'function') {
+        const cached = getQuestAssetObjectUrl(asset);
+        if (cached) return cached;
+    }
+    return QUEST_ASSET_PLACEHOLDER;
+}
+
+function hydrateQuestAssetThumbnails(assets) {
+    if (typeof ensureQuestAssetObjectUrl !== 'function') return;
+    const gallery = document.getElementById('questAssetGallery');
+    if (!gallery || !Array.isArray(assets)) return;
+
+    assets.forEach((asset) => {
+        ensureQuestAssetObjectUrl(asset)
+            .then((objectUrl) => {
+                const img = gallery.querySelector(`.quest-asset-item[data-asset-id="${asset.id}"] img`);
+                if (img) {
+                    img.src = objectUrl;
+                    img.dataset.loaded = 'true';
+                }
+            })
+            .catch(() => {
+                const img = gallery.querySelector(`.quest-asset-item[data-asset-id="${asset.id}"] img`);
+                if (img && !img.dataset.loaded) {
+                    img.src = asset.url;
+                    img.dataset.loaded = 'fallback';
+                }
+            });
+    });
+}
+
 // Get location-asset mapping from GlobalData
 function getLocationAssetIds() {
     // Build a map of asset IDs to location names
@@ -1181,10 +1263,11 @@ function populateQuestAssetGallery(filterText = '') {
     gallery.innerHTML = filteredAssets.map(asset => {
         const locationNames = assetLocationMap.get(asset.id) || [];
         const locationLabel = locationNames.length > 0 ? locationNames.join(', ') : '';
+        const thumbSrc = getQuestAssetThumbSrc(asset);
         return `
             <div class="quest-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
                  data-asset-id="${asset.id}">
-                <img src="${asset.url}" alt="Asset ${asset.id}">
+                <img src="${thumbSrc}" alt="Asset ${asset.id}" loading="lazy">
                 <div class="asset-id">${locationLabel || `ID: ${asset.id}`}</div>
             </div>
         `;
@@ -1200,6 +1283,8 @@ function populateQuestAssetGallery(filterText = '') {
             }
         });
     });
+
+    hydrateQuestAssetThumbnails(filteredAssets);
 }
 
 function selectQuestAsset(assetId, assetUrl) {
@@ -1207,9 +1292,31 @@ function selectQuestAsset(assetId, assetUrl) {
     
     const quest = questState.quests.get(questState.editingQuestAsset);
     if (quest) {
+        const asset = questState.questAssets.find(a => a.id === assetId) || { id: assetId, url: assetUrl };
         quest.assetId = assetId;
-        quest.assetUrl = assetUrl;
+        quest.assetUrl = (typeof getQuestAssetObjectUrl === 'function'
+            ? (getQuestAssetObjectUrl(asset) || quest.assetUrl || QUEST_ASSET_PLACEHOLDER)
+            : assetUrl);
+        quest.assetRemoteUrl = assetUrl;
         renderQuest(quest);
+
+        if (typeof ensureQuestAssetObjectUrl === 'function') {
+            ensureQuestAssetObjectUrl(asset)
+                .then((objectUrl) => {
+                    const targetQuest = questState.quests.get(quest.questId);
+                    if (targetQuest && targetQuest.assetId === assetId) {
+                        targetQuest.assetUrl = objectUrl;
+                        renderQuest(targetQuest);
+                    }
+                })
+                .catch(() => {
+                    const targetQuest = questState.quests.get(quest.questId);
+                    if (targetQuest && targetQuest.assetId === assetId) {
+                        targetQuest.assetUrl = assetUrl;
+                        renderQuest(targetQuest);
+                    }
+                });
+        }
     }
     
     closeQuestAssetModal();
@@ -1218,42 +1325,41 @@ function selectQuestAsset(assetId, assetUrl) {
 // ==================== DATA LOADING ====================
 async function loadQuestSettlements() {
     console.log('Loading settlements from GlobalData...');
-    
-    // Use global settlements data (same as expedition)
-    const populateDropdown = () => {
-        const settlements = typeof getSettlements === 'function' ? getSettlements() : 
-                           (typeof GlobalData !== 'undefined' ? GlobalData.settlements : []);
-        
-        const select = document.getElementById('questSettlementSelect');
-        if (select && settlements.length > 0) {
-            select.innerHTML = '<option value="">-- Select Settlement --</option>';
-            settlements.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.settlement_id;
-                opt.textContent = s.settlement_name;
-                select.appendChild(opt);
-            });
-            console.log(`✅ Populated ${settlements.length} settlements`);
-            return true;
-        }
-        return false;
-    };
-    
-    // Try immediately, then retry if needed
-    if (!populateDropdown()) {
-        // Wait for global data to load
+    try {
         if (typeof loadSettlementsData === 'function') {
             await loadSettlementsData();
-            populateDropdown();
-        } else {
-            // Retry a few times
-            let retries = 0;
-            const retry = () => {
-                if (populateDropdown() || retries >= 5) return;
-                retries++;
-                setTimeout(retry, 1000);
-            };
-            setTimeout(retry, 1000);
+        }
+    } catch (error) {
+        console.error('Failed to load settlements for quest designer:', error);
+    } finally {
+        populateQuestSettlementSelect();
+    }
+}
+
+function populateQuestSettlementSelect() {
+    const select = document.getElementById('questSettlementSelect');
+    if (!select) return;
+
+    const previousValue = select.value;
+    const settlements = typeof getSettlements === 'function'
+        ? getSettlements()
+        : (GlobalData?.settlements || []);
+
+    select.innerHTML = '<option value="">-- Select Settlement --</option>';
+    settlements.forEach((settlement) => {
+        const opt = document.createElement('option');
+        opt.value = settlement.settlement_id;
+        opt.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
+        select.appendChild(opt);
+    });
+
+    const targetValue = previousValue || (questState.selectedSettlementId ? String(questState.selectedSettlementId) : '');
+    if (targetValue && select.querySelector(`option[value="${targetValue}"]`)) {
+        select.value = targetValue;
+    } else {
+        select.value = '';
+        if (targetValue) {
+            questState.selectedSettlementId = null;
         }
     }
 }
@@ -1445,6 +1551,10 @@ async function loadQuestChainData(chainId) {
         
         // Load quests
         chainQuests.forEach(q => {
+            const remoteAssetUrl = q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null;
+            const cachedAssetUrl = q.asset_id && typeof getQuestAssetObjectUrl === 'function'
+                ? getQuestAssetObjectUrl(q.asset_id)
+                : null;
             const quest = {
                 questId: q.quest_id,
                 serverId: q.quest_id,
@@ -1453,7 +1563,8 @@ async function loadQuestChainData(chainId) {
                 travelText: q.travel_text || '',
                 failureText: q.failure_text || '',
                 assetId: q.asset_id,
-                assetUrl: q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null,
+                assetUrl: cachedAssetUrl || remoteAssetUrl,
+                assetRemoteUrl: remoteAssetUrl,
                 sortOrder: q.sort_order || 0,
                 x: q.pos_x || 50,
                 y: q.pos_y || 100,
@@ -1462,6 +1573,18 @@ async function loadQuestChainData(chainId) {
             questState.quests.set(q.quest_id, quest);
             questState.serverQuests.set(q.quest_id, { ...quest });
             maxQuestId = Math.max(maxQuestId, q.quest_id);
+
+            if (q.asset_id && typeof ensureQuestAssetObjectUrl === 'function' && !cachedAssetUrl) {
+                ensureQuestAssetObjectUrl(q.asset_id)
+                    .then((objectUrl) => {
+                        const targetQuest = questState.quests.get(q.quest_id);
+                        if (targetQuest && targetQuest.assetId === q.asset_id) {
+                            targetQuest.assetUrl = objectUrl;
+                            renderQuest(targetQuest);
+                        }
+                    })
+                    .catch(() => {});
+            }
         });
         
         // Load options
@@ -1730,6 +1853,12 @@ async function uploadQuestAsset(file) {
 
         // Add to assets (questState.questAssets IS GlobalData.questAssets - same reference)
         questState.questAssets.push({ id: result.assetId, url: result.url });
+        if (typeof notifyGlobalDataChange === 'function') {
+            notifyGlobalDataChange('questAssets', GlobalData.questAssets);
+        }
+        if (typeof ensureQuestAssetObjectUrl === 'function') {
+            ensureQuestAssetObjectUrl({ id: result.assetId, url: result.url }).catch(() => {});
+        }
 
         // Refresh gallery and auto-select
         populateQuestAssetGallery();
@@ -1777,11 +1906,14 @@ function populateEffectsDropdown() {
     const optionEffectSelect = document.getElementById('sidebarOptionEffectId');
     if (!select && !optionEffectSelect) return;
     
+    const previousPrimary = select?.value;
+    const previousOption = optionEffectSelect?.value;
+
     if (select) {
-        select.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
+        select.innerHTML = '<option value="">-- Select Effect --</option>';
     }
     if (optionEffectSelect) {
-        optionEffectSelect.innerHTML = '<option value="" disabled selected>-- Select Effect --</option>';
+        optionEffectSelect.innerHTML = '<option value="">-- Select Effect --</option>';
     }
     effects.forEach(effect => {
         const value = effect.effect_id || effect.id;
@@ -1799,6 +1931,13 @@ function populateEffectsDropdown() {
             optionEffectSelect.appendChild(opt);
         }
     });
+
+    if (select && previousPrimary && select.querySelector(`option[value="${previousPrimary}"]`)) {
+        select.value = previousPrimary;
+    }
+    if (optionEffectSelect && previousOption && optionEffectSelect.querySelector(`option[value="${previousOption}"]`)) {
+        optionEffectSelect.value = previousOption;
+    }
 }
 
 function populateItemsDropdown() {
@@ -1806,7 +1945,8 @@ function populateItemsDropdown() {
     const select = document.getElementById('sidebarRewardItem');
     if (!select) return;
     
-    select.innerHTML = '<option value="" disabled selected>-- Select Item --</option>';
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">-- Select Item --</option>';
     const nonPotionItems = items.filter(item => item.type !== 'potion');
     nonPotionItems.forEach(item => {
         const opt = document.createElement('option');
@@ -1814,6 +1954,10 @@ function populateItemsDropdown() {
         opt.textContent = item.item_name || item.name || `Item ${item.item_id || item.id}`;
         select.appendChild(opt);
     });
+
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        select.value = previousValue;
+    }
 }
 
 function populatePotionsDropdown() {
@@ -1821,7 +1965,8 @@ function populatePotionsDropdown() {
     const select = document.getElementById('sidebarRewardPotion');
     if (!select) return;
     
-    select.innerHTML = '<option value="" disabled selected>-- Select Potion --</option>';
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">-- Select Potion --</option>';
     const potions = items.filter(item => item.type === 'potion');
     potions.forEach(item => {
         const opt = document.createElement('option');
@@ -1829,6 +1974,10 @@ function populatePotionsDropdown() {
         opt.textContent = item.item_name || item.name || `Potion ${item.item_id || item.id}`;
         select.appendChild(opt);
     });
+
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        select.value = previousValue;
+    }
 }
 
 function populatePerksDropdown() {
@@ -1836,13 +1985,18 @@ function populatePerksDropdown() {
     const select = document.getElementById('sidebarRewardPerk');
     if (!select) return;
     
-    select.innerHTML = '<option value="" disabled selected>-- Select Perk --</option>';
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">-- Select Perk --</option>';
     perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
         opt.textContent = perk.perk_name || perk.name || `Perk ${perk.perk_id || perk.id}`;
         select.appendChild(opt);
     });
+
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        select.value = previousValue;
+    }
 }
 
 function populateBlessingsDropdown() {
@@ -1851,13 +2005,18 @@ function populateBlessingsDropdown() {
     if (!select) return;
     
     // Blessings are just perks used in church
-    select.innerHTML = '<option value="" disabled selected>-- Select Blessing --</option>';
+    const previousValue = select.value;
+    select.innerHTML = '<option value="">-- Select Blessing --</option>';
     perks.forEach(perk => {
         const opt = document.createElement('option');
         opt.value = perk.perk_id || perk.id;
         opt.textContent = perk.perk_name || perk.name || `Blessing ${perk.perk_id || perk.id}`;
         select.appendChild(opt);
     });
+
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        select.value = previousValue;
+    }
 }
 
 function populateEnemyGrid() {
@@ -2521,7 +2680,8 @@ function renderQuestPreviewScene() {
 
     const sceneEl = document.getElementById('questPreviewScene');
     if (sceneEl) {
-        if (quest.assetUrl) {
+        const hasBackground = quest.assetUrl && quest.assetUrl !== QUEST_ASSET_PLACEHOLDER;
+        if (hasBackground) {
             sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(3,7,18,0.08) 10%, rgba(3,7,18,0.85) 95%), url(${quest.assetUrl})`;
             sceneEl.style.backgroundSize = 'cover';
             sceneEl.style.backgroundPosition = 'center';
