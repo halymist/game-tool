@@ -2577,7 +2577,7 @@ function renderQuestPreviewScene() {
     }
 
     const optionsEl = document.getElementById('questPreviewOptions');
-    if (optionsEl) renderQuestPreviewOptions(options, optionsEl);
+    if (optionsEl) renderQuestPreviewOptions(options, optionsEl, node);
 
     const statusEl = document.getElementById('questPreviewStatus');
     if (statusEl) statusEl.textContent = statusParts.join(' • ');
@@ -2586,13 +2586,22 @@ function renderQuestPreviewScene() {
     if (backBtn) backBtn.disabled = questPreviewState.history.length === 0;
 }
 
-function renderQuestPreviewOptions(options, container) {
+function renderQuestPreviewOptions(options, container, currentNode) {
     container.innerHTML = '';
     const unique = uniquePreviewOptions(options || []);
     if (!unique.length) {
         const empty = document.createElement('p');
         empty.className = 'quest-preview-empty';
-        empty.textContent = 'No options available yet.';
+        if (currentNode?.type === 'option') {
+            const option = questState.options.get(currentNode.id);
+            if (option?.type === 'end') {
+                empty.textContent = 'Quest End';
+            } else {
+                empty.textContent = 'No options available yet.';
+            }
+        } else {
+            empty.textContent = 'No options available yet.';
+        }
         container.appendChild(empty);
         return;
     }
