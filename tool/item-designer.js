@@ -50,7 +50,7 @@ function setupItemDataSubscriptions() {
     
     subscribeToGlobalData('effects', () => {
         console.log('Effects updated, repopulating dropdown');
-        populateEffectDropdown();
+        populateItemEffectDropdown();
     });
 }
 
@@ -182,7 +182,7 @@ async function loadItemsAndEffects() {
     try {
         // Load effects first
         await loadEffectsData();
-        populateEffectDropdown();
+        populateItemEffectDropdown();
         
         // Then load items (this also loads pending items)
         await loadItemsData();
@@ -629,13 +629,16 @@ function toggleWeaponStats() {
     }
     
     // Also update effect dropdown based on type
-    populateEffectDropdown();
+    populateItemEffectDropdown();
     applyItemTypeRules();
 }
 
-function populateEffectDropdown() {
+function populateItemEffectDropdown() {
     const effectSelect = document.getElementById('itemEffect');
-    if (!effectSelect) return;
+    if (!effectSelect) {
+        console.warn('populateItemEffectDropdown: #itemEffect not found');
+        return;
+    }
     
     // Get effects from global data - try getEffects function first, then GlobalData directly
     let effects = [];
@@ -645,12 +648,16 @@ function populateEffectDropdown() {
         effects = GlobalData.effects;
     }
     
-    const selectedType = document.getElementById('itemType')?.value || '';
-    
-    // Save current selection
+    const typeEl = document.getElementById('itemType');
+    const selectedType = typeEl?.value || '';
     const currentValue = effectSelect.value;
     
-    console.log('Populating item effect dropdown with', effects.length, 'effects for type:', selectedType);
+    console.log('populateItemEffectDropdown:', {
+        effectsCount: effects.length,
+        selectedType,
+        currentValue,
+        itemTypeElementExists: !!typeEl
+    });
     
     if (selectedType === 'ration') {
         const rationEffect = effects.find(e => e.id === RATION_EFFECT_ID);
@@ -662,24 +669,15 @@ function populateEffectDropdown() {
     }
 
     effectSelect.disabled = false;
-    effectSelect.innerHTML = '<option value="">-- No Effect --</option>';
-    
-    // Filter effects: slot must match item type OR slot is null (applicable to all)
-    effects.forEach(effect => {
-        // Include effect if:
-        // 1. effect.slot is null/undefined (applies to all item types)
-        // 2. effect.slot matches the selected item type
-        if (!effect.slot || effect.slot === selectedType) {
-            const option = document.createElement('option');
-            option.value = effect.id;
-            option.textContent = effect.name + (effect.slot ? ` (${effect.slot})` : ' (all)');
-            effectSelect.appendChild(option);
-        }
-    });
+    const optionsHTML = '<option value="">-- No Effect --</option>' +
+        effects.map(effect => `<option value="${effect.id}">${effect.name}</option>`).join('');
+    effectSelect.innerHTML = optionsHTML;
+    console.log('populateItemEffectDropdown: options rendered', effectSelect.options.length);
     
     // Restore selection if still valid
     if (currentValue) {
         effectSelect.value = currentValue;
+        console.log('populateItemEffectDropdown: restored value', effectSelect.value);
     }
 }
 
