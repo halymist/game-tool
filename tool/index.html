@@ -899,136 +899,78 @@
                     <h2 id="itemEditorTitle">Create New Item</h2>
                     
                     <form id="itemForm">
-                        <!-- Basic Info Section -->
-                        <div class="form-section">
-                            <div class="form-section-title">Basic Information</div>
-                            <div class="item-basic-info">
-                                <div>
-                                    <label for="itemName">Item Name</label>
-                                    <input type="text" id="itemName" placeholder="Enter item name" required>
-                                </div>
-                                <div>
-                                    <label for="itemType">Type</label>
-                                    <select id="itemType" required>
-                                        <option value="">Select Type</option>
-                                        <option value="head">Head</option>
-                                        <option value="chest">Chest</option>
-                                        <option value="hands">Hands</option>
-                                        <option value="feet">Feet</option>
-                                        <option value="belt">Belt</option>
-                                        <option value="legs">Legs</option>
-                                        <option value="back">Back</option>
-                                        <option value="amulet">Amulet</option>
-                                        <option value="weapon">Weapon</option>
-                                        <option value="hammer">Hammer</option>
-                                        <option value="gem">Gem</option>
-                                        <option value="scroll">Scroll</option>
-                                        <option value="potion">Potion</option>
-                                        <option value="ration">Ration</option>
-                                        <option value="elixir">Elixir</option>
-                                        <option value="ingredient">Ingredient</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="itemSilver">Silver Cost</label>
-                                    <input type="number" id="itemSilver" value="10" min="0">
-                                </div>
-                                <input type="hidden" id="itemId">
-                                <input type="hidden" id="itemAssetID" value="1">
-                            </div>
-                        </div>
+                        <input type="hidden" id="itemId">
+                        <input type="hidden" id="itemAssetID" value="1">
 
-                        <!-- Icon Section -->
-                        <div class="form-section">
-                            <div class="form-section-title">Icon</div>
-                            <div class="item-icon-section">
-                                <div class="item-icon-preview" id="itemIconUploadArea">
-                                    <img id="itemIconPreview" src="" alt="No icon selected">
-                                    <span id="itemIconPlaceholder">Click to upload or drag & drop</span>
+                        <div class="item-unified-form">
+                            <!-- Icon + Basic Info -->
+                            <div class="item-header">
+                                <div class="item-icon-column">
+                                    <div class="item-icon-box" id="itemIconUploadArea">
+                                        <img id="itemIconPreview" src="" alt="">
+                                        <span id="itemIconPlaceholder">Click to select icon</span>
+                                    </div>
+                                    <input type="file" id="itemIconFile" accept="image/*" style="display: none;">
+                                    <input type="hidden" id="itemAssetID" value="1">
+                                    <button type="button" id="itemAssetGalleryBtn" style="display:none;"></button>
+                                    <button type="button" id="itemUploadNewBtn" class="item-upload-btn">📤 Upload</button>
                                 </div>
-                                <input type="file" id="itemIconFile" accept="image/*" style="display: none;">
-                                <div class="item-icon-info">
-                                    <span id="itemAssetIDDisplay">Asset ID: None</span>
-                                    <div class="item-icon-buttons">
-                                        <button type="button" id="itemAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
-                                        <button type="button" id="itemUploadNewBtn" class="btn-upload-new">📤 Upload New</button>
+                                <div class="item-info">
+                                    <div class="item-row">
+                                        <div class="item-field item-field-grow"><label>Name</label><input type="text" id="itemName" placeholder="Item name" required></div>
+                                        <div class="item-field item-field-small"><label>Silver</label><input type="number" id="itemSilver" value="10" min="0" max="9999"></div>
+                                        <div class="item-field item-field-small"><label>Type</label>
+                                            <select id="itemType" required>
+                                                <option value="">Select</option>
+                                                <option value="head">Head</option>
+                                                <option value="chest">Chest</option>
+                                                <option value="hands">Hands</option>
+                                                <option value="feet">Feet</option>
+                                                <option value="belt">Belt</option>
+                                                <option value="legs">Legs</option>
+                                                <option value="back">Back</option>
+                                                <option value="amulet">Amulet</option>
+                                                <option value="weapon">Weapon</option>
+                                                <option value="hammer">Hammer</option>
+                                                <option value="gem">Gem</option>
+                                                <option value="scroll">Scroll</option>
+                                                <option value="potion">Potion</option>
+                                                <option value="ration">Ration</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="item-row">
+                                        <div class="item-field item-field-full"><label>Description</label><textarea id="itemNotes" rows="3" placeholder="Short description..."></textarea></div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Stats Section with Socket -->
-                        <div class="form-section">
-                            <div class="form-section-title">Stats & Socket</div>
-                            <div class="item-stats-grid">
-                                <div class="stat-input-group">
-                                    <label for="itemStrength">Strength</label>
-                                    <input type="number" id="itemStrength" min="0" placeholder="0">
+                            <!-- Stats -->
+                            <div class="item-stats-section">
+                                <div class="item-stats-grid">
+                                    <div class="stat-row"><label>Strength</label><input type="number" id="itemStrength" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row"><label>Stamina</label><input type="number" id="itemStamina" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row"><label>Agility</label><input type="number" id="itemAgility" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row"><label>Luck</label><input type="number" id="itemLuck" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row"><label>Armor</label><input type="number" id="itemArmor" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row socket-row"><label>Socket</label><input type="checkbox" id="itemSocket"></div>
                                 </div>
-                                <div class="stat-input-group">
-                                    <label for="itemStamina">Stamina</label>
-                                    <input type="number" id="itemStamina" min="0" placeholder="0">
+                                <div id="weaponStatsSection" class="weapon-stats-grid">
+                                    <div class="stat-row"><label>Min Damage</label><input type="number" id="itemMinDamage" min="0" max="999" placeholder="0"></div>
+                                    <div class="stat-row"><label>Max Damage</label><input type="number" id="itemMaxDamage" min="0" max="999" placeholder="0"></div>
                                 </div>
-                                <div class="stat-input-group">
-                                    <label for="itemAgility">Agility</label>
-                                    <input type="number" id="itemAgility" min="0" placeholder="0">
-                                </div>
-                                <div class="stat-input-group">
-                                    <label for="itemLuck">Luck</label>
-                                    <input type="number" id="itemLuck" min="0" placeholder="0">
-                                </div>
-                                <div class="stat-input-group">
-                                    <label for="itemArmor">Armor</label>
-                                    <input type="number" id="itemArmor" min="0" placeholder="0">
-                                </div>
-                                <div class="socket-checkbox-group">
-                                    <input type="checkbox" id="itemSocket">
-                                    <label for="itemSocket">Has Socket</label>
+                            </div>
+
+                            <!-- Effect -->
+                            <div class="item-effect-section">
+                                <div class="item-row">
+                                    <div class="item-field item-field-grow"><label>Effect</label><select id="itemEffect"><option value="">-- None --</option></select></div>
+                                    <div class="item-field item-field-small"><label>Factor</label><input type="number" id="itemEffectFactor" placeholder="0" max="999"></div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Weapon Stats Section (conditional) -->
-                        <div id="weaponStatsSection" class="form-section">
-                            <div class="form-section-title">Weapon Stats</div>
-                            <div class="weapon-stats-grid">
-                                <div class="stat-input-group">
-                                    <label for="itemMinDamage">Min Damage</label>
-                                    <input type="number" id="itemMinDamage" min="0" placeholder="0">
-                                </div>
-                                <div class="stat-input-group">
-                                    <label for="itemMaxDamage">Max Damage</label>
-                                    <input type="number" id="itemMaxDamage" min="0" placeholder="0">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Effect Section -->
-                        <div class="form-section">
-                            <div class="form-section-title">Effect</div>
-                            <div class="effect-row">
-                                <div>
-                                    <label for="itemEffect">Effect</label>
-                                    <select id="itemEffect">
-                                        <option value="">-- No Effect --</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="itemEffectFactor">Factor</label>
-                                    <input type="number" id="itemEffectFactor" placeholder="0">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Notes Section -->
-                        <div class="form-section">
-                            <div class="form-section-title">Notes</div>
-                            <div class="item-notes-section">
-                                <textarea id="itemNotes" placeholder="Enter notes about this item..."></textarea>
-                            </div>
-                        </div>
-
-                        <!-- Form Buttons -->
+                        <!-- Buttons -->
                         <div class="item-form-buttons">
                             <button type="button" id="itemCancelBtn" class="btn-cancel-item">Cancel</button>
                             <button type="submit" class="btn-save-item">Save Item</button>

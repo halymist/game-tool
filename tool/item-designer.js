@@ -39,7 +39,19 @@ function initItemDesigner() {
     // Set up event listeners
     setupEventListeners();
     
+    // Subscribe to global data changes
+    setupItemDataSubscriptions();
+    
     console.log('✅ Item Designer initialized');
+}
+
+function setupItemDataSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') return;
+    
+    subscribeToGlobalData('effects', () => {
+        console.log('Effects updated, repopulating dropdown');
+        populateEffectDropdown();
+    });
 }
 
 function setupEventListeners() {
@@ -118,11 +130,11 @@ function setupEventListeners() {
         });
     }
     
-    // Click on icon preview area to upload
+    // Click on icon preview area to open asset gallery
     const iconUploadArea = document.getElementById('itemIconUploadArea');
     if (iconUploadArea) {
         iconUploadArea.addEventListener('click', () => {
-            document.getElementById('itemIconFile').click();
+            toggleItemAssetGallery();
         });
         
         // Drag and drop support
@@ -625,7 +637,14 @@ function populateEffectDropdown() {
     const effectSelect = document.getElementById('itemEffect');
     if (!effectSelect) return;
     
-    const effects = getEffects();
+    // Get effects from global data - try getEffects function first, then GlobalData directly
+    let effects = [];
+    if (typeof getEffects === 'function') {
+        effects = getEffects() || [];
+    } else if (typeof GlobalData !== 'undefined' && GlobalData.effects) {
+        effects = GlobalData.effects;
+    }
+    
     const selectedType = document.getElementById('itemType')?.value || '';
     
     // Save current selection

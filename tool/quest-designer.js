@@ -1345,7 +1345,22 @@ function populateQuestSettlementSelect() {
         ? getSettlements()
         : (GlobalData?.settlements || []);
 
-    select.innerHTML = '<option value="">-- Select Settlement --</option>';
+    select.innerHTML = '';
+
+    if (settlements.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '-- No Settlements --';
+        select.appendChild(opt);
+        select.value = '';
+        if (questState.selectedSettlementId !== null) {
+            questState.selectedSettlementId = null;
+            clearQuestCanvas();
+            loadQuestChains();
+        }
+        return;
+    }
+
     settlements.forEach((settlement) => {
         const opt = document.createElement('option');
         opt.value = settlement.settlement_id;
@@ -1353,13 +1368,23 @@ function populateQuestSettlementSelect() {
         select.appendChild(opt);
     });
 
-    const targetValue = previousValue || (questState.selectedSettlementId ? String(questState.selectedSettlementId) : '');
-    if (targetValue && select.querySelector(`option[value="${targetValue}"]`)) {
-        select.value = targetValue;
-    } else {
-        select.value = '';
-        if (targetValue) {
-            questState.selectedSettlementId = null;
+    const requestedValue = previousValue || (questState.selectedSettlementId ? String(questState.selectedSettlementId) : '');
+    const hasRequestedValue = requestedValue && select.querySelector(`option[value="${requestedValue}"]`);
+    const fallbackValue = select.options[0]?.value || '';
+    const nextValue = hasRequestedValue ? requestedValue : fallbackValue;
+    select.value = nextValue;
+
+    const numericValue = nextValue ? parseInt(nextValue, 10) : null;
+    const sanitizedValue = Number.isNaN(numericValue) ? null : numericValue;
+    const selectionChanged = questState.selectedSettlementId !== sanitizedValue;
+    questState.selectedSettlementId = sanitizedValue;
+
+    if (selectionChanged) {
+        if (sanitizedValue && typeof onQuestSettlementChange === 'function') {
+            onQuestSettlementChange();
+        } else {
+            clearQuestCanvas();
+            loadQuestChains();
         }
     }
 }
