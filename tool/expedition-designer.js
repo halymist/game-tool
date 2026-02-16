@@ -35,6 +35,13 @@ const expeditionGenerateState = {
     lastRequest: null
 };
 
+const expeditionPreviewState = {
+    isOpen: false,
+    currentSlideId: null,
+    history: [],
+    settlementId: null
+};
+
 // ==================== INITIALIZATION ====================
 function initExpeditionDesigner() {
     console.log('🗺️ initExpeditionDesigner called');
@@ -203,6 +210,381 @@ function initExpeditionDesigner() {
     loadExpeditionSettlements();
 
     setupExpeditionGeneratePanel();
+    setupExpeditionPreviewOverlay();
+}
+
+// ==================== EXPEDITION PREVIEW ====================
+function setupExpeditionPreviewOverlay() {
+    const toggleBtn = document.getElementById('expeditionPreviewToggle');
+    const resetBtn = document.getElementById('expeditionPreviewReset');
+    const closeBtn = document.getElementById('expeditionPreviewClose');
+    const backBtn = document.getElementById('expeditionPreviewBack');
+    const overlay = document.getElementById('expeditionPreviewOverlay');
+
+    toggleBtn?.addEventListener('click', () => openExpeditionPreviewOverlay());
+    resetBtn?.addEventListener('click', () => resetExpeditionPreview());
+    closeBtn?.addEventListener('click', closeExpeditionPreviewOverlay);
+    backBtn?.addEventListener('click', expeditionPreviewGoBack);
+
+    overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeExpeditionPreviewOverlay();
+        }
+    });
+
+    document.addEventListener('keydown', expeditionPreviewHandleKeydown);
+}
+
+function expeditionPreviewHandleKeydown(e) {
+    if (e.key === 'Escape' && expeditionPreviewState.isOpen) {
+        closeExpeditionPreviewOverlay();
+    }
+}
+
+function openExpeditionPreviewOverlay(preferredSlideId = null) {
+    const overlay = document.getElementById('expeditionPreviewOverlay');
+    if (!overlay) return;
+    expeditionPreviewState.isOpen = true;
+    overlay.classList.add('active');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('quest-preview-open');
+    startExpeditionPreview(preferredSlideId);
+}
+
+function closeExpeditionPreviewOverlay() {
+    const overlay = document.getElementById('expeditionPreviewOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+    const questOverlay = document.getElementById('questPreviewOverlay');
+    const questOpen = questOverlay?.classList.contains('active');
+    if (!questOpen) {
+        document.body.classList.remove('quest-preview-open');
+    }
+    expeditionPreviewState.isOpen = false;
+    expeditionPreviewState.currentSlideId = null;
+    expeditionPreviewState.history = [];
+}
+
+function resetExpeditionPreview(preferredSlideId = null) {
+    if (!expeditionPreviewState.isOpen) return;
+    startExpeditionPreview(preferredSlideId);
+}
+
+function startExpeditionPreview(preferredSlideId = null) {
+    if (!expeditionPreviewState.isOpen) return;
+    expeditionPreviewState.settlementId = expeditionState.selectedSettlementId || null;
+    const slides = getExpeditionPreviewSlides(expeditionPreviewState.settlementId);
+    if (!slides.length) {
+        expeditionPreviewState.currentSlideId = null;
+        expeditionPreviewState.history = [];
+        renderExpeditionPreviewEmpty('No slides match the current settlement filter.');
+        return;
+    }
+
+    const startSlide = findExpeditionPreviewStartSlide(slides, preferredSlideId);
+    if (!startSlide) {
+        expeditionPreviewState.currentSlideId = null;
+        expeditionPreviewState.history = [];
+        renderExpeditionPreviewEmpty('No slides match the current settlement filter.');
+        return;
+    }
+
+    expeditionPreviewState.currentSlideId = startSlide.id;
+    expeditionPreviewState.history = [];
+    renderExpeditionPreview();
+}
+
+function getExpeditionPreviewSlides(settlementId) {
+    const slides = [];
+    expeditionState.slides.forEach(slide => {
+        if (!settlementId || slide.settlementId === settlementId) {
+            slides.push(slide);
+        }
+    });
+    return slides;
+}
+
+function findExpeditionPreviewStartSlide(slides, preferredSlideId = null) {
+    const settlementId = expeditionState.selectedSettlementId || null;
+    if (preferredSlideId) {
+        const preferred = expeditionState.slides.get(preferredSlideId);
+        if (preferred && (!settlementId || preferred.settlementId === settlementId)) {
+            return preferred;
+        }
+    }
+
+    const selectedId = expeditionState.selectedSlide;
+    if (selectedId) {
+        const selected = expeditionState.slides.get(selectedId);
+        if (selected && (!settlementId || selected.settlementId === settlementId)) {
+            return selected;
+        }
+    }
+
+    const startSlides = slides.filter(slide => slide.isStart);
+    if (startSlides.length) {
+        return startSlides[Math.floor(Math.random() * startSlides.length)];
+    }
+
+    return slides[Math.floor(Math.random() * slides.length)] || null;
+}
+
+function renderExpeditionPreview() {
+    if (!expeditionPreviewState.isOpen) return;
+    const slide = expeditionState.slides.get(expeditionPreviewState.currentSlideId);
+    if (!slide) {
+        renderExpeditionPreviewEmpty('Select a slide to start previewing the expedition.');
+        return;
+    }
+
+    const titleEl = document.getElementById('expeditionPreviewTitle');
+    if (titleEl) {
+        titleEl.textContent = slide.isStart ? `Start Slide #${slide.id}` : `Slide #${slide.id}`;
+    }
+
+    const sceneEl = document.getElementById('expeditionPreviewScene');
+    if (sceneEl) {
+        if (slide.assetUrl) {
+            sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(5,10,25,0.1) 5%, rgba(5,10,25,0.85) 95%), url(${slide.assetUrl})`;
+            sceneEl.style.backgroundSize = 'cover';
+            sceneEl.style.backgroundPosition = 'center';
+        } else {
+            sceneEl.style.backgroundImage = 'linear-gradient(180deg, #1b2350, #0f142d)';
+        }
+    }
+
+    const textEl = document.getElementById('expeditionPreviewText');
+    if (textEl) {
+        textEl.innerHTML = formatExpeditionPreviewText(slide.text);
+    }
+
+    const rewardEl = document.getElementById('expeditionPreviewReward');
+    if (rewardEl) {
+        const rewardText = getExpeditionPreviewRewardText(slide.reward);
+        if (rewardText) {
+            rewardEl.style.display = 'block';
+            rewardEl.textContent = rewardText;
+        } else {
+            rewardEl.style.display = 'none';
+            rewardEl.textContent = '';
+        }
+    }
+
+    renderExpeditionPreviewOptions(slide);
+
+    const statusEl = document.getElementById('expeditionPreviewStatus');
+    if (statusEl) {
+        const settlementLabel = getExpeditionPreviewSettlementLabel(expeditionPreviewState.settlementId);
+        const optionCount = slide.options.length;
+        const optionLabel = optionCount === 1 ? '1 option' : `${optionCount} options`;
+        statusEl.textContent = `${settlementLabel} • ${optionLabel}`;
+    }
+
+    const backBtn = document.getElementById('expeditionPreviewBack');
+    if (backBtn) {
+        backBtn.disabled = expeditionPreviewState.history.length === 0;
+    }
+}
+
+function renderExpeditionPreviewEmpty(message) {
+    const titleEl = document.getElementById('expeditionPreviewTitle');
+    if (titleEl) titleEl.textContent = 'Expedition Preview';
+
+    const sceneEl = document.getElementById('expeditionPreviewScene');
+    if (sceneEl) {
+        sceneEl.style.backgroundImage = 'linear-gradient(180deg, #1b2350, #0f142d)';
+    }
+
+    const textEl = document.getElementById('expeditionPreviewText');
+    if (textEl) {
+        textEl.innerHTML = `<span class="quest-preview-empty">${escapeHtml(message)}</span>`;
+    }
+
+    const rewardEl = document.getElementById('expeditionPreviewReward');
+    if (rewardEl) {
+        rewardEl.style.display = 'none';
+        rewardEl.textContent = '';
+    }
+
+    const optionsEl = document.getElementById('expeditionPreviewOptions');
+    if (optionsEl) {
+        optionsEl.innerHTML = '';
+        const empty = document.createElement('p');
+        empty.className = 'quest-preview-empty';
+        empty.textContent = message;
+        optionsEl.appendChild(empty);
+    }
+
+    const statusEl = document.getElementById('expeditionPreviewStatus');
+    if (statusEl) statusEl.textContent = '';
+
+    const backBtn = document.getElementById('expeditionPreviewBack');
+    if (backBtn) backBtn.disabled = true;
+}
+
+function renderExpeditionPreviewOptions(slide) {
+    const container = document.getElementById('expeditionPreviewOptions');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!slide.options.length) {
+        const empty = document.createElement('p');
+        empty.className = 'quest-preview-empty';
+        empty.textContent = 'No options configured yet.';
+        container.appendChild(empty);
+        return;
+    }
+
+    slide.options.forEach((option, idx) => {
+        const connections = getExpeditionPreviewConnections(slide.id, idx);
+        const typeBadge = getExpeditionOptionTypeBadge(option.type || 'dialogue');
+        const requirement = getExpeditionOptionRequirement(option);
+        const summaryParts = [typeBadge];
+        if (requirement) summaryParts.push(requirement);
+        summaryParts.push(formatExpeditionConnectionSummary(connections));
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quest-preview-option';
+        btn.innerHTML = `
+            <span class="option-label">${escapeHtml(option.text || `Option ${idx + 1}`)}</span>
+            <span class="option-meta">${summaryParts.filter(Boolean).join(' • ')}</span>
+        `;
+
+        if (connections.length) {
+            btn.addEventListener('click', () => advanceExpeditionPreview(slide.id, idx));
+        } else {
+            btn.disabled = true;
+        }
+
+        container.appendChild(btn);
+    });
+}
+
+function getExpeditionOptionRequirement(option) {
+    switch (option.type) {
+        case 'skill':
+            if (option.statType && option.statRequired) {
+                return `Requires ${option.statRequired}+ ${option.statType}`;
+            }
+            return 'Skill check';
+        case 'effect':
+            if (option.effectId) {
+                return `Needs effect #${option.effectId}${option.effectAmount ? ` (${option.effectAmount})` : ''}`;
+            }
+            return 'Effect gate';
+        case 'combat':
+            if (option.enemyId) {
+                return `Enemy #${option.enemyId}`;
+            }
+            return 'Combat encounter';
+        case 'faction':
+            if (option.factionRequired) {
+                const label = option.factionRequired.charAt(0).toUpperCase() + option.factionRequired.slice(1);
+                return `${label} members`;
+            }
+            return 'Faction gate';
+        default:
+            return '';
+    }
+}
+
+function getExpeditionOptionTypeBadge(type) {
+    const labels = {
+        dialogue: 'Dialogue',
+        skill: 'Skill Check',
+        effect: 'Effect Check',
+        combat: 'Combat',
+        faction: 'Faction Gate'
+    };
+    const safeType = type || 'dialogue';
+    return `${getTypeIcon(safeType)} ${labels[safeType] || 'Choice'}`;
+}
+
+function getExpeditionPreviewConnections(slideId, optionIndex) {
+    const settlementId = expeditionPreviewState.settlementId ?? expeditionState.selectedSettlementId ?? null;
+    return expeditionState.connections
+        .filter(conn => conn.from === slideId && conn.option === optionIndex)
+        .map(conn => ({ ...conn, target: expeditionState.slides.get(conn.to) }))
+        .filter(conn => conn.target && (!settlementId || conn.target.settlementId === settlementId));
+}
+
+function pickWeightedConnection(connections) {
+    if (!connections.length) return null;
+    const total = connections.reduce((sum, conn) => sum + (conn.weight || 1), 0);
+    let roll = Math.random() * total;
+    for (const conn of connections) {
+        roll -= conn.weight || 1;
+        if (roll <= 0) return conn;
+    }
+    return connections[connections.length - 1];
+}
+
+function advanceExpeditionPreview(slideId, optionIndex) {
+    const connections = getExpeditionPreviewConnections(slideId, optionIndex);
+    if (!connections.length) return;
+
+    if (expeditionPreviewState.currentSlideId != null) {
+        expeditionPreviewState.history.push(expeditionPreviewState.currentSlideId);
+    }
+
+    const target = pickWeightedConnection(connections);
+    if (!target || !target.target) return;
+
+    expeditionPreviewState.currentSlideId = target.target.id;
+    renderExpeditionPreview();
+}
+
+function expeditionPreviewGoBack() {
+    if (!expeditionPreviewState.history.length) return;
+    expeditionPreviewState.currentSlideId = expeditionPreviewState.history.pop();
+    renderExpeditionPreview();
+}
+
+function formatExpeditionPreviewText(text) {
+    if (!text || !text.trim()) {
+        return '<span class="quest-preview-empty">No text yet.</span>';
+    }
+    return escapeHtml(text).replace(/\r?\n/g, '<br>');
+}
+
+function getExpeditionPreviewRewardText(reward) {
+    if (!reward || !reward.type) return '';
+    const label = getRewardLabel(reward);
+    return label ? `You receive ${label}` : '';
+}
+
+function getExpeditionPreviewSettlementLabel(settlementId) {
+    if (!settlementId) return 'All settlements';
+    const match = (expeditionState.settlements || []).find(settlement => String(settlement.settlement_id) === String(settlementId));
+    return match?.settlement_name || `Settlement #${settlementId}`;
+}
+
+function formatExpeditionConnectionSummary(connections) {
+    if (!connections.length) return 'No linked slides';
+    if (connections.length === 1) {
+        return `Leads to Slide #${connections[0].target.id}`;
+    }
+    return `Random outcome (${connections.length})`;
+}
+
+function syncExpeditionPreviewWithFilter() {
+    if (!expeditionPreviewState.isOpen) return;
+    const currentSettlement = expeditionState.selectedSettlementId || null;
+    const slide = expeditionState.slides.get(expeditionPreviewState.currentSlideId);
+
+    if (currentSettlement !== expeditionPreviewState.settlementId) {
+        resetExpeditionPreview();
+        return;
+    }
+
+    if (!slide || (currentSettlement && slide.settlementId !== currentSettlement)) {
+        resetExpeditionPreview();
+        return;
+    }
+
+    renderExpeditionPreview();
 }
 
 // ==================== ADD SLIDE ====================
@@ -3490,6 +3872,7 @@ function filterAndRenderSlides() {
     // Re-render connections (only for visible slides)
     renderConnections();
     updateCounter();
+    syncExpeditionPreviewWithFilter();
 }
 
 async function loadExpeditionForSettlement(settlementId) {

@@ -1216,8 +1216,35 @@
                     <div class="toolbar-right">
                         <button id="addSlideBtn" class="btn-primary">+ Add Slide</button>
                         <button id="expeditionGenerateBtn" class="btn-secondary">🧠 Generate Cluster</button>
+                        <button id="expeditionPreviewToggle" class="btn-secondary" type="button">▶ Preview</button>
                         <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">💾 Save</button>
                         <button id="mergeExpeditionBtn" class="btn-publish" onclick="window.mergeExpedition()">🚀 Publish to Game</button>
+                    </div>
+                </div>
+                <div id="expeditionPreviewOverlay" class="quest-preview-overlay" aria-hidden="true">
+                    <div class="quest-preview-card">
+                        <div class="quest-preview-header">
+                            <div class="quest-preview-heading">
+                                <p class="quest-preview-label">Expedition Preview</p>
+                                <h3 id="expeditionPreviewTitle">Slide</h3>
+                            </div>
+                            <div class="quest-preview-header-actions">
+                                <button id="expeditionPreviewReset" class="btn-secondary" type="button">Reset</button>
+                                <button id="expeditionPreviewClose" class="quest-preview-close" type="button">✕</button>
+                            </div>
+                        </div>
+                        <div class="quest-preview-scene" id="expeditionPreviewScene">
+                            <div class="quest-preview-scene-mask"></div>
+                            <div class="quest-preview-scene-content">
+                                <div id="expeditionPreviewText" class="quest-preview-text"></div>
+                                <div id="expeditionPreviewReward" class="quest-preview-reward" style="display:none;"></div>
+                                <div id="expeditionPreviewOptions" class="quest-preview-options"></div>
+                            </div>
+                        </div>
+                        <div class="quest-preview-footer">
+                            <button id="expeditionPreviewBack" class="btn-secondary" type="button">← Back</button>
+                            <p id="expeditionPreviewStatus" class="quest-preview-status"></p>
+                        </div>
                     </div>
                 </div>
                 
