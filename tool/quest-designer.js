@@ -48,6 +48,12 @@ const questState = {
     deletedOptionIds: [],
 };
 
+const questPreviewState = {
+    questId: null,
+    currentNode: null,
+    history: [],
+};
+
 // ==================== INITIALIZATION ====================
 function initQuestDesigner() {
     console.log('🗡️ initQuestDesigner called');
@@ -156,6 +162,7 @@ function initQuestDesigner() {
 
     // Quest generator panel
     setupQuestGeneratePanel();
+    setupQuestPreviewOverlay();
     
     // Populate dropdowns from GlobalData or enemy-designer data - retry if not loaded yet
     let dropdownRetryCount = 0;
@@ -409,6 +416,17 @@ function getOptionTypeBadge(type) {
         case 'faction': return '🏰';
         case 'end': return '🏁';
         default: return '💬';
+    }
+}
+
+function getOptionTypeLabel(type) {
+    switch (type) {
+        case 'stat_check': return 'Stat Check';
+        case 'effect_check': return 'Effect Check';
+        case 'combat': return 'Combat';
+        case 'faction': return 'Faction';
+        case 'end': return 'Quest End';
+        default: return 'Dialogue';
     }
 }
 
@@ -2136,6 +2154,17 @@ function setupSidebarEventListeners() {
             if (quest) quest.failureText = e.target.value;
         });
     }
+
+    const questPreviewBtn = document.getElementById('sidebarQuestPreviewBtn');
+    if (questPreviewBtn) {
+        questPreviewBtn.addEventListener('click', () => {
+            if (!questState.selectedQuest) {
+                alert('Select a quest slide to preview.');
+                return;
+            }
+            openQuestPreview(questState.selectedQuest);
+        });
+    }
 }
 
 // Delete selected option from sidebar
@@ -2405,6 +2434,252 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// ==================== QUEST PREVIEW ====================
+function setupQuestPreviewOverlay() {
+    const overlay = document.getElementById('questPreviewOverlay');
+    if (!overlay) return;
+
+    document.getElementById('questPreviewClose')?.addEventListener('click', closeQuestPreview);
+    document.getElementById('questPreviewReset')?.addEventListener('click', resetQuestPreview);
+    document.getElementById('questPreviewBack')?.addEventListener('click', questPreviewGoBack);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            closeQuestPreview();
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && overlay.classList.contains('active')) {
+            closeQuestPreview();
+        }
+    });
+}
+
+function openQuestPreview(questId = questState.selectedQuest) {
+    const overlay = document.getElementById('questPreviewOverlay');
+    if (!overlay) return;
+    if (!questId) {
+        alert('Select a quest slide to preview.');
+        return;
+    }
+
+    const quest = questState.quests.get(questId);
+    if (!quest) {
+        alert('Quest not found.');
+        return;
+    }
+
+    questPreviewState.questId = questId;
+    questPreviewState.currentNode = { type: 'quest', id: questId };
+    questPreviewState.history = [];
+
+    overlay.classList.add('active');
+    document.body.classList.add('quest-preview-open');
+    renderQuestPreviewScene();
+}
+
+function closeQuestPreview() {
+    const overlay = document.getElementById('questPreviewOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('active');
+    document.body.classList.remove('quest-preview-open');
+    questPreviewState.questId = null;
+    questPreviewState.currentNode = null;
+    questPreviewState.history = [];
+}
+
+function resetQuestPreview() {
+    if (!questPreviewState.questId) return;
+    questPreviewState.currentNode = { type: 'quest', id: questPreviewState.questId };
+    questPreviewState.history = [];
+    renderQuestPreviewScene();
+}
+
+function questPreviewGoBack() {
+    if (!questPreviewState.history.length) return;
+    questPreviewState.currentNode = questPreviewState.history.pop();
+    renderQuestPreviewScene();
+}
+
+function questPreviewAdvanceToOption(optionId) {
+    const option = questState.options.get(optionId);
+    if (!option) return;
+    if (questPreviewState.currentNode) {
+        questPreviewState.history.push({ ...questPreviewState.currentNode });
+    }
+    questPreviewState.currentNode = { type: 'option', id: optionId };
+    renderQuestPreviewScene();
+}
+
+function renderQuestPreviewScene() {
+    if (!questPreviewState.questId) return;
+    const quest = questState.quests.get(questPreviewState.questId);
+    if (!quest) return;
+
+    const sceneEl = document.getElementById('questPreviewScene');
+    if (sceneEl) {
+        if (quest.assetUrl) {
+            sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(3,7,18,0.08) 10%, rgba(3,7,18,0.85) 95%), url(${quest.assetUrl})`;
+            sceneEl.style.backgroundSize = 'cover';
+            sceneEl.style.backgroundPosition = 'center';
+        } else {
+            sceneEl.style.backgroundImage = 'linear-gradient(180deg, #1f2a44, #0f1628)';
+        }
+    }
+
+    const node = questPreviewState.currentNode || { type: 'quest', id: quest.questId };
+    let options = [];
+    let badgeText = 'Quest Start';
+    let titleText = quest.name || 'Quest';
+    let bodyText = quest.text || '';
+    const statusParts = [];
+
+    if (node.type === 'quest') {
+        options = getQuestPreviewStartOptions(quest.questId);
+        statusParts.push(options.length ? `${options.length} starting choice${options.length === 1 ? '' : 's'}` : 'No starting options');
+    } else if (node.type === 'option') {
+        const option = questState.options.get(node.id);
+        if (option) {
+            titleText = option.optionText?.trim() ? option.optionText : `Option ${option.optionId}`;
+            bodyText = option.nodeText || option.optionText || '';
+            badgeText = `${getOptionTypeBadge(option.type)} ${getOptionTypeLabel(option.type)}`;
+            options = getQuestPreviewChildren(option.optionId);
+            const rewardLabel = getQuestPreviewRewardLabel(option.reward);
+            if (rewardLabel) statusParts.push(rewardLabel);
+            if (options.length) {
+                statusParts.push(`${options.length} follow-up ${options.length === 1 ? 'option' : 'options'}`);
+            } else if (option.type === 'end') {
+                statusParts.push('Quest End');
+            } else {
+                statusParts.push('No follow-up options');
+            }
+        }
+    }
+
+    const titleEl = document.getElementById('questPreviewTitle');
+    if (titleEl) titleEl.textContent = titleText;
+
+    const badgeEl = document.getElementById('questPreviewBadge');
+    if (badgeEl) badgeEl.textContent = badgeText;
+
+    const textEl = document.getElementById('questPreviewText');
+    if (textEl) textEl.innerHTML = formatQuestPreviewText(bodyText);
+
+    const optionsEl = document.getElementById('questPreviewOptions');
+    if (optionsEl) renderQuestPreviewOptions(options, optionsEl);
+
+    const statusEl = document.getElementById('questPreviewStatus');
+    if (statusEl) statusEl.textContent = statusParts.join(' • ');
+
+    const backBtn = document.getElementById('questPreviewBack');
+    if (backBtn) backBtn.disabled = questPreviewState.history.length === 0;
+}
+
+function renderQuestPreviewOptions(options, container) {
+    container.innerHTML = '';
+    const unique = uniquePreviewOptions(options || []);
+    if (!unique.length) {
+        const empty = document.createElement('p');
+        empty.className = 'quest-preview-empty';
+        empty.textContent = 'No options available yet.';
+        container.appendChild(empty);
+        return;
+    }
+    unique.forEach(option => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'quest-preview-option';
+        if (option.type === 'end') {
+            btn.classList.add('option-end');
+        }
+        const label = option.optionText?.trim() ? option.optionText : `Option ${option.optionId}`;
+        btn.innerHTML = `
+            <span class="option-label">${escapeHtml(label)}</span>
+            <span class="option-meta">${getOptionTypeBadge(option.type)} ${getOptionTypeLabel(option.type)}</span>
+        `;
+        btn.addEventListener('click', () => questPreviewAdvanceToOption(option.optionId));
+        container.appendChild(btn);
+    });
+}
+
+function getQuestPreviewStartOptions(questId) {
+    const questOptions = Array.from(questState.options.values()).filter(opt => opt.questId === questId);
+    if (!questOptions.length) return [];
+
+    const marked = questOptions.filter(opt => opt.isStart);
+    if (marked.length) return marked;
+
+    const linked = questState.connections
+        .filter(conn => conn.fromType === 'quest' && conn.toType === 'option' && conn.fromId === questId)
+        .map(conn => questState.options.get(conn.toId))
+        .filter(opt => opt && opt.questId === questId);
+
+    if (linked.length) return uniquePreviewOptions(linked);
+
+    const targets = new Set(
+        questState.connections
+            .filter(conn => conn.fromType === 'option' && conn.toType === 'option')
+            .map(conn => conn.toId)
+    );
+
+    const roots = questOptions.filter(opt => !targets.has(opt.optionId));
+    if (roots.length) return roots;
+
+    return questOptions;
+}
+
+function getQuestPreviewChildren(optionId) {
+    const questId = questPreviewState.questId;
+    const children = questState.connections
+        .filter(conn => conn.fromType === 'option' && conn.toType === 'option' && conn.fromId === optionId)
+        .map(conn => questState.options.get(conn.toId))
+        .filter(opt => opt && (!questId || opt.questId === questId));
+    return uniquePreviewOptions(children);
+}
+
+function uniquePreviewOptions(options = []) {
+    const seen = new Set();
+    return options.filter(opt => {
+        if (!opt) return false;
+        if (seen.has(opt.optionId)) return false;
+        seen.add(opt.optionId);
+        return true;
+    });
+}
+
+function formatQuestPreviewText(text) {
+    if (!text || !text.trim()) {
+        return '<span class="quest-preview-empty">No text yet.</span>';
+    }
+    return escapeHtml(text).replace(/\r?\n/g, '<br>');
+}
+
+function getQuestPreviewRewardLabel(reward) {
+    if (!reward || !reward.type) return '';
+    switch (reward.type) {
+        case 'stat':
+            if (reward.amount && reward.statType) {
+                return `Reward: +${reward.amount} ${reward.statType}`;
+            }
+            return 'Reward: Stat bonus';
+        case 'silver':
+            return reward.amount ? `Reward: ${reward.amount} silver` : 'Reward: Silver';
+        case 'talent':
+            return 'Reward: Talent point';
+        case 'item':
+            return 'Reward: Item';
+        case 'potion':
+            return 'Reward: Potion';
+        case 'perk':
+            return 'Reward: Perk';
+        case 'blessing':
+            return 'Reward: Blessing';
+        default:
+            return 'Reward available';
+    }
 }
 
 // ==================== QUEST GENERATOR ====================

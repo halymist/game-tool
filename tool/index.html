@@ -272,6 +272,9 @@
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
                                 </div>
                                 <div class="sidebar-actions">
+                                    <button id="sidebarQuestPreviewBtn" class="btn-primary" type="button">▶ Preview Quest</button>
+                                </div>
+                                <div class="sidebar-actions">
                                     <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
                                 </div>
                             </div>
@@ -597,6 +600,34 @@
                         </button>
                         <input type="file" id="questAssetFileInput" accept="image/*" style="display: none;">
                         <span id="questAssetUploadStatus" class="quest-upload-status"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quest Preview Overlay -->
+            <div id="questPreviewOverlay" class="quest-preview-overlay" aria-hidden="true">
+                <div class="quest-preview-card">
+                    <div class="quest-preview-header">
+                        <div class="quest-preview-heading">
+                            <p class="quest-preview-label">Quest Preview</p>
+                            <h3 id="questPreviewTitle">Quest</h3>
+                        </div>
+                        <div class="quest-preview-header-actions">
+                            <button id="questPreviewReset" class="btn-secondary" type="button">Reset</button>
+                            <button id="questPreviewClose" class="quest-preview-close" type="button">✕</button>
+                        </div>
+                    </div>
+                    <div class="quest-preview-scene" id="questPreviewScene">
+                        <div class="quest-preview-scene-mask"></div>
+                        <div class="quest-preview-scene-content">
+                            <span id="questPreviewBadge" class="quest-preview-badge">Quest Start</span>
+                            <div id="questPreviewText" class="quest-preview-text"></div>
+                            <div id="questPreviewOptions" class="quest-preview-options"></div>
+                        </div>
+                    </div>
+                    <div class="quest-preview-footer">
+                        <button id="questPreviewBack" class="btn-secondary" type="button">← Back</button>
+                        <p id="questPreviewStatus" class="quest-preview-status"></p>
                     </div>
                 </div>
             </div>
