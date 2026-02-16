@@ -2532,9 +2532,9 @@ function renderQuestPreviewScene() {
 
     const node = questPreviewState.currentNode || { type: 'quest', id: quest.questId };
     let options = [];
-    let badgeText = 'Quest Start';
     let titleText = quest.name || 'Quest';
     let bodyText = quest.text || '';
+    let rewardText = '';
     const statusParts = [];
 
     if (node.type === 'quest') {
@@ -2545,8 +2545,8 @@ function renderQuestPreviewScene() {
         if (option) {
             titleText = option.optionText?.trim() ? option.optionText : `Option ${option.optionId}`;
             bodyText = option.nodeText || option.optionText || '';
-            badgeText = `${getOptionTypeBadge(option.type)} ${getOptionTypeLabel(option.type)}`;
             options = getQuestPreviewChildren(option.optionId);
+            rewardText = getQuestPreviewRewardText(option.reward);
             const rewardLabel = getQuestPreviewRewardLabel(option.reward);
             if (rewardLabel) statusParts.push(rewardLabel);
             if (options.length) {
@@ -2562,11 +2562,19 @@ function renderQuestPreviewScene() {
     const titleEl = document.getElementById('questPreviewTitle');
     if (titleEl) titleEl.textContent = titleText;
 
-    const badgeEl = document.getElementById('questPreviewBadge');
-    if (badgeEl) badgeEl.textContent = badgeText;
-
     const textEl = document.getElementById('questPreviewText');
     if (textEl) textEl.innerHTML = formatQuestPreviewText(bodyText);
+
+    const rewardEl = document.getElementById('questPreviewReward');
+    if (rewardEl) {
+        if (rewardText) {
+            rewardEl.style.display = 'block';
+            rewardEl.textContent = rewardText;
+        } else {
+            rewardEl.style.display = 'none';
+            rewardEl.textContent = '';
+        }
+    }
 
     const optionsEl = document.getElementById('questPreviewOptions');
     if (optionsEl) renderQuestPreviewOptions(options, optionsEl);
@@ -2658,28 +2666,48 @@ function formatQuestPreviewText(text) {
 }
 
 function getQuestPreviewRewardLabel(reward) {
+    const rewardText = getQuestPreviewRewardText(reward);
+    return rewardText ? rewardText.replace('You receive', 'Reward') : '';
+}
+
+function getQuestPreviewRewardText(reward) {
     if (!reward || !reward.type) return '';
+    const prefix = 'You receive ';
     switch (reward.type) {
         case 'stat':
             if (reward.amount && reward.statType) {
-                return `Reward: +${reward.amount} ${reward.statType}`;
+                return `${prefix}+${reward.amount} ${reward.statType}`;
             }
-            return 'Reward: Stat bonus';
+            return `${prefix}a stat bonus`;
         case 'silver':
-            return reward.amount ? `Reward: ${reward.amount} silver` : 'Reward: Silver';
+            return `${prefix}${reward.amount ? `${reward.amount} ` : ''}silver`;
         case 'talent':
-            return 'Reward: Talent point';
+            return `${prefix}a talent point`;
         case 'item':
-            return 'Reward: Item';
+            return `${prefix}${resolveItemName(reward.itemId) || 'an item'} (item)`;
         case 'potion':
-            return 'Reward: Potion';
+            return `${prefix}${resolveItemName(reward.potionId) || 'a potion'} (potion)`;
         case 'perk':
-            return 'Reward: Perk';
+            return `${prefix}${resolvePerkName(reward.perkId) || 'a perk'} (perk)`;
         case 'blessing':
-            return 'Reward: Blessing';
+            return `${prefix}${resolvePerkName(reward.blessingId) || 'a blessing'} (blessing)`;
         default:
-            return 'Reward available';
+            return `${prefix}a reward`;
     }
+}
+
+function resolveItemName(itemId) {
+    if (!itemId) return '';
+    const items = typeof getItems === 'function' ? getItems() : (GlobalData?.items || []);
+    const item = items.find(it => String(it.item_id || it.id) === String(itemId));
+    return item?.item_name || item?.name || '';
+}
+
+function resolvePerkName(perkId) {
+    if (!perkId) return '';
+    const perks = typeof getPerks === 'function' ? getPerks() : (GlobalData?.perks || []);
+    const perk = perks.find(pk => String(pk.perk_id || pk.id) === String(perkId));
+    return perk?.perk_name || perk?.name || '';
 }
 
 // ==================== QUEST GENERATOR ====================

@@ -254,13 +254,13 @@
 
                         <!-- Quest content (hidden until quest selection) -->
                         <div id="sidebarQuestContent" class="sidebar-content" style="display: none;">
-                            <div class="sidebar-header">
-                                <h3>Quest Properties</h3>
+                            <div class="sidebar-header sidebar-quest-preview-header">
+                                <button id="sidebarQuestPreviewBtn" class="btn-primary sidebar-preview-btn" type="button">▶ Preview Quest</button>
                                 <span id="sidebarQuestId" class="sidebar-option-id">Quest ID: --</span>
                             </div>
 
                             <div class="sidebar-section">
-                                <div class="sidebar-actions">
+                                <div class="sidebar-actions quest-bg-actions">
                                     <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">🖼️ Set Background</button>
                                 </div>
                                 <div class="sidebar-field">
@@ -270,9 +270,6 @@
                                 <div class="sidebar-field">
                                     <label>Failure Text</label>
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
-                                </div>
-                                <div class="sidebar-actions">
-                                    <button id="sidebarQuestPreviewBtn" class="btn-primary" type="button">▶ Preview Quest</button>
                                 </div>
                                 <div class="sidebar-actions">
                                     <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
@@ -617,11 +614,11 @@
                             <button id="questPreviewClose" class="quest-preview-close" type="button">✕</button>
                         </div>
                     </div>
-                    <div class="quest-preview-scene" id="questPreviewScene">
+                        <div class="quest-preview-scene" id="questPreviewScene">
                         <div class="quest-preview-scene-mask"></div>
                         <div class="quest-preview-scene-content">
-                            <span id="questPreviewBadge" class="quest-preview-badge">Quest Start</span>
                             <div id="questPreviewText" class="quest-preview-text"></div>
+                            <div id="questPreviewReward" class="quest-preview-reward" style="display:none;"></div>
                             <div id="questPreviewOptions" class="quest-preview-options"></div>
                         </div>
                     </div>

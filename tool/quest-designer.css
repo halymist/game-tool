@@ -774,6 +774,23 @@
     border-bottom: 1px solid #0f3460;
 }
 
+.sidebar-quest-preview-header {
+    border-bottom: none;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-preview-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.quest-bg-actions {
+    margin-bottom: 12px;
+}
+
 .sidebar-header h3 {
     margin: 0 0 8px 0;
     color: #e94560;
@@ -1323,20 +1340,10 @@ body.quest-preview-open {
     inset: 0;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    align-items: center;
     padding: 20px;
     gap: 16px;
-}
-
-.quest-preview-badge {
-    align-self: flex-start;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: #e2e8f0;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
 }
 
 .quest-preview-text {
@@ -1347,8 +1354,21 @@ body.quest-preview-open {
     color: #f8fafc;
     font-size: 0.95rem;
     line-height: 1.6;
-    max-height: 45%;
+    max-height: 38%;
     overflow-y: auto;
+    text-align: center;
+    width: min(420px, 90%);
+}
+
+.quest-preview-reward {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #d9f99d;
+    font-size: 0.85rem;
+    text-align: center;
+    width: min(360px, 85%);
 }
 
 .quest-preview-text::-webkit-scrollbar {
@@ -1380,7 +1400,7 @@ body.quest-preview-open {
     padding: 12px 14px;
     text-align: left;
     cursor: pointer;
-    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    transition: border-color 0.15s, background 0.15s;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1388,7 +1408,6 @@ body.quest-preview-open {
 }
 
 .quest-preview-option:hover {
-    transform: translateX(4px);
     border-color: rgba(233, 69, 96, 0.6);
     background: rgba(233, 69, 96, 0.3);
 }
