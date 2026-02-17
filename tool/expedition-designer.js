@@ -17,10 +17,10 @@ const expeditionState = {
     // Settlement filter
     selectedSettlementId: null,
     settlements: [],
-    // Track which slides are from server (by their toolingId)
-    serverSlides: new Map(), // localId -> toolingId
-    serverOptions: new Map(), // "localSlideId-optionIndex" -> toolingId
-    serverOutcomes: new Set(), // Set of "optionToolingId-targetToolingId" keys
+    // Track which slides/options/outcomes already exist on the server (by slideId/optionId)
+    serverSlides: new Map(), // localId -> slideId
+    serverOptions: new Map(), // "localSlideId-optionIndex" -> optionId
+    serverOutcomes: new Set(), // Set of "optionId-targetSlideId" keys
     // Track original values for change detection
     originalSlides: new Map(), // localId -> { text, assetId, effectId, effectFactor, isStart, reward, ... }
     originalOptions: new Map() // "localSlideId-optionIndex" -> { text, type, statType, statRequired, ... }
@@ -955,10 +955,10 @@ async function deleteSlide(id) {
     if (!confirm('Delete this slide and all its connections?')) return;
     
     const isServerSlide = expeditionState.serverSlides.has(id);
-    const toolingId = isServerSlide ? expeditionState.serverSlides.get(id) : null;
+    const slideId = isServerSlide ? expeditionState.serverSlides.get(id) : null;
     
     // If it's a server slide, delete from database first
-    if (isServerSlide && toolingId) {
+    if (isServerSlide && slideId) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Not authenticated');
@@ -969,7 +969,7 @@ async function deleteSlide(id) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ toolingId })
+                body: JSON.stringify({ slideId })
             });
             
             if (!response.ok) {
@@ -977,14 +977,14 @@ async function deleteSlide(id) {
                 throw new Error(errorText);
             }
             
-            console.log(`Deleted slide tooling_id ${toolingId} from server`);
+            console.log(`Deleted slide slide_id ${slideId} from server`);
             
             // Clean up server tracking
             expeditionState.serverSlides.delete(id);
             expeditionState.originalSlides.delete(id);
             
             // Clean up server options for this slide
-            for (const [key, optToolingId] of expeditionState.serverOptions.entries()) {
+            for (const [key] of expeditionState.serverOptions.entries()) {
                 if (key.startsWith(`${id}-`)) {
                     expeditionState.serverOptions.delete(key);
                     expeditionState.originalOptions.delete(key);
@@ -1017,10 +1017,10 @@ async function deleteOption(slideId, optionIndex) {
     
     const optionKey = `${slideId}-${optionIndex}`;
     const isServerOption = expeditionState.serverOptions.has(optionKey);
-    const optionToolingId = isServerOption ? expeditionState.serverOptions.get(optionKey) : null;
+    const optionId = isServerOption ? expeditionState.serverOptions.get(optionKey) : null;
     
     // If it's a server option, delete from database first
-    if (isServerOption && optionToolingId) {
+    if (isServerOption && optionId) {
         if (!confirm('Delete this option from the server?')) return;
         
         try {
@@ -1033,7 +1033,7 @@ async function deleteOption(slideId, optionIndex) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({ toolingId: optionToolingId })
+                body: JSON.stringify({ optionId })
             });
             
             if (!response.ok) {
@@ -1041,7 +1041,7 @@ async function deleteOption(slideId, optionIndex) {
                 throw new Error(errorText);
             }
             
-            console.log(`Deleted option tooling_id ${optionToolingId} from server`);
+            console.log(`Deleted option option_id ${optionId} from server`);
             
             // Clean up server tracking - need to re-index options after this one
             expeditionState.serverOptions.delete(optionKey);
@@ -2584,7 +2584,7 @@ function getExpeditionNewSlidesTemplate() {
                         connections: [
                             {
                                 targetSlideId: 1,
-                                targetToolingId: null,
+                                targetSlideDbId: null,
                                 weight: 1
                             }
                         ]
@@ -2938,9 +2938,9 @@ function resolveGeneratedConnectionTarget(connection, generatedIdMap) {
         if (mapped) return mapped;
     }
 
-    const toolingId = connection.targetToolingId ?? connection.target_tooling_id;
-    if (toolingId !== undefined && toolingId !== null) {
-        return findLocalSlideIdByToolingId(toolingId);
+    const serverSlideId = connection.targetSlideDbId ?? connection.targetToolingId ?? connection.target_tooling_id;
+    if (serverSlideId !== undefined && serverSlideId !== null) {
+        return findLocalSlideIdByServerSlideId(serverSlideId);
     }
     return null;
 }
@@ -2950,11 +2950,11 @@ function getGeneratedSlideKey(slideData, index) {
     return rawKey !== undefined && rawKey !== null ? String(rawKey) : `generated-${index}`;
 }
 
-function findLocalSlideIdByToolingId(toolingId) {
-    if (toolingId === undefined || toolingId === null) return null;
-    const target = String(toolingId);
-    for (const [localId, serverToolingId] of expeditionState.serverSlides.entries()) {
-        if (String(serverToolingId) === target) {
+function findLocalSlideIdByServerSlideId(serverSlideId) {
+    if (serverSlideId === undefined || serverSlideId === null) return null;
+    const target = String(serverSlideId);
+    for (const [localId, storedSlideId] of expeditionState.serverSlides.entries()) {
+        if (String(storedSlideId) === target) {
             return localId;
         }
     }
@@ -3217,7 +3217,7 @@ function getModifiedSlides() {
         if (expeditionState.serverSlides.has(localId) && isSlideModified(localId)) {
             modified.push({
                 localId,
-                toolingId: expeditionState.serverSlides.get(localId),
+                slideId: expeditionState.serverSlides.get(localId),
                 slide
             });
         }
@@ -3237,7 +3237,7 @@ function getModifiedOptions() {
                 modified.push({
                     localId,
                     optIdx,
-                    optionToolingId: expeditionState.serverOptions.get(optKey),
+                    optionId: expeditionState.serverOptions.get(optKey),
                     option: opt
                 });
             }
@@ -3274,7 +3274,7 @@ async function saveExpedition() {
         
         expeditionState.slides.forEach((slide, localId) => {
             const isServerSlide = expeditionState.serverSlides.has(localId);
-            const slideToolingId = isServerSlide ? expeditionState.serverSlides.get(localId) : null;
+            const slideServerId = isServerSlide ? expeditionState.serverSlides.get(localId) : null;
             
             if (isServerSlide) {
                 // This is an existing server slide - check for new options
@@ -3290,7 +3290,7 @@ async function saveExpedition() {
                                 const targetIsServer = expeditionState.serverSlides.has(conn.to);
                                 return {
                                     targetSlideId: conn.to,
-                                    targetToolingId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
+                                    targetSlideDbId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
                                     weight: conn.weight || 1
                                 };
                             });
@@ -3298,7 +3298,7 @@ async function saveExpedition() {
                         newOptions.push({
                             slideLocalId: localId,
                             optionIndex: optIdx,
-                            slideToolingId: slideToolingId,
+                            slideId: slideServerId,
                             text: opt.text || '',
                             statType: opt.type === 'skill' ? opt.statType : null,
                             statRequired: opt.type === 'skill' ? opt.statRequired : null,
@@ -3308,30 +3308,30 @@ async function saveExpedition() {
                             factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
                             connections: connections
                         });
-                        console.log(`New option on existing slide ${localId} (tooling ${slideToolingId}):`, opt.text);
+                        console.log(`New option on existing slide ${localId} (slide_id ${slideServerId}):`, opt.text);
                     } else {
                         // This is an existing server option - check for new connections
-                        const optionToolingId = expeditionState.serverOptions.get(optionKey);
+                        const optionId = expeditionState.serverOptions.get(optionKey);
                         const optionConnections = expeditionState.connections
                             .filter(conn => conn.from === localId && conn.option === optIdx);
                         
                         optionConnections.forEach(conn => {
                             const targetIsServer = expeditionState.serverSlides.has(conn.to);
-                            const targetToolingId = targetIsServer ? expeditionState.serverSlides.get(conn.to) : null;
+                            const targetSlideDbId = targetIsServer ? expeditionState.serverSlides.get(conn.to) : null;
                             
                             // Check if this connection already exists on server
-                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                            const outcomeKey = `${optionId}-${targetSlideDbId}`;
                             const alreadyOnServer = targetIsServer && expeditionState.serverOutcomes.has(outcomeKey);
                             
                             if (!alreadyOnServer) {
                                 // This is a NEW connection (either to new slide or new connection to existing slide)
                                 newConnections.push({
-                                    optionToolingId: optionToolingId,
+                                    optionId: optionId,
                                     targetSlideId: conn.to,
-                                    targetToolingId: targetToolingId,
+                                    targetSlideDbId: targetSlideDbId,
                                     weight: conn.weight || 1
                                 });
-                                console.log(`New connection from existing option ${optionToolingId} to slide ${conn.to} (tooling: ${targetToolingId})`);
+                                console.log(`New connection from existing option ${optionId} to slide ${conn.to} (target slide_id: ${targetSlideDbId ?? 'pending'})`);
                             }
                         });
                     }
@@ -3402,12 +3402,12 @@ async function saveExpedition() {
                 const connections = expeditionState.connections
                     .filter(conn => conn.from === localId && conn.option === optIdx)
                     .map(conn => {
-                        // If target is a server slide, use its toolingId
+                        // If target is a server slide, use its slideId
                         // If target is a new slide, use its localId (server will map it)
                         const targetIsServer = expeditionState.serverSlides.has(conn.to);
                         return {
                             targetSlideId: conn.to,
-                            targetToolingId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
+                            targetSlideDbId: targetIsServer ? expeditionState.serverSlides.get(conn.to) : null,
                             weight: conn.weight || 1
                         };
                     });
@@ -3449,7 +3449,7 @@ async function saveExpedition() {
 
         // Build updates for modified slides
         const modifiedSlides = getModifiedSlides();
-        const slideUpdates = modifiedSlides.map(({ localId, toolingId, slide }) => {
+        const slideUpdates = modifiedSlides.map(({ localId, slideId, slide }) => {
             // Build reward fields
             let rewardStatType = null, rewardStatAmount = null, rewardTalent = null;
             let rewardItem = null, rewardPerk = null, rewardBlessing = null, rewardPotion = null;
@@ -3471,7 +3471,7 @@ async function saveExpedition() {
             }
             
             return {
-                toolingId: toolingId,
+                slideId: slideId,
                 text: slide.text || '',
                 assetId: slide.assetId ?? getAssetIdFromUrl(slide.assetUrl),
                 effectId: slide.effect?.effectId || null,
@@ -3486,8 +3486,8 @@ async function saveExpedition() {
         
         // Build updates for modified options
         const modifiedOptions = getModifiedOptions();
-        const optionUpdates = modifiedOptions.map(({ optionToolingId, option }) => ({
-            toolingId: optionToolingId,
+        const optionUpdates = modifiedOptions.map(({ optionId, option }) => ({
+            optionId: optionId,
             text: option.text || '',
             statType: option.type === 'skill' ? option.statType : null,
             statRequired: option.type === 'skill' ? option.statRequired : null,
@@ -3543,9 +3543,9 @@ async function saveExpedition() {
         if (result.success) {
             // Mark the newly saved slides as server slides
             if (result.slideMapping) {
-                for (const [localIdStr, toolingId] of Object.entries(result.slideMapping)) {
+                for (const [localIdStr, slideId] of Object.entries(result.slideMapping)) {
                     const localId = parseInt(localIdStr);
-                    expeditionState.serverSlides.set(localId, toolingId);
+                    expeditionState.serverSlides.set(localId, slideId);
                     
                     // Store original values for newly saved slides
                     const slide = expeditionState.slides.get(localId);
@@ -3595,8 +3595,8 @@ async function saveExpedition() {
             
             // Track newly saved options from result.optionMapping
             if (result.optionMapping) {
-                for (const [optionKey, optionToolingId] of Object.entries(result.optionMapping)) {
-                    expeditionState.serverOptions.set(optionKey, optionToolingId);
+                for (const [optionKey, optionId] of Object.entries(result.optionMapping)) {
+                    expeditionState.serverOptions.set(optionKey, optionId);
                     
                     // Also store original values for newly saved options
                     const [slideIdStr, optIdxStr] = optionKey.split('-');
@@ -3622,19 +3622,19 @@ async function saveExpedition() {
             // Track newly saved connections
             // For new slides, their options are now tracked, so we need to register their connections
             for (const slide of slides) {
-                const toolingId = result.slideMapping[slide.id];
-                if (!toolingId) continue;
+                const slideId = result.slideMapping[slide.id];
+                if (!slideId) continue;
                 
                 slide.options.forEach((opt, optIdx) => {
                     const optionKey = `${slide.id}-${optIdx}`;
-                    const optionToolingId = result.optionMapping[optionKey];
-                    if (!optionToolingId) return;
+                    const optionId = result.optionMapping[optionKey];
+                    if (!optionId) return;
                     
                     // Track all connections from this option
                     opt.connections.forEach(conn => {
-                        const targetToolingId = conn.targetToolingId || result.slideMapping[conn.targetSlideId];
-                        if (targetToolingId) {
-                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                        const targetSlideId = conn.targetSlideDbId || result.slideMapping[conn.targetSlideId];
+                        if (targetSlideId) {
+                            const outcomeKey = `${optionId}-${targetSlideId}`;
                             expeditionState.serverOutcomes.add(outcomeKey);
                         }
                     });
@@ -3644,14 +3644,14 @@ async function saveExpedition() {
             // Track connections from newOptions - now we have the proper mapping
             for (const newOpt of newOptions) {
                 const optionKey = `${newOpt.slideLocalId}-${newOpt.optionIndex}`;
-                const optionToolingId = result.optionMapping[optionKey];
+                const optionId = result.optionMapping[optionKey];
                 
-                if (optionToolingId) {
+                if (optionId) {
                     // Register its connections
                     newOpt.connections.forEach(conn => {
-                        const targetToolingId = conn.targetToolingId || result.slideMapping[conn.targetSlideId];
-                        if (targetToolingId) {
-                            const outcomeKey = `${optionToolingId}-${targetToolingId}`;
+                        const targetSlideId = conn.targetSlideDbId || result.slideMapping[conn.targetSlideId];
+                        if (targetSlideId) {
+                            const outcomeKey = `${optionId}-${targetSlideId}`;
                             expeditionState.serverOutcomes.add(outcomeKey);
                         }
                     });
@@ -3660,9 +3660,9 @@ async function saveExpedition() {
             
             // Track connections from newConnections
             for (const newConn of newConnections) {
-                const targetToolingId = newConn.targetToolingId || result.slideMapping[newConn.targetSlideId];
-                if (targetToolingId) {
-                    const outcomeKey = `${newConn.optionToolingId}-${targetToolingId}`;
+                const targetSlideId = newConn.targetSlideDbId || result.slideMapping[newConn.targetSlideId];
+                if (targetSlideId) {
+                    const outcomeKey = `${newConn.optionId}-${targetSlideId}`;
                     expeditionState.serverOutcomes.add(outcomeKey);
                     console.log(`Tracked new connection: ${outcomeKey}`);
                 }
@@ -3793,12 +3793,13 @@ async function loadExpedition() {
             container.innerHTML = '';
         }
 
-        // Create a mapping from server toolingId to local ID
-        const toolingIdToLocalId = new Map();
+        // Create a mapping from server slideId to local ID
+        const slideIdToLocalId = new Map();
         
         // First pass: create all slides
         let localId = 1;
         for (const serverSlide of data.slides) {
+            const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
             const slide = {
                 id: localId,
                 text: serverSlide.text || '',
@@ -3816,11 +3817,11 @@ async function loadExpedition() {
 
             primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
 
-            // Map toolingId -> localId
-            toolingIdToLocalId.set(serverSlide.toolingId, localId);
+            // Map slideId -> localId
+            slideIdToLocalId.set(serverSlideId, localId);
             
             // Track this as a server slide
-            expeditionState.serverSlides.set(localId, serverSlide.toolingId);
+            expeditionState.serverSlides.set(localId, serverSlideId);
             
             // Store original values for change detection
             expeditionState.originalSlides.set(localId, {
@@ -3842,7 +3843,8 @@ async function loadExpedition() {
 
         // Second pass: add options to slides
         for (const serverSlide of data.slides) {
-            const slideLocalId = toolingIdToLocalId.get(serverSlide.toolingId);
+            const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
+            const slideLocalId = slideIdToLocalId.get(serverSlideId);
             const slide = expeditionState.slides.get(slideLocalId);
             
             if (!slide || !serverSlide.options) continue;
@@ -3872,7 +3874,8 @@ async function loadExpedition() {
                 
                 // Track this as a server option
                 const optionKey = `${slideLocalId}-${optIdx}`;
-                expeditionState.serverOptions.set(optionKey, serverOpt.toolingId);
+                const serverOptionId = serverOpt.optionId ?? serverOpt.toolingId ?? serverOpt.id;
+                expeditionState.serverOptions.set(optionKey, serverOptionId);
                 
                 // Store original option values for change detection
                 expeditionState.originalOptions.set(optionKey, {
@@ -3889,7 +3892,7 @@ async function loadExpedition() {
                 // Third pass: create connections from outcomes
                 if (serverOpt.outcomes) {
                     for (const outcome of serverOpt.outcomes) {
-                        const targetLocalId = toolingIdToLocalId.get(outcome.targetSlideId);
+                        const targetLocalId = slideIdToLocalId.get(outcome.targetSlideId);
                         if (targetLocalId) {
                             expeditionState.connections.push({
                                 from: slideLocalId,
@@ -3898,7 +3901,7 @@ async function loadExpedition() {
                                 weight: outcome.weight || 1
                             });
                             // Track this as a server outcome using option->target key
-                            const outcomeKey = `${serverOpt.toolingId}-${outcome.targetSlideId}`;
+                            const outcomeKey = `${serverOptionId}-${outcome.targetSlideId}`;
                             expeditionState.serverOutcomes.add(outcomeKey);
                         }
                     }
@@ -4100,12 +4103,13 @@ async function loadExpeditionForSettlement(settlementId) {
             container.innerHTML = '';
         }
 
-        // Create a mapping from server toolingId to local ID
-        const toolingIdToLocalId = new Map();
+        // Create a mapping from server slideId to local ID
+        const slideIdToLocalId = new Map();
         
         // First pass: create all slides
         let localId = 1;
         for (const serverSlide of data.slides) {
+            const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
             const slide = {
                 id: localId,
                 text: serverSlide.text || '',
@@ -4123,11 +4127,11 @@ async function loadExpeditionForSettlement(settlementId) {
 
             primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
 
-            // Map toolingId -> localId
-            toolingIdToLocalId.set(serverSlide.toolingId, localId);
+            // Map slideId -> localId
+            slideIdToLocalId.set(serverSlideId, localId);
             
             // Track this as a server slide
-            expeditionState.serverSlides.set(localId, serverSlide.toolingId);
+            expeditionState.serverSlides.set(localId, serverSlideId);
             
             // Store original values for change detection
             expeditionState.originalSlides.set(localId, {
@@ -4149,7 +4153,8 @@ async function loadExpeditionForSettlement(settlementId) {
 
         // Second pass: add options to slides
         for (const serverSlide of data.slides) {
-            const slideLocalId = toolingIdToLocalId.get(serverSlide.toolingId);
+            const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
+            const slideLocalId = slideIdToLocalId.get(serverSlideId);
             const slide = expeditionState.slides.get(slideLocalId);
             
             if (!slide || !serverSlide.options) continue;
@@ -4179,7 +4184,8 @@ async function loadExpeditionForSettlement(settlementId) {
                 
                 // Track this as a server option
                 const optionKey = `${slideLocalId}-${optIdx}`;
-                expeditionState.serverOptions.set(optionKey, serverOpt.toolingId);
+                const serverOptionId = serverOpt.optionId ?? serverOpt.toolingId ?? serverOpt.id;
+                expeditionState.serverOptions.set(optionKey, serverOptionId);
                 
                 // Store original option values for change detection
                 expeditionState.originalOptions.set(optionKey, {
@@ -4196,7 +4202,8 @@ async function loadExpeditionForSettlement(settlementId) {
                 // Third pass: build connections from outcomes
                 if (serverOpt.connections) {
                     for (const conn of serverOpt.connections) {
-                        const targetLocalId = toolingIdToLocalId.get(conn.targetToolingId);
+                        const targetServerSlideId = conn.targetSlideId ?? conn.targetSlideDbId ?? conn.targetToolingId;
+                        const targetLocalId = slideIdToLocalId.get(targetServerSlideId);
                         if (targetLocalId) {
                             expeditionState.connections.push({
                                 fromSlide: slideLocalId,
@@ -4206,7 +4213,7 @@ async function loadExpeditionForSettlement(settlementId) {
                             });
                             
                             // Track this as a server outcome
-                            const outcomeKey = `${serverOpt.toolingId}-${conn.targetToolingId}`;
+                            const outcomeKey = `${serverOptionId}-${targetServerSlideId}`;
                             expeditionState.serverOutcomes.add(outcomeKey);
                         }
                     }

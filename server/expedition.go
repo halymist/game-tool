@@ -296,6 +296,19 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 	for _, newOpt := range req.NewOptions {
 		var optionID int
 
+		slideID := newOpt.SlideID
+		if slideID == 0 {
+			if mappedID, ok := slideMapping[newOpt.SlideLocalID]; ok {
+				slideID = mappedID
+			}
+		}
+
+		if slideID == 0 {
+			log.Printf("Failed to resolve slide ID for new option (local slide %d, provided slideId %d)", newOpt.SlideLocalID, newOpt.SlideID)
+			http.Error(w, "Failed to determine slide for new option", http.StatusBadRequest)
+			return
+		}
+
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_options (
 				slide_id, option_text, stat_type, stat_required,
@@ -303,7 +316,7 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8
 			) RETURNING option_id
-		`, newOpt.SlideID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
+		`, slideID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
 			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq).Scan(&optionID)
 
 		if err != nil {
@@ -395,7 +408,8 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 				is_start = $5, reward_stat_type = $6, reward_stat_amount = $7,
 				reward_talent = $8, reward_item = $9, reward_perk = $10,
 				reward_blessing = $11, reward_potion = $12, reward_silver = $13,
-				pos_x = $14, pos_y = $15, slide_state = 'update'
+				pos_x = $14, pos_y = $15,
+				slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
 			WHERE slide_id = $16
 		`, update.Text, assetID, update.EffectID, update.EffectFactor,
 			update.IsStart, update.RewardStatType, update.RewardStatAmt,
