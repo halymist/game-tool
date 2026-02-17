@@ -447,6 +447,46 @@ const DesignerBase = {
         const effect = effects.find(e => e.id === effectId);
         descSpan.textContent = effect?.description || 'No description available';
     },
+
+    /**
+     * Scroll a dropdown into view so the native popup opens downward
+     * @param {HTMLSelectElement} element
+     * @param {Object} options
+     * @param {number} [options.buffer=160] - Minimum pixels required below element
+     * @param {ScrollBehavior} [options.behavior='smooth']
+     */
+    ensureDropdownSpace(element, { buffer = 160, behavior = 'smooth' } = {}) {
+        if (!element || typeof element.getBoundingClientRect !== 'function') {
+            return;
+        }
+        const rect = element.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        if (spaceBelow >= buffer) {
+            return;
+        }
+        element.scrollIntoView({ block: 'center', behavior });
+    },
+
+    /**
+     * Attach listeners that ensure there's space for native dropdowns to open downward
+     * @param {HTMLSelectElement} select - The select element to enhance
+     * @param {Object} options - Options forwarded to ensureDropdownSpace
+     */
+    bindDropdownSpace(select, options) {
+        if (!select || typeof this.ensureDropdownSpace !== 'function') {
+            return;
+        }
+        if (select.dataset.dropdownSpaceBound === 'true') {
+            return;
+        }
+
+        const handler = () => this.ensureDropdownSpace(select, options);
+        const pointerEvent = (typeof window !== 'undefined' && window.PointerEvent) ? 'pointerdown' : 'mousedown';
+
+        select.addEventListener(pointerEvent, handler, { passive: true });
+        select.addEventListener('focus', handler);
+        select.dataset.dropdownSpaceBound = 'true';
+    },
     
     // ==================== UTILITIES ====================
     

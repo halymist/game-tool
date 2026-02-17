@@ -853,6 +853,7 @@
                             <option value="gem">Gem</option>
                             <option value="scroll">Scroll</option>
                             <option value="potion">Potion</option>
+                            <option value="ingredient">Ingredient</option>
                             <option value="ration">Ration</option>
                         </select>
                     </div>
@@ -910,6 +911,7 @@
                                                 <option value="gem">Gem</option>
                                                 <option value="scroll">Scroll</option>
                                                 <option value="potion">Potion</option>
+                                                <option value="ingredient">Ingredient</option>
                                                 <option value="ration">Ration</option>
                                             </select>
                                         </div>
@@ -930,9 +932,13 @@
                                     <div class="stat-row"><label>Armor</label><input type="number" id="itemArmor" min="0" max="999" placeholder="0"></div>
                                     <div class="stat-row socket-row"><label>Socket</label><input type="checkbox" id="itemSocket"></div>
                                 </div>
-                                <div id="weaponStatsSection" class="weapon-stats-grid">
-                                    <div class="stat-row"><label>Min Damage</label><input type="number" id="itemMinDamage" min="0" max="999" placeholder="0"></div>
-                                    <div class="stat-row"><label>Max Damage</label><input type="number" id="itemMaxDamage" min="0" max="999" placeholder="0"></div>
+                                <div id="weaponStatsSection" class="weapon-damage-row">
+                                    <label>Damage</label>
+                                    <div class="weapon-damage-inputs">
+                                        <input type="number" id="itemMinDamage" min="0" max="999" placeholder="Min">
+                                        <span>-</span>
+                                        <input type="number" id="itemMaxDamage" min="0" max="999" placeholder="Max">
+                                    </div>
                                 </div>
                             </div>
 

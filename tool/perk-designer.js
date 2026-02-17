@@ -443,6 +443,11 @@ function populatePerkEffectDropdowns() {
     // Add change listeners for effect descriptions
     effect1Select.addEventListener('change', () => updatePerkEffectDescription(1));
     effect2Select.addEventListener('change', () => updatePerkEffectDescription(2));
+
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.bindDropdownSpace === 'function') {
+        DesignerBase.bindDropdownSpace(effect1Select);
+        DesignerBase.bindDropdownSpace(effect2Select);
+    }
 }
 
 function updatePerkEffectDescription(effectNum) {

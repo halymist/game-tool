@@ -3,8 +3,11 @@
 // Item type constants matching database enum
 const ITEM_TYPES = [
     'head', 'chest', 'hands', 'feet', 'belt', 'legs', 'back',
-    'amulet', 'weapon', 'hammer', 'gem', 'scroll', 'potion', 'ration'
+    'amulet', 'weapon', 'hammer', 'gem', 'scroll', 'potion', 'ingredient', 'ration'
 ];
+
+// Item types that hide stat/socket inputs
+const STATLESS_ITEM_TYPES = ['ration', 'scroll', 'hammer', 'potion', 'ingredient', 'ingredients'];
 
 // Weapon types that show damage fields
 const WEAPON_TYPES = ['weapon', 'hammer'];
@@ -622,7 +625,7 @@ function toggleWeaponStats() {
     
     if (weaponSection) {
         if (WEAPON_TYPES.includes(itemType)) {
-            weaponSection.style.display = 'block';
+            weaponSection.style.display = 'flex';
         } else {
             weaponSection.style.display = 'none';
         }
@@ -638,6 +641,10 @@ function populateItemEffectDropdown() {
     if (!effectSelect) {
         console.warn('populateItemEffectDropdown: #itemEffect not found');
         return;
+    }
+
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.bindDropdownSpace === 'function') {
+        DesignerBase.bindDropdownSpace(effectSelect);
     }
     
     // Get effects from global data - try getEffects function first, then GlobalData directly
@@ -684,51 +691,62 @@ function populateItemEffectDropdown() {
 function applyItemTypeRules() {
     const itemType = document.getElementById('itemType')?.value || '';
     const isRation = itemType === 'ration';
+    const isStatless = STATLESS_ITEM_TYPES.includes(itemType);
     const form = document.getElementById('itemForm');
     const isLocked = form?.classList.contains('form-locked');
+
+    const statGrid = document.querySelector('.item-stats-grid');
+    if (statGrid) {
+        statGrid.classList.toggle('is-hidden', isStatless);
+    }
 
     const statIds = ['itemStrength', 'itemStamina', 'itemAgility', 'itemLuck', 'itemArmor'];
     const weaponIds = ['itemMinDamage', 'itemMaxDamage'];
     const socketInput = document.getElementById('itemSocket');
     const effectSelect = document.getElementById('itemEffect');
 
+    const disableStats = isStatless;
+    const clearStats = isRation;
+
+    statIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (clearStats) {
+            el.value = '';
+        }
+        if (!isLocked) {
+            el.disabled = disableStats ? true : false;
+        }
+    });
+
+    if (socketInput) {
+        if (clearStats) {
+            socketInput.checked = false;
+        }
+        if (!isLocked) {
+            socketInput.disabled = disableStats;
+        }
+    }
+
     if (isRation) {
-        statIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.value = '';
-                if (!isLocked) el.disabled = true;
-            }
-        });
         weaponIds.forEach(id => {
             const el = document.getElementById(id);
-            if (el) {
-                el.value = '';
-                if (!isLocked) el.disabled = true;
-            }
+            if (!el) return;
+            el.value = '';
+            if (!isLocked) el.disabled = true;
         });
-        if (socketInput) {
-            socketInput.checked = false;
-            if (!isLocked) socketInput.disabled = true;
-        }
         if (effectSelect) {
             effectSelect.value = String(RATION_EFFECT_ID);
             if (!isLocked) effectSelect.disabled = true;
         }
-        return;
-    }
-
-    if (!isLocked) {
-        statIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.disabled = false;
-        });
+    } else if (!isLocked) {
         weaponIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.disabled = false;
         });
-        if (socketInput) socketInput.disabled = false;
-        if (effectSelect) effectSelect.disabled = false;
+        if (effectSelect) {
+            effectSelect.disabled = false;
+        }
     }
 }
 
@@ -758,14 +776,25 @@ async function saveItem(e) {
         maxDamage: parseIntOrNull(document.getElementById('itemMaxDamage').value)
     };
 
-    if (itemType === 'ration') {
-        itemData.effectID = RATION_EFFECT_ID;
+    const isStatless = STATLESS_ITEM_TYPES.includes(itemType);
+    const isWeapon = WEAPON_TYPES.includes(itemType);
+
+    if (isStatless) {
         itemData.strength = null;
         itemData.stamina = null;
         itemData.agility = null;
         itemData.luck = null;
         itemData.armor = null;
         itemData.socket = false;
+    }
+
+    if (!isWeapon) {
+        itemData.minDamage = null;
+        itemData.maxDamage = null;
+    }
+
+    if (itemType === 'ration') {
+        itemData.effectID = RATION_EFFECT_ID;
         itemData.minDamage = null;
         itemData.maxDamage = null;
     }
