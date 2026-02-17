@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// ExpeditionSlide represents a slide in the expedition designer
 type ExpeditionSlide struct {
 	ID             int                `json:"id"`
 	Text           string             `json:"text"`
@@ -53,37 +52,35 @@ type ExpeditionOption struct {
 
 // ExpeditionConnection represents a connection from an option to a target slide
 type ExpeditionConnection struct {
-	TargetSlideLocalID int  `json:"targetSlideId"`   // Local ID from designer (for new slides)
-	TargetToolingID    *int `json:"targetToolingId"` // Tooling ID (for existing server slides)
-	Weight             int  `json:"weight"`
+	TargetSlideLocalID int  `json:"targetSlideId"`
+	TargetSlideDBID    *int `json:"targetSlideDbId"`
 }
 
 // NewOptionForExistingSlide represents a new option being added to an existing server slide
 type NewOptionForExistingSlide struct {
-	SlideLocalID   int                    `json:"slideLocalId"`   // Local ID from designer
-	OptionIndex    int                    `json:"optionIndex"`    // Option index on the slide
-	SlideToolingID int                    `json:"slideToolingId"` // Existing slide's tooling_id
-	Text           string                 `json:"text"`
-	StatType       *string                `json:"statType"`
-	StatRequired   *int                   `json:"statRequired"`
-	EffectID       *int                   `json:"effectId"`
-	EffectAmount   *int                   `json:"effectAmount"`
-	EnemyID        *int                   `json:"enemyId"`
-	FactionReq     *string                `json:"factionRequired"`
-	Connections    []ExpeditionConnection `json:"connections"`
+	SlideLocalID int                    `json:"slideLocalId"`
+	OptionIndex  int                    `json:"optionIndex"`
+	SlideID      int                    `json:"slideId"`
+	Text         string                 `json:"text"`
+	StatType     *string                `json:"statType"`
+	StatRequired *int                   `json:"statRequired"`
+	EffectID     *int                   `json:"effectId"`
+	EffectAmount *int                   `json:"effectAmount"`
+	EnemyID      *int                   `json:"enemyId"`
+	FactionReq   *string                `json:"factionRequired"`
+	Connections  []ExpeditionConnection `json:"connections"`
 }
 
 // NewConnectionForExistingOption represents a new connection being added to an existing server option
 type NewConnectionForExistingOption struct {
-	OptionToolingID    int  `json:"optionToolingId"` // Existing option's tooling_id
-	TargetSlideLocalID int  `json:"targetSlideId"`   // Local ID from designer (for new slides)
-	TargetToolingID    *int `json:"targetToolingId"` // Tooling ID (for existing server slides)
-	Weight             int  `json:"weight"`
+	OptionID           int  `json:"optionId"`
+	TargetSlideLocalID int  `json:"targetSlideId"`
+	TargetSlideDBID    *int `json:"targetSlideDbId"`
 }
 
 // SlideUpdate represents updates to an existing slide
 type SlideUpdate struct {
-	ToolingID      int     `json:"toolingId"`
+	SlideID        int     `json:"slideId"`
 	Text           string  `json:"text"`
 	AssetID        *int    `json:"assetId"`
 	EffectID       *int    `json:"effectId"`
@@ -103,7 +100,7 @@ type SlideUpdate struct {
 
 // OptionUpdate represents updates to an existing option
 type OptionUpdate struct {
-	ToolingID    int     `json:"toolingId"`
+	OptionID     int     `json:"optionId"`
 	Text         string  `json:"text"`
 	StatType     *string `json:"statType"`
 	StatRequired *int    `json:"statRequired"`
@@ -127,8 +124,8 @@ type SaveExpeditionRequest struct {
 type SaveExpeditionResponse struct {
 	Success       bool           `json:"success"`
 	Message       string         `json:"message"`
-	SlideMapping  map[int]int    `json:"slideMapping"`  // local ID -> tooling_id
-	OptionMapping map[string]int `json:"optionMapping"` // "slideLocalId-optionIndex" -> tooling_id
+	SlideMapping  map[int]int    `json:"slideMapping"`  // local ID -> slide_id
+	OptionMapping map[string]int `json:"optionMapping"` // "slideLocalId-optionIndex" -> option_id
 }
 
 func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
@@ -169,75 +166,59 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
-	// Get current max version for new inserts
-	var currentMaxVersion int
-	err = tx.QueryRow(`SELECT COALESCE(MAX(version), 0) + 1 FROM tooling.expedition_slides`).Scan(&currentMaxVersion)
-	if err != nil {
-		log.Printf("Failed to get max version: %v", err)
-		http.Error(w, "Failed to get version", http.StatusInternalServerError)
-		return
+	markSlideState := func(slideID int) error {
+		_, err := tx.Exec(`
+			UPDATE tooling.expedition_slides
+			SET slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
+			WHERE slide_id = $1
+		`, slideID)
+		return err
 	}
-	log.Printf("Using version %d for new inserts", currentMaxVersion)
 
-	// Maps to track local IDs to database IDs
-	slideMapping := make(map[int]int)     // localID -> tooling_id
-	optionMapping := make(map[string]int) // "localSlideID-optionIndex" -> tooling_id
+	markSlideStateForOption := func(optionID int) error {
+		_, err := tx.Exec(`
+			UPDATE tooling.expedition_slides
+			SET slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
+			WHERE slide_id = (
+				SELECT slide_id FROM tooling.expedition_options WHERE option_id = $1
+			)
+		`, optionID)
+		return err
+	}
 
-	// Step 1: Insert all slides first (without options) to get their tooling_ids
+	slideMapping := make(map[int]int)
+	optionMapping := make(map[string]int)
+
 	for _, slide := range req.Slides {
-		var toolingID int
+		var slideID int
 
-		// Build reward fields from the slide's reward object
-		var rewardStatType *string
-		var rewardStatAmount *int
-		var rewardTalent *bool
-		var rewardItem *int
-		var rewardPerk *int
-		var rewardBlessing *int
-		var rewardPotion *int
-		var rewardSilver *int
-
-		// These come directly from the slide struct now
-		rewardStatType = slide.RewardStatType
-		rewardStatAmount = slide.RewardStatAmt
-		rewardTalent = slide.RewardTalent
-		rewardItem = slide.RewardItem
-		rewardPerk = slide.RewardPerk
-		rewardBlessing = slide.RewardBlessing
-		rewardPotion = slide.RewardPotion
-		rewardSilver = slide.RewardSilver
-
-		// Extract effect fields
-		var effectID *int
-		var effectFactor *int
-		effectID = slide.EffectID
-		effectFactor = slide.EffectFactor
-
-		// Handle NOT NULL columns with defaults
-		slideText := slide.Text
-		if slideText == "" {
-			slideText = "" // Keep empty string, not NULL
-		}
-
-		// asset_id is NOT NULL, use 0 as default
 		assetID := 0
 		if slide.AssetID != nil {
 			assetID = *slide.AssetID
 		}
 
+		rewardStatType := slide.RewardStatType
+		rewardStatAmount := slide.RewardStatAmt
+		rewardTalent := slide.RewardTalent
+		rewardItem := slide.RewardItem
+		rewardPerk := slide.RewardPerk
+		rewardBlessing := slide.RewardBlessing
+		rewardPotion := slide.RewardPotion
+		rewardSilver := slide.RewardSilver
+
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_slides (
 				slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
-				reward_stat_type, reward_stat_amount, reward_talent, reward_item, 
+				reward_stat_type, reward_stat_amount, reward_talent, reward_item,
 				reward_perk, reward_blessing, reward_potion, reward_silver,
-				pos_x, pos_y, version
+				pos_x, pos_y, slide_state
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-			) RETURNING tooling_id
-		`, slideText, assetID, effectID, effectFactor, slide.IsStart, req.SettlementID,
+			) RETURNING slide_id
+		`, slide.Text, assetID, slide.EffectID, slide.EffectFactor, slide.IsStart, req.SettlementID,
 			rewardStatType, rewardStatAmount, rewardTalent, rewardItem,
 			rewardPerk, rewardBlessing, rewardPotion, rewardSilver,
-			slide.PosX, slide.PosY, currentMaxVersion).Scan(&toolingID)
+			slide.PosX, slide.PosY, "insert").Scan(&slideID)
 
 		if err != nil {
 			log.Printf("Failed to insert slide %d: %v", slide.ID, err)
@@ -245,26 +226,25 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		slideMapping[slide.ID] = toolingID
-		log.Printf("Inserted slide local:%d -> tooling:%d", slide.ID, toolingID)
+		slideMapping[slide.ID] = slideID
+		log.Printf("Inserted slide local:%d -> slide_id:%d", slide.ID, slideID)
 	}
 
-	// Step 2: Insert all options for each slide
 	for _, slide := range req.Slides {
-		slideToolingID := slideMapping[slide.ID]
+		slideID := slideMapping[slide.ID]
 
 		for optIdx, option := range slide.Options {
-			var optionToolingID int
+			var optionID int
 
 			err := tx.QueryRow(`
 				INSERT INTO tooling.expedition_options (
-					slide_id, option_text, stat_type, stat_required, 
-					effect_id, effect_amount, enemy_id, faction_required, version
+					slide_id, option_text, stat_type, stat_required,
+					effect_id, effect_amount, enemy_id, faction_required
 				) VALUES (
-					$1, $2, $3, $4, $5, $6, $7, $8, $9
-				) RETURNING tooling_id
-			`, slideToolingID, option.Text, option.StatType, option.StatRequired,
-				option.EffectID, option.EffectAmount, option.EnemyID, option.FactionReq, currentMaxVersion).Scan(&optionToolingID)
+					$1, $2, $3, $4, $5, $6, $7, $8
+				) RETURNING option_id
+			`, slideID, option.Text, option.StatType, option.StatRequired,
+				option.EffectID, option.EffectAmount, option.EnemyID, option.FactionReq).Scan(&optionID)
 
 			if err != nil {
 				log.Printf("Failed to insert option for slide %d: %v", slide.ID, err)
@@ -273,46 +253,34 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			}
 
 			optionKey := formatOptionKey(slide.ID, optIdx)
-			optionMapping[optionKey] = optionToolingID
-			log.Printf("Inserted option slide:%d opt:%d -> tooling:%d", slide.ID, optIdx, optionToolingID)
+			optionMapping[optionKey] = optionID
+			log.Printf("Inserted option slide:%d opt:%d -> option_id:%d", slide.ID, optIdx, optionID)
 		}
 	}
 
-	// Step 3: Insert all outcomes (connections)
 	for _, slide := range req.Slides {
 		for optIdx, option := range slide.Options {
 			optionKey := formatOptionKey(slide.ID, optIdx)
-			optionToolingID := optionMapping[optionKey]
+			optionID := optionMapping[optionKey]
 
 			for _, conn := range option.Connections {
-				var targetSlideToolingID int
-
-				// If connection has a TargetToolingID, use it (connecting to existing server slide)
-				// Otherwise, look up in our slideMapping (connecting to a new slide)
-				if conn.TargetToolingID != nil && *conn.TargetToolingID > 0 {
-					targetSlideToolingID = *conn.TargetToolingID
-					log.Printf("Connection to existing server slide: toolingId=%d", targetSlideToolingID)
+				var targetSlideID int
+				if conn.TargetSlideDBID != nil && *conn.TargetSlideDBID > 0 {
+					targetSlideID = *conn.TargetSlideDBID
 				} else {
 					var ok bool
-					targetSlideToolingID, ok = slideMapping[conn.TargetSlideLocalID]
+					targetSlideID, ok = slideMapping[conn.TargetSlideLocalID]
 					if !ok {
 						log.Printf("Warning: Target slide %d not found in mapping, skipping connection", conn.TargetSlideLocalID)
 						continue
 					}
 				}
 
-				weight := conn.Weight
-				if weight <= 0 {
-					weight = 1
-				}
-
 				_, err := tx.Exec(`
 					INSERT INTO tooling.expedition_outcomes (
-						option_id, target_slide_id, weight, version
-					) VALUES (
-						$1, $2, $3, $4
-					)
-				`, optionToolingID, targetSlideToolingID, weight, currentMaxVersion)
+						option_id, target_slide_id
+					) VALUES ($1, $2)
+				`, optionID, targetSlideID)
 
 				if err != nil {
 					log.Printf("Failed to insert outcome: %v", err)
@@ -320,64 +288,57 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				log.Printf("Inserted outcome: option:%d -> slide:%d (weight:%d)",
-					optionToolingID, targetSlideToolingID, weight)
+				log.Printf("Inserted outcome: option:%d -> slide:%d", optionID, targetSlideID)
 			}
 		}
 	}
 
-	// Step 4: Insert new options for existing slides
 	for _, newOpt := range req.NewOptions {
-		var optionToolingID int
+		var optionID int
 
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_options (
-				slide_id, option_text, stat_type, stat_required, 
-				effect_id, effect_amount, enemy_id, faction_required, version
+				slide_id, option_text, stat_type, stat_required,
+				effect_id, effect_amount, enemy_id, faction_required
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9
-			) RETURNING tooling_id
-		`, newOpt.SlideToolingID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
-			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq, currentMaxVersion).Scan(&optionToolingID)
+				$1, $2, $3, $4, $5, $6, $7, $8
+			) RETURNING option_id
+		`, newOpt.SlideID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
+			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq).Scan(&optionID)
 
 		if err != nil {
-			log.Printf("Failed to insert new option for existing slide %d: %v", newOpt.SlideToolingID, err)
+			log.Printf("Failed to insert new option for slide %d: %v", newOpt.SlideID, err)
 			http.Error(w, "Failed to save new option", http.StatusInternalServerError)
 			return
 		}
 
-		// Track in optionMapping using the local slide ID and option index
+		if err := markSlideState(newOpt.SlideID); err != nil {
+			log.Printf("Failed to mark slide %d updated: %v", newOpt.SlideID, err)
+			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+			return
+		}
+
 		optionKey := formatOptionKey(newOpt.SlideLocalID, newOpt.OptionIndex)
-		optionMapping[optionKey] = optionToolingID
-		log.Printf("Inserted new option for existing slide:%d -> option tooling:%d (mapped as %s)", newOpt.SlideToolingID, optionToolingID, optionKey)
+		optionMapping[optionKey] = optionID
+		log.Printf("Inserted new option for slide:%d -> option_id:%d (mapped as %s)", newOpt.SlideID, optionID, optionKey)
 
-		// Insert connections for this new option
 		for _, conn := range newOpt.Connections {
-			var targetSlideToolingID int
-
-			if conn.TargetToolingID != nil && *conn.TargetToolingID > 0 {
-				targetSlideToolingID = *conn.TargetToolingID
+			var targetSlideID int
+			if conn.TargetSlideDBID != nil && *conn.TargetSlideDBID > 0 {
+				targetSlideID = *conn.TargetSlideDBID
 			} else {
 				var ok bool
-				targetSlideToolingID, ok = slideMapping[conn.TargetSlideLocalID]
+				targetSlideID, ok = slideMapping[conn.TargetSlideLocalID]
 				if !ok {
 					log.Printf("Warning: Target slide %d not found in mapping, skipping connection for new option", conn.TargetSlideLocalID)
 					continue
 				}
 			}
 
-			weight := conn.Weight
-			if weight <= 0 {
-				weight = 1
-			}
-
 			_, err := tx.Exec(`
-				INSERT INTO tooling.expedition_outcomes (
-					option_id, target_slide_id, weight, version
-				) VALUES (
-					$1, $2, $3, $4
-				)
-			`, optionToolingID, targetSlideToolingID, weight, currentMaxVersion)
+				INSERT INTO tooling.expedition_outcomes (option_id, target_slide_id)
+				VALUES ($1, $2)
+			`, optionID, targetSlideID)
 
 			if err != nil {
 				log.Printf("Failed to insert outcome for new option: %v", err)
@@ -385,48 +346,43 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			log.Printf("Inserted outcome for new option: option:%d -> slide:%d", optionToolingID, targetSlideToolingID)
+			log.Printf("Inserted outcome for new option: option:%d -> slide:%d", optionID, targetSlideID)
 		}
 	}
 
-	// Step 5: Insert new connections for existing options
 	for _, newConn := range req.NewConnections {
-		var targetSlideToolingID int
-
-		if newConn.TargetToolingID != nil && *newConn.TargetToolingID > 0 {
-			targetSlideToolingID = *newConn.TargetToolingID
+		var targetSlideID int
+		if newConn.TargetSlideDBID != nil && *newConn.TargetSlideDBID > 0 {
+			targetSlideID = *newConn.TargetSlideDBID
 		} else {
 			var ok bool
-			targetSlideToolingID, ok = slideMapping[newConn.TargetSlideLocalID]
+			targetSlideID, ok = slideMapping[newConn.TargetSlideLocalID]
 			if !ok {
 				log.Printf("Warning: Target slide %d not found in mapping, skipping new connection", newConn.TargetSlideLocalID)
 				continue
 			}
 		}
 
-		weight := newConn.Weight
-		if weight <= 0 {
-			weight = 1
-		}
-
 		_, err := tx.Exec(`
-			INSERT INTO tooling.expedition_outcomes (
-				option_id, target_slide_id, weight, version
-			) VALUES (
-				$1, $2, $3, $4
-			)
-		`, newConn.OptionToolingID, targetSlideToolingID, weight, currentMaxVersion)
+			INSERT INTO tooling.expedition_outcomes (option_id, target_slide_id)
+			VALUES ($1, $2)
+		`, newConn.OptionID, targetSlideID)
 
 		if err != nil {
-			log.Printf("Failed to insert new connection for existing option %d: %v", newConn.OptionToolingID, err)
+			log.Printf("Failed to insert new connection for option %d: %v", newConn.OptionID, err)
 			http.Error(w, "Failed to save new connection", http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("Inserted new connection: existing option:%d -> slide:%d", newConn.OptionToolingID, targetSlideToolingID)
+		if err := markSlideStateForOption(newConn.OptionID); err != nil {
+			log.Printf("Failed to mark slide updated for option %d: %v", newConn.OptionID, err)
+			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Inserted new connection: option:%d -> slide:%d", newConn.OptionID, targetSlideID)
 	}
 
-	// Step 6: Update existing slides
 	for _, update := range req.SlideUpdates {
 		assetID := 0
 		if update.AssetID != nil {
@@ -439,42 +395,47 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 				is_start = $5, reward_stat_type = $6, reward_stat_amount = $7,
 				reward_talent = $8, reward_item = $9, reward_perk = $10,
 				reward_blessing = $11, reward_potion = $12, reward_silver = $13,
-				pos_x = $14, pos_y = $15, version = $16
-			WHERE tooling_id = $17
+				pos_x = $14, pos_y = $15, slide_state = 'update'
+			WHERE slide_id = $16
 		`, update.Text, assetID, update.EffectID, update.EffectFactor,
 			update.IsStart, update.RewardStatType, update.RewardStatAmt,
 			update.RewardTalent, update.RewardItem, update.RewardPerk,
 			update.RewardBlessing, update.RewardPotion, update.RewardSilver,
-			update.PosX, update.PosY, currentMaxVersion, update.ToolingID)
+			update.PosX, update.PosY, update.SlideID)
 
 		if err != nil {
-			log.Printf("Failed to update slide %d: %v", update.ToolingID, err)
+			log.Printf("Failed to update slide %d: %v", update.SlideID, err)
 			http.Error(w, "Failed to update slide", http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("Updated slide tooling_id:%d", update.ToolingID)
+		log.Printf("Updated slide slide_id:%d", update.SlideID)
 	}
 
-	// Step 7: Update existing options
 	for _, update := range req.OptionUpdates {
 		_, err := tx.Exec(`
 			UPDATE tooling.expedition_options SET
 				option_text = $1, stat_type = $2, stat_required = $3,
 				effect_id = $4, effect_amount = $5, enemy_id = $6,
-				faction_required = $7, version = $8
-			WHERE tooling_id = $9
+				faction_required = $7
+			WHERE option_id = $8
 		`, update.Text, update.StatType, update.StatRequired,
 			update.EffectID, update.EffectAmount, update.EnemyID,
-			update.FactionReq, currentMaxVersion, update.ToolingID)
+			update.FactionReq, update.OptionID)
 
 		if err != nil {
-			log.Printf("Failed to update option %d: %v", update.ToolingID, err)
+			log.Printf("Failed to update option %d: %v", update.OptionID, err)
 			http.Error(w, "Failed to update option", http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("Updated option tooling_id:%d", update.ToolingID)
+		if err := markSlideStateForOption(update.OptionID); err != nil {
+			log.Printf("Failed to mark slide updated for option %d: %v", update.OptionID, err)
+			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Updated option option_id:%d", update.OptionID)
 	}
 
 	// Commit transaction
@@ -505,7 +466,7 @@ func formatOptionKey(slideID, optionIndex int) string {
 
 // LoadedSlide represents a slide loaded from the database
 type LoadedSlide struct {
-	ToolingID      int            `json:"toolingId"`
+	SlideID        int            `json:"slideId"`
 	SlideText      string         `json:"text"`
 	AssetID        *int           `json:"assetId"`
 	EffectID       *int           `json:"effectId"`
@@ -527,7 +488,7 @@ type LoadedSlide struct {
 
 // LoadedOption represents an option loaded from the database
 type LoadedOption struct {
-	ToolingID    int             `json:"toolingId"`
+	OptionID     int             `json:"optionId"`
 	OptionText   string          `json:"text"`
 	StatType     *string         `json:"statType"`
 	StatRequired *int            `json:"statRequired"`
@@ -540,9 +501,8 @@ type LoadedOption struct {
 
 // LoadedOutcome represents an outcome (connection) from database
 type LoadedOutcome struct {
-	ToolingID     int `json:"toolingId"`
-	TargetSlideID int `json:"targetSlideId"` // This is the tooling_id of the target slide
-	Weight        int `json:"weight"`
+	OutcomeID     int `json:"outcomeId"`
+	TargetSlideID int `json:"targetSlideId"`
 }
 
 // GetExpeditionResponse is the response for loading expedition data
@@ -573,13 +533,13 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 	slides := make(map[int]*LoadedSlide)
 
 	slideRows, err := db.Query(`
-		SELECT tooling_id, COALESCE(slide_text, ''), asset_id, effect_id, effect_factor, 
+		SELECT slide_id, COALESCE(slide_text, ''), asset_id, effect_id, effect_factor,
 		       COALESCE(is_start, false), settlement_id,
 		       reward_stat_type, reward_stat_amount, reward_talent, reward_item,
 		       reward_perk, reward_blessing, reward_potion, reward_silver,
 		       COALESCE(pos_x, 100), COALESCE(pos_y, 100)
 		FROM tooling.expedition_slides
-		ORDER BY tooling_id
+		ORDER BY slide_id
 	`)
 	if err != nil {
 		log.Printf("Failed to query slides: %v", err)
@@ -591,7 +551,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 	for slideRows.Next() {
 		var s LoadedSlide
 		err := slideRows.Scan(
-			&s.ToolingID, &s.SlideText, &s.AssetID, &s.EffectID, &s.EffectFactor,
+			&s.SlideID, &s.SlideText, &s.AssetID, &s.EffectID, &s.EffectFactor,
 			&s.IsStart, &s.SettlementID,
 			&s.RewardStatType, &s.RewardStatAmt, &s.RewardTalent, &s.RewardItem,
 			&s.RewardPerk, &s.RewardBlessing, &s.RewardPotion, &s.RewardSilver,
@@ -602,17 +562,17 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		s.Options = []LoadedOption{}
-		slides[s.ToolingID] = &s
+		slides[s.SlideID] = &s
 	}
 
 	log.Printf("Loaded %d slides from tooling", len(slides))
 
 	// Step 2: Load all options and attach to slides
 	optionRows, err := db.Query(`
-		SELECT tooling_id, slide_id, COALESCE(option_text, ''), stat_type, stat_required,
+		SELECT option_id, slide_id, COALESCE(option_text, ''), stat_type, stat_required,
 		       effect_id, effect_amount, enemy_id, faction_required
 		FROM tooling.expedition_options
-		ORDER BY tooling_id
+		ORDER BY option_id
 	`)
 	if err != nil {
 		log.Printf("Failed to query options: %v", err)
@@ -627,7 +587,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		var o LoadedOption
 		var slideID int
 		err := optionRows.Scan(
-			&o.ToolingID, &slideID, &o.OptionText, &o.StatType, &o.StatRequired,
+			&o.OptionID, &slideID, &o.OptionText, &o.StatType, &o.StatRequired,
 			&o.EffectID, &o.EffectAmount, &o.EnemyID, &o.FactionReq,
 		)
 		if err != nil {
@@ -635,9 +595,8 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		o.Outcomes = []LoadedOutcome{}
-		options[o.ToolingID] = &o
+		options[o.OptionID] = &o
 
-		// Attach to slide
 		if slide, ok := slides[slideID]; ok {
 			slide.Options = append(slide.Options, o)
 		}
@@ -647,9 +606,9 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 	// Step 3: Load all outcomes and attach to options
 	outcomeRows, err := db.Query(`
-		SELECT tooling_id, option_id, target_slide_id, COALESCE(weight, 1)
+		SELECT outcome_id, option_id, target_slide_id
 		FROM tooling.expedition_outcomes
-		ORDER BY tooling_id
+		ORDER BY outcome_id
 	`)
 	if err != nil {
 		log.Printf("Failed to query outcomes: %v", err)
@@ -663,7 +622,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		var oc LoadedOutcome
 		var optionID int
 		err := outcomeRows.Scan(
-			&oc.ToolingID, &optionID, &oc.TargetSlideID, &oc.Weight,
+			&oc.OutcomeID, &optionID, &oc.TargetSlideID,
 		)
 		if err != nil {
 			log.Printf("Failed to scan outcome: %v", err)
@@ -675,7 +634,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		// Need to find it in the slides' options
 		for _, slide := range slides {
 			for i := range slide.Options {
-				if slide.Options[i].ToolingID == optionID {
+				if slide.Options[i].OptionID == optionID {
 					slide.Options[i].Outcomes = append(slide.Options[i].Outcomes, oc)
 				}
 			}
@@ -923,7 +882,7 @@ func handleDeleteExpeditionSlide(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ToolingID int `json:"toolingId"`
+		SlideID int `json:"slideId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -936,20 +895,20 @@ func handleDeleteExpeditionSlide(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the slide - CASCADE will handle options and outcomes
-	result, err := db.Exec(`DELETE FROM tooling.expedition_slides WHERE tooling_id = $1`, req.ToolingID)
+	result, err := db.Exec(`DELETE FROM tooling.expedition_slides WHERE slide_id = $1`, req.SlideID)
 	if err != nil {
-		log.Printf("Failed to delete slide %d: %v", req.ToolingID, err)
+		log.Printf("Failed to delete slide %d: %v", req.SlideID, err)
 		http.Error(w, "Failed to delete slide", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	log.Printf("Deleted slide tooling_id=%d (rows affected: %d)", req.ToolingID, rowsAffected)
+	log.Printf("Deleted slide slide_id=%d (rows affected: %d)", req.SlideID, rowsAffected)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Slide %d deleted", req.ToolingID),
+		"message": fmt.Sprintf("Slide %d deleted", req.SlideID),
 	})
 }
 
@@ -966,7 +925,7 @@ func handleDeleteExpeditionOption(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ToolingID int `json:"toolingId"`
+		OptionID int `json:"optionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -979,20 +938,20 @@ func handleDeleteExpeditionOption(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the option - CASCADE will handle outcomes
-	result, err := db.Exec(`DELETE FROM tooling.expedition_options WHERE tooling_id = $1`, req.ToolingID)
+	result, err := db.Exec(`DELETE FROM tooling.expedition_options WHERE option_id = $1`, req.OptionID)
 	if err != nil {
-		log.Printf("Failed to delete option %d: %v", req.ToolingID, err)
+		log.Printf("Failed to delete option %d: %v", req.OptionID, err)
 		http.Error(w, "Failed to delete option", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	log.Printf("Deleted option tooling_id=%d (rows affected: %d)", req.ToolingID, rowsAffected)
+	log.Printf("Deleted option option_id=%d (rows affected: %d)", req.OptionID, rowsAffected)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Option %d deleted", req.ToolingID),
+		"message": fmt.Sprintf("Option %d deleted", req.OptionID),
 	})
 }
 
