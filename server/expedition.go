@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -987,17 +988,421 @@ func handleMergeExpeditions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Merging expeditions from tooling into game schema")
-	if _, err := db.Exec(`SELECT tooling.merge_expeditions()`); err != nil {
+	stats, err := runExpeditionMerge()
+	if err != nil {
 		log.Printf("Failed to merge expeditions: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to merge expeditions: %v", err), http.StatusInternalServerError)
 		return
 	}
 
+	message := "No pending expedition changes"
+	if stats.Version > 0 {
+		message = fmt.Sprintf(
+			"Expeditions merged into game schema (version %d: %d inserts, %d updates, %d deletes)",
+			stats.Version, stats.InsertedSlides, stats.UpdatedSlides, stats.DeletedSlides,
+		)
+	}
+
 	response := map[string]interface{}{
-		"success": true,
-		"message": "Expeditions merged into game schema",
+		"success":        true,
+		"message":        message,
+		"version":        stats.Version,
+		"slidesInserted": stats.InsertedSlides,
+		"slidesUpdated":  stats.UpdatedSlides,
+		"slidesDeleted":  stats.DeletedSlides,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+type expeditionMergeStats struct {
+	Version        int
+	InsertedSlides int
+	UpdatedSlides  int
+	DeletedSlides  int
+}
+
+type toolingSlide struct {
+	ID               int
+	Text             string
+	AssetID          int
+	EffectID         sql.NullInt64
+	EffectFactor     sql.NullInt64
+	IsStart          bool
+	SettlementID     sql.NullInt64
+	RewardStatType   sql.NullString
+	RewardStatAmount sql.NullInt64
+	RewardTalent     sql.NullBool
+	RewardItem       sql.NullInt64
+	RewardPerk       sql.NullInt64
+	RewardBlessing   sql.NullInt64
+	RewardPotion     sql.NullInt64
+	RewardSilver     sql.NullInt64
+	State            string
+}
+
+type toolingOption struct {
+	ID              int
+	SlideID         int
+	Text            string
+	StatType        sql.NullString
+	StatRequired    sql.NullInt64
+	EffectID        sql.NullInt64
+	EffectAmount    sql.NullInt64
+	EnemyID         sql.NullInt64
+	FactionRequired sql.NullString
+	SilverRequired  sql.NullInt64
+}
+
+type toolingOutcome struct {
+	ID            int
+	TargetSlideID int
+}
+
+func runExpeditionMerge() (expeditionMergeStats, error) {
+	stats := expeditionMergeStats{}
+	tx, err := db.Begin()
+	if err != nil {
+		return stats, err
+	}
+	defer tx.Rollback()
+
+	slides, err := loadPendingToolingSlides(tx)
+	if err != nil {
+		return stats, err
+	}
+
+	if len(slides) == 0 {
+		if err := tx.Commit(); err != nil {
+			return stats, err
+		}
+		return stats, nil
+	}
+
+	version, err := nextExpeditionVersion(tx)
+	if err != nil {
+		return stats, err
+	}
+	stats.Version = version
+
+	for _, slide := range slides {
+		isDeleted := strings.EqualFold(slide.State, "delete")
+		if err := upsertGameSlide(tx, slide, version, isDeleted); err != nil {
+			return stats, err
+		}
+		switch strings.ToLower(slide.State) {
+		case "insert":
+			stats.InsertedSlides++
+		case "update":
+			stats.UpdatedSlides++
+		case "delete":
+			stats.DeletedSlides++
+		}
+	}
+
+	for _, slide := range slides {
+		isDeleted := strings.EqualFold(slide.State, "delete")
+		if err := syncSlideOptionsAndOutcomes(tx, slide.ID, isDeleted); err != nil {
+			return stats, err
+		}
+	}
+
+	if _, err := tx.Exec(`
+		DELETE FROM game.expedition_outcomes
+		WHERE target_slide_id IN (
+			SELECT slide_id FROM game.expedition_slides WHERE is_deleted = TRUE
+		)
+	`); err != nil {
+		return stats, err
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE tooling.expedition_slides
+		SET slide_state = 'unchanged'
+		WHERE slide_state IN ('insert','update','delete')
+	`); err != nil {
+		return stats, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return stats, err
+	}
+
+	return stats, nil
+}
+
+func loadPendingToolingSlides(tx *sql.Tx) ([]toolingSlide, error) {
+	rows, err := tx.Query(`
+		SELECT
+			slide_id,
+			slide_text,
+			asset_id,
+			effect_id,
+			effect_factor,
+			is_start,
+			settlement_id,
+			reward_stat_type,
+			reward_stat_amount,
+			reward_talent,
+			reward_item,
+			reward_perk,
+			reward_blessing,
+			reward_potion,
+			reward_silver,
+			slide_state
+		FROM tooling.expedition_slides
+		WHERE slide_state IN ('insert','update','delete')
+		ORDER BY slide_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var slides []toolingSlide
+	for rows.Next() {
+		var s toolingSlide
+		if err := rows.Scan(
+			&s.ID,
+			&s.Text,
+			&s.AssetID,
+			&s.EffectID,
+			&s.EffectFactor,
+			&s.IsStart,
+			&s.SettlementID,
+			&s.RewardStatType,
+			&s.RewardStatAmount,
+			&s.RewardTalent,
+			&s.RewardItem,
+			&s.RewardPerk,
+			&s.RewardBlessing,
+			&s.RewardPotion,
+			&s.RewardSilver,
+			&s.State,
+		); err != nil {
+			return nil, err
+		}
+		slides = append(slides, s)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return slides, nil
+}
+
+func nextExpeditionVersion(tx *sql.Tx) (int, error) {
+	var current int
+	if err := tx.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM game.expedition_slides`).Scan(&current); err != nil {
+		return 0, err
+	}
+	return current + 1, nil
+}
+
+func upsertGameSlide(tx *sql.Tx, slide toolingSlide, version int, markDeleted bool) error {
+	_, err := tx.Exec(`
+		INSERT INTO game.expedition_slides (
+			slide_id, slide_text, asset_id, effect_id, effect_factor,
+			is_start, settlement_id, reward_stat_type, reward_stat_amount,
+			reward_talent, reward_item, reward_perk, reward_blessing,
+			reward_potion, reward_silver, is_deleted, version
+		) VALUES (
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9,
+			$10, $11, $12, $13,
+			$14, $15, $16, $17
+		)
+		ON CONFLICT (slide_id) DO UPDATE SET
+			slide_text = EXCLUDED.slide_text,
+			asset_id = EXCLUDED.asset_id,
+			effect_id = EXCLUDED.effect_id,
+			effect_factor = EXCLUDED.effect_factor,
+			is_start = EXCLUDED.is_start,
+			settlement_id = EXCLUDED.settlement_id,
+			reward_stat_type = EXCLUDED.reward_stat_type,
+			reward_stat_amount = EXCLUDED.reward_stat_amount,
+			reward_talent = EXCLUDED.reward_talent,
+			reward_item = EXCLUDED.reward_item,
+			reward_perk = EXCLUDED.reward_perk,
+			reward_blessing = EXCLUDED.reward_blessing,
+			reward_potion = EXCLUDED.reward_potion,
+			reward_silver = EXCLUDED.reward_silver,
+			is_deleted = EXCLUDED.is_deleted,
+			version = EXCLUDED.version
+	`,
+		slide.ID,
+		slide.Text,
+		slide.AssetID,
+		slide.EffectID,
+		slide.EffectFactor,
+		slide.IsStart,
+		slide.SettlementID,
+		slide.RewardStatType,
+		slide.RewardStatAmount,
+		slide.RewardTalent,
+		slide.RewardItem,
+		slide.RewardPerk,
+		slide.RewardBlessing,
+		slide.RewardPotion,
+		slide.RewardSilver,
+		markDeleted,
+		version,
+	)
+	return err
+}
+
+func syncSlideOptionsAndOutcomes(tx *sql.Tx, slideID int, deleteOnly bool) error {
+	if _, err := tx.Exec(`DELETE FROM game.expedition_options WHERE slide_id = $1`, slideID); err != nil {
+		return err
+	}
+
+	if deleteOnly {
+		return nil
+	}
+
+	rows, err := tx.Query(`
+		SELECT
+			option_id,
+			slide_id,
+			option_text,
+			stat_type,
+			stat_required,
+			effect_id,
+			effect_amount,
+			enemy_id,
+			faction_required,
+			silver_required
+		FROM tooling.expedition_options
+		WHERE slide_id = $1
+		ORDER BY option_id
+	`, slideID)
+	if err != nil {
+		return err
+	}
+
+	var options []toolingOption
+	for rows.Next() {
+		var opt toolingOption
+		if err := rows.Scan(
+			&opt.ID,
+			&opt.SlideID,
+			&opt.Text,
+			&opt.StatType,
+			&opt.StatRequired,
+			&opt.EffectID,
+			&opt.EffectAmount,
+			&opt.EnemyID,
+			&opt.FactionRequired,
+			&opt.SilverRequired,
+		); err != nil {
+			rows.Close()
+			return err
+		}
+		options = append(options, opt)
+	}
+
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	for _, opt := range options {
+		if err := upsertGameOption(tx, opt); err != nil {
+			return err
+		}
+		if err := syncOptionOutcomes(tx, opt.ID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func upsertGameOption(tx *sql.Tx, opt toolingOption) error {
+	_, err := tx.Exec(`
+		INSERT INTO game.expedition_options (
+			option_id, slide_id, option_text, stat_type, stat_required,
+			effect_id, effect_amount, enemy_id, faction_required, silver_required
+		) VALUES (
+			$1, $2, $3, $4, $5,
+			$6, $7, $8, $9, $10
+		)
+		ON CONFLICT (option_id) DO UPDATE SET
+			slide_id = EXCLUDED.slide_id,
+			option_text = EXCLUDED.option_text,
+			stat_type = EXCLUDED.stat_type,
+			stat_required = EXCLUDED.stat_required,
+			effect_id = EXCLUDED.effect_id,
+			effect_amount = EXCLUDED.effect_amount,
+			enemy_id = EXCLUDED.enemy_id,
+			faction_required = EXCLUDED.faction_required,
+			silver_required = EXCLUDED.silver_required
+	`,
+		opt.ID,
+		opt.SlideID,
+		opt.Text,
+		opt.StatType,
+		opt.StatRequired,
+		opt.EffectID,
+		opt.EffectAmount,
+		opt.EnemyID,
+		opt.FactionRequired,
+		opt.SilverRequired,
+	)
+	return err
+}
+
+func syncOptionOutcomes(tx *sql.Tx, optionID int) error {
+	if _, err := tx.Exec(`DELETE FROM game.expedition_outcomes WHERE option_id = $1`, optionID); err != nil {
+		return err
+	}
+
+	rows, err := tx.Query(`
+		SELECT outcome_id, target_slide_id
+		FROM tooling.expedition_outcomes
+		WHERE option_id = $1
+		ORDER BY outcome_id
+	`, optionID)
+	if err != nil {
+		return err
+	}
+
+	var outcomes []toolingOutcome
+	for rows.Next() {
+		var oc toolingOutcome
+		if err := rows.Scan(&oc.ID, &oc.TargetSlideID); err != nil {
+			rows.Close()
+			return err
+		}
+		outcomes = append(outcomes, oc)
+	}
+
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	for _, oc := range outcomes {
+		if _, err := tx.Exec(`
+			INSERT INTO game.expedition_outcomes (outcome_id, option_id, target_slide_id)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (outcome_id) DO UPDATE SET
+				option_id = EXCLUDED.option_id,
+				target_slide_id = EXCLUDED.target_slide_id
+		`, oc.ID, optionID, oc.TargetSlideID); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
