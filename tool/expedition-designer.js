@@ -27,7 +27,8 @@ const expeditionState = {
     // Track staged deletions that will be committed on save
     pendingSlideDeletes: new Set(),
     pendingOptionDeletes: new Set(),
-    pendingConnectionDeletes: new Set()
+    pendingConnectionDeletes: new Set(),
+    selectedSlides: new Set()
 };
 
 const expeditionGenerateState = {
@@ -690,7 +691,8 @@ function renderSlide(slide) {
     el.id = `slide-${slide.id}`;
     const isNewSlide = !expeditionState.serverSlides.has(slide.id);
     const isModified = !isNewSlide && isSlideModified(slide.id);
-    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${expeditionState.selectedSlide === slide.id ? ' selected' : ''}${isNewSlide ? ' new-slide' : ''}${isModified ? ' modified-slide' : ''}`;
+    const isSelected = expeditionState.selectedSlides.has(slide.id);
+    el.className = `expedition-slide${slide.isStart ? ' start-slide' : ''}${isSelected ? ' selected' : ''}${isNewSlide ? ' new-slide' : ''}${isModified ? ' modified-slide' : ''}`;
     el.style.left = `${slide.x}px`;
     el.style.top = `${slide.y}px`;
     
@@ -762,6 +764,11 @@ function renderSlide(slide) {
         : '';
     const bodyClass = hasBackground ? 'slide-body has-bg' : 'slide-body';
     
+    const canAddMoreOptions = slide.options.length < 4;
+    const addOptionButtonHtml = canAddMoreOptions
+        ? `<button class="add-option-btn" data-slide="${slide.id}">+ Add Option</button>`
+        : '';
+
     el.innerHTML = `
         <div class="slide-header">
             <span class="slide-id">#${slide.id}</span>
@@ -783,7 +790,7 @@ function renderSlide(slide) {
             </div>
             <div class="slide-options">
                 ${optionsHtml}
-                <button class="add-option-btn" data-slide="${slide.id}">+ Add Option</button>
+                ${addOptionButtonHtml}
             </div>
         </div>
     `;
@@ -911,47 +918,83 @@ function bindSlideEvents(el, slide) {
         if (e.target.closest('input, textarea, button, .option-connector, .start-checkbox')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
-        
-        selectSlide(slide.id);
-        
-        // Store initial mouse position and slide position
+
+        const alreadySelected = expeditionState.selectedSlides.has(slide.id);
+        if (e.shiftKey) {
+            selectSlide(slide.id, { append: true });
+        } else if (!alreadySelected || expeditionState.selectedSlides.size === 0) {
+            selectSlide(slide.id);
+        } else {
+            expeditionState.selectedSlide = slide.id;
+            updateSelectedSlideHighlights();
+        }
+
+        const activeSelection = expeditionState.selectedSlides.size
+            ? Array.from(expeditionState.selectedSlides)
+            : [slide.id];
         const startMouseX = e.clientX;
         const startMouseY = e.clientY;
-        const startSlideX = slide.x;
-        const startSlideY = slide.y;
-        
-        let hasMoved = false;
-        
+        const startPositions = activeSelection.map(id => {
+            const targetSlide = expeditionState.slides.get(id);
+            return {
+                id,
+                startX: targetSlide?.x ?? 0,
+                startY: targetSlide?.y ?? 0,
+                element: document.getElementById(`slide-${id}`)
+            };
+        });
+
         const onMove = (ev) => {
-            // Don't move if connecting started
             if (expeditionState.isConnecting) return;
-            hasMoved = true;
-            el.classList.add('dragging');
-            // Account for zoom when calculating movement delta
             const deltaX = (ev.clientX - startMouseX) / expeditionState.zoom;
             const deltaY = (ev.clientY - startMouseY) / expeditionState.zoom;
-            slide.x = startSlideX + deltaX;
-            slide.y = startSlideY + deltaY;
-            el.style.left = `${slide.x}px`;
-            el.style.top = `${slide.y}px`;
+
+            startPositions.forEach(({ id, startX, startY, element }) => {
+                const targetSlide = expeditionState.slides.get(id);
+                if (!targetSlide) return;
+                targetSlide.x = startX + deltaX;
+                targetSlide.y = startY + deltaY;
+                if (element) {
+                    element.style.left = `${targetSlide.x}px`;
+                    element.style.top = `${targetSlide.y}px`;
+                    element.classList.add('dragging');
+                }
+            });
             renderConnections();
         };
-        
+
         const onUp = () => {
-            el.classList.remove('dragging');
+            startPositions.forEach(({ element }) => element?.classList.remove('dragging'));
             document.removeEventListener('mousemove', onMove);
             document.removeEventListener('mouseup', onUp);
         };
-        
+
         document.addEventListener('mousemove', onMove);
         document.addEventListener('mouseup', onUp);
     });
 }
 
-function selectSlide(id) {
+function selectSlide(id, options = {}) {
+    const { append = false, toggle = true } = options;
+    if (!append) {
+        expeditionState.selectedSlides.clear();
+    }
+
+    const isSelected = expeditionState.selectedSlides.has(id);
+    if (append && toggle && isSelected) {
+        expeditionState.selectedSlides.delete(id);
+    } else {
+        expeditionState.selectedSlides.add(id);
+    }
+
     expeditionState.selectedSlide = id;
+    updateSelectedSlideHighlights();
+}
+
+function updateSelectedSlideHighlights() {
     document.querySelectorAll('.expedition-slide').forEach(el => {
-        el.classList.toggle('selected', el.id === `slide-${id}`);
+        const slideId = parseInt(el.id.replace('slide-', ''));
+        el.classList.toggle('selected', expeditionState.selectedSlides.has(slideId));
     });
 }
 
@@ -1017,7 +1060,11 @@ async function deleteSlide(id) {
     
     // Remove from state
     expeditionState.slides.delete(id);
-    expeditionState.selectedSlide = null;
+    expeditionState.selectedSlides.delete(id);
+    if (expeditionState.selectedSlide === id) {
+        expeditionState.selectedSlide = null;
+    }
+    updateSelectedSlideHighlights();
     
     renderConnections();
     updateCounter();
