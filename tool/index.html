@@ -651,94 +651,69 @@
                 <!-- Main Content - Enemy Form -->
                 <div class="enemy-form-container">
                     <form id="enemyForm">
-                        <!-- Top Row: Basic Info -->
-                        <div class="enemy-form-row">
-                            <!-- Icon -->
-                            <div class="enemy-icon-section">
-                                <div class="enemy-icon-upload-area" id="enemyIconUploadArea">
-                                    <div class="enemy-icon-preview" id="enemyIconPreview">
-                                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                            <polyline points="17 8 12 3 7 8"/>
-                                            <line x1="12" y1="3" x2="12" y2="15"/>
-                                        </svg>
-                                        <span>Drop image here</span>
+                        <!-- Top Row: Icon + Name/ID + Stats unified -->
+                        <div class="enemy-unified-form">
+                            <div class="enemy-header">
+                                <!-- Icon -->
+                                <div class="enemy-icon-column">
+                                    <div class="enemy-icon-box" id="enemyIconUploadArea">
+                                        <div class="enemy-icon-preview" id="enemyIconPreview">
+                                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                                <polyline points="17 8 12 3 7 8"/>
+                                                <line x1="12" y1="3" x2="12" y2="15"/>
+                                            </svg>
+                                            <span>Click to select</span>
+                                        </div>
                                     </div>
+                                    <input type="file" id="enemyIconFile" accept="image/*" style="display: none;">
+                                    <button type="button" id="enemyAssetGalleryBtn" style="display:none;"></button>
+                                    <button type="button" id="enemyUploadNewBtn" class="enemy-upload-btn">📤 Upload</button>
                                 </div>
-                                <input type="file" id="enemyIconFile" accept="image/*" style="display: none;">
-                                <button type="button" id="enemyAssetGalleryBtn" class="btn-gallery">📁 Browse Assets</button>
-                            </div>
 
-                            <!-- Name & ID -->
-                            <div class="enemy-name-section">
-                                <div class="form-group">
-                                    <label for="enemyId">ID</label>
-                                    <input type="text" id="enemyId" readonly value="New">
-                                </div>
-                                <div class="form-group">
-                                    <label for="enemyName">Name</label>
-                                    <input type="text" id="enemyName" required placeholder="Enemy name...">
-                                </div>
-                            </div>
-
-                            <!-- Stats -->
-                            <div class="enemy-stats-section">
-                                <div class="enemy-stats-section-title">Stats</div>
-                                <div class="enemy-stats-grid">
-                                    <div class="stat-group">
-                                        <label>Strength</label>
-                                        <input type="number" id="enemyStrength" min="0" max="999" value="0">
+                                <!-- Name & ID + Stats -->
+                                <div class="enemy-info">
+                                    <div class="enemy-row">
+                                        <div class="enemy-field enemy-field-small"><label>ID</label><input type="text" id="enemyId" readonly value="New"></div>
+                                        <div class="enemy-field enemy-field-grow"><label>Name</label><input type="text" id="enemyName" required placeholder="Enemy name..."></div>
                                     </div>
-                                    <div class="stat-group">
-                                        <label>Stamina</label>
-                                        <input type="number" id="enemyStamina" min="0" max="999" value="0">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label>Agility</label>
-                                        <input type="number" id="enemyAgility" min="0" max="999" value="0">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label>Luck</label>
-                                        <input type="number" id="enemyLuck" min="0" max="999" value="0">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label>Armor</label>
-                                        <input type="number" id="enemyArmor" min="0" max="999" value="0">
-                                    </div>
-                                    <div class="stat-group">
-                                        <label>Damage</label>
-                                        <div class="damage-range">
-                                            <input type="number" id="enemyMinDamage" min="0" max="999" value="0" placeholder="Min">
-                                            <span>-</span>
-                                            <input type="number" id="enemyMaxDamage" min="0" max="999" value="0" placeholder="Max">
+                                    <div class="enemy-stats-grid">
+                                        <div class="stat-row"><label>Strength</label><input type="number" id="enemyStrength" min="0" max="999" value="0"></div>
+                                        <div class="stat-row"><label>Stamina</label><input type="number" id="enemyStamina" min="0" max="999" value="0"></div>
+                                        <div class="stat-row"><label>Agility</label><input type="number" id="enemyAgility" min="0" max="999" value="0"></div>
+                                        <div class="stat-row"><label>Luck</label><input type="number" id="enemyLuck" min="0" max="999" value="0"></div>
+                                        <div class="stat-row"><label>Armor</label><input type="number" id="enemyArmor" min="0" max="999" value="0"></div>
+                                        <div class="stat-row damage-row">
+                                            <label>Damage</label>
+                                            <div class="damage-inputs">
+                                                <input type="number" id="enemyMinDamage" min="0" max="999" value="0" placeholder="Min">
+                                                <span>-</span>
+                                                <input type="number" id="enemyMaxDamage" min="0" max="999" value="0" placeholder="Max">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Description -->
-                        <div class="enemy-form-row">
-                            <div class="enemy-description-section">
+                            <!-- Description -->
+                            <div class="enemy-description-row">
                                 <label for="enemyDescription">Description</label>
                                 <textarea id="enemyDescription" rows="2" placeholder="Enemy description..."></textarea>
                             </div>
                         </div>
 
                         <!-- Talent Tree -->
-                        <div class="enemy-form-row">
-                            <div class="enemy-talent-section">
-                                <h3>Talent Tree <span class="talent-hint">(Click to upgrade)</span></h3>
-                                <div id="talentTreeGrid" class="talent-tree-grid">
-                                    <!-- 7x8 grid will be populated by JS -->
-                                </div>
+                        <div class="enemy-talent-section">
+                            <h3>Talent Tree <span class="talent-hint">(Click to upgrade)</span></h3>
+                            <div id="talentTreeGrid" class="talent-tree-grid">
+                                <!-- 7x8 grid will be populated by JS -->
                             </div>
                         </div>
 
                         <!-- Form Actions -->
                         <div class="enemy-form-actions">
-                            <button type="submit" id="enemySaveBtn" class="btn-save">💾 Save to Pending</button>
                             <button type="button" id="enemyCancelBtn" class="btn-cancel">Cancel</button>
+                            <button type="submit" id="enemySaveBtn" class="btn-save">💾 Save to Pending</button>
                         </div>
                     </form>
                 </div>
@@ -1023,98 +998,55 @@
                     <h2 id="perkEditorTitle">Create New Perk</h2>
                     
                     <form id="perkForm">
-                        <!-- Basic Info Section -->
-                        <div class="perk-form-section">
-                            <div class="perk-form-section-title">Basic Information</div>
-                            <div class="perk-basic-info">
-                                <div>
-                                    <label for="perkName">Perk Name</label>
-                                    <input type="text" id="perkName" placeholder="Enter perk name" required>
-                                </div>
-                                <input type="hidden" id="perkId">
-                                <input type="hidden" id="perkAssetID" value="1">
-                            </div>
-                        </div>
+                        <input type="hidden" id="perkId">
+                        <input type="hidden" id="perkAssetID" value="1">
 
-                        <!-- Icon Section -->
-                        <div class="perk-form-section">
-                            <div class="perk-form-section-title">Icon</div>
-                            <div class="perk-icon-section">
-                                <div class="perk-icon-preview" id="perkIconUploadArea">
-                                    <img id="perkIconPreview" src="" alt="No icon selected">
-                                    <span id="perkIconPlaceholder">Click to upload or drag & drop</span>
+                        <div class="perk-unified-form">
+                            <!-- Icon + Basic Info -->
+                            <div class="perk-header">
+                                <div class="perk-icon-column">
+                                    <div class="perk-icon-box" id="perkIconUploadArea">
+                                        <img id="perkIconPreview" src="" alt="">
+                                        <span id="perkIconPlaceholder">Click to select icon</span>
+                                    </div>
+                                    <input type="file" id="perkIconFile" accept="image/*" style="display: none;">
+                                    <button type="button" id="perkAssetGalleryBtn" style="display:none;"></button>
+                                    <button type="button" id="perkUploadNewBtn" class="perk-upload-btn">📤 Upload</button>
                                 </div>
-                                <input type="file" id="perkIconFile" accept="image/*" style="display: none;">
-                                <div class="perk-icon-info">
-                                    <span id="perkAssetIDDisplay">Asset ID: None</span>
-                                    <div class="perk-icon-buttons">
-                                        <button type="button" id="perkAssetGalleryBtn" class="btn-browse-perk-assets">🎨 Browse Assets</button>
-                                        <button type="button" id="perkUploadNewBtn" class="btn-upload-perk-new">📤 Upload New</button>
+                                <div class="perk-info">
+                                    <div class="perk-row">
+                                        <div class="perk-field perk-field-grow"><label>Name</label><input type="text" id="perkName" placeholder="Perk name" required></div>
+                                        <div class="perk-field perk-field-small">
+                                            <label class="perk-blessing-label">
+                                                <input type="checkbox" id="perkIsBlessing">
+                                                <span>⭐ Blessing</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="perk-row">
+                                        <div class="perk-field perk-field-full"><label>Description</label><textarea id="perkDescription" rows="3" placeholder="Perk description..."></textarea></div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Effects Section -->
-                        <div class="perk-form-section">
-                            <div class="perk-form-section-title">Effects</div>
-                            <div class="perk-effects-list">
-                                <div class="perk-effect-item">
-                                    <div class="perk-effect-inputs">
-                                        <div class="perk-effect-select-wrapper">
-                                            <label for="perkEffect1">Effect 1</label>
-                                            <select id="perkEffect1">
-                                                <option value="">-- No Effect --</option>
-                                            </select>
-                                        </div>
-                                        <div class="perk-factor-wrapper">
-                                            <label for="perkFactor1">Factor</label>
-                                            <input type="number" id="perkFactor1" placeholder="0">
-                                        </div>
+                            <!-- Effects -->
+                            <div class="perk-effects-section">
+                                <div class="perk-effects-grid">
+                                    <div class="perk-effect-row">
+                                        <div class="perk-field perk-field-grow"><label>Effect 1</label><select id="perkEffect1"><option value="">-- None --</option></select></div>
+                                        <div class="perk-field perk-field-small"><label>Factor</label><input type="number" id="perkFactor1" placeholder="0" max="999"></div>
                                     </div>
-                                    <span class="perk-effect-description" id="perkEffect1Desc">Select an effect to see description</span>
-                                </div>
-                                <div class="perk-effect-item">
-                                    <div class="perk-effect-inputs">
-                                        <div class="perk-effect-select-wrapper">
-                                            <label for="perkEffect2">Effect 2</label>
-                                            <select id="perkEffect2">
-                                                <option value="">-- No Effect --</option>
-                                            </select>
-                                        </div>
-                                        <div class="perk-factor-wrapper">
-                                            <label for="perkFactor2">Factor</label>
-                                            <input type="number" id="perkFactor2" placeholder="0">
-                                        </div>
+                                    <span class="perk-effect-desc" id="perkEffect1Desc">Select an effect to see description</span>
+                                    <div class="perk-effect-row">
+                                        <div class="perk-field perk-field-grow"><label>Effect 2</label><select id="perkEffect2"><option value="">-- None --</option></select></div>
+                                        <div class="perk-field perk-field-small"><label>Factor</label><input type="number" id="perkFactor2" placeholder="0" max="999"></div>
                                     </div>
-                                    <span class="perk-effect-description" id="perkEffect2Desc">Select an effect to see description</span>
+                                    <span class="perk-effect-desc" id="perkEffect2Desc">Select an effect to see description</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Description Section -->
-                        <div class="perk-form-section">
-                            <div class="perk-form-section-title">Description</div>
-                            <div class="perk-basic-info">
-                                <div style="grid-column: span 2;">
-                                    <textarea id="perkDescription" rows="4" placeholder="Enter perk description..."></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Blessing Section -->
-                        <div class="perk-form-section">
-                            <div class="perk-basic-info">
-                                <div style="grid-column: span 2;">
-                                    <label class="perk-blessing-checkbox">
-                                        <input type="checkbox" id="perkIsBlessing">
-                                        <span>⭐ Is Blessing (Special Perk)</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Form Buttons -->
+                        <!-- Buttons -->
                         <div class="perk-form-buttons">
                             <button type="button" id="perkCancelBtn" class="btn-cancel-perk">Cancel</button>
                             <button type="submit" class="btn-save-perk">Save Perk</button>

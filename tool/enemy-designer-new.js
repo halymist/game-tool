@@ -85,11 +85,11 @@ function setupEnemyEventListeners() {
         });
     }
     
-    // Icon upload area
+    // Icon upload area - click to open gallery
     const iconUploadArea = document.getElementById('enemyIconUploadArea');
     if (iconUploadArea) {
         iconUploadArea.addEventListener('click', () => {
-            document.getElementById('enemyIconFile').click();
+            toggleEnemyAssetGallery();
         });
         iconUploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();

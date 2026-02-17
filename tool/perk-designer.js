@@ -96,11 +96,11 @@ function setupPerkEventListeners() {
         });
     }
     
-    // Click on icon preview to upload
+    // Click on icon preview to open gallery
     const iconUploadArea = document.getElementById('perkIconUploadArea');
     if (iconUploadArea) {
         iconUploadArea.addEventListener('click', () => {
-            document.getElementById('perkIconFile').click();
+            togglePerkAssetGallery();
         });
         
         // Drag and drop
