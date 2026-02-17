@@ -149,6 +149,21 @@
     touch-action: none; /* Prevent browser handling of touch/wheel */
 }
 
+.expedition-canvas.marquee-selecting {
+    cursor: crosshair !important;
+}
+
+.expedition-marquee {
+    position: absolute;
+    border: 1px dashed rgba(78, 205, 196, 0.85);
+    background: rgba(78, 205, 196, 0.2);
+    pointer-events: none;
+    display: none;
+    z-index: 80;
+    border-radius: 8px;
+    mix-blend-mode: screen;
+}
+
 /* Navigation Controls */
 .canvas-nav-controls {
     position: absolute;
@@ -694,6 +709,7 @@
 .option-type-badge.item { color: #ffe66d; }
 .option-type-badge.faction { color: #f59e0b; }
 .option-type-badge.dialogue { color: #a8dadc; }
+.option-type-badge.silver { color: #ffd166; }
 
 .option-text-input {
     flex: 1;
@@ -736,6 +752,11 @@
 .option-detail-badge.faction {
 	background: rgba(245, 158, 11, 0.2);
 	color: #f59e0b;
+}
+
+.option-detail-badge.silver {
+    background: rgba(255, 209, 102, 0.18);
+    color: #ffd166;
 }
 
 .option-edit-btn,

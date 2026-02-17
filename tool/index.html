@@ -1234,6 +1234,7 @@
                             <option value="effect">✨ Effect Check (effect requirement)</option>
                             <option value="combat">⚔️ Combat (enemy encounter)</option>
                             <option value="faction">🛡️ Faction Gate</option>
+                            <option value="silver">🪙 Silver Gate (cost)</option>
                         </select>
                     </div>
                     
@@ -1290,6 +1291,13 @@
                             <option value="companions">Companions</option>
                         </select>
                         <small style="color:#889;margin-top:6px;display:block;">Only members of this faction see the option.</small>
+                    </div>
+
+                    <!-- Silver Gate Fields -->
+                    <div id="optionSilverFields" class="modal-field" style="display:none;">
+                        <label>Silver Required</label>
+                        <input type="number" id="optionSilverRequired" placeholder="e.g. 200" min="0" step="10">
+                        <small style="color:#889;margin-top:6px;display:block;">Option stays hidden unless the player can spend this amount.</small>
                     </div>
                     
                     <div class="modal-buttons">

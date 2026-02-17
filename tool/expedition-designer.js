@@ -28,7 +28,12 @@ const expeditionState = {
     pendingSlideDeletes: new Set(),
     pendingOptionDeletes: new Set(),
     pendingConnectionDeletes: new Set(),
-    selectedSlides: new Set()
+    selectedSlides: new Set(),
+    isMarqueeSelecting: false,
+    marqueeStart: null,
+    marqueeAppend: false,
+    marqueeBounds: null,
+    marqueeHandlers: { move: null, up: null }
 };
 
 const expeditionGenerateState = {
@@ -538,6 +543,11 @@ function getExpeditionOptionRequirement(option) {
                 return `${label} members`;
             }
             return 'Faction gate';
+        case 'silver':
+            if (option.silverRequired != null) {
+                return `Costs ${option.silverRequired} silver`;
+            }
+            return 'Silver gate';
         default:
             return '';
     }
@@ -549,7 +559,8 @@ function getExpeditionOptionTypeBadge(type) {
         skill: 'Skill Check',
         effect: 'Effect Check',
         combat: 'Combat',
-        faction: 'Faction Gate'
+        faction: 'Faction Gate',
+        silver: 'Pay Silver'
     };
     const safeType = type || 'dialogue';
     return `${getTypeIcon(safeType)} ${labels[safeType] || 'Choice'}`;
@@ -740,6 +751,8 @@ function renderSlide(slide) {
         } else if (opt.type === 'faction' && opt.factionRequired) {
             const factionLabel = opt.factionRequired.charAt(0).toUpperCase() + opt.factionRequired.slice(1);
             detailBadges.push(`<span class="option-detail-badge faction">${factionLabel}</span>`);
+        } else if (opt.type === 'silver' && opt.silverRequired != null) {
+            detailBadges.push(`<span class="option-detail-badge silver">🪙${opt.silverRequired}</span>`);
         }
         const detailsBadge = detailBadges.join('');
 		
@@ -1134,7 +1147,7 @@ async function deleteOption(slideId, optionIndex) {
 }
 
 function getTypeIcon(type) {
-    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒', faction: '🛡️' }[type] || '💬';
+    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒', faction: '🛡️', silver: '🪙' }[type] || '💬';
 }
 
 function getRewardIcon(type) {
@@ -1575,7 +1588,8 @@ function openOptionModal(slideId, optionIndex) {
         effectId: null,
         effectAmount: null,
         enemyId: null,
-        factionRequired: null
+        factionRequired: null,
+        silverRequired: null
     };
     
     document.getElementById('optionModalTitle').textContent = isEdit ? 'Edit Option' : 'Add Option';
@@ -1598,6 +1612,11 @@ function openOptionModal(slideId, optionIndex) {
     if (factionSelect) {
         factionSelect.value = opt.type === 'faction' ? (opt.factionRequired || '') : '';
     }
+
+    const silverInput = document.getElementById('optionSilverRequired');
+    if (silverInput) {
+        silverInput.value = opt.type === 'silver' ? (opt.silverRequired ?? '') : '';
+    }
     
     // Show/hide relevant fields based on type
     updateOptionModalFields(opt.type || 'dialogue');
@@ -1610,12 +1629,14 @@ function updateOptionModalFields(type) {
     const effectFields = document.getElementById('optionEffectFields');
     const combatFields = document.getElementById('optionCombatFields');
     const factionFields = document.getElementById('optionFactionFields');
+    const silverFields = document.getElementById('optionSilverFields');
     
     // Hide all
     if (statFields) statFields.style.display = 'none';
     if (effectFields) effectFields.style.display = 'none';
     if (combatFields) combatFields.style.display = 'none';
     if (factionFields) factionFields.style.display = 'none';
+    if (silverFields) silverFields.style.display = 'none';
     
     // Show relevant
     if (type === 'skill' && statFields) {
@@ -1626,6 +1647,8 @@ function updateOptionModalFields(type) {
         combatFields.style.display = 'block';
     } else if (type === 'faction' && factionFields) {
         factionFields.style.display = 'block';
+    } else if (type === 'silver' && silverFields) {
+        silverFields.style.display = 'block';
     }
 }
 
@@ -1676,6 +1699,13 @@ function saveOptionFromModal() {
     } else {
         option.factionRequired = null;
     }
+
+    if (type === 'silver') {
+        const silverValue = parseInt(document.getElementById('optionSilverRequired').value, 10);
+        option.silverRequired = Number.isFinite(silverValue) ? silverValue : null;
+    } else {
+        option.silverRequired = null;
+    }
     
     if (modalContext.optionIndex >= 0) {
         // Edit existing
@@ -1694,10 +1724,7 @@ function onCanvasMouseDown(e) {
     // Middle mouse button (button 1) always pans
     if (e.button === 1) {
         e.preventDefault();
-        expeditionState.isDragging = true;
-        expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
-        const canvas = document.getElementById('expeditionCanvas');
-        if (canvas) canvas.style.cursor = 'grabbing';
+        beginCanvasPan(e);
         return;
     }
     
@@ -1709,15 +1736,22 @@ function onCanvasMouseDown(e) {
         
         // Only start panning if NOT clicking on a slide or interactive element
         if (!clickedSlide && !clickedInteractive) {
-            expeditionState.isDragging = true;
-            expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
-            const canvas = document.getElementById('expeditionCanvas');
-            if (canvas) canvas.style.cursor = 'grabbing';
+            const wantsMarquee = e.shiftKey || e.ctrlKey || e.metaKey;
+            if (wantsMarquee) {
+                startMarqueeSelection(e, { append: e.shiftKey });
+                return;
+            } else {
+                beginCanvasPan(e);
+            }
         }
     }
 }
 
 function onCanvasMouseMove(e) {
+    if (expeditionState.isMarqueeSelecting) {
+        return;
+    }
+
     if (expeditionState.isDragging) {
         const dx = e.clientX - expeditionState.lastMouse.x;
         const dy = e.clientY - expeditionState.lastMouse.y;
@@ -1738,6 +1772,10 @@ function onCanvasMouseMove(e) {
 }
 
 function onCanvasMouseUp(e) {
+    if (expeditionState.isMarqueeSelecting) {
+        finalizeMarqueeSelection(e);
+    }
+
     if (expeditionState.isDragging) {
         expeditionState.isDragging = false;
         const canvas = document.getElementById('expeditionCanvas');
@@ -1748,6 +1786,135 @@ function onCanvasMouseUp(e) {
     if (expeditionState.isConnecting && !e.target.closest('.expedition-slide')) {
         cancelConnection();
     }
+}
+
+function beginCanvasPan(e) {
+    expeditionState.isDragging = true;
+    expeditionState.lastMouse = { x: e.clientX, y: e.clientY };
+    const canvas = document.getElementById('expeditionCanvas');
+    if (canvas) canvas.style.cursor = 'grabbing';
+}
+
+function ensureExpeditionMarqueeElement() {
+    let marquee = document.getElementById('expeditionMarquee');
+    if (!marquee) {
+        marquee = document.createElement('div');
+        marquee.id = 'expeditionMarquee';
+        marquee.className = 'expedition-marquee';
+        document.getElementById('expeditionCanvas')?.appendChild(marquee);
+    }
+    return marquee;
+}
+
+function startMarqueeSelection(e, options = {}) {
+    const canvas = document.getElementById('expeditionCanvas');
+    if (!canvas) return;
+    expeditionState.isMarqueeSelecting = true;
+    expeditionState.marqueeStart = { x: e.clientX, y: e.clientY };
+    expeditionState.marqueeAppend = Boolean(options.append);
+    expeditionState.marqueeBounds = null;
+
+    const marquee = ensureExpeditionMarqueeElement();
+    const canvasRect = canvas.getBoundingClientRect();
+    marquee.style.display = 'block';
+    marquee.style.left = `${expeditionState.marqueeStart.x - canvasRect.left}px`;
+    marquee.style.top = `${expeditionState.marqueeStart.y - canvasRect.top}px`;
+    marquee.style.width = '0px';
+    marquee.style.height = '0px';
+    canvas.classList.add('marquee-selecting');
+
+    const moveHandler = (ev) => updateMarqueeSelection(ev);
+    const upHandler = (ev) => finalizeMarqueeSelection(ev);
+    expeditionState.marqueeHandlers = { move: moveHandler, up: upHandler };
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', upHandler);
+    e.preventDefault();
+}
+
+function updateMarqueeSelection(e) {
+    if (!expeditionState.isMarqueeSelecting || !expeditionState.marqueeStart) return;
+    const canvas = document.getElementById('expeditionCanvas');
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const { x: startX, y: startY } = expeditionState.marqueeStart;
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const left = Math.min(startX, currentX);
+    const right = Math.max(startX, currentX);
+    const top = Math.min(startY, currentY);
+    const bottom = Math.max(startY, currentY);
+    expeditionState.marqueeBounds = { left, right, top, bottom };
+
+    const marquee = ensureExpeditionMarqueeElement();
+    marquee.style.display = 'block';
+    marquee.style.left = `${left - canvasRect.left}px`;
+    marquee.style.top = `${top - canvasRect.top}px`;
+    marquee.style.width = `${right - left}px`;
+    marquee.style.height = `${bottom - top}px`;
+
+    const selection = window.getSelection?.();
+    if (selection?.removeAllRanges) {
+        selection.removeAllRanges();
+    }
+}
+
+function finalizeMarqueeSelection() {
+    if (!expeditionState.isMarqueeSelecting) return;
+
+    if (expeditionState.marqueeHandlers.move) {
+        document.removeEventListener('mousemove', expeditionState.marqueeHandlers.move);
+    }
+    if (expeditionState.marqueeHandlers.up) {
+        document.removeEventListener('mouseup', expeditionState.marqueeHandlers.up);
+    }
+    expeditionState.marqueeHandlers = { move: null, up: null };
+
+    const canvas = document.getElementById('expeditionCanvas');
+    canvas?.classList.remove('marquee-selecting');
+    const marquee = document.getElementById('expeditionMarquee');
+    if (marquee) marquee.style.display = 'none';
+
+    const bounds = expeditionState.marqueeBounds;
+    expeditionState.isMarqueeSelecting = false;
+    expeditionState.marqueeStart = null;
+    expeditionState.marqueeBounds = null;
+
+    if (!bounds || (bounds.right - bounds.left < 4 && bounds.bottom - bounds.top < 4)) {
+        return;
+    }
+
+    const selectedIds = getSlidesWithinMarquee(bounds);
+    if (!expeditionState.marqueeAppend) {
+        expeditionState.selectedSlides.clear();
+    }
+
+    selectedIds.forEach((id) => expeditionState.selectedSlides.add(id));
+    if (selectedIds.length) {
+        expeditionState.selectedSlide = selectedIds[selectedIds.length - 1];
+    } else if (!expeditionState.marqueeAppend) {
+        expeditionState.selectedSlide = null;
+    }
+
+    updateSelectedSlideHighlights();
+}
+
+function getSlidesWithinMarquee(bounds) {
+    const matches = [];
+    document.querySelectorAll('.expedition-slide').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        if (
+            centerX >= bounds.left &&
+            centerX <= bounds.right &&
+            centerY >= bounds.top &&
+            centerY <= bounds.bottom
+        ) {
+            matches.push(parseInt(el.id.replace('slide-', ''), 10));
+        }
+    });
+    return matches;
 }
 
 // ==================== CONNECTION DRAG FUNCTIONS ====================
@@ -2148,6 +2315,17 @@ function getExpeditionAssetThumbSrc(asset) {
     return EXPEDITION_ASSET_PLACEHOLDER;
 }
 
+function getExpeditionAssetUrlById(assetId) {
+    if (!assetId) return null;
+    const assets = GlobalData?.questAssets || [];
+    const numericId = Number(assetId);
+    const match = assets.find((asset) => Number(asset.id) === numericId);
+    if (match?.url) {
+        return match.url;
+    }
+    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetId}.webp`;
+}
+
 function hydrateExpeditionAssetThumbnails(assets) {
     if (typeof ensureQuestAssetObjectUrl !== 'function') return;
     const gallery = document.getElementById('expeditionAssetGallery');
@@ -2343,6 +2521,11 @@ function clearSlideBg() {
         renderConnections();
     }
     closeExpeditionAssetGallery();
+}
+
+function uploadSlideBgFromDevice() {
+    const input = document.getElementById('expeditionAssetFileInput');
+    input?.click();
 }
 
 function setupExpeditionGeneratePanel() {
@@ -2634,6 +2817,7 @@ function getExpeditionNewSlidesTemplate() {
                         effectAmount: null,
                         enemyId: null,
                         factionRequired: null,
+                        silverRequired: null,
                         connections: [
                             {
                                 targetSlideId: 1,
@@ -2699,6 +2883,8 @@ async function generateExpeditionClusterPreview() {
             return false;
         });
     }
+
+    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
 
     const npcLookup = new Map((expeditionGenerateState.npcs || []).map(npc => [npc.npc_id || npc.id, npc]));
     const npcs = selectedNpcIds
@@ -2855,7 +3041,7 @@ async function generateExpeditionClusterPreview() {
                         settlementSelect.value = String(normalizedSettlementId);
                     }
                 }
-                applyGeneratedExpedition(parsed, normalizedSettlementId);
+                applyGeneratedExpedition(parsed, normalizedSettlementId, selectedLocationTextureId);
                 setExpeditionGenerateLoading(false, 'Expedition applied to canvas.');
                 toggleExpeditionGeneratePanel();
             } catch (err) {
@@ -2873,7 +3059,7 @@ async function generateExpeditionClusterPreview() {
 }
 
 // Apply freshly generated expedition slides to the local canvas
-function applyGeneratedExpedition(data, settlementIdOverride = null) {
+function applyGeneratedExpedition(data, settlementIdOverride = null, locationTextureFallback = null) {
     if (!data || !Array.isArray(data.slides) || data.slides.length === 0) {
         console.warn('Generated expedition missing slides array');
         return;
@@ -2881,6 +3067,9 @@ function applyGeneratedExpedition(data, settlementIdOverride = null) {
 
     const generatedSlides = data.slides;
     const normalizedOverride = normalizeNumericId(settlementIdOverride);
+    const fallbackTextureId = normalizeNumericId(
+        data?.locationTextureId ?? data?.location_texture_id ?? locationTextureFallback ?? null
+    );
     const generatedIdMap = new Map();
 
     generatedSlides.forEach((slideData, index) => {
@@ -2888,14 +3077,14 @@ function applyGeneratedExpedition(data, settlementIdOverride = null) {
         const referenceKey = getGeneratedSlideKey(slideData, index);
         generatedIdMap.set(referenceKey, localId);
 
-        const assetIdValue = slideData.assetId ?? slideData.asset_id ?? null;
+        const resolvedAssetId = resolveGeneratedAssetId(slideData, fallbackTextureId);
         const effectId = slideData.effectId ?? slideData.effect_id ?? null;
         const effectFactor = slideData.effectFactor ?? slideData.effect_factor ?? null;
         const slideSettlementId = normalizeNumericId(
             slideData.settlementId ?? slideData.settlement_id ?? normalizedOverride ?? expeditionState.selectedSettlementId
         );
 
-        const remoteAssetUrl = assetIdValue ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetIdValue}.webp` : null;
+        const remoteAssetUrl = resolvedAssetId ? getExpeditionAssetUrlById(resolvedAssetId) : null;
         const slide = {
             id: localId,
             text: slideData.text || '',
@@ -2903,14 +3092,14 @@ function applyGeneratedExpedition(data, settlementIdOverride = null) {
             x: slideData.posX ?? slideData.pos_x ?? slideData.x ?? (100 + index * 60),
             y: slideData.posY ?? slideData.pos_y ?? slideData.y ?? (100 + index * 60),
             options: [],
-            assetId: assetIdValue,
+            assetId: resolvedAssetId,
             assetUrl: remoteAssetUrl,
             assetPreviewUrl: null,
             reward: buildRewardFromServer(slideData),
             effect: effectId ? { effectId, effectFactor } : null,
             settlementId: slideSettlementId ?? null
         };
-        primeSlideAssetPreview(slide, assetIdValue, remoteAssetUrl);
+        primeSlideAssetPreview(slide, resolvedAssetId, remoteAssetUrl);
 
         expeditionState.slides.set(localId, slide);
     });
@@ -2954,9 +3143,11 @@ function normalizeGeneratedExpeditionOption(optData = {}) {
     const effectAmount = optData.effectAmount ?? optData.effect_amount ?? null;
     const enemyId = optData.enemyId ?? optData.enemy_id ?? null;
     const factionRequired = optData.factionRequired ?? optData.faction_required ?? null;
+    const silverRequired = optData.silverRequired ?? optData.silver_required ?? null;
 
     let optType = 'dialogue';
-    if (factionRequired) optType = 'faction';
+    if (silverRequired != null) optType = 'silver';
+    else if (factionRequired) optType = 'faction';
     else if (statType) optType = 'skill';
     else if (effectId) optType = 'effect';
     else if (enemyId) optType = 'combat';
@@ -2969,8 +3160,34 @@ function normalizeGeneratedExpeditionOption(optData = {}) {
         effectId,
         effectAmount,
         enemyId,
-        factionRequired
+        factionRequired,
+        silverRequired
     };
+}
+
+function resolveGeneratedAssetId(slideData, fallbackTextureId = null) {
+    if (!slideData) {
+        return normalizeNumericId(fallbackTextureId);
+    }
+    const candidates = [
+        slideData.assetId,
+        slideData.asset_id,
+        slideData.textureId,
+        slideData.texture_id,
+        slideData.backgroundId,
+        slideData.background_id,
+        slideData.locationTextureId,
+        slideData.location_texture_id,
+        slideData.preferredTextureId,
+        slideData.preferred_texture_id
+    ];
+    for (const candidate of candidates) {
+        const normalized = normalizeNumericId(candidate);
+        if (normalized !== null) {
+            return normalized;
+        }
+    }
+    return normalizeNumericId(fallbackTextureId);
 }
 
 function resolveGeneratedConnectionTarget(connection, generatedIdMap) {
@@ -3217,6 +3434,7 @@ function isOptionModified(localId, optIdx) {
     if ((opt.effectAmount || null) !== original.effectAmount) return true;
     if ((opt.enemyId || null) !== original.enemyId) return true;
     if ((opt.factionRequired || null) !== (original.factionRequired || null)) return true;
+    if ((opt.silverRequired ?? null) !== (original.silverRequired ?? null)) return true;
     
     return false;
 }
@@ -3372,6 +3590,7 @@ async function saveExpedition() {
                             effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                             enemyId: opt.type === 'combat' ? opt.enemyId : null,
                             factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
+                            silverRequired: opt.type === 'silver' ? opt.silverRequired : null,
                             connections: connections
                         });
                         console.log(`New option on existing slide ${localId} (slide_id ${slideServerId}):`, opt.text);
@@ -3488,6 +3707,7 @@ async function saveExpedition() {
                     effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                     enemyId: opt.type === 'combat' ? opt.enemyId : null,
                     factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
+                    silverRequired: opt.type === 'silver' ? opt.silverRequired : null,
                     connections: connections
                 };
             });
@@ -3560,7 +3780,8 @@ async function saveExpedition() {
             effectId: option.type === 'effect' ? option.effectId : null,
             effectAmount: option.type === 'effect' ? option.effectAmount : null,
             enemyId: option.type === 'combat' ? option.enemyId : null,
-            factionRequired: option.type === 'faction' ? option.factionRequired : null
+            factionRequired: option.type === 'faction' ? option.factionRequired : null,
+            silverRequired: option.type === 'silver' ? option.silverRequired : null
         }));
 
         // Check if there's anything to save
@@ -3670,7 +3891,8 @@ async function saveExpedition() {
                     effectId: option.type === 'effect' ? (option.effectId || null) : null,
                     effectAmount: option.type === 'effect' ? (option.effectAmount || null) : null,
                     enemyId: option.type === 'combat' ? (option.enemyId || null) : null,
-                    factionRequired: option.type === 'faction' ? (option.factionRequired || null) : null
+                    factionRequired: option.type === 'faction' ? (option.factionRequired || null) : null,
+                    silverRequired: option.type === 'silver' ? (option.silverRequired ?? null) : null
                 });
             }
             
@@ -3694,7 +3916,8 @@ async function saveExpedition() {
                             effectId: opt.type === 'effect' ? (opt.effectId || null) : null,
                             effectAmount: opt.type === 'effect' ? (opt.effectAmount || null) : null,
                             enemyId: opt.type === 'combat' ? (opt.enemyId || null) : null,
-                            factionRequired: opt.type === 'faction' ? (opt.factionRequired || null) : null
+                            factionRequired: opt.type === 'faction' ? (opt.factionRequired || null) : null,
+                            silverRequired: opt.type === 'silver' ? (opt.silverRequired ?? null) : null
                         });
                     }
                 }
@@ -3945,7 +4168,8 @@ async function loadExpedition() {
                 
                 // Determine option type
                 let optType = 'dialogue';
-                if (serverOpt.factionRequired) optType = 'faction';
+                if (serverOpt.silverRequired != null) optType = 'silver';
+                else if (serverOpt.factionRequired) optType = 'faction';
                 else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
@@ -3958,7 +4182,8 @@ async function loadExpedition() {
                     effectId: optType === 'effect' ? serverOpt.effectId : null,
                     effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
                     enemyId: optType === 'combat' ? serverOpt.enemyId : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 };
 
                 slide.options.push(option);
@@ -3977,7 +4202,8 @@ async function loadExpedition() {
                     effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
                     effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
                     enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 });
 
                 // Third pass: create connections from outcomes
@@ -4089,15 +4315,36 @@ function populateSettlementDropdown() {
         return;
     }
 
-    expeditionState.settlements.forEach(settlement => {
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'All Settlements';
+    select.appendChild(allOption);
+
+    const sortedSettlements = [...expeditionState.settlements].sort((a, b) => {
+        const nameA = (a.settlement_name || '').toLowerCase();
+        const nameB = (b.settlement_name || '').toLowerCase();
+        if (nameA === nameB) {
+            return (a.settlement_id || 0) - (b.settlement_id || 0);
+        }
+        return nameA.localeCompare(nameB);
+    });
+
+    sortedSettlements.forEach(settlement => {
         const option = document.createElement('option');
         option.value = settlement.settlement_id;
         option.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
         select.appendChild(option);
     });
 
-    const hasPrevious = previousValue && select.querySelector(`option[value="${previousValue}"]`);
-    const nextValue = hasPrevious ? previousValue : (select.options[0]?.value || '');
+    let nextValue = '';
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        nextValue = previousValue;
+    } else if (expeditionState.selectedSettlementId !== null) {
+        const candidate = String(expeditionState.selectedSettlementId);
+        if (select.querySelector(`option[value="${candidate}"]`)) {
+            nextValue = candidate;
+        }
+    }
     select.value = nextValue;
 
     const numericValue = nextValue ? parseInt(nextValue, 10) : null;
@@ -4255,7 +4502,8 @@ async function loadExpeditionForSettlement(settlementId) {
                 
                 // Determine option type
                 let optType = 'dialogue';
-                if (serverOpt.factionRequired) optType = 'faction';
+                if (serverOpt.silverRequired != null) optType = 'silver';
+                else if (serverOpt.factionRequired) optType = 'faction';
                 else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
@@ -4268,7 +4516,8 @@ async function loadExpeditionForSettlement(settlementId) {
                     effectId: optType === 'effect' ? serverOpt.effectId : null,
                     effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
                     enemyId: optType === 'combat' ? serverOpt.enemyId : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 };
 
                 slide.options.push(option);
@@ -4287,7 +4536,8 @@ async function loadExpeditionForSettlement(settlementId) {
                     effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
                     effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
                     enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null
+                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 });
 
                 // Third pass: build connections from outcomes
@@ -4341,7 +4591,6 @@ async function loadExpeditionForSettlement(settlementId) {
 // ==================== EXPOSE GLOBALLY ====================
 window.initExpeditionDesigner = initExpeditionDesigner;
 window.addExpeditionSlide = addSlide;
-window.closeBgPicker = closeBgPicker;
 window.applyBgUrl = applyBgUrl;
 window.clearSlideBg = clearSlideBg;
 window.closeOptionModal = closeOptionModal;

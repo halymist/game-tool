@@ -40,13 +40,14 @@ type ExpeditionSlide struct {
 
 // ExpeditionOption represents an option on a slide
 type ExpeditionOption struct {
-	Text         string  `json:"text"`
-	StatType     *string `json:"statType"`
-	StatRequired *int    `json:"statRequired"`
-	EffectID     *int    `json:"effectId"`
-	EffectAmount *int    `json:"effectAmount"`
-	EnemyID      *int    `json:"enemyId"`
-	FactionReq   *string `json:"factionRequired"`
+	Text           string  `json:"text"`
+	StatType       *string `json:"statType"`
+	StatRequired   *int    `json:"statRequired"`
+	EffectID       *int    `json:"effectId"`
+	EffectAmount   *int    `json:"effectAmount"`
+	EnemyID        *int    `json:"enemyId"`
+	FactionReq     *string `json:"factionRequired"`
+	SilverRequired *int    `json:"silverRequired"`
 	// Connections to target slides (local IDs from the designer)
 	Connections []ExpeditionConnection `json:"connections"`
 }
@@ -59,17 +60,18 @@ type ExpeditionConnection struct {
 
 // NewOptionForExistingSlide represents a new option being added to an existing server slide
 type NewOptionForExistingSlide struct {
-	SlideLocalID int                    `json:"slideLocalId"`
-	OptionIndex  int                    `json:"optionIndex"`
-	SlideID      int                    `json:"slideId"`
-	Text         string                 `json:"text"`
-	StatType     *string                `json:"statType"`
-	StatRequired *int                   `json:"statRequired"`
-	EffectID     *int                   `json:"effectId"`
-	EffectAmount *int                   `json:"effectAmount"`
-	EnemyID      *int                   `json:"enemyId"`
-	FactionReq   *string                `json:"factionRequired"`
-	Connections  []ExpeditionConnection `json:"connections"`
+	SlideLocalID   int                    `json:"slideLocalId"`
+	OptionIndex    int                    `json:"optionIndex"`
+	SlideID        int                    `json:"slideId"`
+	Text           string                 `json:"text"`
+	StatType       *string                `json:"statType"`
+	StatRequired   *int                   `json:"statRequired"`
+	EffectID       *int                   `json:"effectId"`
+	EffectAmount   *int                   `json:"effectAmount"`
+	EnemyID        *int                   `json:"enemyId"`
+	FactionReq     *string                `json:"factionRequired"`
+	SilverRequired *int                   `json:"silverRequired"`
+	Connections    []ExpeditionConnection `json:"connections"`
 }
 
 // NewConnectionForExistingOption represents a new connection being added to an existing server option
@@ -101,14 +103,15 @@ type SlideUpdate struct {
 
 // OptionUpdate represents updates to an existing option
 type OptionUpdate struct {
-	OptionID     int     `json:"optionId"`
-	Text         string  `json:"text"`
-	StatType     *string `json:"statType"`
-	StatRequired *int    `json:"statRequired"`
-	EffectID     *int    `json:"effectId"`
-	EffectAmount *int    `json:"effectAmount"`
-	EnemyID      *int    `json:"enemyId"`
-	FactionReq   *string `json:"factionRequired"`
+	OptionID       int     `json:"optionId"`
+	Text           string  `json:"text"`
+	StatType       *string `json:"statType"`
+	StatRequired   *int    `json:"statRequired"`
+	EffectID       *int    `json:"effectId"`
+	EffectAmount   *int    `json:"effectAmount"`
+	EnemyID        *int    `json:"enemyId"`
+	FactionReq     *string `json:"factionRequired"`
+	SilverRequired *int    `json:"silverRequired"`
 }
 
 // DeletedConnection represents a staged removal of an outcome row
@@ -337,12 +340,12 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			err := tx.QueryRow(`
 				INSERT INTO tooling.expedition_options (
 					slide_id, option_text, stat_type, stat_required,
-					effect_id, effect_amount, enemy_id, faction_required
+					effect_id, effect_amount, enemy_id, faction_required, silver_required
 				) VALUES (
-					$1, $2, $3, $4, $5, $6, $7, $8
+					$1, $2, $3, $4, $5, $6, $7, $8, $9
 				) RETURNING option_id
 			`, slideID, option.Text, option.StatType, option.StatRequired,
-				option.EffectID, option.EffectAmount, option.EnemyID, option.FactionReq).Scan(&optionID)
+				option.EffectID, option.EffectAmount, option.EnemyID, option.FactionReq, option.SilverRequired).Scan(&optionID)
 
 			if err != nil {
 				log.Printf("Failed to insert option for slide %d: %v", slide.ID, err)
@@ -410,12 +413,12 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		err := tx.QueryRow(`
 			INSERT INTO tooling.expedition_options (
 				slide_id, option_text, stat_type, stat_required,
-				effect_id, effect_amount, enemy_id, faction_required
+				effect_id, effect_amount, enemy_id, faction_required, silver_required
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8
+				$1, $2, $3, $4, $5, $6, $7, $8, $9
 			) RETURNING option_id
 		`, slideID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
-			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq).Scan(&optionID)
+			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq, newOpt.SilverRequired).Scan(&optionID)
 
 		if err != nil {
 			log.Printf("Failed to insert new option for slide %d: %v", newOpt.SlideID, err)
@@ -529,11 +532,11 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			UPDATE tooling.expedition_options SET
 				option_text = $1, stat_type = $2, stat_required = $3,
 				effect_id = $4, effect_amount = $5, enemy_id = $6,
-				faction_required = $7
-			WHERE option_id = $8
+				faction_required = $7, silver_required = $8
+			WHERE option_id = $9
 		`, update.Text, update.StatType, update.StatRequired,
 			update.EffectID, update.EffectAmount, update.EnemyID,
-			update.FactionReq, update.OptionID)
+			update.FactionReq, update.SilverRequired, update.OptionID)
 
 		if err != nil {
 			log.Printf("Failed to update option %d: %v", update.OptionID, err)
@@ -600,15 +603,16 @@ type LoadedSlide struct {
 
 // LoadedOption represents an option loaded from the database
 type LoadedOption struct {
-	OptionID     int             `json:"optionId"`
-	OptionText   string          `json:"text"`
-	StatType     *string         `json:"statType"`
-	StatRequired *int            `json:"statRequired"`
-	EffectID     *int            `json:"effectId"`
-	EffectAmount *int            `json:"effectAmount"`
-	EnemyID      *int            `json:"enemyId"`
-	FactionReq   *string         `json:"factionRequired"`
-	Outcomes     []LoadedOutcome `json:"outcomes"`
+	OptionID       int             `json:"optionId"`
+	OptionText     string          `json:"text"`
+	StatType       *string         `json:"statType"`
+	StatRequired   *int            `json:"statRequired"`
+	EffectID       *int            `json:"effectId"`
+	EffectAmount   *int            `json:"effectAmount"`
+	EnemyID        *int            `json:"enemyId"`
+	FactionReq     *string         `json:"factionRequired"`
+	SilverRequired *int            `json:"silverRequired"`
+	Outcomes       []LoadedOutcome `json:"outcomes"`
 }
 
 // LoadedOutcome represents an outcome (connection) from database
@@ -683,7 +687,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 	// Step 2: Load all options and attach to slides
 	optionRows, err := db.Query(`
 		SELECT option_id, slide_id, COALESCE(option_text, ''), stat_type, stat_required,
-		       effect_id, effect_amount, enemy_id, faction_required
+		       effect_id, effect_amount, enemy_id, faction_required, silver_required
 		FROM tooling.expedition_options
 		ORDER BY option_id
 	`)
@@ -701,7 +705,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		var slideID int
 		err := optionRows.Scan(
 			&o.OptionID, &slideID, &o.OptionText, &o.StatType, &o.StatRequired,
-			&o.EffectID, &o.EffectAmount, &o.EnemyID, &o.FactionReq,
+			&o.EffectID, &o.EffectAmount, &o.EnemyID, &o.FactionReq, &o.SilverRequired,
 		)
 		if err != nil {
 			log.Printf("Failed to scan option: %v", err)
