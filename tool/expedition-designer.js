@@ -3183,11 +3183,12 @@ function resolveGeneratedAssetId(slideData, fallbackTextureId = null) {
     ];
     for (const candidate of candidates) {
         const normalized = normalizeNumericId(candidate);
-        if (normalized !== null) {
+        if (normalized !== null && normalized > 0) {
             return normalized;
         }
     }
-    return normalizeNumericId(fallbackTextureId);
+    const fallbackNormalized = normalizeNumericId(fallbackTextureId);
+    return fallbackNormalized !== null && fallbackNormalized > 0 ? fallbackNormalized : null;
 }
 
 function resolveGeneratedConnectionTarget(connection, generatedIdMap) {

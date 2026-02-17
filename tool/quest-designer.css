@@ -283,6 +283,18 @@
     cursor: crosshair !important;
 }
 
+.quest-canvas.marquee-selecting {
+    cursor: crosshair;
+}
+
+.quest-marquee {
+    position: absolute;
+    border: 1px dashed rgba(78, 205, 196, 0.9);
+    background: rgba(78, 205, 196, 0.2);
+    pointer-events: none;
+    z-index: 30;
+}
+
 /* ==================== SVG CONNECTIONS ==================== */
 .quest-connections-svg {
     position: absolute;

@@ -7,12 +7,14 @@ const questState = {
     quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, assetId, assetUrl, x, y, sortOrder }
     nextQuestId: 1,
     selectedQuest: null,
+    selectedQuestIds: new Set(),
     
     // Options (nodes with option text, node text, type, type-specific data)
     // Type can be: dialogue, stat_check, effect_check, combat, faction, end
     options: new Map(),      // optionId -> { optionId, optionText, nodeText, x, y, isStart, type, statType, statRequired, effectId, effectAmount, optionEffectId, optionEffectFactor, factionRequired, enemyId, reward }
     nextOptionId: 1,
     selectedOption: null,
+    selectedOptionIds: new Set(),
     
     // Connections: option -> quest (option leads to quest) or option -> option
     // NO quest -> quest connections allowed
@@ -23,6 +25,11 @@ const questState = {
     zoom: 1,
     isDragging: false,
     lastMouse: { x: 0, y: 0 },
+    isMarqueeSelecting: false,
+    marqueeStart: null,
+    marqueeBounds: null,
+    marqueeAppend: false,
+    marqueeHandlers: { move: null, up: null },
     
     // Connection dragging
     isConnecting: false,
@@ -347,7 +354,8 @@ function renderQuest(quest) {
     
     const el = document.createElement('div');
     el.id = `quest-${quest.questId}`;
-    el.className = `quest-slide${questState.selectedQuest === quest.questId ? ' selected' : ''}`;
+    const questIsSelected = questState.selectedQuestIds.has(quest.questId);
+    el.className = `quest-slide${questIsSelected ? ' selected' : ''}`;
     el.style.left = `${quest.x}px`;
     el.style.top = `${quest.y}px`;
     
@@ -413,9 +421,22 @@ function bindQuestEvents(el, quest) {
         if (e.target.closest('input, textarea, button, .quest-connector')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
-        
-        selectQuest(quest.questId);
-        startDragElement(el, quest, e);
+
+        const modifierHeld = e.shiftKey || e.ctrlKey || e.metaKey;
+        const alreadySelected = questState.selectedQuestIds.has(quest.questId);
+
+        if (modifierHeld) {
+            selectQuest(quest.questId, { append: true });
+        } else if (!alreadySelected || (questState.selectedQuestIds.size === 0 && questState.selectedOptionIds.size === 0)) {
+            selectQuest(quest.questId);
+        } else {
+            questState.selectedQuest = quest.questId;
+            questState.selectedOption = null;
+            refreshQuestSidebars();
+            updateQuestSelectionHighlights();
+        }
+
+        startQuestSelectionDrag({ type: 'quest', id: quest.questId }, e);
     });
 }
 
@@ -429,7 +450,8 @@ function renderOption(option) {
     
     const el = document.createElement('div');
     el.id = `option-${option.optionId}`;
-    el.className = `option-node${option.isStart ? ' start-option' : ''}${questState.selectedOption === option.optionId ? ' selected' : ''}`;
+    const optionIsSelected = questState.selectedOptionIds.has(option.optionId);
+    el.className = `option-node${option.isStart ? ' start-option' : ''}${optionIsSelected ? ' selected' : ''}`;
     el.style.left = `${option.x}px`;
     el.style.top = `${option.y}px`;
     
@@ -510,39 +532,80 @@ function bindOptionEvents(el, option) {
         if (e.target.closest('input, textarea, button, .option-connector')) return;
         if (e.button !== 0) return;
         e.stopPropagation();
-        
-        selectOption(option.optionId);
-        startDragElement(el, option, e);
+
+        const modifierHeld = e.shiftKey || e.ctrlKey || e.metaKey;
+        const alreadySelected = questState.selectedOptionIds.has(option.optionId);
+
+        if (modifierHeld) {
+            selectOption(option.optionId, { append: true });
+        } else if (!alreadySelected || (questState.selectedQuestIds.size === 0 && questState.selectedOptionIds.size === 0)) {
+            selectOption(option.optionId);
+        } else {
+            questState.selectedOption = option.optionId;
+            questState.selectedQuest = null;
+            refreshQuestSidebars();
+            updateQuestSelectionHighlights();
+        }
+
+        startQuestSelectionDrag({ type: 'option', id: option.optionId }, e);
     });
 }
 
 // ==================== ELEMENT DRAGGING ====================
-function startDragElement(el, data, e) {
+function startQuestSelectionDrag(primary, e) {
+    if (questState.isConnecting) return;
+    const snapshot = buildQuestSelectionSnapshot(primary);
+    if (!snapshot.length) return;
+
     const startMouseX = e.clientX;
     const startMouseY = e.clientY;
-    const startX = data.x;
-    const startY = data.y;
-    
+
     const onMove = (ev) => {
-        if (questState.isConnecting) return;
-        el.classList.add('dragging');
         const deltaX = (ev.clientX - startMouseX) / questState.zoom;
         const deltaY = (ev.clientY - startMouseY) / questState.zoom;
-        data.x = startX + deltaX;
-        data.y = startY + deltaY;
-        el.style.left = `${data.x}px`;
-        el.style.top = `${data.y}px`;
+
+        snapshot.forEach(({ data, element, startX, startY }) => {
+            if (!data) return;
+            data.x = startX + deltaX;
+            data.y = startY + deltaY;
+            if (element) {
+                element.style.left = `${data.x}px`;
+                element.style.top = `${data.y}px`;
+                element.classList.add('dragging');
+            }
+        });
         questRenderConnections();
     };
-    
+
     const onUp = () => {
-        el.classList.remove('dragging');
+        snapshot.forEach(({ element }) => element?.classList.remove('dragging'));
         document.removeEventListener('mousemove', onMove);
         document.removeEventListener('mouseup', onUp);
     };
-    
+
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+}
+
+function buildQuestSelectionSnapshot(primary) {
+    const snapshot = [];
+    const pushEntry = (type, id) => {
+        const data = type === 'quest' ? questState.quests.get(id) : questState.options.get(id);
+        if (!data) return;
+        const elementId = type === 'quest' ? `quest-${id}` : `option-${id}`;
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        snapshot.push({ type, id, data, element, startX: data.x || 0, startY: data.y || 0 });
+    };
+
+    questState.selectedQuestIds.forEach((id) => pushEntry('quest', id));
+    questState.selectedOptionIds.forEach((id) => pushEntry('option', id));
+
+    if (!snapshot.length && primary) {
+        pushEntry(primary.type, primary.id);
+    }
+
+    return snapshot;
 }
 
 // ==================== CONNECTION SYSTEM ====================
@@ -765,22 +828,24 @@ function deleteQuest(id) {
     
     document.getElementById(`quest-${id}`)?.remove();
     questState.quests.delete(id);
-    questState.selectedQuest = null;
+    questState.selectedQuestIds.delete(id);
+    if (questState.selectedQuest === id) {
+        questState.selectedQuest = getLastSelectedFromSet(questState.selectedQuestIds);
+    }
 
     optionIds.forEach(optionId => {
         document.getElementById(`option-${optionId}`)?.remove();
         questState.options.delete(optionId);
+        questState.selectedOptionIds.delete(optionId);
+        if (questState.selectedOption === optionId) {
+            questState.selectedOption = getLastSelectedFromSet(questState.selectedOptionIds);
+        }
     });
-
-    const noSelection = document.getElementById('sidebarNoSelection');
-    const optionContent = document.getElementById('sidebarContent');
-    const questContent = document.getElementById('sidebarQuestContent');
-    if (noSelection) noSelection.style.display = 'flex';
-    if (optionContent) optionContent.style.display = 'none';
-    if (questContent) questContent.style.display = 'none';
     
     questRenderConnections();
     updateCounter();
+    updateQuestSelectionHighlights();
+    refreshQuestSidebars();
 }
 
 function deleteSelectedQuest() {
@@ -808,38 +873,105 @@ function deleteOption(id) {
     
     document.getElementById(`option-${id}`)?.remove();
     questState.options.delete(id);
-    questState.selectedOption = null;
+    questState.selectedOptionIds.delete(id);
+    if (questState.selectedOption === id) {
+        questState.selectedOption = getLastSelectedFromSet(questState.selectedOptionIds);
+    }
     
     questRenderConnections();
     updateCounter();
+    updateQuestSelectionHighlights();
+    refreshQuestSidebars();
 }
 
 // ==================== SELECTION ====================
-function selectQuest(id) {
-    questState.selectedQuest = id;
-    questState.selectedOption = null;
-    document.querySelectorAll('.quest-slide').forEach(el => {
-        el.classList.toggle('selected', el.id === `quest-${id}`);
-    });
-    document.querySelectorAll('.option-node').forEach(el => {
-        el.classList.remove('selected');
-    });
+function selectQuest(id, options = {}) {
+    const { append = false, toggle = true } = options;
 
-    updateQuestSidebar(id);
+    if (!append) {
+        questState.selectedQuestIds.clear();
+        questState.selectedOptionIds.clear();
+        questState.selectedOption = null;
+    }
+
+    const alreadySelected = questState.selectedQuestIds.has(id);
+
+    if (append && toggle && alreadySelected) {
+        questState.selectedQuestIds.delete(id);
+        if (questState.selectedQuest === id) {
+            questState.selectedQuest = getLastSelectedFromSet(questState.selectedQuestIds);
+        }
+        if (!questState.selectedQuestIds.size && !questState.selectedOptionIds.size) {
+            questState.selectedQuest = null;
+        }
+    } else {
+        questState.selectedQuestIds.add(id);
+        questState.selectedQuest = id;
+        questState.selectedOption = null;
+    }
+
+    updateQuestSelectionHighlights();
+    refreshQuestSidebars();
 }
 
-function selectOption(id) {
-    questState.selectedOption = id;
-    questState.selectedQuest = null;
-    document.querySelectorAll('.option-node').forEach(el => {
-        el.classList.toggle('selected', el.id === `option-${id}`);
+function selectOption(id, options = {}) {
+    const { append = false, toggle = true } = options;
+
+    if (!append) {
+        questState.selectedQuestIds.clear();
+        questState.selectedQuest = null;
+        questState.selectedOptionIds.clear();
+    }
+
+    const alreadySelected = questState.selectedOptionIds.has(id);
+
+    if (append && toggle && alreadySelected) {
+        questState.selectedOptionIds.delete(id);
+        if (questState.selectedOption === id) {
+            questState.selectedOption = getLastSelectedFromSet(questState.selectedOptionIds);
+        }
+        if (!questState.selectedOptionIds.size) {
+            questState.selectedOption = null;
+        }
+    } else {
+        questState.selectedOptionIds.add(id);
+        questState.selectedOption = id;
+    }
+
+    updateQuestSelectionHighlights();
+    refreshQuestSidebars();
+}
+
+function updateQuestSelectionHighlights() {
+    document.querySelectorAll('.quest-slide').forEach((el) => {
+        const questId = parseInt(el.id.replace('quest-', ''), 10);
+        el.classList.toggle('selected', questState.selectedQuestIds.has(questId));
     });
-    document.querySelectorAll('.quest-slide').forEach(el => {
-        el.classList.remove('selected');
+    document.querySelectorAll('.option-node').forEach((el) => {
+        const optionId = parseInt(el.id.replace('option-', ''), 10);
+        el.classList.toggle('selected', questState.selectedOptionIds.has(optionId));
     });
-    
-    // Update sidebar
-    updateSidebar(id);
+}
+
+function refreshQuestSidebars() {
+    if (questState.selectedOption) {
+        updateSidebar(questState.selectedOption);
+        return;
+    }
+    if (questState.selectedQuest) {
+        updateQuestSidebar(questState.selectedQuest);
+        return;
+    }
+    updateSidebar(null);
+    updateQuestSidebar(null);
+}
+
+function getLastSelectedFromSet(set) {
+    let last = null;
+    set.forEach((value) => {
+        last = value;
+    });
+    return last;
 }
 
 function updateSidebar(optionId) {
@@ -1033,11 +1165,12 @@ function updateSidebarRewardFields(type) {
 
 // ==================== CANVAS NAVIGATION ====================
 function onQuestCanvasMouseDown(e) {
+    const canvas = document.getElementById('questCanvas');
     if (e.button === 1) {
         e.preventDefault();
         questState.isDragging = true;
         questState.lastMouse = { x: e.clientX, y: e.clientY };
-        document.getElementById('questCanvas').style.cursor = 'grabbing';
+        if (canvas) canvas.style.cursor = 'grabbing';
         return;
     }
     
@@ -1046,14 +1179,22 @@ function onQuestCanvasMouseDown(e) {
         const clickedInteractive = e.target.closest('button, input, textarea, select, .quest-connector, .option-connector');
         
         if (!clickedElement && !clickedInteractive) {
-            questState.isDragging = true;
-            questState.lastMouse = { x: e.clientX, y: e.clientY };
-            document.getElementById('questCanvas').style.cursor = 'grabbing';
+            const wantsMarquee = e.shiftKey || e.ctrlKey || e.metaKey;
+            if (wantsMarquee) {
+                startQuestMarqueeSelection(e, { append: e.shiftKey });
+            } else {
+                questState.isDragging = true;
+                questState.lastMouse = { x: e.clientX, y: e.clientY };
+                if (canvas) canvas.style.cursor = 'grabbing';
+            }
         }
     }
 }
 
 function onQuestCanvasMouseMove(e) {
+    if (questState.isMarqueeSelecting) {
+        return;
+    }
     if (questState.isDragging) {
         const dx = e.clientX - questState.lastMouse.x;
         const dy = e.clientY - questState.lastMouse.y;
@@ -1074,9 +1215,13 @@ function onQuestCanvasMouseMove(e) {
 }
 
 function onQuestCanvasMouseUp(e) {
+    if (questState.isMarqueeSelecting) {
+        finalizeQuestMarqueeSelection();
+    }
     if (questState.isDragging) {
         questState.isDragging = false;
-        document.getElementById('questCanvas').style.cursor = 'grab';
+        const canvas = document.getElementById('questCanvas');
+        if (canvas) canvas.style.cursor = 'grab';
     }
     
     if (questState.isConnecting && !e.target.closest('.quest-slide, .option-node')) {
@@ -1143,6 +1288,165 @@ function resetQuestView() {
     questRenderConnections();
 }
 window.resetQuestView = resetQuestView;
+
+// ==================== MARQUEE SELECTION ====================
+function ensureQuestMarqueeElement() {
+    let marquee = document.getElementById('questMarquee');
+    if (!marquee) {
+        marquee = document.createElement('div');
+        marquee.id = 'questMarquee';
+        marquee.className = 'quest-marquee';
+        document.getElementById('questCanvas')?.appendChild(marquee);
+    }
+    return marquee;
+}
+
+function startQuestMarqueeSelection(e, options = {}) {
+    if (questState.isMarqueeSelecting) return;
+    const canvas = document.getElementById('questCanvas');
+    if (!canvas) return;
+
+    questState.isMarqueeSelecting = true;
+    questState.marqueeStart = { x: e.clientX, y: e.clientY };
+    questState.marqueeAppend = Boolean(options.append);
+    questState.marqueeBounds = null;
+
+    const marquee = ensureQuestMarqueeElement();
+    const canvasRect = canvas.getBoundingClientRect();
+    marquee.style.display = 'block';
+    marquee.style.left = `${questState.marqueeStart.x - canvasRect.left}px`;
+    marquee.style.top = `${questState.marqueeStart.y - canvasRect.top}px`;
+    marquee.style.width = '0px';
+    marquee.style.height = '0px';
+    canvas.classList.add('marquee-selecting');
+
+    const moveHandler = (ev) => updateQuestMarqueeSelection(ev);
+    const upHandler = () => finalizeQuestMarqueeSelection();
+    questState.marqueeHandlers = { move: moveHandler, up: upHandler };
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', upHandler);
+    e.preventDefault();
+}
+
+function updateQuestMarqueeSelection(e) {
+    if (!questState.isMarqueeSelecting || !questState.marqueeStart) return;
+    const canvas = document.getElementById('questCanvas');
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const { x: startX, y: startY } = questState.marqueeStart;
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+
+    const left = Math.min(startX, currentX);
+    const right = Math.max(startX, currentX);
+    const top = Math.min(startY, currentY);
+    const bottom = Math.max(startY, currentY);
+    questState.marqueeBounds = { left, right, top, bottom };
+
+    const marquee = ensureQuestMarqueeElement();
+    marquee.style.left = `${left - canvasRect.left}px`;
+    marquee.style.top = `${top - canvasRect.top}px`;
+    marquee.style.width = `${right - left}px`;
+    marquee.style.height = `${bottom - top}px`;
+
+    const selection = window.getSelection?.();
+    if (selection?.removeAllRanges) {
+        selection.removeAllRanges();
+    }
+}
+
+function finalizeQuestMarqueeSelection() {
+    if (!questState.isMarqueeSelecting) return;
+
+    if (questState.marqueeHandlers.move) {
+        document.removeEventListener('mousemove', questState.marqueeHandlers.move);
+    }
+    if (questState.marqueeHandlers.up) {
+        document.removeEventListener('mouseup', questState.marqueeHandlers.up);
+    }
+    questState.marqueeHandlers = { move: null, up: null };
+
+    const canvas = document.getElementById('questCanvas');
+    canvas?.classList.remove('marquee-selecting');
+    const marquee = document.getElementById('questMarquee');
+    if (marquee) marquee.style.display = 'none';
+
+    const bounds = questState.marqueeBounds;
+    questState.isMarqueeSelecting = false;
+    questState.marqueeStart = null;
+    questState.marqueeBounds = null;
+    questState.marqueeAppend = false;
+
+    if (!bounds || (bounds.right - bounds.left < 4 && bounds.bottom - bounds.top < 4)) {
+        return;
+    }
+
+    if (!questState.marqueeAppend) {
+        questState.selectedQuestIds.clear();
+        questState.selectedOptionIds.clear();
+        questState.selectedQuest = null;
+        questState.selectedOption = null;
+    }
+
+    const hits = getQuestElementsWithinMarquee(bounds);
+    let lastQuestId = null;
+    let lastOptionId = null;
+
+    hits.forEach(({ type, id }) => {
+        if (type === 'quest') {
+            questState.selectedQuestIds.add(id);
+            lastQuestId = id;
+        } else {
+            questState.selectedOptionIds.add(id);
+            lastOptionId = id;
+        }
+    });
+
+    if (lastQuestId !== null) {
+        questState.selectedQuest = lastQuestId;
+        questState.selectedOption = null;
+    } else if (lastOptionId !== null) {
+        questState.selectedQuest = null;
+        questState.selectedOption = lastOptionId;
+    } else if (!questState.marqueeAppend) {
+        questState.selectedQuest = null;
+        questState.selectedOption = null;
+    }
+
+    updateQuestSelectionHighlights();
+    refreshQuestSidebars();
+}
+
+function getQuestElementsWithinMarquee(bounds) {
+    const matches = [];
+    if (!bounds) return matches;
+
+    document.querySelectorAll('.quest-slide').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        if (centerX >= bounds.left && centerX <= bounds.right && centerY >= bounds.top && centerY <= bounds.bottom) {
+            const questId = parseInt(el.id.replace('quest-', ''), 10);
+            if (!Number.isNaN(questId)) {
+                matches.push({ type: 'quest', id: questId });
+            }
+        }
+    });
+
+    document.querySelectorAll('.option-node').forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        if (centerX >= bounds.left && centerX <= bounds.right && centerY >= bounds.top && centerY <= bounds.bottom) {
+            const optionId = parseInt(el.id.replace('option-', ''), 10);
+            if (!Number.isNaN(optionId)) {
+                matches.push({ type: 'option', id: optionId });
+            }
+        }
+    });
+
+    return matches;
+}
 
 // ==================== QUEST ASSET PICKER ====================
 function openQuestAssetPicker(questId) {
@@ -1410,6 +1714,8 @@ function clearQuestCanvas() {
     questState.connections = [];
     questState.selectedQuest = null;
     questState.selectedOption = null;
+    questState.selectedQuestIds.clear();
+    questState.selectedOptionIds.clear();
     questState.selectedChain = null;
     questState.nextQuestId = 1;
     questState.nextOptionId = 1;
@@ -1417,12 +1723,21 @@ function clearQuestCanvas() {
     questState.serverOptions.clear();
     questState.deletedQuestIds = [];
     questState.deletedOptionIds = [];
+    questState.isMarqueeSelecting = false;
+    questState.marqueeStart = null;
+    questState.marqueeBounds = null;
+    questState.marqueeAppend = false;
+    questState.marqueeHandlers = { move: null, up: null };
+    document.getElementById('questCanvas')?.classList.remove('marquee-selecting');
+    const marquee = document.getElementById('questMarquee');
+    if (marquee) marquee.style.display = 'none';
     
     const container = document.getElementById('questOptionsContainer');
     if (container) container.innerHTML = '';
     
     questRenderConnections();
     updateCounter();
+    refreshQuestSidebars();
     
     // Reset chain name input
     const nameInput = document.getElementById('questChainNameInput');
@@ -3252,6 +3567,7 @@ async function generateQuestPreview() {
             return false;
         });
     }
+    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
 
     const npcLookup = new Map(questGenerateState.npcs.map(npc => [npc.npc_id || npc.id, npc]));
     const npcs = selectedNpcIds
@@ -3416,7 +3732,7 @@ async function generateQuestPreview() {
                 const chainSelect = document.getElementById('questSelect');
                 if (chainSelect) chainSelect.value = 'new';
                 if (typeof window.onQuestChange === 'function') await window.onQuestChange();
-                applyGeneratedQuest(parsed);
+                applyGeneratedQuest(parsed, selectedLocationTextureId);
                 toggleQuestGeneratePanel();
             } catch (err) {
                 console.warn('Failed to parse quest JSON:', err, content);
@@ -3528,7 +3844,7 @@ function normalizeGeneratedOptions(options = []) {
     }));
 }
 
-function applyGeneratedQuest(data) {
+function applyGeneratedQuest(data, locationTextureFallback = null) {
     if (!data || !Array.isArray(data.quests) || data.quests.length === 0) {
         console.warn('Generated quest missing quests array');
         return;
@@ -3536,6 +3852,14 @@ function applyGeneratedQuest(data) {
 
     const questRaw = data.quests[0];
     const localQuestId = questState.nextQuestId++;
+    const fallbackTextureId = normalizeNumericId(
+        data?.locationTextureId ?? data?.location_texture_id ?? locationTextureFallback ?? null
+    );
+    const resolvedAssetId = resolveQuestGeneratedAssetId(questRaw, fallbackTextureId);
+    const remoteAssetUrl = resolvedAssetId ? getQuestAssetRemoteUrl(resolvedAssetId) : null;
+    const cachedAssetUrl = resolvedAssetId && typeof getQuestAssetObjectUrl === 'function'
+        ? getQuestAssetObjectUrl(resolvedAssetId)
+        : null;
 
     const quest = {
         questId: localQuestId,
@@ -3544,8 +3868,9 @@ function applyGeneratedQuest(data) {
         text: questRaw.start_text || questRaw.startText || '',
         travelText: questRaw.travel_text || questRaw.travelText || '',
         failureText: questRaw.failure_text || questRaw.failureText || '',
-        assetId: questRaw.asset_id || questRaw.assetId || null,
-        assetUrl: questRaw.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${questRaw.asset_id}.webp` : null,
+        assetId: resolvedAssetId,
+        assetUrl: cachedAssetUrl || remoteAssetUrl,
+        assetRemoteUrl: remoteAssetUrl,
         sortOrder: questRaw.sort_order || questRaw.sortOrder || 0,
         x: questRaw.pos_x ?? questRaw.x ?? 50,
         y: questRaw.pos_y ?? questRaw.y ?? 100,
@@ -3553,6 +3878,17 @@ function applyGeneratedQuest(data) {
     };
 
     questState.quests.set(localQuestId, quest);
+    if (resolvedAssetId && typeof ensureQuestAssetObjectUrl === 'function' && !cachedAssetUrl) {
+        ensureQuestAssetObjectUrl(resolvedAssetId)
+            .then((objectUrl) => {
+                const targetQuest = questState.quests.get(localQuestId);
+                if (targetQuest && targetQuest.assetId === resolvedAssetId) {
+                    targetQuest.assetUrl = objectUrl;
+                    renderQuest(targetQuest);
+                }
+            })
+            .catch(() => {});
+    }
 
     const optionMapping = new Map();
     const normalizedOptions = normalizeGeneratedOptions(data.options || []);
@@ -3626,6 +3962,42 @@ function applyGeneratedQuest(data) {
     });
     questRenderConnections();
     updateCounter();
+}
+
+function resolveQuestGeneratedAssetId(questData, fallbackTextureId = null) {
+    if (!questData) return normalizeNumericId(fallbackTextureId);
+    const candidates = [
+        questData.assetId,
+        questData.asset_id,
+        questData.textureId,
+        questData.texture_id,
+        questData.backgroundId,
+        questData.background_id,
+        questData.locationTextureId,
+        questData.location_texture_id,
+        questData.preferredTextureId,
+        questData.preferred_texture_id
+    ];
+    for (const candidate of candidates) {
+        const normalized = normalizeNumericId(candidate);
+        if (normalized !== null && normalized > 0) {
+            return normalized;
+        }
+    }
+    const fallbackNormalized = normalizeNumericId(fallbackTextureId);
+    return fallbackNormalized !== null && fallbackNormalized > 0 ? fallbackNormalized : null;
+}
+
+function getQuestAssetRemoteUrl(assetId) {
+    const normalized = normalizeNumericId(assetId);
+    if (normalized === null) return null;
+    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${normalized}.webp`;
+}
+
+function normalizeNumericId(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
 }
 
 function toPromptText(value) {
