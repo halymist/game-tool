@@ -111,14 +111,23 @@ type OptionUpdate struct {
 	FactionReq   *string `json:"factionRequired"`
 }
 
+// DeletedConnection represents a staged removal of an outcome row
+type DeletedConnection struct {
+	OptionID      int `json:"optionId"`
+	TargetSlideID int `json:"targetSlideId"`
+}
+
 // SaveExpeditionRequest is the request body for saving an expedition
 type SaveExpeditionRequest struct {
-	Slides         []ExpeditionSlide                `json:"slides"`
-	NewOptions     []NewOptionForExistingSlide      `json:"newOptions"`     // New options for existing slides
-	NewConnections []NewConnectionForExistingOption `json:"newConnections"` // New connections for existing options
-	SlideUpdates   []SlideUpdate                    `json:"slideUpdates"`   // Updates to existing slides
-	OptionUpdates  []OptionUpdate                   `json:"optionUpdates"`  // Updates to existing options
-	SettlementID   *int                             `json:"settlementId"`
+	Slides             []ExpeditionSlide                `json:"slides"`
+	NewOptions         []NewOptionForExistingSlide      `json:"newOptions"`     // New options for existing slides
+	NewConnections     []NewConnectionForExistingOption `json:"newConnections"` // New connections for existing options
+	SlideUpdates       []SlideUpdate                    `json:"slideUpdates"`   // Updates to existing slides
+	OptionUpdates      []OptionUpdate                   `json:"optionUpdates"`  // Updates to existing options
+	DeletedSlides      []int                            `json:"deletedSlides"`
+	DeletedOptions     []int                            `json:"deletedOptions"`
+	DeletedConnections []DeletedConnection              `json:"deletedConnections"`
+	SettlementID       *int                             `json:"settlementId"`
 }
 
 // SaveExpeditionResponse contains the result of saving
@@ -189,6 +198,94 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 	slideMapping := make(map[int]int)
 	optionMapping := make(map[string]int)
+
+	// Handle staged deletions within the same transaction before new work
+	processedSlideDeletes := make(map[int]struct{})
+	for _, slideID := range req.DeletedSlides {
+		if slideID <= 0 {
+			continue
+		}
+		if _, exists := processedSlideDeletes[slideID]; exists {
+			continue
+		}
+		processedSlideDeletes[slideID] = struct{}{}
+		if _, err := tx.Exec(`
+			UPDATE tooling.expedition_slides
+			SET slide_state = 'delete'
+			WHERE slide_id = $1
+		`, slideID); err != nil {
+			log.Printf("Failed to queue slide %d for deletion: %v", slideID, err)
+			http.Error(w, "Failed to delete slide", http.StatusInternalServerError)
+			return
+		}
+		log.Printf("Queued slide_id=%d for deletion via saveExpedition", slideID)
+	}
+
+	processedOptionDeletes := make(map[int]struct{})
+	for _, optionID := range req.DeletedOptions {
+		if optionID <= 0 {
+			continue
+		}
+		if _, exists := processedOptionDeletes[optionID]; exists {
+			continue
+		}
+		processedOptionDeletes[optionID] = struct{}{}
+
+		var slideID int
+		err := tx.QueryRow(`SELECT slide_id FROM tooling.expedition_options WHERE option_id = $1`, optionID).Scan(&slideID)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			log.Printf("Failed to resolve slide for option %d deletion: %v", optionID, err)
+			http.Error(w, "Failed to delete option", http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := tx.Exec(`DELETE FROM tooling.expedition_options WHERE option_id = $1`, optionID); err != nil {
+			log.Printf("Failed to delete option %d: %v", optionID, err)
+			http.Error(w, "Failed to delete option", http.StatusInternalServerError)
+			return
+		}
+
+		if err := markSlideState(slideID); err != nil {
+			log.Printf("Failed to mark slide %d updated after option delete: %v", slideID, err)
+			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+			return
+		}
+
+		log.Printf("Deleted option_id=%d and marked slide_id=%d updated", optionID, slideID)
+	}
+
+	processedConnectionDeletes := make(map[string]DeletedConnection)
+	for _, conn := range req.DeletedConnections {
+		if conn.OptionID <= 0 || conn.TargetSlideID <= 0 {
+			continue
+		}
+		key := fmt.Sprintf("%d-%d", conn.OptionID, conn.TargetSlideID)
+		processedConnectionDeletes[key] = conn
+	}
+
+	for _, conn := range processedConnectionDeletes {
+		result, err := tx.Exec(`
+			DELETE FROM tooling.expedition_outcomes
+			WHERE option_id = $1 AND target_slide_id = $2
+		`, conn.OptionID, conn.TargetSlideID)
+		if err != nil {
+			log.Printf("Failed to delete connection option_id=%d -> slide_id=%d: %v", conn.OptionID, conn.TargetSlideID, err)
+			http.Error(w, "Failed to delete connection", http.StatusInternalServerError)
+			return
+		}
+
+		if rows, _ := result.RowsAffected(); rows > 0 {
+			if err := markSlideStateForOption(conn.OptionID); err != nil {
+				log.Printf("Failed to mark slide updated after connection delete (option %d): %v", conn.OptionID, err)
+				http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+				return
+			}
+			log.Printf("Deleted %d connection row(s) for option_id=%d -> slide_id=%d", rows, conn.OptionID, conn.TargetSlideID)
+		}
+	}
 
 	for _, slide := range req.Slides {
 		var slideID int
@@ -554,6 +651,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		       reward_perk, reward_blessing, reward_potion, reward_silver,
 		       COALESCE(pos_x, 100), COALESCE(pos_y, 100)
 		FROM tooling.expedition_slides
+		WHERE COALESCE(slide_state, 'unchanged') <> 'delete'
 		ORDER BY slide_id
 	`)
 	if err != nil {
@@ -909,21 +1007,30 @@ func handleDeleteExpeditionSlide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete the slide - CASCADE will handle options and outcomes
-	result, err := db.Exec(`DELETE FROM tooling.expedition_slides WHERE slide_id = $1`, req.SlideID)
+	// Instead of removing the row, mark it for deletion so merge can soft-delete in game schema
+	result, err := db.Exec(`
+		UPDATE tooling.expedition_slides
+		SET slide_state = 'delete'
+		WHERE slide_id = $1
+	`, req.SlideID)
 	if err != nil {
-		log.Printf("Failed to delete slide %d: %v", req.SlideID, err)
+		log.Printf("Failed to mark slide %d deleted: %v", req.SlideID, err)
 		http.Error(w, "Failed to delete slide", http.StatusInternalServerError)
 		return
 	}
 
 	rowsAffected, _ := result.RowsAffected()
-	log.Printf("Deleted slide slide_id=%d (rows affected: %d)", req.SlideID, rowsAffected)
+	if rowsAffected == 0 {
+		http.Error(w, "Slide not found", http.StatusNotFound)
+		return
+	}
+
+	log.Printf("Marked slide_id=%d as deleted (slide_state='delete')", req.SlideID)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": fmt.Sprintf("Slide %d deleted", req.SlideID),
+		"message": fmt.Sprintf("Slide %d marked for deletion", req.SlideID),
 	})
 }
 
@@ -1086,6 +1193,8 @@ func runExpeditionMerge() (expeditionMergeStats, error) {
 	}
 	stats.Version = version
 
+	deletedSlideSet := make(map[int]struct{})
+	var deletedSlideIDs []int
 	for _, slide := range slides {
 		isDeleted := strings.EqualFold(slide.State, "delete")
 		if err := upsertGameSlide(tx, slide, version, isDeleted); err != nil {
@@ -1098,6 +1207,10 @@ func runExpeditionMerge() (expeditionMergeStats, error) {
 			stats.UpdatedSlides++
 		case "delete":
 			stats.DeletedSlides++
+			if _, exists := deletedSlideSet[slide.ID]; !exists {
+				deletedSlideSet[slide.ID] = struct{}{}
+				deletedSlideIDs = append(deletedSlideIDs, slide.ID)
+			}
 		}
 	}
 
@@ -1117,10 +1230,29 @@ func runExpeditionMerge() (expeditionMergeStats, error) {
 		return stats, err
 	}
 
+	for _, slideID := range deletedSlideIDs {
+		if _, err := tx.Exec(`
+			DELETE FROM tooling.expedition_outcomes
+			WHERE option_id IN (
+				SELECT option_id FROM tooling.expedition_options WHERE slide_id = $1
+			)
+		`, slideID); err != nil {
+			return stats, err
+		}
+
+		if _, err := tx.Exec(`DELETE FROM tooling.expedition_options WHERE slide_id = $1`, slideID); err != nil {
+			return stats, err
+		}
+
+		if _, err := tx.Exec(`DELETE FROM tooling.expedition_slides WHERE slide_id = $1`, slideID); err != nil {
+			return stats, err
+		}
+	}
+
 	if _, err := tx.Exec(`
 		UPDATE tooling.expedition_slides
 		SET slide_state = 'unchanged'
-		WHERE slide_state IN ('insert','update','delete')
+		WHERE slide_state IN ('insert','update')
 	`); err != nil {
 		return stats, err
 	}

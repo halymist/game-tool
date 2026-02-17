@@ -23,7 +23,11 @@ const expeditionState = {
     serverOutcomes: new Set(), // Set of "optionId-targetSlideId" keys
     // Track original values for change detection
     originalSlides: new Map(), // localId -> { text, assetId, effectId, effectFactor, isStart, reward, ... }
-    originalOptions: new Map() // "localSlideId-optionIndex" -> { text, type, statType, statRequired, ... }
+    originalOptions: new Map(), // "localSlideId-optionIndex" -> { text, type, statType, statRequired, ... }
+    // Track staged deletions that will be committed on save
+    pendingSlideDeletes: new Set(),
+    pendingOptionDeletes: new Set(),
+    pendingConnectionDeletes: new Set()
 };
 
 const expeditionGenerateState = {
@@ -951,54 +955,62 @@ function selectSlide(id) {
     });
 }
 
+function queueServerConnectionDeletion(connection) {
+    if (!connection) return;
+    const optionKey = `${connection.from}-${connection.option}`;
+    const optionId = expeditionState.serverOptions.get(optionKey);
+    if (!optionId) return;
+
+    let targetSlideId = null;
+    if (expeditionState.serverSlides.has(connection.to)) {
+        targetSlideId = expeditionState.serverSlides.get(connection.to);
+    } else if (typeof connection.targetSlideDbId === 'number' && connection.targetSlideDbId > 0) {
+        targetSlideId = connection.targetSlideDbId;
+    }
+
+    if (!targetSlideId) return;
+
+    const outcomeKey = `${optionId}-${targetSlideId}`;
+    expeditionState.pendingConnectionDeletes.add(outcomeKey);
+    if (expeditionState.serverOutcomes.has(outcomeKey)) {
+        expeditionState.serverOutcomes.delete(outcomeKey);
+    }
+}
+
 async function deleteSlide(id) {
     if (!confirm('Delete this slide and all its connections?')) return;
-    
+    const slide = expeditionState.slides.get(id);
+    if (!slide) return;
+
     const isServerSlide = expeditionState.serverSlides.has(id);
     const slideId = isServerSlide ? expeditionState.serverSlides.get(id) : null;
-    
-    // If it's a server slide, delete from database first
-    if (isServerSlide && slideId) {
-        try {
-            const token = await getCurrentAccessToken();
-            if (!token) throw new Error('Not authenticated');
-            
-            const response = await fetch('http://localhost:8080/api/deleteExpeditionSlide', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ slideId })
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText);
-            }
-            
-            console.log(`Deleted slide slide_id ${slideId} from server`);
-            
-            // Clean up server tracking
-            expeditionState.serverSlides.delete(id);
-            expeditionState.originalSlides.delete(id);
-            
-            // Clean up server options for this slide
-            for (const [key] of expeditionState.serverOptions.entries()) {
-                if (key.startsWith(`${id}-`)) {
-                    expeditionState.serverOptions.delete(key);
-                    expeditionState.originalOptions.delete(key);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to delete slide from server:', error);
-            alert(`Failed to delete slide: ${error.message}`);
-            return;
-        }
-    }
-    
+
+    const removedConnections = expeditionState.connections.filter(c => c.from === id || c.to === id);
+    removedConnections.forEach(queueServerConnectionDeletion);
+
     // Remove connections
     expeditionState.connections = expeditionState.connections.filter(c => c.from !== id && c.to !== id);
+
+    if (isServerSlide && slideId) {
+        expeditionState.pendingSlideDeletes.add(slideId);
+        expeditionState.serverSlides.delete(id);
+        expeditionState.originalSlides.delete(id);
+
+        // Clean up server options for this slide
+        slide.options.forEach((_, optionIndex) => {
+            const optionKey = `${id}-${optionIndex}`;
+            const optionId = expeditionState.serverOptions.get(optionKey);
+            if (!optionId) return;
+            expeditionState.serverOptions.delete(optionKey);
+            expeditionState.originalOptions.delete(optionKey);
+
+            for (const outcomeKey of Array.from(expeditionState.serverOutcomes)) {
+                if (outcomeKey.startsWith(`${optionId}-`)) {
+                    expeditionState.serverOutcomes.delete(outcomeKey);
+                }
+            }
+        });
+    }
     
     // Remove element
     document.getElementById(`slide-${id}`)?.remove();
@@ -1018,53 +1030,30 @@ async function deleteOption(slideId, optionIndex) {
     const optionKey = `${slideId}-${optionIndex}`;
     const isServerOption = expeditionState.serverOptions.has(optionKey);
     const optionId = isServerOption ? expeditionState.serverOptions.get(optionKey) : null;
+
+    const optionConnections = expeditionState.connections.filter(conn => 
+        conn.from === slideId && conn.option === optionIndex
+    );
+    optionConnections.forEach(queueServerConnectionDeletion);
     
     // If it's a server option, delete from database first
     if (isServerOption && optionId) {
-        if (!confirm('Delete this option from the server?')) return;
-        
-        try {
-            const token = await getCurrentAccessToken();
-            if (!token) throw new Error('Not authenticated');
-            
-            const response = await fetch('http://localhost:8080/api/deleteExpeditionOption', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ optionId })
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(errorText);
+        if (!confirm('Delete this option? It will be removed on Save.')) return;
+
+        expeditionState.pendingOptionDeletes.add(optionId);
+        expeditionState.serverOptions.delete(optionKey);
+        expeditionState.originalOptions.delete(optionKey);
+
+        for (const outcomeKey of Array.from(expeditionState.serverOutcomes)) {
+            if (outcomeKey.startsWith(`${optionId}-`)) {
+                expeditionState.serverOutcomes.delete(outcomeKey);
             }
-            
-            console.log(`Deleted option option_id ${optionId} from server`);
-            
-            // Clean up server tracking - need to re-index options after this one
-            expeditionState.serverOptions.delete(optionKey);
-            expeditionState.originalOptions.delete(optionKey);
-            
-            // Re-index remaining options
-            for (let i = optionIndex + 1; i < slide.options.length; i++) {
-                const oldKey = `${slideId}-${i}`;
-                const newKey = `${slideId}-${i - 1}`;
-                if (expeditionState.serverOptions.has(oldKey)) {
-                    expeditionState.serverOptions.set(newKey, expeditionState.serverOptions.get(oldKey));
-                    expeditionState.serverOptions.delete(oldKey);
-                }
-                if (expeditionState.originalOptions.has(oldKey)) {
-                    expeditionState.originalOptions.set(newKey, expeditionState.originalOptions.get(oldKey));
-                    expeditionState.originalOptions.delete(oldKey);
-                }
-            }
-        } catch (error) {
-            console.error('Failed to delete option from server:', error);
-            alert(`Failed to delete option: ${error.message}`);
-            return;
         }
+    }
+
+    if (!isServerOption) {
+        // Remove any tracked originals for unsaved options as part of reindexing
+        expeditionState.originalOptions.delete(optionKey);
     }
     
     // Remove connections for this option
@@ -1079,6 +1068,22 @@ async function deleteOption(slideId, optionIndex) {
     slide.options.splice(optionIndex, 1);
     renderSlide(slide);
     renderConnections();
+
+    if (isServerOption) {
+        // Re-index remaining options for server tracking
+        for (let i = optionIndex; i < slide.options.length; i++) {
+            const oldKey = `${slideId}-${i + 1}`;
+            const newKey = `${slideId}-${i}`;
+            if (expeditionState.serverOptions.has(oldKey)) {
+                expeditionState.serverOptions.set(newKey, expeditionState.serverOptions.get(oldKey));
+                expeditionState.serverOptions.delete(oldKey);
+            }
+            if (expeditionState.originalOptions.has(oldKey)) {
+                expeditionState.originalOptions.set(newKey, expeditionState.originalOptions.get(oldKey));
+                expeditionState.originalOptions.delete(oldKey);
+            }
+        }
+    }
 }
 
 function getTypeIcon(type) {
@@ -2046,6 +2051,7 @@ function renderConnections() {
         path.dataset.index = i;
         path.addEventListener('click', () => {
             if (confirm('Delete connection?')) {
+                queueServerConnectionDeletion(conn);
                 expeditionState.connections.splice(i, 1);
                 renderConnections();
             }
@@ -3271,6 +3277,19 @@ async function saveExpedition() {
         const slides = [];
         const newOptions = []; // New options for existing slides
         const newConnections = []; // New connections for existing options
+        const deletedSlides = Array.from(expeditionState.pendingSlideDeletes);
+        const deletedOptions = Array.from(expeditionState.pendingOptionDeletes);
+        const deletedConnections = Array.from(expeditionState.pendingConnectionDeletes)
+            .map(key => {
+                const [optionIdStr, targetSlideIdStr] = key.split('-');
+                const optionId = parseInt(optionIdStr, 10);
+                const targetSlideId = parseInt(targetSlideIdStr, 10);
+                if (Number.isNaN(optionId) || Number.isNaN(targetSlideId)) {
+                    return null;
+                }
+                return { optionId, targetSlideId };
+            })
+            .filter(Boolean);
         
         expeditionState.slides.forEach((slide, localId) => {
             const isServerSlide = expeditionState.serverSlides.has(localId);
@@ -3498,7 +3517,16 @@ async function saveExpedition() {
         }));
 
         // Check if there's anything to save
-        if (slides.length === 0 && newOptions.length === 0 && newConnections.length === 0 && slideUpdates.length === 0 && optionUpdates.length === 0) {
+        if (
+            slides.length === 0 &&
+            newOptions.length === 0 &&
+            newConnections.length === 0 &&
+            slideUpdates.length === 0 &&
+            optionUpdates.length === 0 &&
+            deletedSlides.length === 0 &&
+            deletedOptions.length === 0 &&
+            deletedConnections.length === 0
+        ) {
             alert('No changes to save. All slides, options, and connections are already on the server.');
             return;
         }
@@ -3509,6 +3537,9 @@ async function saveExpedition() {
         console.log(`  - ${newConnections.length} new connections on existing options`);
         console.log(`  - ${slideUpdates.length} updated slides`);
         console.log(`  - ${optionUpdates.length} updated options`);
+        console.log(`  - ${deletedSlides.length} deleted slides`);
+        console.log(`  - ${deletedOptions.length} deleted options`);
+        console.log(`  - ${deletedConnections.length} deleted connections`);
 
         // Get auth token
         const token = await getCurrentAccessToken();
@@ -3529,6 +3560,9 @@ async function saveExpedition() {
                 newConnections: newConnections,
                 slideUpdates: slideUpdates,
                 optionUpdates: optionUpdates,
+                deletedSlides: deletedSlides,
+                deletedOptions: deletedOptions,
+                deletedConnections: deletedConnections,
                 settlementId: expeditionState.selectedSettlementId || null
             })
         });
@@ -3667,6 +3701,10 @@ async function saveExpedition() {
                     console.log(`Tracked new connection: ${outcomeKey}`);
                 }
             }
+
+            expeditionState.pendingSlideDeletes.clear();
+            expeditionState.pendingOptionDeletes.clear();
+            expeditionState.pendingConnectionDeletes.clear();
             
             // Re-render slides to update visual (remove new-slide/modified-slide highlight)
             // Use filterAndRenderSlides to respect the current settlement filter
@@ -3678,6 +3716,9 @@ async function saveExpedition() {
             if (newConnections.length > 0) parts.push(`${newConnections.length} new connections`);
             if (slideUpdates.length > 0) parts.push(`${slideUpdates.length} updated slides`);
             if (optionUpdates.length > 0) parts.push(`${optionUpdates.length} updated options`);
+            if (deletedSlides.length > 0) parts.push(`${deletedSlides.length} deleted slides`);
+            if (deletedOptions.length > 0) parts.push(`${deletedOptions.length} deleted options`);
+            if (deletedConnections.length > 0) parts.push(`${deletedConnections.length} deleted connections`);
             
             alert(`✅ Expedition saved successfully!\n\n${parts.join(', ')} saved to database.`);
             console.log('Save result:', result);
@@ -3786,6 +3827,9 @@ async function loadExpedition() {
         expeditionState.serverOutcomes.clear();
         expeditionState.originalSlides.clear();
         expeditionState.originalOptions.clear();
+        expeditionState.pendingSlideDeletes.clear();
+        expeditionState.pendingOptionDeletes.clear();
+        expeditionState.pendingConnectionDeletes.clear();
 
         // Clear the canvas
         const container = document.getElementById('slidesContainer');
