@@ -373,6 +373,16 @@ input[type="number"] {
     gap: 1rem;
 }
 
+/* Ensure dropdowns open downward */
+.perk-unified-form {
+    overflow: visible;
+}
+
+.perk-editor-panel {
+    overflow-y: auto;
+    overflow-x: visible;
+}
+
 .perk-effect-desc {
     font-size: 0.75rem;
     color: #8b4513;

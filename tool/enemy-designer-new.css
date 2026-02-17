@@ -380,19 +380,17 @@
 .enemy-unified-form .stat-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .enemy-unified-form .stat-row label {
     font-size: 0.75rem;
     color: #b8860b;
-    flex: 0 0 60px;
+    min-width: 50px;
 }
 
 .enemy-unified-form .stat-row input[type="number"] {
-    flex: 1;
-    max-width: 70px;
+    width: 60px;
     padding: 0.35rem;
     text-align: center;
     background: rgba(50, 35, 20, 0.9);
