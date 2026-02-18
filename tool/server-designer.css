@@ -1,4 +1,4 @@
-/* Server Manager Styles */
+/* Server Manager – Dark Theme */
 
 .server-manager-container {
     display: grid;
@@ -11,9 +11,9 @@
 
 .server-list-panel,
 .server-editor-panel {
-    background: #1e2a4a;
-    border: 1px solid #0f3460;
-    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -32,21 +32,21 @@
 .server-list-header h3,
 .server-editor-header h3 {
     margin: 0;
-    color: #e2e8f0;
+    color: var(--text-primary);
     font-size: 18px;
 }
 
 .server-status {
     font-size: 13px;
-    color: #a0aec0;
+    color: var(--text-muted);
 }
 
 .server-status.success {
-    color: #48bb78;
+    color: var(--success);
 }
 
 .server-status.error {
-    color: #fc8181;
+    color: var(--danger);
 }
 
 .server-table-wrapper {
@@ -63,8 +63,8 @@
 .server-table th,
 .server-table td {
     padding: 8px 10px;
-    border-bottom: 1px solid #0f3460;
-    color: #e2e8f0;
+    border-bottom: 1px solid var(--border-default);
+    color: var(--text-primary);
     vertical-align: top;
 }
 
@@ -73,31 +73,37 @@
 }
 
 .server-table tr:hover {
-    background: rgba(99, 179, 237, 0.08);
+    background: var(--bg-hover);
 }
 
 .server-table tr.selected {
-    background: rgba(99, 179, 237, 0.18);
+    background: var(--accent-subtle);
 }
 
 .server-table tr.server-create-row {
-    background: rgba(15, 52, 96, 0.35);
+    background: var(--bg-elevated);
     cursor: default;
 }
 
 .server-table tr.server-create-row:hover {
-    background: rgba(15, 52, 96, 0.45);
+    background: var(--bg-hover);
 }
 
 .server-table tr.server-create-row input {
     width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 6px;
-    color: #e2e8f0;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
     padding: 6px 8px;
     box-sizing: border-box;
     font-size: 12px;
+    font-family: inherit;
+}
+
+.server-table tr.server-create-row input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 .server-table tr.server-create-row button {
@@ -108,13 +114,13 @@
 
 .server-table th {
     text-align: left;
-    color: #a0aec0;
+    color: var(--text-muted);
     font-weight: 600;
 }
 
 .server-empty {
     text-align: center;
-    color: #a0aec0;
+    color: var(--text-muted);
     padding: 20px;
 }
 
@@ -127,18 +133,24 @@
 .server-form-row label {
     display: block;
     font-size: 12px;
-    color: #a0aec0;
+    color: var(--text-muted);
     margin-bottom: 6px;
 }
 
 .server-form-row input {
     width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 8px;
-    color: #e2e8f0;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
     padding: 8px 10px;
     box-sizing: border-box;
+    font-family: inherit;
+}
+
+.server-form-row input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 .server-form-actions {
@@ -147,9 +159,9 @@
 }
 
 .server-plan-details {
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 10px;
+    background: var(--bg-base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     padding: 12px;
     flex: 1;
     overflow: auto;
@@ -157,7 +169,7 @@
 }
 
 .server-plan-empty {
-    color: #a0aec0;
+    color: var(--text-muted);
     font-size: 13px;
     text-align: center;
     padding: 18px 0;
@@ -165,7 +177,7 @@
 
 .server-editor-divider {
     height: 1px;
-    background: #0f3460;
+    background: var(--border-default);
     margin: 12px 0;
 }
 
@@ -180,17 +192,17 @@
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
-    background: rgba(15, 52, 96, 0.35);
-    border: 1px solid rgba(15, 52, 96, 0.6);
-    border-radius: 8px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
     padding: 6px 8px;
-    color: #e2e8f0;
+    color: var(--text-primary);
     font-size: 12px;
 }
 
 .server-plan-row.current {
-    border-color: rgba(246, 224, 94, 0.6);
-    color: #f6e05e;
+    border-color: rgba(250, 204, 21, 0.5);
+    color: #facc15;
 }
 
 .server-plan-day {
@@ -199,19 +211,19 @@
 
 .server-plan-flags,
 .server-plan-blessings {
-    color: #a0aec0;
+    color: var(--text-muted);
 }
 
 .server-plan {
     font-size: 12px;
-    color: #a0aec0;
+    color: var(--text-muted);
     line-height: 1.4;
 }
 
 .server-plan-current {
     display: block;
     margin-bottom: 6px;
-    color: #63b3ed;
+    color: var(--accent);
     font-weight: 600;
 }
 
@@ -221,5 +233,5 @@
 }
 
 .server-plan-item.current {
-    color: #f6e05e;
+    color: #facc15;
 }

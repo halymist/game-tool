@@ -102,13 +102,21 @@
     background: var(--bg-surface);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 12px;
 }
 
 .settlement-context-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+
+.settlement-context-top textarea {
+    min-height: 280px;
+}
+
+.settlement-context-bottom textarea {
+    min-height: 100px;
 }
 
 .settlement-context-section label {
@@ -129,7 +137,6 @@
     font-size: 0.8125rem;
     font-family: inherit;
     resize: vertical;
-    min-height: 140px;
 }
 
 .settlement-context-section textarea:focus {
@@ -145,8 +152,7 @@
 }
 
 .btn-new-settlement,
-.btn-save-settlement,
-.btn-delete-settlement {
+.btn-save-settlement {
     padding: 8px 14px;
     border: none;
     border-radius: var(--radius-sm);
@@ -181,15 +187,9 @@
     background: var(--accent-hover);
 }
 
-.btn-delete-settlement {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: var(--danger);
-}
-
-.btn-delete-settlement:hover {
-    background: rgba(239, 68, 68, 0.18);
-    border-color: var(--danger);
+.btn-save-settlement:disabled {
+    opacity: 0.35;
+    pointer-events: none;
 }
 
 /* ── Utility Type Cards ─────────────────────────────── */
@@ -1388,19 +1388,6 @@
     display: flex;
 }
 
-.location-modal {
-    background: var(--bg-surface);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    width: 90%;
-    max-width: 700px;
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
-
 .location-modal-header {
     display: flex;
     justify-content: space-between;
@@ -1429,12 +1416,6 @@
 
 .location-modal-close:hover {
     color: var(--danger);
-}
-
-.location-modal-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.25rem;
 }
 
 .location-modal-grid {
@@ -1589,9 +1570,84 @@
     background: var(--accent-hover);
 }
 
+/* ── Utility Type Select Styling ─────────────────────── */
+#utilityTypeSelect {
+    width: 100%;
+    padding: 6px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease;
+}
+
+#utilityTypeSelect:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+#utilityTypeSelect option {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+/* ── Location Description Full Height ───────────────── */
+.location-info-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+}
+
+.location-field-grow {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.location-field-grow textarea {
+    flex: 1;
+    min-height: 120px;
+    resize: none;
+}
+
+.location-modal-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    height: 100%;
+}
+
+.location-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.location-modal {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 700px;
+    height: 75vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
 @media (max-width: 600px) {
     .location-modal-grid {
         grid-template-columns: 1fr;
+        height: auto;
     }
 
     .location-texture-section {

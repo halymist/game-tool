@@ -100,12 +100,6 @@ function setupSettlementEventListeners() {
         saveSettlementBtn.addEventListener('click', saveSettlement);
     }
 
-    // Delete button
-    const deleteSettlementBtn = document.getElementById('deleteSettlementBtn');
-    if (deleteSettlementBtn) {
-        deleteSettlementBtn.addEventListener('click', deleteSettlement);
-    }
-
     // Asset click handlers for cards
     const settlementAssetArea = document.getElementById('settlementAssetArea');
     if (settlementAssetArea) {
@@ -223,6 +217,21 @@ function setupSettlementEventListeners() {
             }
         });
     }
+
+    // Wire up save-condition checks on all settlement form inputs
+    const formInputIds = [
+        'settlementName', 'settlementDescription', 'settlementKeyIssues',
+        'settlementRecentEvents', 'settlementContext', 'expeditionContext',
+        'factionSelect', 'utilityTypeSelect', 'expeditionDescription',
+        'blessing1Select', 'blessing2Select', 'blessing3Select'
+    ];
+    formInputIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', checkSettlementSaveConditions);
+            el.addEventListener('change', checkSettlementSaveConditions);
+        }
+    });
 }
 
 let settlementDesignerLoaded = false;
@@ -431,11 +440,20 @@ function selectSettlement(settlementId) {
     // Populate form fields
     populateSettlementForm(settlement);
     
-    // Show delete button for existing settlements
-    const deleteBtn = document.getElementById('deleteSettlementBtn');
-    if (deleteBtn) {
-        deleteBtn.style.display = 'flex';
+    // Take a snapshot of the initial state for dirty tracking
+    settlementState._snapshot = getSettlementFormSnapshot();
+
+    // Update save button label to "Update" for existing settlements
+    const saveBtn = document.getElementById('saveSettlementBtn');
+    if (saveBtn) {
+        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+        </svg> Update`;
     }
+
+    checkSettlementSaveConditions();
 }
 
 function populateSettlementForm(settlement) {
@@ -816,6 +834,7 @@ function toggleVendorItemSelection(itemId) {
     
     // Update the main vendor items grid
     renderVendorItems();
+    checkSettlementSaveConditions();
 }
 
 function closeItemSelectDialog() {
@@ -904,6 +923,7 @@ function toggleEnchanterEffectSelection(effectId) {
     
     // Update the main enchanter effects list
     renderEnchanterEffects();
+    checkSettlementSaveConditions();
 }
 
 function closeEffectSelectDialog() {
@@ -914,11 +934,13 @@ function closeEffectSelectDialog() {
 function removeVendorItem(index) {
     settlementState.vendorItems.splice(index, 1);
     renderVendorItems();
+    checkSettlementSaveConditions();
 }
 
 function removeEnchanterEffect(index) {
     settlementState.enchanterEffects.splice(index, 1);
     renderEnchanterEffects();
+    checkSettlementSaveConditions();
 }
 
 // Response modal management
@@ -992,6 +1014,7 @@ function updateResponseEntry(index, field, value) {
 function saveResponses() {
     // Responses are already saved in state, just close modal
     closeResponsesModal();
+    checkSettlementSaveConditions();
 }
 
 function renderModalResponses() {
@@ -1074,11 +1097,18 @@ function createNewSettlement() {
         select.value = '';
     }
 
-    // Hide delete button for new settlements
-    const deleteBtn = document.getElementById('deleteSettlementBtn');
-    if (deleteBtn) {
-        deleteBtn.style.display = 'none';
+    // Reset snapshot and update button label
+    settlementState._snapshot = null;
+    const saveBtn = document.getElementById('saveSettlementBtn');
+    if (saveBtn) {
+        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+        </svg> Save`;
     }
+
+    checkSettlementSaveConditions();
 }
 
 function showEmptyState() {
@@ -1228,6 +1258,7 @@ function selectSettlementAsset(assetId, assetUrl) {
     }
     
     closeAssetGallery();
+    checkSettlementSaveConditions();
 }
 
 async function uploadSettlementAsset(file) {
@@ -1591,6 +1622,68 @@ function escapeSettlementHtml(text) {
     return div.innerHTML;
 }
 
+// ==================== SAVE VALIDATION ====================
+
+function getSettlementFormSnapshot() {
+    return JSON.stringify({
+        name: document.getElementById('settlementName')?.value || '',
+        description: document.getElementById('settlementDescription')?.value || '',
+        keyIssues: document.getElementById('settlementKeyIssues')?.value || '',
+        recentEvents: document.getElementById('settlementRecentEvents')?.value || '',
+        context: document.getElementById('settlementContext')?.value || '',
+        expeditionContext: document.getElementById('expeditionContext')?.value || '',
+        expeditionDescription: document.getElementById('expeditionDescription')?.value || '',
+        faction: document.getElementById('factionSelect')?.value || '',
+        utilityType: document.getElementById('utilityTypeSelect')?.value || '',
+        settlementAssetId: document.getElementById('settlementAssetArea')?.dataset.assetId || '',
+        vendorAssetId: document.getElementById('vendorAssetArea')?.dataset.assetId || '',
+        utilityAssetId: document.getElementById('utilityAssetArea')?.dataset.assetId || '',
+        expeditionAssetId: document.getElementById('expeditionAssetArea')?.dataset.assetId || '',
+        arenaAssetId: document.getElementById('arenaAssetArea')?.dataset.assetId || '',
+        blessing1: document.getElementById('blessing1Select')?.value || '',
+        blessing2: document.getElementById('blessing2Select')?.value || '',
+        blessing3: document.getElementById('blessing3Select')?.value || '',
+        vendorItems: JSON.stringify(settlementState.vendorItems),
+        enchanterEffects: JSON.stringify(settlementState.enchanterEffects),
+        vendorResponses: JSON.stringify(settlementState.vendorResponses),
+        utilityResponses: JSON.stringify(settlementState.utilityResponses),
+        expeditionResponses: JSON.stringify(settlementState.expeditionResponses),
+        locations: JSON.stringify(settlementState.locations)
+    });
+}
+
+function checkSettlementSaveConditions() {
+    const btn = document.getElementById('saveSettlementBtn');
+    if (!btn) return;
+
+    const name = (document.getElementById('settlementName')?.value || '').trim();
+    const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
+
+    // Check all 5 asset areas have an asset
+    const settlementAssetId = document.getElementById('settlementAssetArea')?.dataset.assetId || '';
+    const arenaAssetId = document.getElementById('arenaAssetArea')?.dataset.assetId || '';
+    const expeditionAssetId = document.getElementById('expeditionAssetArea')?.dataset.assetId || '';
+    const vendorAssetId = document.getElementById('vendorAssetArea')?.dataset.assetId || '';
+    const utilityAssetId = document.getElementById('utilityAssetArea')?.dataset.assetId || '';
+
+    const allAssetsSet = settlementAssetId && arenaAssetId && expeditionAssetId && vendorAssetId && utilityAssetId;
+
+    let canSave = false;
+
+    if (settlementState.isNewSettlement) {
+        // New settlement: name + all 5 assets + utility selected
+        canSave = !!name && !!allAssetsSet && !!utilityType;
+    } else {
+        // Existing settlement: must have changed something
+        const currentSnapshot = getSettlementFormSnapshot();
+        const isDirty = settlementState._snapshot && currentSnapshot !== settlementState._snapshot;
+        canSave = !!isDirty;
+    }
+
+    btn.disabled = !canSave;
+    btn.classList.toggle('btn-disabled', !canSave);
+}
+
 // ==================== LOCATIONS MANAGEMENT ====================
 
 function openAddLocationModal() {
@@ -1700,6 +1793,7 @@ function saveLocation() {
     
     renderLocations();
     closeLocationModal();
+    checkSettlementSaveConditions();
 }
 
 function deleteLocation(index) {
@@ -1709,6 +1803,7 @@ function deleteLocation(index) {
     if (confirm(`Delete location "${location.name}"?`)) {
         settlementState.locations.splice(index, 1);
         renderLocations();
+        checkSettlementSaveConditions();
     }
 }
 

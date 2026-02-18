@@ -1659,7 +1659,17 @@
                 </div>
 
                 <div class="settlement-context-section">
-                    <div class="settlement-context-grid">
+                    <div class="settlement-context-grid settlement-context-top">
+                        <div>
+                            <label for="settlementContext">Context</label>
+                            <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
+                        </div>
+                        <div>
+                            <label for="expeditionContext">Expedition Context</label>
+                            <textarea id="expeditionContext" placeholder="Expedition-specific context..."></textarea>
+                        </div>
+                    </div>
+                    <div class="settlement-context-grid settlement-context-bottom">
                         <div>
                             <label for="settlementKeyIssues">Key Issues</label>
                             <textarea id="settlementKeyIssues" placeholder="Key issues (one per line)..."></textarea>
@@ -1668,14 +1678,6 @@
                             <label for="settlementRecentEvents">Recent Events</label>
                             <textarea id="settlementRecentEvents" placeholder="Recent events (one per line)..."></textarea>
                         </div>
-                    </div>
-                    <div>
-                        <label for="settlementContext">Context</label>
-                        <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
-                    </div>
-                    <div>
-                        <label for="expeditionContext">Expedition Context</label>
-                        <textarea id="expeditionContext" placeholder="Expedition-specific context..."></textarea>
                     </div>
                 </div>
 
@@ -1733,9 +1735,9 @@
                                         <label for="locationName">Name</label>
                                         <input type="text" id="locationName" placeholder="Location name...">
                                     </div>
-                                    <div class="location-field">
+                                    <div class="location-field location-field-grow">
                                         <label for="locationDescription">Description</label>
-                                        <textarea id="locationDescription" placeholder="Describe this location..." rows="6"></textarea>
+                                        <textarea id="locationDescription" placeholder="Describe this location..."></textarea>
                                     </div>
                                 </div>
                             </div>
