@@ -21,9 +21,9 @@
 </head>
 <body>
     <!-- Loading overlay - shown until global data is ready -->
-    <div id="loading-overlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;flex-direction:column;gap:12px">
-        <div style="font-size:24px">⏳</div>
-        <div id="loading-status" style="font-size:14px;opacity:0.8">Loading game data…</div>
+    <div id="loading-overlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0c0d12;color:#94a3b8;font-family:'Inter',sans-serif;flex-direction:column;gap:10px">
+        <div style="width:20px;height:20px;border:2px solid #2a2d3a;border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite"></div>
+        <div id="loading-status" style="font-size:13px;font-weight:500">Loading game data…</div>
     </div>
     <div class="header">
         <div class="header-left">
@@ -41,142 +41,66 @@
         <div id="dashboard-content" class="page-content">
             <!-- Creation Tools Section -->
             <div class="creation-tools">
-                <h3 class="section-title">🛠️ Editors</h3>
+                <h3 class="section-title">Editors</h3>
                 <div class="tools-grid">
                     <a href="#" onclick="showPage('items'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">⚔️</span>
-                            <h4 class="tool-card-title">Items</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create weapons, armor, accessories, and other items for your game.</p>
-                        </div>
+                        <span class="tool-card-icon">⚔️</span>
+                        <span class="tool-card-title">Items</span>
                     </a>
-
                     <a href="#" onclick="showPage('perks'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">✨</span>
-                            <h4 class="tool-card-title">Perks</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create and manage perks with effects for your game characters.</p>
-                        </div>
+                        <span class="tool-card-icon">✨</span>
+                        <span class="tool-card-title">Perks</span>
                     </a>
-
                     <a href="#" onclick="showPage('enemies'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">👹</span>
-                            <h4 class="tool-card-title">Enemies</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Design monsters, bosses, and enemy encounters for your game world.</p>
-                        </div>
+                        <span class="tool-card-icon">👹</span>
+                        <span class="tool-card-title">Enemies</span>
                     </a>
-
                     <a href="#" onclick="showPage('talents'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🌟</span>
-                            <h4 class="tool-card-title">Talents</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Edit talent definitions, effects, and max points for the talent tree.</p>
-                        </div>
+                        <span class="tool-card-icon">🌟</span>
+                        <span class="tool-card-title">Talents</span>
                     </a>
-
                     <a href="#" onclick="showPage('npcs'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">👥</span>
-                            <h4 class="tool-card-title">NPC</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create NPCs, manage dialogues, and set up interactive characters.</p>
-                        </div>
+                        <span class="tool-card-icon">👥</span>
+                        <span class="tool-card-title">NPCs</span>
                     </a>
-
                     <a href="#" onclick="showPage('settlements'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🏘️</span>
-                            <h4 class="tool-card-title">Settlements</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create and manage settlements with vendors and utilities.</p>
-                        </div>
+                        <span class="tool-card-icon">🏘️</span>
+                        <span class="tool-card-title">Settlements</span>
                     </a>
-
                     <a href="#" onclick="showPage('quests'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🗡️</span>
-                            <h4 class="tool-card-title">Quests</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create and manage quests, objectives, and rewards for your players.</p>
-                        </div>
+                        <span class="tool-card-icon">🗡️</span>
+                        <span class="tool-card-title">Quests</span>
                     </a>
-
                     <a href="#" onclick="showPage('dungeons'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🗺️</span>
-                            <h4 class="tool-card-title">Expeditions</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Create branching expeditions with slides, options, and outcomes.</p>
-                        </div>
+                        <span class="tool-card-icon">🗺️</span>
+                        <span class="tool-card-title">Expeditions</span>
                     </a>
                 </div>
             </div>
 
             <!-- Management Tools Section -->
             <div class="management-tools">
-                <h3 class="section-title">⚙️ Management Tools</h3>
+                <h3 class="section-title">Management</h3>
                 <div class="tools-grid">
                     <a href="#" onclick="showPage('concept'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🧭</span>
-                            <h4 class="tool-card-title">Concept</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Define world tone, factions, and design philosophy prompts.</p>
-                        </div>
+                        <span class="tool-card-icon">🧭</span>
+                        <span class="tool-card-title">Concept</span>
                     </a>
-
                     <a href="#" onclick="showPage('servers'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🖥️</span>
-                            <h4 class="tool-card-title">Servers</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Monitor server health, performance, and manage game instances.</p>
-                        </div>
+                        <span class="tool-card-icon">🖥️</span>
+                        <span class="tool-card-title">Servers</span>
                     </a>
-
                     <a href="#" onclick="showPage('players'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">👤</span>
-                            <h4 class="tool-card-title">Players</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Monitor player activity, handle reports, and manage user accounts.</p>
-                        </div>
+                        <span class="tool-card-icon">👤</span>
+                        <span class="tool-card-title">Players</span>
                     </a>
-
                     <a href="#" onclick="showPage('moderation'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">🛡️</span>
-                            <h4 class="tool-card-title">Chat</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">Manage chat messages, moderate conversations, and handle reports.</p>
-                        </div>
+                        <span class="tool-card-icon">🛡️</span>
+                        <span class="tool-card-title">Chat</span>
                     </a>
-
                     <a href="#" onclick="showPage('analytics'); return false;" class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-card-icon">📊</span>
-                            <h4 class="tool-card-title">Analytics</h4>
-                        </div>
-                        <div class="tool-card-body">
-                            <p class="tool-card-description">View detailed analytics about player behavior and game performance.</p>
-                        </div>
+                        <span class="tool-card-icon">📊</span>
+                        <span class="tool-card-title">Analytics</span>
                     </a>
                 </div>
             </div>
