@@ -3299,17 +3299,22 @@ async function uploadExpeditionAsset(file) {
 
 // Convert image to WebP format for expedition assets
 function convertExpeditionImageToWebP(file) {
+    const MAX_WIDTH = 512;
+    const MAX_HEIGHT = 910;
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => {
+            const scale = Math.min(MAX_WIDTH / img.width, MAX_HEIGHT / img.height, 1);
+            const targetWidth = Math.round(img.width * scale);
+            const targetHeight = Math.round(img.height * scale);
+
             const canvas = document.createElement('canvas');
-            // Target 9:16 aspect ratio at 512x910
-            canvas.width = 512;
-            canvas.height = 910;
-            
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
             canvas.toBlob(
                 blob => blob ? resolve(blob) : reject(new Error('Failed to convert')),
                 'image/webp',

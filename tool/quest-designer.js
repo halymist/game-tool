@@ -1645,10 +1645,21 @@ function populateQuestSettlementSelect() {
     });
 
     const requestedValue = previousValue || (questState.selectedSettlementId ? String(questState.selectedSettlementId) : '');
-    const hasRequestedValue = requestedValue && select.querySelector(`option[value="${requestedValue}"]`);
-    const fallbackValue = select.options[0]?.value || '';
-    const nextValue = hasRequestedValue ? requestedValue : fallbackValue;
+    const hasRequestedValue = Boolean(requestedValue && select.querySelector(`option[value="${requestedValue}"]`));
+
+    let nextValue = '';
+    if (hasRequestedValue) {
+        nextValue = requestedValue;
+    } else if (select.options.length > 0) {
+        nextValue = select.options[0].value;
+    }
+
     select.value = nextValue;
+    if (select.value !== nextValue && select.options.length > 0) {
+        // Fallback in case the browser could not match the value string
+        select.selectedIndex = 0;
+        nextValue = select.options[0].value;
+    }
 
     const numericValue = nextValue ? parseInt(nextValue, 10) : null;
     const sanitizedValue = Number.isNaN(numericValue) ? null : numericValue;

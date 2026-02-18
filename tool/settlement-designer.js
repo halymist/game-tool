@@ -1236,7 +1236,7 @@ async function uploadSettlementAsset(file) {
             return;
         }
 
-        // Convert to WebP format
+        // Convert to WebP format (preserve aspect ratio within 512x910 bounds)
         console.log('Converting settlement asset to WebP format...');
         const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
         console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
@@ -1291,7 +1291,7 @@ async function uploadLocationTexture(file) {
             return;
         }
 
-        // Convert to WebP format (9:16 aspect ratio for locations)
+        // Convert to WebP format (preserve aspect ratio within 512x910 bounds)
         console.log('Converting quest asset to WebP format...');
         const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
         console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
@@ -1332,20 +1332,21 @@ async function uploadLocationTexture(file) {
 }
 
 // Convert image to WebP format
-function convertImageToWebP(file, width, height, quality) {
+function convertImageToWebP(file, maxWidth, maxHeight, quality) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
         img.onload = () => {
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Draw image scaled to fit
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Convert to WebP
+            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+            const targetWidth = Math.round(img.width * scale);
+            const targetHeight = Math.round(img.height * scale);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
             canvas.toBlob(
                 (blob) => {
                     if (blob) {
@@ -1358,7 +1359,7 @@ function convertImageToWebP(file, width, height, quality) {
                 quality
             );
         };
-        
+
         img.onerror = () => reject(new Error('Failed to load image'));
         img.src = URL.createObjectURL(file);
     });
