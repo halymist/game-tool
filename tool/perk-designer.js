@@ -142,6 +142,25 @@ function setupPerkEventListeners() {
     if (perkForm) {
         perkForm.addEventListener('submit', savePerk);
     }
+
+    // Factor input listeners to update effect descriptions
+    const factor1Input = document.getElementById('perkFactor1');
+    if (factor1Input) {
+        factor1Input.addEventListener('input', () => updatePerkEffectDescription(1));
+    }
+    const factor2Input = document.getElementById('perkFactor2');
+    if (factor2Input) {
+        factor2Input.addEventListener('input', () => updatePerkEffectDescription(2));
+    }
+
+    // Save validation: enable save only when conditions met
+    const perkFormEl = document.getElementById('perkForm');
+    if (perkFormEl) {
+        perkFormEl.addEventListener('input', checkPerkSaveConditions);
+        perkFormEl.addEventListener('change', checkPerkSaveConditions);
+    }
+    // Initial check
+    checkPerkSaveConditions();
 }
 
 async function loadPerksAndEffects(options = {}) {
@@ -448,7 +467,32 @@ function updatePerkEffectDescription(effectNum) {
     
     const effects = getEffects();
     const effect = effects.find(e => e.id === effectId);
-    descSpan.textContent = effect?.description || 'No description available';
+    let text = effect?.description || 'No description available';
+    const factorVal = document.getElementById(`perkFactor${effectNum}`)?.value || '';
+    if (text && factorVal) {
+        text = text + ' ' + factorVal + '%';
+    }
+    descSpan.textContent = text;
+}
+
+function checkPerkSaveConditions() {
+    const btn = document.querySelector('.btn-save-perk');
+    if (!btn) return;
+
+    const name = document.getElementById('perkName')?.value?.trim();
+    const assetId = parseInt(document.getElementById('perkAssetID')?.value) || 0;
+    const hasIcon = assetId > 1 || (document.getElementById('perkIconPreview')?.src && document.getElementById('perkIconPreview')?.style.display !== 'none');
+
+    const effect1 = document.getElementById('perkEffect1')?.value;
+    const factor1 = parseInt(document.getElementById('perkFactor1')?.value) || 0;
+    const effect2 = document.getElementById('perkEffect2')?.value;
+    const factor2 = parseInt(document.getElementById('perkFactor2')?.value) || 0;
+
+    const hasEffect = (effect1 && factor1 !== 0) || (effect2 && factor2 !== 0);
+
+    const canSave = !!(name && hasIcon && hasEffect);
+    btn.disabled = !canSave;
+    btn.classList.toggle('btn-disabled', !canSave);
 }
 
 async function savePerk(e) {
@@ -687,6 +731,7 @@ function selectPerkAsset(assetId, iconUrl) {
     }
     
     togglePerkAssetGallery();
+    checkPerkSaveConditions();
 }
 
 function updatePerkIconPreview(assetId) {

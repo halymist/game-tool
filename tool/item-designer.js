@@ -178,6 +178,15 @@ function setupEventListeners() {
     if (itemForm) {
         itemForm.addEventListener('submit', saveItem);
     }
+
+    // Save validation: enable save only when conditions met
+    const itemFormEl = document.getElementById('itemForm');
+    if (itemFormEl) {
+        itemFormEl.addEventListener('input', checkItemSaveConditions);
+        itemFormEl.addEventListener('change', checkItemSaveConditions);
+    }
+    // Initial check
+    checkItemSaveConditions();
     
     // Item type change (show/hide weapon stats)
     const itemTypeSelect = document.getElementById('itemType');
@@ -758,6 +767,21 @@ function applyItemTypeRules() {
     }
 }
 
+function checkItemSaveConditions() {
+    const btn = document.querySelector('.btn-save-item');
+    if (!btn) return;
+
+    const name = document.getElementById('itemName')?.value?.trim();
+    const assetId = parseInt(document.getElementById('itemAssetID')?.value) || 0;
+    const hasIcon = assetId > 1 || (document.getElementById('itemIconPreview')?.src && document.getElementById('itemIconPreview')?.style.display !== 'none');
+    const silver = parseInt(document.getElementById('itemSilver')?.value) || 0;
+    const type = document.getElementById('itemType')?.value;
+
+    const canSave = !!(name && hasIcon && silver > 0 && type);
+    btn.disabled = !canSave;
+    btn.classList.toggle('btn-disabled', !canSave);
+}
+
 async function saveItem(e) {
     e.preventDefault();
     
@@ -954,6 +978,7 @@ function selectItemAsset(assetId, iconUrl) {
     
     // Close gallery
     toggleItemAssetGallery();
+    checkItemSaveConditions();
 }
 
 /**

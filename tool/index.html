@@ -597,7 +597,6 @@
                                     </div>
                                     <input type="file" id="enemyIconFile" accept="image/*" style="display: none;">
                                     <button type="button" id="enemyAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="enemyUploadNewBtn" class="enemy-upload-btn">Upload</button>
                                 </div>
 
                                 <!-- Name & ID + Stats -->
@@ -656,7 +655,7 @@
                         <button type="button" id="enemyAssetGalleryClose" class="btn-close">✕</button>
                     </div>
                     <div class="asset-gallery-actions">
-                        <button type="button" id="enemyUploadNewBtn" class="btn-upload">Upload</button>
+                        <button type="button" id="enemyUploadNewBtn" class="gallery-upload-btn">Upload</button>
                     </div>
                     <div id="enemyAssetGrid" class="asset-gallery-grid"></div>
                 </div>
@@ -691,7 +690,7 @@
                                     <img id="talentAssetImage" src="" alt="No asset">
                                     <span id="talentAssetPlaceholder">Click to<br>select icon</span>
                                 </div>
-                                <button type="button" id="talentUploadNewBtn" class="talent-upload-btn">Upload</button>
+
                             </div>
                             <div class="talent-info-fields">
                                 <div class="talent-form-row">
@@ -748,7 +747,10 @@
                 <div class="talent-asset-gallery">
                     <div class="talent-asset-gallery-header">
                         <h3>Talent Assets</h3>
-                        <button type="button" id="talentAssetGalleryClose" class="talent-asset-gallery-close">✕</button>
+                        <div class="gallery-header-actions">
+                            <button type="button" id="talentUploadNewBtn" class="gallery-upload-btn">Upload</button>
+                            <button type="button" id="talentAssetGalleryClose" class="talent-asset-gallery-close">✕</button>
+                        </div>
                     </div>
                     <div id="talentAssetGrid" class="talent-asset-grid"></div>
                 </div>
@@ -817,7 +819,6 @@
                                     <input type="file" id="itemIconFile" accept="image/*" style="display: none;">
                                     <input type="hidden" id="itemAssetID" value="1">
                                     <button type="button" id="itemAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="itemUploadNewBtn" class="item-upload-btn">Upload</button>
                                 </div>
                                 <div class="item-info">
                                     <div class="item-row">
@@ -882,7 +883,7 @@
                         <!-- Buttons -->
                         <div class="item-form-buttons">
                             <button type="button" id="itemCancelBtn" class="btn-cancel-item">Cancel</button>
-                            <button type="submit" class="btn-save-item">Save Item</button>
+                            <button type="submit" class="btn-save-item" disabled>Save Item</button>
                         </div>
                     </form>
                 </div>
@@ -892,8 +893,11 @@
             <div id="itemAssetGalleryOverlay" class="item-asset-gallery-overlay hidden">
                 <div class="item-asset-gallery">
                     <div class="item-asset-gallery-header">
-                        <h3>🎨 Select Item Asset</h3>
-                        <button type="button" id="itemAssetGalleryClose" class="asset-gallery-close">✕</button>
+                        <h3>Select Item Asset</h3>
+                        <div class="gallery-header-actions">
+                            <button type="button" id="itemUploadNewBtn" class="gallery-upload-btn">Upload</button>
+                            <button type="button" id="itemAssetGalleryClose" class="asset-gallery-close">✕</button>
+                        </div>
                     </div>
                     <div id="itemAssetGrid" class="item-asset-grid custom-scrollbar">
                         <!-- Asset items will be populated by JavaScript -->
@@ -945,7 +949,6 @@
                                     </div>
                                     <input type="file" id="perkIconFile" accept="image/*" style="display: none;">
                                     <button type="button" id="perkAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="perkUploadNewBtn" class="perk-upload-btn">Upload</button>
                                 </div>
                                 <div class="perk-info">
                                     <div class="perk-row">
@@ -983,7 +986,7 @@
                         <!-- Buttons -->
                         <div class="perk-form-buttons">
                             <button type="button" id="perkCancelBtn" class="btn-cancel-perk">Cancel</button>
-                            <button type="submit" class="btn-save-perk">Save Perk</button>
+                            <button type="submit" class="btn-save-perk" disabled>Save Perk</button>
                         </div>
                     </form>
                 </div>
@@ -993,7 +996,7 @@
             <div id="perkAssetGalleryOverlay" class="perk-asset-gallery-overlay hidden">
                 <div class="perk-asset-gallery">
                     <div class="perk-asset-gallery-header">
-                        <h3>🎨 Select Perk Asset</h3>
+                        <h3>Select Perk Asset</h3>
                         <button type="button" id="perkAssetGalleryClose" class="perk-asset-gallery-close">✕</button>
                     </div>
                     <div id="perkAssetGrid" class="perk-asset-grid custom-scrollbar">
@@ -1937,7 +1940,7 @@
         <div id="assetGalleryOverlay" class="asset-gallery-overlay hidden">
             <div class="asset-gallery">
                 <div class="asset-gallery-header">
-                    <h3>🎨 Choose Existing Asset</h3>
+                    <h3>Choose Existing Asset</h3>
                     <button type="button" class="close-gallery-btn" onclick="toggleAssetGallery()">✕</button>
                 </div>
                 <div class="asset-gallery-grid" id="assetGrid"></div>

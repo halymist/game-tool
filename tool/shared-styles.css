@@ -565,6 +565,31 @@ input[list]:focus {
     display: none !important;
 }
 
+/* ── Gallery Header Actions ─────────────────────────── */
+.gallery-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.gallery-upload-btn {
+    padding: 0.35rem 0.875rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.gallery-upload-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 /* Generic Asset Gallery Overlay */
 .asset-gallery-overlay {
     position: fixed;

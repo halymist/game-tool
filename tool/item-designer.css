@@ -224,6 +224,12 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .btn-save-item { background: var(--accent); color: #fff; }
 .btn-save-item:hover { background: var(--accent-hover); }
+.btn-save-item.btn-disabled,
+.btn-save-item:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 .btn-cancel-item {
     background: rgba(239,68,68,0.1); color: var(--danger);
     border: 1px solid rgba(239,68,68,0.2);

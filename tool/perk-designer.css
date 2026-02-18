@@ -182,7 +182,17 @@ input[type="number"] { -moz-appearance: textfield; }
 .perk-effects-section { border-top: 1px solid var(--border-subtle); padding-top: 0.875rem; }
 .perk-effects-grid { display: flex; flex-direction: column; gap: 0.5rem; }
 .perk-effect-row { display: flex; gap: 0.75rem; }
-.perk-effect-desc { font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding-left: 0.25rem; min-height: 1em; margin-bottom: 0.5rem; }
+.perk-effect-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    padding: 0.45rem 0.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    min-height: 1.6em;
+    margin-bottom: 0.5rem;
+}
 
 /* ── Form Buttons ───────────────────────────────────── */
 .perk-form-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
@@ -194,6 +204,12 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .btn-save-perk { background: var(--accent); color: #fff; }
 .btn-save-perk:hover { background: var(--accent-hover); }
+.btn-save-perk.btn-disabled,
+.btn-save-perk:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 .btn-cancel-perk {
     background: rgba(239,68,68,0.1); color: var(--danger);
     border: 1px solid rgba(239,68,68,0.2);
@@ -284,9 +300,10 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .perk-asset-grid .asset-item {
     background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm); padding: 0.5rem; cursor: pointer;
-    transition: all 0.15s ease; display: flex; flex-direction: column; align-items: center;
+    border-radius: var(--radius-sm); cursor: pointer;
+    transition: all 0.15s ease; display: flex;
+    align-items: center; justify-content: center;
+    aspect-ratio: 1; overflow: hidden;
 }
 .perk-asset-grid .asset-item:hover { border-color: var(--accent); background: var(--bg-hover); }
-.perk-asset-grid .asset-item img { width: 56px; height: 56px; object-fit: contain; }
-.perk-asset-grid .asset-id { color: var(--text-muted); font-size: 0.6875rem; margin-top: 0.2rem; }
+.perk-asset-grid .asset-item img { width: 100%; height: 100%; object-fit: contain; padding: 0.375rem; box-sizing: border-box; }
