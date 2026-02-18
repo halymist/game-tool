@@ -680,62 +680,64 @@
                         Select a talent to edit its settings.
                     </div>
                     <form id="talentEditorForm" class="talent-editor-form" style="display: none;">
-                        <div class="talent-form-row">
-                            <label>Talent ID</label>
-                            <input type="text" id="talentId" readonly>
-                        </div>
+                        <input type="hidden" id="talentId">
                         <input type="hidden" id="talentAssetId" value="1">
-                        <div class="talent-form-row">
-                            <label>Talent Icon</label>
-                            <div class="talent-asset-row">
-                                <div class="talent-asset-preview" id="talentAssetPreview">
+                        <input type="file" id="talentAssetFile" accept="image/*" style="display: none;">
+
+                        <!-- Icon + Name/Max row -->
+                        <div class="talent-header-row">
+                            <div class="talent-icon-column">
+                                <div class="talent-asset-preview" id="talentAssetPreview" onclick="toggleTalentAssetGallery()">
                                     <img id="talentAssetImage" src="" alt="No asset">
-                                    <span id="talentAssetPlaceholder">Select asset</span>
+                                    <span id="talentAssetPlaceholder">Click to<br>select icon</span>
                                 </div>
-                                <div class="talent-asset-info">
-                                    <span id="talentAssetIdDisplay">Asset ID: None</span>
-                                    <div class="talent-asset-buttons">
-                                        <button type="button" id="talentAssetGalleryBtn" class="btn-browse-assets">🎨 Browse Assets</button>
-                                        <button type="button" id="talentUploadNewBtn" class="btn-upload-new">📤 Upload New</button>
+                                <button type="button" id="talentUploadNewBtn" class="talent-upload-btn">📤 Upload New</button>
+                            </div>
+                            <div class="talent-info-fields">
+                                <div class="talent-form-row">
+                                    <label>Talent Name</label>
+                                    <input type="text" id="talentName" required>
+                                </div>
+                                <div class="talent-form-row">
+                                    <label>Max Points</label>
+                                    <input type="number" id="talentMaxPoints" min="1" max="20" required>
+                                </div>
+                                <div class="talent-form-row perk-row">
+                                    <label for="talentPerkSlot">Perk Slot</label>
+                                    <div class="talent-checkbox">
+                                        <input type="checkbox" id="talentPerkSlot">
+                                        <span>Enabled</span>
                                     </div>
                                 </div>
                             </div>
-                            <input type="file" id="talentAssetFile" accept="image/*" style="display: none;">
                         </div>
-                        <div class="talent-form-row">
-                            <label>Talent Name</label>
-                            <input type="text" id="talentName" required>
-                        </div>
-                        <div class="talent-form-row">
-                            <label>Max Points</label>
-                            <input type="number" id="talentMaxPoints" min="1" max="20" required>
-                        </div>
-                        <div class="talent-form-row perk-row">
-                            <label for="talentPerkSlot">Perk Slot</label>
-                            <div class="talent-checkbox">
-                                <input type="checkbox" id="talentPerkSlot">
-                                <span>Enabled</span>
+
+                        <!-- Effect + Factor side by side -->
+                        <div class="talent-effect-row">
+                            <div class="talent-form-row talent-effect-field">
+                                <label>Effect</label>
+                                <select id="talentEffectId">
+                                    <option value="">-- No Effect --</option>
+                                </select>
+                            </div>
+                            <div class="talent-form-row talent-factor-field">
+                                <label>Factor</label>
+                                <input type="number" id="talentFactor" placeholder="e.g. 5">
                             </div>
                         </div>
-                        <div class="talent-form-row">
-                            <label>Effect</label>
-                            <select id="talentEffectId">
-                                <option value="">-- No Effect --</option>
-                            </select>
-                        </div>
-                        <div class="talent-form-row">
-                            <label>Effect Factor</label>
-                            <input type="number" id="talentFactor" placeholder="e.g. 5">
-                            <div id="talentEffectDescription" class="talent-effect-description"></div>
-                        </div>
+                        <div id="talentEffectDescription" class="talent-effect-description"></div>
+
+                        <!-- Description -->
                         <div class="talent-form-row">
                             <label>Description</label>
                             <textarea id="talentDescription" rows="4" placeholder="Talent description..."></textarea>
                         </div>
+
+                        <!-- Actions -->
                         <div class="talent-form-actions">
-                            <button type="button" id="talentSaveBtn" class="btn-save">💾 Save</button>
                             <span id="talentEditorStatus" class="talent-editor-status"></span>
                             <button type="button" id="talentResetBtn" class="btn-cancel">Reset</button>
+                            <button type="button" id="talentSaveBtn" class="btn-save">Save Changes</button>
                         </div>
                     </form>
                 </div>
@@ -1795,27 +1797,40 @@
         </div>
 
         <!-- Concept Section -->
-        <div id="concept-content" class="page-content" style="display: none;">
+        <div id="concept-content" class="page-content concept-page" style="display: none;">
             <div class="concept-container">
                 <div class="concept-header">
                     <h2>🧭 World Concept</h2>
                     <div class="concept-actions">
-                        <button id="conceptSaveBtn" class="btn-save">Save</button>
                         <span id="conceptStatus" class="concept-status"></span>
+                        <button id="conceptSaveBtn" class="concept-save-btn">Save Changes</button>
                     </div>
                 </div>
-                <div class="concept-body">
-                    <div class="concept-editor">
+
+                <div class="concept-section">
+                    <label for="conceptWildsPrompt">Wilds Prompt</label>
+                    <textarea id="conceptWildsPrompt" placeholder="Enter wilds prompt..."></textarea>
+                </div>
+
+                <div class="concept-row">
+                    <div class="concept-section concept-section-half">
                         <label for="conceptSystemPrompt">System Prompt</label>
                         <textarea id="conceptSystemPrompt" placeholder="Enter global system prompt..."></textarea>
-                        <label for="conceptWildsPrompt">Wilds Prompt</label>
-                        <textarea id="conceptWildsPrompt" placeholder="Enter wilds prompt..."></textarea>
+                    </div>
+                    <div class="concept-section concept-section-half">
                         <label for="conceptExpeditionClusterPrompt">Expedition Cluster Prompt</label>
                         <textarea id="conceptExpeditionClusterPrompt" placeholder="Enter expedition cluster system prompt..."></textarea>
-                        <label for="conceptJson">Concept JSON</label>
-                        <textarea id="conceptJson" placeholder="Enter concept JSON..."></textarea>
-                        <label for="conceptExpeditionJson">Expedition Concept JSON</label>
-                        <textarea id="conceptExpeditionJson" placeholder="Enter expedition concept JSON..."></textarea>
+                    </div>
+                </div>
+
+                <div class="concept-row">
+                    <div class="concept-section concept-section-half">
+                        <label for="conceptJson">Quest JSON</label>
+                        <textarea id="conceptJson" placeholder="Enter quest JSON schema..."></textarea>
+                    </div>
+                    <div class="concept-section concept-section-half">
+                        <label for="conceptExpeditionJson">Expedition JSON</label>
+                        <textarea id="conceptExpeditionJson" placeholder="Enter expedition JSON schema..."></textarea>
                     </div>
                 </div>
             </div>

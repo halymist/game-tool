@@ -35,8 +35,7 @@ function setupTalentEditorListeners() {
         });
     }
 
-    const assetGalleryBtn = document.getElementById('talentAssetGalleryBtn');
-    if (assetGalleryBtn) assetGalleryBtn.addEventListener('click', toggleTalentAssetGallery);
+    // Icon preview click is handled inline via onclick="toggleTalentAssetGallery()"
 
     const assetGalleryClose = document.getElementById('talentAssetGalleryClose');
     if (assetGalleryClose) assetGalleryClose.addEventListener('click', toggleTalentAssetGallery);
@@ -186,7 +185,6 @@ function updateTalentAssetPreview(assetId, iconUrl) {
     const preview = document.getElementById('talentAssetPreview');
     const image = document.getElementById('talentAssetImage');
     const placeholder = document.getElementById('talentAssetPlaceholder');
-    const assetIdDisplay = document.getElementById('talentAssetIdDisplay');
 
     if (image) {
         image.src = iconUrl || '';
@@ -197,9 +195,7 @@ function updateTalentAssetPreview(assetId, iconUrl) {
     if (placeholder) {
         placeholder.style.display = iconUrl ? 'none' : 'block';
     }
-    if (assetIdDisplay) {
-        assetIdDisplay.textContent = `Asset ID: ${assetId || 'None'}`;
-    }
+
 }
 
 async function uploadTalentAsset(file) {
@@ -306,17 +302,12 @@ function renderTalentGrid(filterText = '') {
             ${perkIndicator}
             <div class="talent-max">${talent.maxPoints ?? ''}</div>
             <img class="talent-icon" src="${iconUrl}" alt="Talent ${talent.talentId}" onerror="this.style.display='none'">
+            <div class="talent-cell-label">${escapeHtml(talent.talentName) || ''}</div>
         `;
 
-        const label = document.createElement('div');
-        label.className = 'talent-cell-label';
-        label.textContent = talent.talentName || '';
-
         cell.addEventListener('click', () => selectTalent(talent.talentId));
-        label.addEventListener('click', () => selectTalent(talent.talentId));
 
         wrapper.appendChild(cell);
-        wrapper.appendChild(label);
         grid.appendChild(wrapper);
     });
 }

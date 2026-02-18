@@ -1,661 +1,292 @@
-/* Perk Designer Styles */
+/* Perk Designer – Dark Theme */
 
-/* Hide number input spinners/arrows */
 input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
 
-input[type="number"] {
-    -moz-appearance: textfield;
-}
-
-/* Main container with list and editor layout */
+/* ── Layout ─────────────────────────────────────────── */
 .perks-designer-container {
     display: flex;
-    gap: 2rem;
+    gap: 1.25rem;
     height: calc(100vh - 200px);
 }
 
-/* Left sidebar - Perk list */
+/* ── Sidebar ────────────────────────────────────────── */
 .perk-list-sidebar {
-    flex: 0 0 350px;
-    background: rgba(30, 20, 15, 0.9);
-    border: 2px solid #8b4513;
-    border-radius: 10px;
-    padding: 1rem;
+    flex: 0 0 320px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 0.875rem;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
-/* Tab toggle buttons */
 .perk-tab-toggle {
     display: flex;
-    gap: 0;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
-    border: 1px solid #8b4513;
+    border: 1px solid var(--border-default);
 }
 
 .perk-tab-toggle .tab-btn {
     flex: 1;
-    padding: 0.6rem 1rem;
-    background: rgba(60, 40, 30, 0.8);
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-elevated);
     border: none;
-    color: #8b4513;
-    font-weight: bold;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.8125rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.15s ease;
 }
+.perk-tab-toggle .tab-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+.perk-tab-toggle .tab-btn.active { background: var(--accent); color: #fff; }
 
-.perk-tab-toggle .tab-btn:hover {
-    background: rgba(80, 50, 35, 0.9);
-    color: #d4af37;
-}
-
-.perk-tab-toggle .tab-btn.active {
-    background: linear-gradient(135deg, #8b4513 0%, #5c2c0a 100%);
-    color: #d4af37;
-}
-
-.perk-list-container {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.perk-list-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
+.perk-list-container { flex: 1; overflow-y: auto; }
+.perk-list-controls { display: flex; flex-direction: column; gap: 0.5rem; }
 
 #perkSearch {
-    padding: 0.5rem;
-    background: rgba(60, 40, 30, 0.9);
-    border: 1px solid #8b4513;
-    border-radius: 5px;
-    color: #d4af37;
-    font-size: 0.9rem;
+    padding: 0.5rem 0.625rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-family: inherit;
 }
-
-#perkSearch::placeholder {
-    color: #8b4513;
-}
+#perkSearch::placeholder { color: var(--text-muted); }
+#perkSearch:focus { outline: none; border-color: var(--accent); }
 
 .perk-list-item {
-    background: rgba(60, 40, 30, 0.8);
-    border: 1px solid #8b4513;
-    border-radius: 5px;
-    padding: 0.75rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.75rem;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 0.5rem;
+    transition: all 0.15s ease;
+    margin-bottom: 0.375rem;
 }
+.perk-list-item:hover { background: var(--bg-hover); border-color: var(--border-default); }
+.perk-list-item.selected { background: var(--accent-subtle); border-color: var(--accent); }
+.perk-name { color: var(--text-primary); font-weight: 600; font-size: 0.875rem; }
 
-.perk-list-item:hover {
-    background: rgba(100, 60, 30, 0.9);
-    border-color: #d4af37;
-}
-
-.perk-list-item.selected {
-    background: rgba(139, 69, 19, 0.8);
-    border-color: #d4af37;
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
-}
-
-.perk-name {
-    color: #d4af37;
-    font-weight: bold;
-}
-
-.perk-list-buttons {
-    display: flex;
-    gap: 0.5rem;
-}
+.perk-list-buttons { display: flex; gap: 0.5rem; }
 
 #newPerkBtn {
-    flex: 1;
-    padding: 0.5rem;
-    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
-    border: 1px solid #4a7c4a;
-    border-radius: 5px;
-    color: #7cfc00;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    flex: 1; padding: 0.5rem;
+    background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.25);
+    border-radius: var(--radius-sm); color: var(--success);
+    font-weight: 600; font-size: 0.8125rem; cursor: pointer; transition: all 0.15s ease;
 }
-
-#newPerkBtn:hover {
-    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
-    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
-}
+#newPerkBtn:hover { background: rgba(34,197,94,0.18); border-color: var(--success); }
 
 #mergePerksBtn {
-    flex: 1;
-    padding: 0.5rem;
-    background: linear-gradient(135deg, #5a2d5a 0%, #3a1a3a 100%);
-    border: 1px solid #7c4a7c;
-    border-radius: 5px;
-    color: #da70d6;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: none;
+    flex: 1; padding: 0.5rem;
+    background: var(--accent-subtle); border: 1px solid rgba(59,130,246,0.25);
+    border-radius: var(--radius-sm); color: var(--accent);
+    font-weight: 600; font-size: 0.8125rem; cursor: pointer;
+    transition: all 0.15s ease; display: none;
 }
+#mergePerksBtn:hover { background: rgba(59,130,246,0.18); border-color: var(--accent); }
+#mergePerksBtn.visible { display: block; }
 
-#mergePerksBtn:hover {
-    background: linear-gradient(135deg, #7a3d7a 0%, #5a2a5a 100%);
-    box-shadow: 0 0 15px rgba(218, 112, 214, 0.3);
-}
+.loading-text { color: var(--text-muted); text-align: center; padding: 2rem 1rem; font-size: 0.8125rem; }
 
-#mergePerksBtn.visible {
-    display: block;
-}
-
-.loading-text {
-    color: #8b4513;
-    text-align: center;
-    padding: 2rem 1rem;
-}
-
-/* Right side - Perk editor */
+/* ── Editor Panel ───────────────────────────────────── */
 .perk-editor-panel {
     flex: 1;
-    background: rgba(30, 20, 15, 0.9);
-    border: 2px solid #8b4513;
-    border-radius: 10px;
-    padding: 2rem;
-    overflow-y: auto;
-}
-
-#perkEditorTitle {
-    color: #d4af37;
-    font-size: 1.5rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid #8b4513;
-    padding-bottom: 0.5rem;
-}
-
-#perkForm {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding-bottom: 150px;
-}
-
-/* === UNIFIED FORM === */
-.perk-unified-form {
-    background: rgba(60, 40, 30, 0.5);
-    border: 1px solid #8b4513;
-    border-radius: 8px;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-}
-
-.perk-header {
-    display: flex;
-    gap: 1.25rem;
-}
-
-.perk-icon-column {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.perk-icon-box {
-    width: 140px;
-    height: 140px;
-    background: rgba(40, 25, 15, 0.9);
-    border: 2px solid #8b4513;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-
-.perk-icon-box:hover {
-    border-color: #d4af37;
-    background: rgba(50, 35, 20, 0.9);
-}
-
-.perk-icon-box.drag-over {
-    border-color: #7cfc00;
-    background: rgba(60, 80, 30, 0.9);
-    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
-}
-
-.perk-icon-box img {
-    max-width: 100%;
-    max-height: 100%;
-    display: none;
-}
-
-.perk-icon-box img[src]:not([src=""]) {
-    display: block;
-}
-
-.perk-icon-box img[src]:not([src=""]) ~ #perkIconPlaceholder {
-    display: none;
-}
-
-#perkIconPlaceholder {
-    color: #8b4513;
-    font-size: 0.85rem;
-    text-align: center;
-    padding: 0.75rem;
-}
-
-.perk-upload-btn {
-    width: 140px;
-    padding: 0.4rem 0.5rem;
-    font-size: 0.75rem;
-    background: rgba(60, 40, 30, 0.9);
-    border: 1px solid #8b4513;
-    border-radius: 4px;
-    color: #d4af37;
-    cursor: pointer;
-    text-align: center;
-}
-
-.perk-upload-btn:hover {
-    background: rgba(100, 60, 30, 0.9);
-    border-color: #d4af37;
-}
-
-.perk-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.perk-row {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
-}
-
-.perk-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.perk-field-grow {
-    flex: 1;
-}
-
-.perk-field-small {
-    flex: 0 0 auto;
-}
-
-.perk-field-full {
-    flex: 1;
-}
-
-.perk-field label {
-    font-size: 0.7rem;
-    color: #b8860b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.perk-field input,
-.perk-field select,
-.perk-field textarea {
-    padding: 0.5rem;
-    background: rgba(50, 35, 20, 0.9);
-    border: 1px solid #8b4513;
-    border-radius: 5px;
-    color: #d4af37;
-    font-size: 0.9rem;
-}
-
-.perk-field textarea {
-    resize: none;
-}
-
-/* Blessing checkbox inline */
-.perk-blessing-label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255, 215, 0, 0.05);
-    border: 1px solid rgba(255, 215, 0, 0.3);
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 1rem;
-    white-space: nowrap;
-}
-
-.perk-blessing-label:hover {
-    background: rgba(255, 215, 0, 0.1);
-    border-color: rgba(255, 215, 0, 0.5);
-}
-
-.perk-blessing-label input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    accent-color: #ffd700;
-}
-
-.perk-blessing-label span {
-    color: #ffd700;
-    font-weight: 500;
-    font-size: 0.8rem;
-}
-
-/* === EFFECTS === */
-.perk-effects-section {
-    border-top: 1px solid rgba(139, 69, 19, 0.4);
-    padding-top: 1rem;
-}
-
-.perk-effects-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.perk-effect-row {
-    display: flex;
-    gap: 1rem;
-}
-
-/* Ensure dropdowns open downward */
-.perk-unified-form {
-    overflow: visible;
-}
-
-.perk-editor-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
     overflow-y: auto;
     overflow-x: visible;
 }
 
-.perk-effect-desc {
-    font-size: 0.75rem;
-    color: #8b4513;
-    font-style: italic;
-    padding-left: 0.25rem;
-    min-height: 1em;
-    margin-bottom: 0.5rem;
+#perkEditorTitle {
+    color: var(--text-primary); font-size: 1.125rem; font-weight: 600;
+    margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-default); padding-bottom: 0.5rem;
 }
 
-/* Form buttons */
-.perk-form-buttons {
-    display: flex;
-    gap: 1rem;
-    justify-content: flex-end;
+#perkForm { display: flex; flex-direction: column; gap: 0.875rem; padding-bottom: 150px; }
+
+/* ── Unified Form Card ──────────────────────────────── */
+.perk-unified-form {
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 1.25rem; overflow: visible;
 }
 
-.btn-save-perk,
+.perk-header { display: flex; gap: 1.25rem; }
+.perk-icon-column { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+
+.perk-icon-box {
+    width: 120px; height: 120px;
+    background: var(--bg-surface); border: 1px dashed var(--border-default);
+    border-radius: var(--radius-md);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden; transition: all 0.15s ease;
+}
+.perk-icon-box:hover { border-color: var(--accent); border-style: solid; }
+.perk-icon-box.drag-over { border-color: var(--success); border-style: solid; background: rgba(34,197,94,0.08); }
+.perk-icon-box img { max-width: 100%; max-height: 100%; display: none; }
+.perk-icon-box img[src]:not([src=""]) { display: block; }
+.perk-icon-box img[src]:not([src=""]) ~ #perkIconPlaceholder { display: none; }
+
+#perkIconPlaceholder { color: var(--text-muted); font-size: 0.75rem; text-align: center; padding: 0.75rem; }
+
+.perk-upload-btn {
+    width: 120px; padding: 0.35rem 0.5rem; font-size: 0.75rem;
+    background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm); color: var(--text-secondary);
+    cursor: pointer; text-align: center; transition: all 0.15s ease;
+}
+.perk-upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.perk-info { flex: 1; display: flex; flex-direction: column; gap: 0.625rem; }
+.perk-row { display: flex; gap: 0.75rem; align-items: flex-start; }
+.perk-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.perk-field-grow { flex: 1; }
+.perk-field-small { flex: 0 0 auto; }
+.perk-field-full { flex: 1; }
+
+.perk-field label {
+    font-size: 0.6875rem; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+}
+
+.perk-field input, .perk-field select, .perk-field textarea {
+    padding: 0.45rem 0.5rem; background: var(--bg-surface);
+    border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+    color: var(--text-primary); font-size: 0.8125rem; font-family: inherit;
+    transition: border-color 0.15s ease;
+}
+.perk-field input:focus, .perk-field select:focus, .perk-field textarea:focus { outline: none; border-color: var(--accent); }
+.perk-field textarea { resize: none; }
+
+/* Blessing checkbox */
+.perk-blessing-label {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.45rem 0.625rem;
+    background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius-sm); cursor: pointer; margin-top: 0.75rem; white-space: nowrap;
+}
+.perk-blessing-label:hover { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.35); }
+.perk-blessing-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+.perk-blessing-label span { color: var(--accent); font-weight: 500; font-size: 0.8rem; }
+
+/* ── Effects ────────────────────────────────────────── */
+.perk-effects-section { border-top: 1px solid var(--border-subtle); padding-top: 0.875rem; }
+.perk-effects-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+.perk-effect-row { display: flex; gap: 0.75rem; }
+.perk-effect-desc { font-size: 0.75rem; color: var(--text-muted); font-style: italic; padding-left: 0.25rem; min-height: 1em; margin-bottom: 0.5rem; }
+
+/* ── Form Buttons ───────────────────────────────────── */
+.perk-form-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+.btn-save-perk, .btn-cancel-perk {
+    padding: 0.6rem 1.5rem; border: none; border-radius: var(--radius-sm);
+    font-weight: 600; font-size: 0.875rem; cursor: pointer;
+    transition: all 0.15s ease; font-family: inherit;
+}
+.btn-save-perk { background: var(--accent); color: #fff; }
+.btn-save-perk:hover { background: var(--accent-hover); }
 .btn-cancel-perk {
-    padding: 0.75rem 2rem;
-    border: none;
-    border-radius: 5px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 1rem;
+    background: rgba(239,68,68,0.1); color: var(--danger);
+    border: 1px solid rgba(239,68,68,0.2);
 }
+.btn-cancel-perk:hover { background: rgba(239,68,68,0.18); border-color: var(--danger); }
 
-.btn-save-perk {
-    background: linear-gradient(135deg, #2d5a2d 0%, #1a3a1a 100%);
-    color: #7cfc00;
-    border: 1px solid #4a7c4a;
-}
-
-.btn-save-perk:hover {
-    background: linear-gradient(135deg, #3d7a3d 0%, #2a5a2a 100%);
-    box-shadow: 0 0 15px rgba(124, 252, 0, 0.3);
-}
-
-.btn-cancel-perk {
-    background: linear-gradient(135deg, #5a2d2d 0%, #3a1a1a 100%);
-    color: #ff6b6b;
-    border: 1px solid #7c4a4a;
-}
-
-.btn-cancel-perk:hover {
-    background: linear-gradient(135deg, #7a3d3d 0%, #5a2a2a 100%);
-    box-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
-}
-
-/* Pending Perks Styles */
+/* ── Pending Perks ──────────────────────────────────── */
 .pending-perk {
-    background: rgba(80, 50, 20, 0.8);
-    border: 1px solid #ffa500;
+    background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
+    border-radius: var(--radius-sm); padding: 0.625rem 0.75rem;
+    cursor: pointer; transition: all 0.15s ease; margin-bottom: 0.375rem;
 }
+.pending-perk:hover { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.35); }
+.pending-perk.selected { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
 
-.pending-perk:hover {
-    background: rgba(100, 70, 30, 0.9);
-    border-color: #ffcc00;
-}
-
-.pending-perk.selected {
-    background: rgba(139, 100, 19, 0.8);
-    border-color: #ffcc00;
-    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
-}
-
-.pending-perk-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.25rem;
-}
+.pending-perk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
 
 .perk-action {
-    font-size: 0.7rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 3px;
-    font-weight: bold;
-    text-transform: uppercase;
+    font-size: 0.625rem; padding: 0.125rem 0.4rem; border-radius: 3px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
 }
-
-.perk-action.insert {
-    background: rgba(46, 125, 50, 0.8);
-    color: #90ee90;
-    border: 1px solid #4caf50;
-}
-
-.perk-action.update {
-    background: rgba(25, 118, 210, 0.8);
-    color: #90caf9;
-    border: 1px solid #2196f3;
-}
+.perk-action.insert { background: rgba(34,197,94,0.12); color: var(--success); border: 1px solid rgba(34,197,94,0.25); }
+.perk-action.update { background: var(--accent-subtle); color: var(--accent); border: 1px solid rgba(59,130,246,0.25); }
 
 .pending-perk-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(139, 69, 19, 0.5);
+    display: flex; justify-content: flex-end; align-items: center;
+    margin-top: 0.375rem; padding-top: 0.375rem; border-top: 1px solid var(--border-subtle);
 }
-
-.pending-perk-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
+.pending-perk-actions { display: flex; align-items: center; gap: 0.625rem; }
 
 .pending-perk-footer .btn-remove-pending {
-    background: transparent;
-    border: 1px solid rgba(255, 87, 87, 0.5);
-    border-radius: 4px;
-    padding: 4px 6px;
-    cursor: pointer;
-    color: #ff5757;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    background: transparent; border: 1px solid rgba(239,68,68,0.25); border-radius: 4px;
+    padding: 3px 5px; cursor: pointer; color: var(--danger);
+    transition: all 0.15s ease; display: flex; align-items: center; justify-content: center;
 }
+.pending-perk-footer .btn-remove-pending svg { width: 14px; height: 14px; }
+.pending-perk-footer .btn-remove-pending:hover { background: rgba(239,68,68,0.1); border-color: var(--danger); }
 
-.pending-perk-footer .btn-remove-pending svg {
-    width: 14px;
-    height: 14px;
-}
-
-.pending-perk-footer .btn-remove-pending:hover {
-    background: rgba(255, 87, 87, 0.2);
-    border-color: #ff5757;
-    color: #ff7777;
-}
-
-/* Locked form state */
+/* ── Locked Form ────────────────────────────────────── */
 #perkForm.form-locked::before {
-    content: '🔒 Read Only - Pending Approval';
-    display: block;
-    background: linear-gradient(135deg, rgba(139, 69, 19, 0.9) 0%, rgba(60, 30, 15, 0.9) 100%);
-    border: 1px solid #ffa500;
-    border-radius: 5px;
-    padding: 0.5rem 1rem;
-    color: #ffa500;
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 1rem;
+    content: '🔒 Read Only – Pending Approval'; display: block;
+    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
+    border-radius: var(--radius-sm); padding: 0.4rem 0.75rem;
+    color: #fbbf24; text-align: center; font-weight: 600; font-size: 0.8125rem; margin-bottom: 0.75rem;
+}
+#perkForm.form-locked input:disabled, #perkForm.form-locked select:disabled, #perkForm.form-locked textarea:disabled {
+    background: var(--bg-base) !important; color: var(--text-muted) !important; cursor: not-allowed; opacity: 0.6;
 }
 
-#perkForm.form-locked input:disabled,
-#perkForm.form-locked select:disabled,
-#perkForm.form-locked textarea:disabled {
-    background: rgba(40, 25, 15, 0.9) !important;
-    color: #888 !important;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-/* Blessing Checkbox */
+/* Blessing Checkbox (alternate) */
 .perk-blessing-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: rgba(255, 215, 0, 0.05);
-    border: 1px solid rgba(255, 215, 0, 0.3);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    display: flex; align-items: center; gap: 0.625rem;
+    padding: 0.625rem;
+    background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2);
+    border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s ease;
 }
+.perk-blessing-checkbox:hover { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.35); }
+.perk-blessing-checkbox input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
+.perk-blessing-checkbox span { color: var(--accent); font-weight: 500; font-size: 0.875rem; }
 
-.perk-blessing-checkbox:hover {
-    background: rgba(255, 215, 0, 0.1);
-    border-color: rgba(255, 215, 0, 0.5);
-}
-
-.perk-blessing-checkbox input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    accent-color: #ffd700;
-}
-
-.perk-blessing-checkbox span {
-    color: #ffd700;
-    font-weight: 500;
-    font-size: 0.95rem;
-}
-
-/* Perk Asset Gallery Overlay */
+/* ── Asset Gallery ──────────────────────────────────── */
 .perk-asset-gallery-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(4px);
 }
-
-.perk-asset-gallery-overlay.hidden {
-    display: none;
-}
+.perk-asset-gallery-overlay.hidden { display: none; }
 
 .perk-asset-gallery {
-    background: rgba(30, 20, 15, 0.98);
-    border: 2px solid #8b4513;
-    border-radius: 10px;
-    padding: 1.5rem;
-    width: 90%;
-    max-width: 800px;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg); padding: 1.25rem;
+    width: 90%; max-width: 720px; max-height: 80vh;
+    display: flex; flex-direction: column; box-shadow: 0 16px 48px rgba(0,0,0,0.5);
 }
 
 .perk-asset-gallery-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #8b4513;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.875rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-default);
 }
-
-.perk-asset-gallery-header h3 {
-    color: #d4af37;
-    margin: 0;
-}
-
-.perk-asset-gallery-close {
-    background: none;
-    border: none;
-    color: #d4af37;
-    font-size: 1.5rem;
-    cursor: pointer;
-}
+.perk-asset-gallery-header h3 { color: var(--text-primary); font-size: 0.9375rem; font-weight: 600; margin: 0; }
+.perk-asset-gallery-close { background: none; border: none; color: var(--text-muted); font-size: 1.25rem; cursor: pointer; transition: color 0.15s; }
+.perk-asset-gallery-close:hover { color: var(--danger); }
 
 .perk-asset-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 0.75rem;
-    overflow-y: auto;
-    max-height: 60vh;
-    padding: 0.5rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 0.625rem; overflow-y: auto; max-height: 60vh; padding: 0.375rem;
 }
 
 .perk-asset-grid .asset-item {
-    background: rgba(60, 40, 30, 0.8);
-    border: 2px solid #8b4513;
-    border-radius: 8px;
-    padding: 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm); padding: 0.5rem; cursor: pointer;
+    transition: all 0.15s ease; display: flex; flex-direction: column; align-items: center;
 }
-
-.perk-asset-grid .asset-item:hover {
-    border-color: #d4af37;
-    background: rgba(100, 60, 30, 0.9);
-}
-
-.perk-asset-grid .asset-item img {
-    width: 64px;
-    height: 64px;
-    object-fit: contain;
-}
-
-.perk-asset-grid .asset-id {
-    color: #8b4513;
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-}
+.perk-asset-grid .asset-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+.perk-asset-grid .asset-item img { width: 56px; height: 56px; object-fit: contain; }
+.perk-asset-grid .asset-id { color: var(--text-muted); font-size: 0.6875rem; margin-top: 0.2rem; }
