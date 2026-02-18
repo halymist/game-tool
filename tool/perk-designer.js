@@ -185,7 +185,6 @@ function createPerkAssetGallery() {
     grid.innerHTML = perkAssets.map(asset => `
         <div class="asset-item" onclick="selectPerkAsset(${asset.assetID}, '${asset.icon}')">
             <img src="${asset.icon}" alt="Asset ${asset.assetID}">
-            <span class="asset-id">${asset.assetID}</span>
         </div>
     `).join('');
 }

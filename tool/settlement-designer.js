@@ -1153,7 +1153,6 @@ function populateAssetGallery() {
         <div class="settlement-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
              data-asset-id="${asset.id}" onclick="selectAsset(${asset.id})">
             <img src="${asset.url}" alt="Asset ${asset.id}" loading="lazy">
-            <div class="asset-id">ID: ${asset.id}</div>
         </div>
     `).join('');
 }

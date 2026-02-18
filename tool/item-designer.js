@@ -910,7 +910,6 @@ function createItemAssetGallery() {
     assetGrid.innerHTML = itemAssets.map(asset => `
         <div class="item-asset-item" data-asset-id="${asset.assetID}" onclick="selectItemAsset(${asset.assetID}, '${asset.icon}')">
             <img src="${asset.icon}" alt="Asset ${asset.assetID}" class="item-asset-thumbnail">
-            <div class="item-asset-label">ID: ${asset.assetID}</div>
         </div>
     `).join('');
 }

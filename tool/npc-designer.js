@@ -33,9 +33,38 @@ function setupNpcListeners() {
     document.getElementById('npcSettlementFilter')?.addEventListener('change', filterNpcs);
 
     const form = document.getElementById('npcForm');
-    if (form) form.addEventListener('submit', saveNpc);
+    if (form) {
+        form.addEventListener('submit', saveNpc);
+        form.addEventListener('input', checkNpcDirty);
+        form.addEventListener('change', checkNpcDirty);
+    }
 
     document.getElementById('npcDeleteBtn')?.addEventListener('click', deleteNpc);
+}
+
+function getNpcFormSnapshot() {
+    return JSON.stringify({
+        name: document.getElementById('npcName')?.value ?? '',
+        context: document.getElementById('npcContext')?.value ?? '',
+        role: document.getElementById('npcRole')?.value ?? '',
+        personality: document.getElementById('npcPersonality')?.value ?? '',
+        goals: document.getElementById('npcGoals')?.value ?? '',
+        settlement: document.getElementById('npcSettlementSelect')?.value ?? '',
+    });
+}
+
+function checkNpcDirty() {
+    if (!npcState.snapshot) return;
+    const current = getNpcFormSnapshot();
+    setNpcSaveDirty(current !== npcState.snapshot);
+}
+
+function setNpcSaveDirty(dirty) {
+    const btn = document.getElementById('npcSaveBtn');
+    if (btn) {
+        btn.disabled = !dirty;
+        btn.classList.toggle('btn-disabled', !dirty);
+    }
 }
 
 function setupNpcDataSubscriptions() {
@@ -147,6 +176,8 @@ function selectNpc(npcId) {
     document.getElementById('npcSettlementSelect').value = npc.settlement_id || '';
 
     document.getElementById('npcDeleteBtn').disabled = false;
+    npcState.snapshot = getNpcFormSnapshot();
+    setNpcSaveDirty(false);
     renderNpcTable();
 }
 
@@ -160,6 +191,8 @@ function createNewNpc() {
     document.getElementById('npcGoals').value = '';
     document.getElementById('npcSettlementSelect').value = '';
     document.getElementById('npcDeleteBtn').disabled = true;
+    npcState.snapshot = getNpcFormSnapshot();
+    setNpcSaveDirty(false);
     renderNpcTable();
 }
 

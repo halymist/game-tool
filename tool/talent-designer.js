@@ -35,6 +35,14 @@ function setupTalentEditorListeners() {
         });
     }
 
+    const factorInput = document.getElementById('talentFactor');
+    if (factorInput) {
+        factorInput.addEventListener('input', () => {
+            const effectId = document.getElementById('talentEffectId')?.value;
+            if (effectId) updateEffectDescription(effectId);
+        });
+    }
+
     // Icon preview click is handled inline via onclick="toggleTalentAssetGallery()"
 
     const assetGalleryClose = document.getElementById('talentAssetGalleryClose');
@@ -67,6 +75,39 @@ function setupTalentEditorListeners() {
 
     const resetBtn = document.getElementById('talentResetBtn');
     if (resetBtn) resetBtn.addEventListener('click', resetTalentForm);
+
+    // Dirty tracking: listen for any form change
+    const talentForm = document.getElementById('talentEditorForm');
+    if (talentForm) {
+        talentForm.addEventListener('input', checkTalentDirty);
+        talentForm.addEventListener('change', checkTalentDirty);
+    }
+}
+
+function getTalentFormSnapshot() {
+    return JSON.stringify({
+        name: document.getElementById('talentName')?.value ?? '',
+        maxPoints: document.getElementById('talentMaxPoints')?.value ?? '',
+        perkSlot: document.getElementById('talentPerkSlot')?.checked ?? false,
+        effectId: document.getElementById('talentEffectId')?.value ?? '',
+        factor: document.getElementById('talentFactor')?.value ?? '',
+        description: document.getElementById('talentDescription')?.value ?? '',
+        assetId: document.getElementById('talentAssetId')?.value ?? '',
+    });
+}
+
+function checkTalentDirty() {
+    if (!talentEditorState.snapshot) return;
+    const current = getTalentFormSnapshot();
+    setTalentSaveDirty(current !== talentEditorState.snapshot);
+}
+
+function setTalentSaveDirty(dirty) {
+    const btn = document.getElementById('talentSaveBtn');
+    if (btn) {
+        btn.disabled = !dirty;
+        btn.classList.toggle('btn-disabled', !dirty);
+    }
 }
 
 async function loadTalentEditorData(options = {}) {
@@ -98,6 +139,11 @@ async function loadTalentEditorData(options = {}) {
 
         populateTalentEffectOptions();
         renderTalentGrid();
+
+        // Auto-select first talent if none selected
+        if (!talentEditorState.selectedTalentId && talentEditorState.talents.length > 0) {
+            selectTalent(talentEditorState.talents[0].talentId);
+        }
     } catch (error) {
         console.error('Error loading talents:', error);
     }
@@ -164,7 +210,6 @@ function createTalentAssetGallery() {
     grid.innerHTML = talentAssets.map(asset => `
         <div class="asset-item" onclick="selectTalentAsset(${asset.assetID}, '${asset.icon}')">
             <img src="${asset.icon}" alt="Asset ${asset.assetID}">
-            <span class="asset-id">${asset.assetID}</span>
         </div>
     `).join('');
 }
@@ -272,7 +317,12 @@ function updateEffectDescription(effectId) {
         return;
     }
     const effect = (GlobalData.effects || []).find(e => String(e.id) === String(effectId));
-    descEl.textContent = effect?.description || '';
+    const factorVal = document.getElementById('talentFactor')?.value || '';
+    let text = effect?.description || '';
+    if (text && factorVal) {
+        text = text + ' ' + factorVal + '%';
+    }
+    descEl.textContent = text;
 }
 
 function renderTalentGrid(filterText = '') {
@@ -335,6 +385,10 @@ function selectTalent(talentId) {
     document.getElementById('talentAssetId').value = talent.assetId ?? 1;
     updateTalentAssetPreview(talent.assetId, getTalentAssetIcon(talent.assetId));
     updateEffectDescription(talent.effectId);
+
+    // Store snapshot for dirty tracking
+    talentEditorState.snapshot = getTalentFormSnapshot();
+    setTalentSaveDirty(false);
 
     renderTalentGrid();
 }

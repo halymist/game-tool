@@ -1,20 +1,21 @@
-/* NPC Manager Styles */
+/* NPC Manager – Dark Theme */
 
+/* ── Layout ─────────────────────────────────────────── */
 .npc-manager-container {
     display: grid;
-    grid-template-columns: 1fr 1.1fr;
-    gap: 20px;
-    padding: 20px;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 1.25rem;
     height: calc(100vh - 140px);
-    box-sizing: border-box;
+    min-height: 500px;
 }
 
+/* ── Panels ─────────────────────────────────────────── */
 .npc-list-panel,
 .npc-editor-panel {
-    background: #1e2a4a;
-    border: 1px solid #0f3460;
-    border-radius: 12px;
-    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -25,33 +26,49 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 .npc-list-header h3,
 .npc-editor-header h3 {
     margin: 0;
-    color: #e2e8f0;
-    font-size: 18px;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-weight: 600;
 }
 
+/* ── Filters ────────────────────────────────────────── */
 .npc-filters {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 12px;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
 }
 
 .npc-filters input,
 .npc-filters select {
-    padding: 8px 10px;
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 8px;
-    color: #e2e8f0;
+    padding: 0.45rem 0.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
 }
 
+.npc-filters input:focus,
+.npc-filters select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.npc-filters input::placeholder {
+    color: var(--text-muted);
+}
+
+/* ── Table ──────────────────────────────────────────── */
 .npc-table-wrapper {
     overflow: auto;
     flex: 1;
@@ -60,77 +77,189 @@
 .npc-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: 0.8125rem;
 }
 
 .npc-table th,
 .npc-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #0f3460;
-    color: #e2e8f0;
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--border-subtle);
+    color: var(--text-primary);
 }
 
 .npc-table th {
     text-align: left;
-    color: #a0aec0;
+    color: var(--text-muted);
     font-weight: 600;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
-.npc-table tr:hover {
-    background: rgba(59, 130, 246, 0.08);
+.npc-table tr {
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.npc-table tbody tr:hover {
+    background: var(--bg-hover);
 }
 
 .npc-table tr.selected {
-    background: rgba(56, 161, 105, 0.2);
+    background: var(--accent-subtle);
 }
 
 .npc-empty {
     text-align: center;
-    color: #a0aec0;
-    padding: 20px;
+    color: var(--text-muted);
+    padding: 1.25rem;
+    font-size: 0.8125rem;
 }
 
+/* ── Form ───────────────────────────────────────────── */
 .npc-form {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    overflow: auto;
+    gap: 0.875rem;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .npc-form-row label {
     display: block;
-    font-size: 12px;
-    color: #a0aec0;
-    margin-bottom: 6px;
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.15rem;
+    font-weight: 500;
 }
 
 .npc-form-row input,
 .npc-form-row select,
 .npc-form-row textarea {
     width: 100%;
-    background: #0d1b2a;
-    border: 1px solid #1a365d;
-    border-radius: 8px;
-    color: #e2e8f0;
-    padding: 8px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 0.45rem 0.5rem;
     box-sizing: border-box;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    transition: border-color 0.15s ease;
 }
 
+.npc-form-row input:focus,
+.npc-form-row select:focus,
+.npc-form-row textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.npc-form-row input::placeholder,
+.npc-form-row textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.npc-form-row textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* ── Side-by-side rows ──────────────────────────────── */
+.npc-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+/* ── Form Actions ───────────────────────────────────── */
 .npc-form-actions {
     display: flex;
-    gap: 10px;
+    gap: 0.625rem;
+    align-items: center;
     justify-content: flex-end;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle);
 }
 
+.npc-form-actions .btn-save {
+    padding: 0.5rem 1.25rem;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+
+.npc-form-actions .btn-save:hover {
+    background: var(--accent-hover);
+}
+
+.npc-form-actions .btn-save.btn-disabled,
+.npc-form-actions .btn-save:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.npc-form-actions .btn-delete {
+    padding: 0.5rem 1.25rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.15s;
+    margin-right: auto;
+}
+
+.npc-form-actions .btn-delete:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: var(--danger);
+}
+
+.npc-form-actions .btn-delete:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.npc-form-actions .btn-new-npc {
+    padding: 0.5rem 1.25rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    border-radius: var(--radius-sm);
+    color: var(--success);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.npc-form-actions .btn-new-npc:hover {
+    background: rgba(34, 197, 94, 0.18);
+    border-color: var(--success);
+}
+
+/* ── Status ─────────────────────────────────────────── */
 .npc-status {
-    font-size: 13px;
-    color: #a0aec0;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .npc-status.success {
-    color: #48bb78;
+    color: var(--success);
 }
 
 .npc-status.error {
-    color: #fc8181;
+    color: var(--danger);
 }

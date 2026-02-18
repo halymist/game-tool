@@ -180,7 +180,6 @@ const DesignerBase = {
         grid.innerHTML = assets.map(asset => `
             <div class="asset-item" onclick="(${onSelect.name})(${asset.assetID}, '${asset.icon}')">
                 <img src="${asset.icon}" alt="Asset ${asset.assetID}">
-                <span class="asset-id">${asset.assetID}</span>
             </div>
         `).join('');
     },

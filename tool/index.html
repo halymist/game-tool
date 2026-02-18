@@ -597,7 +597,7 @@
                                     </div>
                                     <input type="file" id="enemyIconFile" accept="image/*" style="display: none;">
                                     <button type="button" id="enemyAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="enemyUploadNewBtn" class="enemy-upload-btn">📤 Upload</button>
+                                    <button type="button" id="enemyUploadNewBtn" class="enemy-upload-btn">Upload</button>
                                 </div>
 
                                 <!-- Name & ID + Stats -->
@@ -656,7 +656,7 @@
                         <button type="button" id="enemyAssetGalleryClose" class="btn-close">✕</button>
                     </div>
                     <div class="asset-gallery-actions">
-                        <button type="button" id="enemyUploadNewBtn" class="btn-upload">📤 Upload New</button>
+                        <button type="button" id="enemyUploadNewBtn" class="btn-upload">Upload</button>
                     </div>
                     <div id="enemyAssetGrid" class="asset-gallery-grid"></div>
                 </div>
@@ -691,7 +691,7 @@
                                     <img id="talentAssetImage" src="" alt="No asset">
                                     <span id="talentAssetPlaceholder">Click to<br>select icon</span>
                                 </div>
-                                <button type="button" id="talentUploadNewBtn" class="talent-upload-btn">📤 Upload New</button>
+                                <button type="button" id="talentUploadNewBtn" class="talent-upload-btn">Upload</button>
                             </div>
                             <div class="talent-info-fields">
                                 <div class="talent-form-row">
@@ -737,7 +737,7 @@
                         <div class="talent-form-actions">
                             <span id="talentEditorStatus" class="talent-editor-status"></span>
                             <button type="button" id="talentResetBtn" class="btn-cancel">Reset</button>
-                            <button type="button" id="talentSaveBtn" class="btn-save">Save Changes</button>
+                            <button type="button" id="talentSaveBtn" class="btn-save" disabled>Save Changes</button>
                         </div>
                     </form>
                 </div>
@@ -749,9 +749,6 @@
                     <div class="talent-asset-gallery-header">
                         <h3>Talent Assets</h3>
                         <button type="button" id="talentAssetGalleryClose" class="talent-asset-gallery-close">✕</button>
-                    </div>
-                    <div class="talent-asset-gallery-actions">
-                        <button type="button" id="talentUploadNewBtnOverlay" class="btn-upload">📤 Upload New</button>
                     </div>
                     <div id="talentAssetGrid" class="talent-asset-grid"></div>
                 </div>
@@ -820,7 +817,7 @@
                                     <input type="file" id="itemIconFile" accept="image/*" style="display: none;">
                                     <input type="hidden" id="itemAssetID" value="1">
                                     <button type="button" id="itemAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="itemUploadNewBtn" class="item-upload-btn">📤 Upload</button>
+                                    <button type="button" id="itemUploadNewBtn" class="item-upload-btn">Upload</button>
                                 </div>
                                 <div class="item-info">
                                     <div class="item-row">
@@ -948,7 +945,7 @@
                                     </div>
                                     <input type="file" id="perkIconFile" accept="image/*" style="display: none;">
                                     <button type="button" id="perkAssetGalleryBtn" style="display:none;"></button>
-                                    <button type="button" id="perkUploadNewBtn" class="perk-upload-btn">📤 Upload</button>
+                                    <button type="button" id="perkUploadNewBtn" class="perk-upload-btn">Upload</button>
                                 </div>
                                 <div class="perk-info">
                                     <div class="perk-row">
@@ -1415,35 +1412,45 @@
                     </div>
                     <form id="npcForm" class="npc-form">
                         <input type="hidden" id="npcId">
-                        <div class="npc-form-row">
-                            <label>Name</label>
-                            <input type="text" id="npcName" required>
+
+                        <!-- Name + Settlement side by side -->
+                        <div class="npc-row-2col">
+                            <div class="npc-form-row">
+                                <label>Name</label>
+                                <input type="text" id="npcName" required>
+                            </div>
+                            <div class="npc-form-row">
+                                <label>Settlement</label>
+                                <select id="npcSettlementSelect">
+                                    <option value="">-- None --</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="npc-form-row">
-                            <label>Settlement</label>
-                            <select id="npcSettlementSelect">
-                                <option value="">-- None --</option>
-                            </select>
+
+                        <!-- Role + Personality side by side -->
+                        <div class="npc-row-2col">
+                            <div class="npc-form-row">
+                                <label>Role</label>
+                                <input type="text" id="npcRole" placeholder="Guard, merchant, barkeep...">
+                            </div>
+                            <div class="npc-form-row">
+                                <label>Personality</label>
+                                <textarea id="npcPersonality" rows="3" placeholder="Personality traits (one per line)..."></textarea>
+                            </div>
                         </div>
+
                         <div class="npc-form-row">
                             <label>Context</label>
-                            <textarea id="npcContext" rows="6" placeholder="NPC context..."></textarea>
-                        </div>
-                        <div class="npc-form-row">
-                            <label>Role</label>
-                            <input type="text" id="npcRole" placeholder="Guard, merchant, barkeep...">
-                        </div>
-                        <div class="npc-form-row">
-                            <label>Personality</label>
-                            <textarea id="npcPersonality" rows="3" placeholder="Personality traits (one per line)..."></textarea>
+                            <textarea id="npcContext" rows="10" placeholder="NPC context..."></textarea>
                         </div>
                         <div class="npc-form-row">
                             <label>Goals</label>
                             <textarea id="npcGoals" rows="3" placeholder="Goals or motivations (one per line)..."></textarea>
                         </div>
                         <div class="npc-form-actions">
-                            <button type="submit" id="npcSaveBtn" class="btn-save">💾 Save</button>
-                            <button type="button" id="npcDeleteBtn" class="btn-cancel" disabled>Delete</button>
+                            <button type="button" id="npcDeleteBtn" class="btn-delete" disabled>Delete</button>
+                            <button type="button" onclick="createNewNpc()" class="btn-new-npc">+ New NPC</button>
+                            <button type="submit" id="npcSaveBtn" class="btn-save" disabled>Save Changes</button>
                         </div>
                     </form>
                 </div>

@@ -2445,7 +2445,7 @@ function populateExpeditionAssetGallery(filterText = '') {
             <div class="expedition-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
                  data-asset-id="${asset.id}">
                 <img src="${thumbSrc}" alt="Asset ${asset.id}" loading="lazy">
-                <div class="asset-id">${locationLabel || `ID: ${asset.id}`}</div>
+                ${locationLabel ? `<div class="asset-label">${locationLabel}</div>` : ''}
             </div>
         `;
     }).join('');

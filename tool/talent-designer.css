@@ -90,8 +90,8 @@
 }
 
 .talent-cell .talent-icon {
-    width: 28px;
-    height: 28px;
+    width: 44px;
+    height: 44px;
     object-fit: contain;
     flex-shrink: 0;
 }
@@ -348,6 +348,13 @@
 
 .talent-form-actions .btn-save:hover {
     background: var(--accent-hover);
+}
+
+.talent-form-actions .btn-save.btn-disabled,
+.talent-form-actions .btn-save:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .talent-form-actions .btn-cancel {
