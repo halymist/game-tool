@@ -3568,6 +3568,19 @@ async function generateQuestPreview() {
         });
     }
     const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
+    if (location) {
+        console.log('Quest generator location context', {
+            locationId: location.location_id ?? location.id ?? null,
+            locationName: location.name ?? '',
+            textureId: selectedLocationTextureId
+        });
+    } else {
+        console.log('Quest generator location context', {
+            locationId,
+            locationName: null,
+            textureId: selectedLocationTextureId
+        });
+    }
 
     const npcLookup = new Map(questGenerateState.npcs.map(npc => [npc.npc_id || npc.id, npc]));
     const npcs = selectedNpcIds
@@ -3876,6 +3889,14 @@ function applyGeneratedQuest(data, locationTextureFallback = null) {
         y: questRaw.pos_y ?? questRaw.y ?? 100,
         requisiteOptionId: null
     };
+    console.log('Quest generator applied quest asset', {
+        questId: quest.questId,
+        questName: quest.name,
+        resolvedAssetId,
+        fallbackTextureId,
+        hasRemoteAssetUrl: Boolean(remoteAssetUrl),
+        usedLocationTextureFallback: !questRaw?.assetId && fallbackTextureId !== null
+    });
 
     questState.quests.set(localQuestId, quest);
     if (resolvedAssetId && typeof ensureQuestAssetObjectUrl === 'function' && !cachedAssetUrl) {
@@ -3965,32 +3986,61 @@ function applyGeneratedQuest(data, locationTextureFallback = null) {
 }
 
 function resolveQuestGeneratedAssetId(questData, fallbackTextureId = null) {
-    if (!questData) return normalizeNumericId(fallbackTextureId);
-    const candidates = [
-        questData.assetId,
-        questData.asset_id,
-        questData.textureId,
-        questData.texture_id,
-        questData.backgroundId,
-        questData.background_id,
-        questData.locationTextureId,
-        questData.location_texture_id,
-        questData.preferredTextureId,
-        questData.preferred_texture_id
+    if (!questData) {
+        const normalizedFallback = normalizeNumericId(fallbackTextureId);
+        if (normalizedFallback !== null && normalizedFallback > 0) {
+            console.log('Quest asset resolution using fallback due to missing quest data', {
+                fallbackTextureId: normalizedFallback
+            });
+        } else {
+            console.warn('Quest asset resolution failed: no quest data and no fallback texture id');
+        }
+        return normalizedFallback !== null && normalizedFallback > 0 ? normalizedFallback : null;
+    }
+    const candidateSources = [
+        ['assetId', questData.assetId],
+        ['asset_id', questData.asset_id],
+        ['textureId', questData.textureId],
+        ['texture_id', questData.texture_id],
+        ['backgroundId', questData.backgroundId],
+        ['background_id', questData.background_id],
+        ['locationTextureId', questData.locationTextureId],
+        ['location_texture_id', questData.location_texture_id],
+        ['preferredTextureId', questData.preferredTextureId],
+        ['preferred_texture_id', questData.preferred_texture_id]
     ];
-    for (const candidate of candidates) {
+    for (const [source, candidate] of candidateSources) {
         const normalized = normalizeNumericId(candidate);
         if (normalized !== null && normalized > 0) {
+            console.log('Quest asset resolution matched generator payload', {
+                source,
+                assetId: normalized
+            });
             return normalized;
         }
     }
     const fallbackNormalized = normalizeNumericId(fallbackTextureId);
-    return fallbackNormalized !== null && fallbackNormalized > 0 ? fallbackNormalized : null;
+    if (fallbackNormalized !== null && fallbackNormalized > 0) {
+        console.log('Quest asset resolution falling back to location texture', {
+            fallbackTextureId: fallbackNormalized
+        });
+        return fallbackNormalized;
+    }
+    console.warn('Quest asset resolution failed: no usable asset id found', {
+        questData,
+        fallbackTextureId
+    });
+    return null;
 }
 
 function getQuestAssetRemoteUrl(assetId) {
     const normalized = normalizeNumericId(assetId);
     if (normalized === null) return null;
+    const assets = GlobalData?.questAssets || [];
+    const match = assets.find((asset) => Number(asset.id) === normalized);
+    if (match?.url) {
+        return match.url;
+    }
     return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${normalized}.webp`;
 }
 
