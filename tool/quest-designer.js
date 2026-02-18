@@ -198,8 +198,7 @@ function initQuestDesigner() {
     
     // Load data
     setupQuestDataSubscriptions();
-    loadQuestSettlements();
-    loadQuestAssets();
+    populateQuestSettlementSelect();
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -1635,20 +1634,6 @@ function selectQuestAsset(assetId, assetUrl) {
     closeQuestAssetModal();
 }
 
-// ==================== DATA LOADING ====================
-async function loadQuestSettlements() {
-    console.log('Loading settlements from GlobalData...');
-    try {
-        if (typeof loadSettlementsData === 'function') {
-            await loadSettlementsData();
-        }
-    } catch (error) {
-        console.error('Failed to load settlements for quest designer:', error);
-    } finally {
-        populateQuestSettlementSelect();
-    }
-}
-
 function populateQuestSettlementSelect() {
     const select = document.getElementById('questSettlementSelect');
     if (!select) return;
@@ -2137,17 +2122,6 @@ function buildConnectionsFromData(quests, options, requirements) {
     });
     
     console.log(`Built ${questState.connections.length} connections`);
-}
-
-async function loadQuestAssets() {
-    console.log('Loading quest assets...');
-    try {
-        // Use shared GlobalData loader
-        await loadQuestAssetsData();
-        console.log(`✅ Loaded ${getSharedQuestAssets().length} quest assets from GlobalData`);
-    } catch (error) {
-        console.error('Failed to load quest assets:', error);
-    }
 }
 
 // Upload quest asset to S3

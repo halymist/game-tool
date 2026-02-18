@@ -30,9 +30,6 @@ const questchainState = {
     connectionType: null, // 'quest-to-option' or 'option-to-option'
     dropdownsPopulated: false,
     
-    // Settlement data
-    settlements: [],
-    
     // Server tracking
     serverQuestSlides: new Map(),   // localId -> quest_id (server)
     serverOptions: new Map(),        // localId -> option_id (server)
@@ -127,7 +124,6 @@ function initQuestchainDesigner() {
     console.log('✅ Questchain Designer ready');
     
     // Load settlements
-    loadQuestchainSettlements();
     loadQuestchainAssets();
 }
 window.initQuestchainDesigner = initQuestchainDesigner;
@@ -1582,39 +1578,22 @@ function selectQcEnemy(enemyId) {
 window.selectQcEnemy = selectQcEnemy;
 
 // ==================== SETTLEMENTS & QUESTCHAINS ====================
-async function loadQuestchainSettlements() {
-    console.log('🏘️ Loading settlements for questchain designer...');
-    
-    if (typeof loadSettlementsData !== 'function') {
-        console.error('❌ loadSettlementsData function not found!');
-        return;
-    }
-    
-    try {
-        await loadSettlementsData();
-        questchainState.settlements = GlobalData.settlements || [];
-        populateQuestchainSettlementDropdown();
-        console.log(`✅ Using ${questchainState.settlements.length} settlements from GlobalData`);
-    } catch (error) {
-        console.error('Failed to load settlements:', error);
-    }
-}
-
 function populateQuestchainSettlementDropdown() {
     const select = document.getElementById('questchainSettlementSelect');
     if (!select) return;
     
     select.innerHTML = '';
     
-    questchainState.settlements.forEach(settlement => {
+    const settlements = GlobalData?.settlements || [];
+    settlements.forEach(settlement => {
         const option = document.createElement('option');
         option.value = settlement.settlement_id;
         option.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
         select.appendChild(option);
     });
     
-    if (questchainState.settlements.length > 0) {
-        const firstSettlement = questchainState.settlements[0];
+    if (settlements.length > 0) {
+        const firstSettlement = settlements[0];
         select.value = firstSettlement.settlement_id;
         questchainState.settlementId = firstSettlement.settlement_id;
         loadQuestchainsForSettlement(firstSettlement.settlement_id);
@@ -1885,6 +1864,7 @@ async function loadQuestchainData(questchainId) {
 
 // ==================== DROPDOWN POPULATION ====================
 function populateQuestchainDropdowns() {
+    populateQuestchainSettlementDropdown();
     populateQcSidebarDropdowns();
     questchainState.dropdownsPopulated = true;
 }

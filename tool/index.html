@@ -2253,6 +2253,23 @@
         });
     </script>
     <script src="http://localhost:8080/static/global-data.js"></script>
+    <script>
+        (function preloadSharedData() {
+            if (typeof preloadGlobalData !== 'function') return;
+            const coreKeys = [
+                'settlements',
+                'settlementAssets',
+                'questAssets',
+                'items',
+                'perks',
+                'effects',
+                'enemies'
+            ];
+            preloadGlobalData(coreKeys).catch((error) => {
+                console.error('Global data preload failed', error);
+            });
+        })();
+    </script>
     <script src="http://localhost:8080/static/designer-base.js"></script>
     <script src="http://localhost:8080/static/enemy-designer-new.js"></script>
     <script src="http://localhost:8080/static/talent-designer.js"></script>

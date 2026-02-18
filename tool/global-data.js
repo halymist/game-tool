@@ -82,6 +82,7 @@ if (typeof window !== 'undefined') {
     window.notifyGlobalDataChange = notifyGlobalDataChange;
     window.getQuestAssetObjectUrl = getQuestAssetObjectUrl;
     window.ensureQuestAssetObjectUrl = ensureQuestAssetObjectUrl;
+    window.preloadGlobalData = preloadGlobalData;
 }
 
 function resolveQuestAssetReference(assetOrId) {
@@ -771,6 +772,35 @@ async function refreshQuestAssetsData() {
     setGlobalArray('questAssets', []);
     questAssetsLoadingPromise = null;
     return loadQuestAssetsData();
+}
+
+const GLOBAL_DATA_LOADERS = {
+    settlements: () => loadSettlementsData(),
+    settlementAssets: () => loadSettlementAssetsData(),
+    questAssets: () => loadQuestAssetsData(),
+    items: () => loadItemsData(),
+    perks: () => loadPerksData(),
+    effects: () => loadEffectsData(),
+    enemies: () => loadEnemiesData()
+};
+
+async function preloadGlobalData(keys = []) {
+    if (!Array.isArray(keys) || keys.length === 0) {
+        return Promise.resolve();
+    }
+    const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
+    const tasks = uniqueKeys.map((key) => {
+        const loader = GLOBAL_DATA_LOADERS[key];
+        if (typeof loader !== 'function') {
+            console.warn(`No global data loader registered for key "${key}"`);
+            return Promise.resolve();
+        }
+        return loader().catch((error) => {
+            console.error(`Global data loader failed for "${key}"`, error);
+            throw error;
+        });
+    });
+    return Promise.all(tasks);
 }
 
 // === DATA ACCESS FUNCTIONS ===

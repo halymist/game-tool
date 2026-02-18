@@ -4,8 +4,9 @@ let npcState = {
     npcs: [],
     filtered: [],
     selectedId: null,
-    settlements: []
 };
+
+const npcDataSubscriptions = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('npcs-content')) {
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initNpcManager() {
     console.log('👥 Initializing NPC Manager...');
     setupNpcListeners();
+    setupNpcDataSubscriptions();
     await loadNpcData();
     console.log('✅ NPC Manager initialized');
 }
@@ -31,17 +33,18 @@ function setupNpcListeners() {
     document.getElementById('npcDeleteBtn')?.addEventListener('click', deleteNpc);
 }
 
+function setupNpcDataSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') return;
+    if (npcDataSubscriptions.length > 0) return;
+    npcDataSubscriptions.push(subscribeToGlobalData('settlements', () => {
+        populateNpcSettlementFilters();
+    }));
+}
+
 async function loadNpcData() {
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
-
-        // Load settlements for filters
-        if (typeof loadSettlementsData === 'function') {
-            await loadSettlementsData();
-            npcState.settlements = GlobalData.settlements || [];
-            populateNpcSettlementFilters();
-        }
 
         const response = await fetch('http://localhost:8080/api/getNpcs', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -67,9 +70,10 @@ async function loadNpcData() {
 function populateNpcSettlementFilters() {
     const filter = document.getElementById('npcSettlementFilter');
     const select = document.getElementById('npcSettlementSelect');
+    const settlements = GlobalData?.settlements || [];
     if (filter) {
         filter.innerHTML = '<option value="">All Settlements</option>';
-        npcState.settlements.forEach(s => {
+        settlements.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.settlement_id;
             opt.textContent = s.settlement_name;
@@ -78,7 +82,7 @@ function populateNpcSettlementFilters() {
     }
     if (select) {
         select.innerHTML = '<option value="">-- None --</option>';
-        npcState.settlements.forEach(s => {
+        settlements.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.settlement_id;
             opt.textContent = s.settlement_name;

@@ -16,7 +16,6 @@ const expeditionState = {
     dropdownsPopulated: false,
     // Settlement filter
     selectedSettlementId: null,
-    settlements: [],
     // Track which slides/options/outcomes already exist on the server (by slideId/optionId)
     serverSlides: new Map(), // localId -> slideId
     serverOptions: new Map(), // "localSlideId-optionIndex" -> optionId
@@ -217,11 +216,6 @@ function initExpeditionDesigner() {
     console.log('✅ Expedition Designer ready');
     
     setupExpeditionDataSubscriptions();
-    // Load expedition assets from GlobalData (shared quest assets)
-    loadExpeditionAssets();
-    
-    // Load settlements for dropdown
-    loadExpeditionSettlements();
 
     setupExpeditionGeneratePanel();
     setupExpeditionPreviewOverlay();
@@ -238,7 +232,6 @@ function setupExpeditionDataSubscriptions() {
     }
 
     expeditionDataSubscriptions.push(subscribeToGlobalData('settlements', () => {
-        expeditionState.settlements = GlobalData?.settlements || [];
         populateSettlementDropdown();
     }));
 
@@ -621,7 +614,8 @@ function getExpeditionPreviewRewardText(reward) {
 
 function getExpeditionPreviewSettlementLabel(settlementId) {
     if (!settlementId) return 'All settlements';
-    const match = (expeditionState.settlements || []).find(settlement => String(settlement.settlement_id) === String(settlementId));
+    const settlements = GlobalData?.settlements || [];
+    const match = settlements.find(settlement => String(settlement.settlement_id) === String(settlementId));
     return match?.settlement_name || `Settlement #${settlementId}`;
 }
 
@@ -2388,15 +2382,6 @@ function primeSlideAssetPreview(slide, assetId, remoteUrl) {
         hydrateSlideAssetPreview(slide.id, slide.assetId, slide.assetUrl);
     }
 }
-
-async function loadExpeditionAssets() {
-    // Use GlobalData.questAssets (shared with quests)
-    if (typeof loadQuestAssetsData === 'function') {
-        await loadQuestAssetsData();
-    }
-    console.log('✅ Expedition using GlobalData.questAssets:', GlobalData.questAssets?.length || 0, 'assets');
-}
-
 // Get location-asset mapping from GlobalData (shared with quest)
 function getExpeditionLocationAssetIds() {
     const assetLocationMap = new Map();
@@ -4274,36 +4259,15 @@ function buildRewardFromServer(serverSlide) {
 }
 
 // ==================== SETTLEMENT SELECTION ====================
-async function loadExpeditionSettlements() {
-    console.log('🏘️ Loading settlements for expedition designer...');
-    
-    // Check if loadSettlementsData function exists
-    if (typeof loadSettlementsData !== 'function') {
-        console.error('❌ loadSettlementsData function not found! Check global-data.js');
-        return;
-    }
-    
-    // Use GlobalData.settlements (shared across all pages)
-    try {
-        console.log('Calling loadSettlementsData()...');
-        await loadSettlementsData();
-        console.log('loadSettlementsData completed. GlobalData.settlements:', GlobalData.settlements);
-        expeditionState.settlements = GlobalData.settlements || [];
-        populateSettlementDropdown();
-        console.log(`✅ Using ${expeditionState.settlements.length} settlements from GlobalData`);
-    } catch (error) {
-        console.error('Failed to load settlements:', error);
-    }
-}
-
 function populateSettlementDropdown() {
     const select = document.getElementById('expeditionSettlementSelect');
     if (!select) return;
 
     const previousValue = select.value || (expeditionState.selectedSettlementId ? String(expeditionState.selectedSettlementId) : '');
+    const settlements = GlobalData?.settlements || [];
     select.innerHTML = '';
 
-    if (expeditionState.settlements.length === 0) {
+    if (settlements.length === 0) {
         const emptyOption = document.createElement('option');
         emptyOption.value = '';
         emptyOption.textContent = '-- No Settlements --';
@@ -4321,7 +4285,7 @@ function populateSettlementDropdown() {
     allOption.textContent = 'All Settlements';
     select.appendChild(allOption);
 
-    const sortedSettlements = [...expeditionState.settlements].sort((a, b) => {
+    const sortedSettlements = [...settlements].sort((a, b) => {
         const nameA = (a.settlement_name || '').toLowerCase();
         const nameB = (b.settlement_name || '').toLowerCase();
         if (nameA === nameB) {
