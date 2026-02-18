@@ -1017,26 +1017,6 @@
     color: var(--text-muted);
 }
 
-.quest-asset-gallery-close {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    padding: 8px;
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-.quest-asset-gallery-close:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.quest-asset-gallery-close svg {
-    width: 24px;
-    height: 24px;
-}
-
 .quest-asset-gallery-content {
     flex: 1;
     overflow-y: auto;
@@ -1088,42 +1068,10 @@
     text-align: center;
 }
 
-/* Quest Upload Section */
-.quest-upload-section {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-subtle);
-    display: flex;
-    gap: 12px;
-    align-items: center;
-}
-
-.quest-upload-section .btn-upload-asset {
-    padding: 10px 20px;
-    background: linear-gradient(145deg, #7c3aed, #6d28d9);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.quest-upload-section .btn-upload-asset:hover {
-    background: linear-gradient(145deg, #8b5cf6, #7c3aed);
-    transform: translateY(-1px);
-}
-
-.quest-upload-section .btn-upload-asset svg {
-    width: 16px;
-    height: 16px;
-}
-
 .quest-upload-status {
     font-size: 13px;
     color: var(--accent);
+    white-space: nowrap;
 }
 
 .quest-upload-status.error {

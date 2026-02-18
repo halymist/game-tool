@@ -512,29 +512,17 @@
                         <div class="asset-gallery-filter">
                             <input type="text" id="questAssetFilter" placeholder="Filter by location name..." autocomplete="off">
                         </div>
-                        <button id="questGalleryClose" class="quest-asset-gallery-close" onclick="window.closeQuestAssetModal()">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
+                        <div class="gallery-header-actions">
+                            <span id="questAssetUploadStatus" class="quest-upload-status"></span>
+                            <button id="questUploadBtn" class="gallery-upload-btn" type="button">Upload</button>
+                            <input type="file" id="questAssetFileInput" accept="image/*" style="display: none;">
+                            <button id="questGalleryClose" class="asset-gallery-close" type="button" onclick="window.closeQuestAssetModal()">✕</button>
+                        </div>
                     </div>
                     <div class="quest-asset-gallery-content">
                         <div id="questAssetGallery" class="quest-asset-grid">
                             <!-- Assets will be populated here -->
                         </div>
-                    </div>
-                    <div class="quest-upload-section">
-                        <button id="questUploadBtn" class="btn-upload-asset">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            Upload New Asset
-                        </button>
-                        <input type="file" id="questAssetFileInput" accept="image/*" style="display: none;">
-                        <span id="questAssetUploadStatus" class="quest-upload-status"></span>
                     </div>
                 </div>
             </div>
@@ -1254,29 +1242,17 @@
                         <div class="asset-gallery-filter">
                             <input type="text" id="expeditionAssetFilter" placeholder="Filter by location name..." autocomplete="off">
                         </div>
-                        <button class="expedition-asset-gallery-close" onclick="window.closeExpeditionAssetGallery()">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
+                        <div class="gallery-header-actions">
+                            <span id="expeditionAssetUploadStatus" class="expedition-upload-status"></span>
+                            <button id="expeditionUploadBtn" class="gallery-upload-btn" type="button">Upload</button>
+                            <input type="file" id="expeditionAssetFileInput" accept="image/*" style="display: none;">
+                            <button class="asset-gallery-close" type="button" onclick="window.closeExpeditionAssetGallery()">✕</button>
+                        </div>
                     </div>
                     <div class="expedition-asset-gallery-content">
                         <div id="expeditionAssetGallery" class="expedition-asset-grid">
                             <!-- Assets will be populated here -->
                         </div>
-                    </div>
-                    <div class="expedition-upload-section">
-                        <button id="expeditionUploadBtn" class="btn-upload-asset">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            Upload New Asset
-                        </button>
-                        <input type="file" id="expeditionAssetFileInput" accept="image/*" style="display: none;">
-                        <span id="expeditionAssetUploadStatus" class="expedition-upload-status"></span>
                     </div>
                 </div>
             </div>
@@ -1442,11 +1418,23 @@
                         <div class="npc-row-2col">
                             <div class="npc-form-row">
                                 <label>Role</label>
-                                <input type="text" id="npcRole" placeholder="Guard, merchant, barkeep...">
+                                <div class="list-builder" id="npcRoleBuilder">
+                                    <div class="list-builder-items" id="npcRoleItems"></div>
+                                    <div class="list-builder-input-row">
+                                        <input type="text" id="npcRoleInput" placeholder="Add role..." class="list-builder-input">
+                                        <button type="button" class="list-builder-add" onclick="addListBuilderItem('npcRole')">+</button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="npc-form-row">
                                 <label>Personality</label>
-                                <textarea id="npcPersonality" rows="3" placeholder="Personality traits (one per line)..."></textarea>
+                                <div class="list-builder" id="npcPersonalityBuilder">
+                                    <div class="list-builder-items" id="npcPersonalityItems"></div>
+                                    <div class="list-builder-input-row">
+                                        <input type="text" id="npcPersonalityInput" placeholder="Add trait..." class="list-builder-input">
+                                        <button type="button" class="list-builder-add" onclick="addListBuilderItem('npcPersonality')">+</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -1456,7 +1444,13 @@
                         </div>
                         <div class="npc-form-row">
                             <label>Goals</label>
-                            <textarea id="npcGoals" rows="3" placeholder="Goals or motivations (one per line)..."></textarea>
+                            <div class="list-builder" id="npcGoalsBuilder">
+                                <div class="list-builder-items" id="npcGoalsItems"></div>
+                                <div class="list-builder-input-row">
+                                    <input type="text" id="npcGoalsInput" placeholder="Add goal..." class="list-builder-input">
+                                    <button type="button" class="list-builder-add" onclick="addListBuilderItem('npcGoals')">+</button>
+                                </div>
+                            </div>
                         </div>
                         <div class="npc-form-actions">
                             <button type="button" id="npcDeleteBtn" class="btn-delete" disabled>Delete</button>
@@ -1680,11 +1674,23 @@
                     <div class="settlement-context-grid settlement-context-bottom">
                         <div>
                             <label for="settlementKeyIssues">Key Issues</label>
-                            <textarea id="settlementKeyIssues" placeholder="Key issues (one per line)..."></textarea>
+                            <div class="list-builder" id="settlementKeyIssuesBuilder">
+                                <div class="list-builder-items" id="settlementKeyIssuesItems"></div>
+                                <div class="list-builder-input-row">
+                                    <input type="text" id="settlementKeyIssuesInput" placeholder="Add key issue..." class="list-builder-input">
+                                    <button type="button" class="list-builder-add" onclick="addListBuilderItem('settlementKeyIssues')">+</button>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label for="settlementRecentEvents">Recent Events</label>
-                            <textarea id="settlementRecentEvents" placeholder="Recent events (one per line)..."></textarea>
+                            <div class="list-builder" id="settlementRecentEventsBuilder">
+                                <div class="list-builder-items" id="settlementRecentEventsItems"></div>
+                                <div class="list-builder-input-row">
+                                    <input type="text" id="settlementRecentEventsInput" placeholder="Add recent event..." class="list-builder-input">
+                                    <button type="button" class="list-builder-add" onclick="addListBuilderItem('settlementRecentEvents')">+</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

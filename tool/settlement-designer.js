@@ -220,8 +220,8 @@ function setupSettlementEventListeners() {
 
     // Wire up save-condition checks on all settlement form inputs
     const formInputIds = [
-        'settlementName', 'settlementDescription', 'settlementKeyIssues',
-        'settlementRecentEvents', 'settlementContext', 'expeditionContext',
+        'settlementName', 'settlementDescription',
+        'settlementContext', 'expeditionContext',
         'factionSelect', 'utilityTypeSelect', 'expeditionDescription',
         'blessing1Select', 'blessing2Select', 'blessing3Select'
     ];
@@ -232,6 +232,18 @@ function setupSettlementEventListeners() {
             el.addEventListener('change', checkSettlementSaveConditions);
         }
     });
+
+    // Init list builder key handlers + wire up change events for dirty checking
+    if (typeof initListBuilderKeyHandler === 'function') {
+        initListBuilderKeyHandler('settlementKeyIssues');
+        initListBuilderKeyHandler('settlementRecentEvents');
+        ['settlementKeyIssuesBuilder', 'settlementRecentEventsBuilder'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', checkSettlementSaveConditions);
+            }
+        });
+    }
 }
 
 let settlementDesignerLoaded = false;
@@ -469,14 +481,9 @@ function populateSettlementForm(settlement) {
         descriptionInput.value = settlement.description || '';
     }
 
-    const keyIssuesInput = document.getElementById('settlementKeyIssues');
-    if (keyIssuesInput) {
-        keyIssuesInput.value = formatListOutput(settlement.key_issues);
-    }
-
-    const recentEventsInput = document.getElementById('settlementRecentEvents');
-    if (recentEventsInput) {
-        recentEventsInput.value = formatListOutput(settlement.recent_events);
+    if (typeof setListBuilderItems === 'function') {
+        setListBuilderItems('settlementKeyIssues', settlement.key_issues);
+        setListBuilderItems('settlementRecentEvents', settlement.recent_events);
     }
 
     const contextInput = document.getElementById('settlementContext');
@@ -1063,8 +1070,10 @@ function createNewSettlement() {
     // Clear form
     document.getElementById('settlementName').value = '';
     document.getElementById('settlementDescription').value = '';
-    document.getElementById('settlementKeyIssues').value = '';
-    document.getElementById('settlementRecentEvents').value = '';
+    if (typeof setListBuilderItems === 'function') {
+        setListBuilderItems('settlementKeyIssues', []);
+        setListBuilderItems('settlementRecentEvents', []);
+    }
     document.getElementById('settlementContext').value = '';
     document.getElementById('factionSelect').value = '';
     document.getElementById('utilityTypeSelect').value = '';
@@ -1426,8 +1435,12 @@ async function saveSettlement() {
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
     const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
-    const keyIssues = parseListInput(document.getElementById('settlementKeyIssues')?.value || '');
-    const recentEvents = parseListInput(document.getElementById('settlementRecentEvents')?.value || '');
+    const keyIssues = typeof getListBuilderItems === 'function'
+        ? getListBuilderItems('settlementKeyIssues')
+        : parseListInput(document.getElementById('settlementKeyIssues')?.value || '');
+    const recentEvents = typeof getListBuilderItems === 'function'
+        ? getListBuilderItems('settlementRecentEvents')
+        : parseListInput(document.getElementById('settlementRecentEvents')?.value || '');
     const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
     const expeditionContext = document.getElementById('expeditionContext')?.value.trim() || null;
@@ -1628,8 +1641,12 @@ function getSettlementFormSnapshot() {
     return JSON.stringify({
         name: document.getElementById('settlementName')?.value || '',
         description: document.getElementById('settlementDescription')?.value || '',
-        keyIssues: document.getElementById('settlementKeyIssues')?.value || '',
-        recentEvents: document.getElementById('settlementRecentEvents')?.value || '',
+        keyIssues: typeof getListBuilderItems === 'function'
+            ? getListBuilderItems('settlementKeyIssues').join(',')
+            : (document.getElementById('settlementKeyIssues')?.value || ''),
+        recentEvents: typeof getListBuilderItems === 'function'
+            ? getListBuilderItems('settlementRecentEvents').join(',')
+            : (document.getElementById('settlementRecentEvents')?.value || ''),
         context: document.getElementById('settlementContext')?.value || '',
         expeditionContext: document.getElementById('expeditionContext')?.value || '',
         expeditionDescription: document.getElementById('expeditionDescription')?.value || '',

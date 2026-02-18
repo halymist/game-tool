@@ -40,15 +40,22 @@ function setupNpcListeners() {
     }
 
     document.getElementById('npcDeleteBtn')?.addEventListener('click', deleteNpc);
+
+    // Init list builder key handlers for role, personality, goals
+    if (typeof initListBuilderKeyHandler === 'function') {
+        initListBuilderKeyHandler('npcRole');
+        initListBuilderKeyHandler('npcPersonality');
+        initListBuilderKeyHandler('npcGoals');
+    }
 }
 
 function getNpcFormSnapshot() {
     return JSON.stringify({
         name: document.getElementById('npcName')?.value ?? '',
         context: document.getElementById('npcContext')?.value ?? '',
-        role: document.getElementById('npcRole')?.value ?? '',
-        personality: document.getElementById('npcPersonality')?.value ?? '',
-        goals: document.getElementById('npcGoals')?.value ?? '',
+        role: typeof getListBuilderItems === 'function' ? getListBuilderItems('npcRole').join(',') : '',
+        personality: typeof getListBuilderItems === 'function' ? getListBuilderItems('npcPersonality').join(',') : '',
+        goals: typeof getListBuilderItems === 'function' ? getListBuilderItems('npcGoals').join(',') : '',
         settlement: document.getElementById('npcSettlementSelect')?.value ?? '',
     });
 }
@@ -170,9 +177,12 @@ function selectNpc(npcId) {
     document.getElementById('npcId').value = npc.npc_id;
     document.getElementById('npcName').value = npc.name || '';
     document.getElementById('npcContext').value = npc.context || '';
-    document.getElementById('npcRole').value = npc.role || '';
-    document.getElementById('npcPersonality').value = formatNpcList(npc.personality);
-    document.getElementById('npcGoals').value = formatNpcList(npc.goals);
+    if (typeof setListBuilderItems === 'function') {
+        // Role is a string, split by comma
+        setListBuilderItems('npcRole', npc.role ? npc.role.split(',').map(s => s.trim()).filter(Boolean) : []);
+        setListBuilderItems('npcPersonality', npc.personality);
+        setListBuilderItems('npcGoals', npc.goals);
+    }
     document.getElementById('npcSettlementSelect').value = npc.settlement_id || '';
 
     document.getElementById('npcDeleteBtn').disabled = false;
@@ -186,9 +196,11 @@ function createNewNpc() {
     document.getElementById('npcId').value = '';
     document.getElementById('npcName').value = '';
     document.getElementById('npcContext').value = '';
-    document.getElementById('npcRole').value = '';
-    document.getElementById('npcPersonality').value = '';
-    document.getElementById('npcGoals').value = '';
+    if (typeof setListBuilderItems === 'function') {
+        setListBuilderItems('npcRole', []);
+        setListBuilderItems('npcPersonality', []);
+        setListBuilderItems('npcGoals', []);
+    }
     document.getElementById('npcSettlementSelect').value = '';
     document.getElementById('npcDeleteBtn').disabled = true;
     npcState.snapshot = getNpcFormSnapshot();
@@ -203,9 +215,15 @@ async function saveNpc(e) {
         npcId: document.getElementById('npcId').value ? parseInt(document.getElementById('npcId').value, 10) : null,
         name: document.getElementById('npcName').value.trim(),
         context: document.getElementById('npcContext').value.trim() || null,
-        role: document.getElementById('npcRole').value.trim() || null,
-        personality: parseNpcList(document.getElementById('npcPersonality').value || ''),
-        goals: parseNpcList(document.getElementById('npcGoals').value || ''),
+        role: typeof getListBuilderItems === 'function'
+            ? getListBuilderItems('npcRole').join(', ') || null
+            : null,
+        personality: typeof getListBuilderItems === 'function'
+            ? getListBuilderItems('npcPersonality')
+            : [],
+        goals: typeof getListBuilderItems === 'function'
+            ? getListBuilderItems('npcGoals')
+            : [],
         settlementId: document.getElementById('npcSettlementSelect').value ? parseInt(document.getElementById('npcSettlementSelect').value, 10) : null
     };
 

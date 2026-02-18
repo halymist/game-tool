@@ -518,4 +518,73 @@ const DesignerBase = {
 // Export for use in other scripts
 window.DesignerBase = DesignerBase;
 
+// ==================== LIST BUILDER ====================
+// Shared tag/chip list builder used across designers (settlements, NPCs, etc.)
+
+function getListBuilderItems(key) {
+    const container = document.getElementById(`${key}Items`);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.list-builder-chip span')).map(s => s.textContent);
+}
+
+function setListBuilderItems(key, items) {
+    const container = document.getElementById(`${key}Items`);
+    if (!container) return;
+    container.innerHTML = '';
+    const arr = Array.isArray(items) ? items : (items ? String(items).split(/[\n,]/).map(s => s.trim()).filter(Boolean) : []);
+    arr.forEach(item => appendListBuilderChip(key, item));
+}
+
+function appendListBuilderChip(key, text) {
+    const container = document.getElementById(`${key}Items`);
+    if (!container || !text) return;
+    const chip = document.createElement('div');
+    chip.className = 'list-builder-chip';
+    chip.innerHTML = `<span>${DesignerBase.escapeHtml(text)}</span><button type="button" title="Remove">&times;</button>`;
+    chip.querySelector('button').addEventListener('click', () => {
+        chip.remove();
+        fireListBuilderChange(key);
+    });
+    container.appendChild(chip);
+}
+
+function addListBuilderItem(key) {
+    const input = document.getElementById(`${key}Input`);
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) return;
+    // Support comma-separated batch add
+    val.split(',').map(s => s.trim()).filter(Boolean).forEach(item => {
+        appendListBuilderChip(key, item);
+    });
+    input.value = '';
+    fireListBuilderChange(key);
+}
+
+function fireListBuilderChange(key) {
+    // Dispatch a change event so dirty-checking picks it up
+    const builder = document.getElementById(`${key}Builder`);
+    if (builder) {
+        builder.dispatchEvent(new Event('change', { bubbles: true }));
+        builder.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+function initListBuilderKeyHandler(key) {
+    const input = document.getElementById(`${key}Input`);
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addListBuilderItem(key);
+        }
+    });
+}
+
+// Make globally available
+window.getListBuilderItems = getListBuilderItems;
+window.setListBuilderItems = setListBuilderItems;
+window.addListBuilderItem = addListBuilderItem;
+window.initListBuilderKeyHandler = initListBuilderKeyHandler;
+
 console.log('🔧 Designer Base module loaded');
