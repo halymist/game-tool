@@ -309,6 +309,12 @@
 }
 .enemy-form-actions .btn-save { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
 .enemy-form-actions .btn-save:hover { background: var(--accent-hover); }
+
+.enemy-form-actions .btn-save:disabled,
+.enemy-form-actions .btn-save.btn-disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
 .enemy-form-actions .btn-cancel {
     background: var(--bg-elevated); color: var(--text-secondary);
     border: 1px solid var(--border-default);

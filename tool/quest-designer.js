@@ -301,7 +301,7 @@ function addOption() {
         x: (rect.width / 2 - questState.canvasOffset.x) / questState.zoom - 100 + (Math.random() - 0.5) * 100,
         y: (rect.height / 2 - questState.canvasOffset.y) / questState.zoom - 50 + (Math.random() - 0.5) * 100,
         isStart: isStart,
-        // Option type: dialogue, stat_check, effect_check, combat, faction, end
+        // Option type: dialogue, stat_check, effect_check, combat, faction, silver, end
         type: 'dialogue',
         // Stat check fields
         statType: null,
@@ -314,6 +314,8 @@ function addOption() {
         optionEffectFactor: null,
         // Faction requirement
         factionRequired: null,
+        // Silver requirement
+        silverRequired: null,
         // Combat field
         enemyId: null,
         // Reward - same structure as expedition
@@ -474,17 +476,37 @@ function getOptionTypeBadge(type) {
         case 'effect_check': return '✨';
         case 'combat': return '⚔️';
         case 'faction': return '🏰';
+        case 'silver': return '🪙';
         case 'end': return '🏁';
         default: return '💬';
     }
 }
 
-function getOptionTypeLabel(type) {
+function getOptionTypeLabel(type, option) {
     switch (type) {
-        case 'stat_check': return 'Stat Check';
-        case 'effect_check': return 'Effect Check';
+        case 'stat_check': {
+            const stat = option?.statType || 'stat';
+            const val = option?.statRequired ?? '?';
+            return `${stat}: ${val}`;
+        }
+        case 'effect_check': {
+            let effectName = 'effect';
+            if (option?.effectId && typeof GlobalData !== 'undefined' && GlobalData.effects) {
+                const eff = GlobalData.effects.find(e => e.effectId === option.effectId || e.effect_id === option.effectId);
+                if (eff) effectName = eff.effectName || eff.effect_name || effectName;
+            }
+            const amt = option?.effectAmount ?? '?';
+            return `${effectName}: ${amt}`;
+        }
         case 'combat': return 'Combat';
-        case 'faction': return 'Faction';
+        case 'faction': {
+            const f = option?.factionRequired;
+            return f ? f.charAt(0).toUpperCase() + f.slice(1) : 'Faction';
+        }
+        case 'silver': {
+            const s = option?.silverRequired ?? '?';
+            return `Silver: ${s}`;
+        }
         case 'end': return 'Quest End';
         default: return 'Dialogue';
     }
@@ -1022,6 +1044,9 @@ function updateSidebar(optionId) {
 
     const factionRequired = document.getElementById('sidebarFactionRequired');
     if (factionRequired) factionRequired.value = option.factionRequired || '';
+
+    const silverRequired = document.getElementById('sidebarSilverRequired');
+    if (silverRequired) silverRequired.value = option.silverRequired ?? '';
     
     // Populate combat enemy
     const enemyIdInput = document.getElementById('sidebarEnemyId');
@@ -1091,6 +1116,7 @@ function updateSidebarTypeFields(type) {
     document.getElementById('optionTypeEffectCheck')?.style && (document.getElementById('optionTypeEffectCheck').style.display = 'none');
     document.getElementById('optionTypeCombat')?.style && (document.getElementById('optionTypeCombat').style.display = 'none');
     document.getElementById('optionTypeFaction')?.style && (document.getElementById('optionTypeFaction').style.display = 'none');
+    document.getElementById('optionTypeSilver')?.style && (document.getElementById('optionTypeSilver').style.display = 'none');
 
     const optionEffectSection = document.getElementById('optionEffectSection');
     if (optionEffectSection) {
@@ -1115,6 +1141,10 @@ function updateSidebarTypeFields(type) {
         case 'faction':
             const factionSection = document.getElementById('optionTypeFaction');
             if (factionSection) factionSection.style.display = 'block';
+            break;
+        case 'silver':
+            const silverSection = document.getElementById('optionTypeSilver');
+            if (silverSection) silverSection.style.display = 'block';
             break;
     }
 }
@@ -1832,6 +1862,7 @@ async function loadQuestChainData(chainId) {
                 optionEffectId: o.option_effect_id,
                 optionEffectFactor: o.option_effect_factor,
                 factionRequired: o.faction_required,
+                silverRequired: o.silver_required,
                 enemyId: o.enemy_id,
                 reward: extractReward(o),
             };
@@ -1900,6 +1931,7 @@ async function loadQuestChainData(chainId) {
                         reward_silver: o.reward_silver ?? null,
                         effect_amount: o.effect_amount ?? null,
                         faction_required: o.faction_required ?? null,
+                        silver_required: o.silver_required ?? null,
                         option_effect_id: o.option_effect_id ?? null,
                         option_effect_factor: o.option_effect_factor ?? null
                     }
@@ -1936,6 +1968,7 @@ function determineOptionType(o) {
     if (o.quest_end) return 'end';
     if (o.faction_required) return 'faction';
     if (o.enemy_id) return 'combat';
+    if (o.silver_required) return 'silver';
     if (o.effect_id && o.effect_amount) return 'effect_check';
     if (o.stat_type || (o.stat_required !== null && o.stat_required !== undefined)) return 'stat_check';
     return 'dialogue';
@@ -2397,6 +2430,18 @@ function setupSidebarEventListeners() {
             if (option) option.factionRequired = e.target.value || null;
         });
     }
+
+    const silverRequired = document.getElementById('sidebarSilverRequired');
+    if (silverRequired) {
+        silverRequired.addEventListener('input', (e) => {
+            if (!questState.selectedOption) return;
+            const option = questState.options.get(questState.selectedOption);
+            if (option) {
+                const value = e.target.value;
+                option.silverRequired = value === '' ? null : parseInt(value, 10);
+            }
+        });
+    }
     
     // Reward type select
     const rewardTypeSelect = document.getElementById('sidebarRewardType');
@@ -2660,6 +2705,7 @@ async function saveQuest() {
                 optionEffectId: option.optionEffectId || null,
                 optionEffectFactor: option.optionEffectFactor || null,
                 factionRequired: option.type === 'faction' ? option.factionRequired : null,
+                silverRequired: option.type === 'silver' ? option.silverRequired : null,
                 enemyId: option.type === 'combat' ? option.enemyId : null,
                 rewardStatType: option.reward?.type === 'stat' ? option.reward.statType : null,
                 rewardStatAmount: option.reward?.type === 'stat' ? option.reward.amount : null,
@@ -2928,9 +2974,6 @@ function renderQuestPreviewScene() {
         }
     }
 
-    const titleEl = document.getElementById('questPreviewTitle');
-    if (titleEl) titleEl.textContent = titleText;
-
     const textEl = document.getElementById('questPreviewText');
     if (textEl) textEl.innerHTML = formatQuestPreviewText(bodyText);
 
@@ -2984,7 +3027,7 @@ function renderQuestPreviewOptions(options, container, currentNode) {
         const label = option.optionText?.trim() ? option.optionText : `Option ${option.optionId}`;
         btn.innerHTML = `
             <span class="option-label">${escapeHtml(label)}</span>
-            <span class="option-meta">${getOptionTypeBadge(option.type)} ${getOptionTypeLabel(option.type)}</span>
+            <span class="option-meta">${getOptionTypeBadge(option.type)} ${getOptionTypeLabel(option.type, option)}</span>
         `;
         btn.addEventListener('click', () => questPreviewAdvanceToOption(option.optionId));
         container.appendChild(btn);
@@ -3684,6 +3727,7 @@ function getValidQuestJsonTemplate() {
                 reward_silver: null,
                 effect_amount: null,
                 faction_required: null,
+                silver_required: null,
                 option_effect_id: null,
                 option_effect_factor: null
             }
@@ -3712,6 +3756,7 @@ function normalizeGeneratedOptions(options = []) {
         option_effect_id: opt.option_effect_id ?? opt.optionEffectId ?? null,
         option_effect_factor: opt.option_effect_factor ?? opt.optionEffectFactor ?? null,
         faction_required: opt.faction_required ?? opt.factionRequired ?? null,
+        silver_required: opt.silver_required ?? opt.silverRequired ?? null,
         enemy_id: opt.enemy_id ?? opt.enemyId ?? null,
         reward_item: opt.reward_item ?? opt.rewardItem ?? null,
         reward_perk: opt.reward_perk ?? opt.rewardPerk ?? null,
@@ -3798,6 +3843,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
             optionEffectId: opt.option_effect_id,
             optionEffectFactor: opt.option_effect_factor,
             factionRequired: opt.faction_required,
+            silverRequired: opt.silver_required,
             enemyId: opt.enemy_id,
             reward: extractReward(opt)
         };

@@ -224,6 +224,7 @@
                                         <option value="effect_check">✨ Effect Check</option>
                                         <option value="combat">⚔️ Combat</option>
                                         <option value="faction">🏰 Faction</option>
+                                        <option value="silver">🪙 Silver</option>
                                         <option value="end">🏁 Quest End</option>
                                     </select>
                                 </div>
@@ -285,6 +286,14 @@
                                             <option value="guild">Guild</option>
                                             <option value="companions">Companions</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                <!-- Silver Fields -->
+                                <div id="optionTypeSilver" class="option-type-fields" style="display:none;">
+                                    <div class="sidebar-field">
+                                        <label>Silver Required:</label>
+                                        <input type="number" id="sidebarSilverRequired" placeholder="0">
                                     </div>
                                 </div>
                             </div>
@@ -536,7 +545,6 @@
                     <div class="quest-preview-header">
                         <div class="quest-preview-heading">
                             <p class="quest-preview-label">Quest Preview</p>
-                            <h3 id="questPreviewTitle">Quest</h3>
                         </div>
                         <div class="quest-preview-header-actions">
                             <button id="questPreviewReset" class="btn-secondary" type="button">Reset</button>
@@ -641,7 +649,7 @@
                         <!-- Form Actions -->
                         <div class="enemy-form-actions">
                             <button type="button" id="enemyCancelBtn" class="btn-cancel">Cancel</button>
-                            <button type="submit" id="enemySaveBtn" class="btn-save">💾 Save to Pending</button>
+                            <button type="submit" id="enemySaveBtn" class="btn-save" disabled>💾 Save to Pending</button>
                         </div>
                     </form>
                 </div>
@@ -652,10 +660,10 @@
                 <div class="asset-gallery">
                     <div class="asset-gallery-header">
                         <h3>Enemy Assets</h3>
-                        <button type="button" id="enemyAssetGalleryClose" class="btn-close">✕</button>
-                    </div>
-                    <div class="asset-gallery-actions">
-                        <button type="button" id="enemyUploadNewBtn" class="gallery-upload-btn">Upload</button>
+                        <div class="gallery-header-actions">
+                            <button type="button" id="enemyUploadNewBtn" class="gallery-upload-btn">Upload</button>
+                            <button type="button" id="enemyAssetGalleryClose" class="btn-close">✕</button>
+                        </div>
                     </div>
                     <div id="enemyAssetGrid" class="asset-gallery-grid"></div>
                 </div>

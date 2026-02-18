@@ -119,9 +119,14 @@ function setupEnemyEventListeners() {
     const cancelBtn = document.getElementById('enemyCancelBtn');
     if (cancelBtn) cancelBtn.addEventListener('click', cancelEnemyEdit);
     
-    // Form submission
+    // Save validation on input
     const form = document.getElementById('enemyForm');
-    if (form) form.addEventListener('submit', saveEnemy);
+    if (form) {
+        form.addEventListener('submit', saveEnemy);
+        form.addEventListener('input', checkEnemySaveConditions);
+        form.addEventListener('change', checkEnemySaveConditions);
+    }
+    checkEnemySaveConditions();
 }
 
 // ==================== DATA LOADING ====================
@@ -877,7 +882,6 @@ function createEnemyAssetGallery() {
         <div class="asset-item ${asset.assetID === enemySelectedAssetId ? 'selected' : ''}"
              onclick="selectEnemyAsset(${asset.assetID}, '${asset.icon}')">
             <img src="${asset.icon}" alt="${asset.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22><rect fill=%22%23333%22 width=%2264%22 height=%2264%22/></svg>'"/>
-            <span>${asset.name || asset.assetID}</span>
         </div>
     `).join('');
 }
@@ -893,6 +897,19 @@ function selectEnemyAsset(assetId, iconUrl) {
     
     createEnemyAssetGallery();
     toggleEnemyAssetGallery();
+    checkEnemySaveConditions();
+}
+
+function checkEnemySaveConditions() {
+    const btn = document.getElementById('enemySaveBtn');
+    if (!btn) return;
+    const name = (document.getElementById('enemyName')?.value || '').trim();
+    const stamina = parseInt(document.getElementById('enemyStamina')?.value) || 0;
+    const minDmg = parseInt(document.getElementById('enemyMinDamage')?.value) || 0;
+    const maxDmg = parseInt(document.getElementById('enemyMaxDamage')?.value) || 0;
+    const valid = name.length > 0 && !!enemySelectedAssetId && stamina > 0 && minDmg > 0 && maxDmg > 0;
+    btn.disabled = !valid;
+    btn.classList.toggle('btn-disabled', !valid);
 }
 
 async function handleEnemyIconUpload(file) {
