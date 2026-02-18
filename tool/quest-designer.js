@@ -42,8 +42,6 @@ const questState = {
     chainContext: '',
     selectedSettlementId: null,
     
-    // Quest assets
-    questAssets: [],
     editingQuestAsset: null,
     
     // Server tracking - for detecting deletions
@@ -233,8 +231,7 @@ function setupQuestDataSubscriptions() {
         populateQuestSettlementSelect();
     }));
 
-    questDataSubscriptions.push(subscribeToGlobalData('questAssets', (assets) => {
-        questState.questAssets = assets || [];
+    questDataSubscriptions.push(subscribeToGlobalData('questAssets', () => {
         if (isQuestAssetGalleryOpen()) {
             const filterValue = document.getElementById('questAssetFilter')?.value || '';
             populateQuestAssetGallery(filterValue);
@@ -1487,6 +1484,16 @@ function getQuestAssetThumbSrc(asset) {
     return QUEST_ASSET_PLACEHOLDER;
 }
 
+function getSharedQuestAssets() {
+    if (typeof GlobalData === 'undefined') {
+        return [];
+    }
+    if (!Array.isArray(GlobalData.questAssets)) {
+        GlobalData.questAssets = [];
+    }
+    return GlobalData.questAssets;
+}
+
 function hydrateQuestAssetThumbnails(assets) {
     if (typeof ensureQuestAssetObjectUrl !== 'function') return;
     const gallery = document.getElementById('questAssetGallery');
@@ -1536,12 +1543,13 @@ function populateQuestAssetGallery(filterText = '') {
     const gallery = document.getElementById('questAssetGallery');
     if (!gallery) return;
     
+    const assets = getSharedQuestAssets();
     // Get current asset ID for selected state
     const currentAssetId = questState.editingQuestAsset 
         ? questState.quests.get(questState.editingQuestAsset)?.assetId 
         : null;
     
-    if (questState.questAssets.length === 0) {
+    if (assets.length === 0) {
         gallery.innerHTML = '<p style="color:#a0aec0;text-align:center;padding:40px;">No assets yet. Upload some!</p>';
         return;
     }
@@ -1550,10 +1558,10 @@ function populateQuestAssetGallery(filterText = '') {
     const assetLocationMap = getLocationAssetIds();
     
     // Filter assets by location name if filter text provided
-    let filteredAssets = questState.questAssets;
+    let filteredAssets = assets;
     if (filterText.trim()) {
         const searchTerm = filterText.toLowerCase().trim();
-        filteredAssets = questState.questAssets.filter(asset => {
+        filteredAssets = assets.filter(asset => {
             const locationNames = assetLocationMap.get(asset.id) || [];
             return locationNames.some(name => name.toLowerCase().includes(searchTerm));
         });
@@ -1581,7 +1589,7 @@ function populateQuestAssetGallery(filterText = '') {
     gallery.querySelectorAll('.quest-asset-item').forEach(item => {
         item.addEventListener('click', () => {
             const assetId = parseInt(item.dataset.assetId);
-            const asset = questState.questAssets.find(a => a.id === assetId);
+            const asset = assets.find(a => a.id === assetId);
             if (asset) {
                 selectQuestAsset(asset.id, asset.url);
             }
@@ -1596,7 +1604,8 @@ function selectQuestAsset(assetId, assetUrl) {
     
     const quest = questState.quests.get(questState.editingQuestAsset);
     if (quest) {
-        const asset = questState.questAssets.find(a => a.id === assetId) || { id: assetId, url: assetUrl };
+        const assetCollection = getSharedQuestAssets();
+        const asset = assetCollection.find(a => a.id === assetId) || { id: assetId, url: assetUrl };
         quest.assetId = assetId;
         quest.assetUrl = (typeof getQuestAssetObjectUrl === 'function'
             ? (getQuestAssetObjectUrl(asset) || quest.assetUrl || QUEST_ASSET_PLACEHOLDER)
@@ -2135,11 +2144,9 @@ async function loadQuestAssets() {
     try {
         // Use shared GlobalData loader
         await loadQuestAssetsData();
-        questState.questAssets = GlobalData.questAssets || [];
-        console.log(`✅ Loaded ${questState.questAssets.length} quest assets from GlobalData`);
+        console.log(`✅ Loaded ${getSharedQuestAssets().length} quest assets from GlobalData`);
     } catch (error) {
         console.error('Failed to load quest assets:', error);
-        questState.questAssets = [];
     }
 }
 
@@ -2191,8 +2198,8 @@ async function uploadQuestAsset(file) {
         const result = await response.json();
         console.log('✅ Quest asset uploaded:', result);
 
-        // Add to assets (questState.questAssets IS GlobalData.questAssets - same reference)
-        questState.questAssets.push({ id: result.assetId, url: result.url });
+        // Add to the shared quest asset cache
+        getSharedQuestAssets().push({ id: result.assetId, url: result.url });
         if (typeof notifyGlobalDataChange === 'function') {
             notifyGlobalDataChange('questAssets', GlobalData.questAssets);
         }
@@ -3857,7 +3864,7 @@ function normalizeGeneratedOptions(options = []) {
     }));
 }
 
-function applyGeneratedQuest(data, locationTextureFallback = null) {
+function applyGeneratedQuest(data, locationTextureOverride = null) {
     if (!data || !Array.isArray(data.quests) || data.quests.length === 0) {
         console.warn('Generated quest missing quests array');
         return;
@@ -3865,10 +3872,11 @@ function applyGeneratedQuest(data, locationTextureFallback = null) {
 
     const questRaw = data.quests[0];
     const localQuestId = questState.nextQuestId++;
-    const fallbackTextureId = normalizeNumericId(
-        data?.locationTextureId ?? data?.location_texture_id ?? locationTextureFallback ?? null
-    );
-    const resolvedAssetId = resolveQuestGeneratedAssetId(questRaw, fallbackTextureId);
+    const overrideTextureId = normalizeNumericId(locationTextureOverride);
+    const responseTextureId = overrideTextureId ? null : normalizeNumericId(data?.locationTextureId ?? data?.location_texture_id ?? null);
+    const resolvedAssetId = overrideTextureId
+        ? overrideTextureId
+        : (responseTextureId ?? resolveQuestGeneratedAssetId(questRaw));
     const remoteAssetUrl = resolvedAssetId ? getQuestAssetRemoteUrl(resolvedAssetId) : null;
     const cachedAssetUrl = resolvedAssetId && typeof getQuestAssetObjectUrl === 'function'
         ? getQuestAssetObjectUrl(resolvedAssetId)
@@ -3893,9 +3901,14 @@ function applyGeneratedQuest(data, locationTextureFallback = null) {
         questId: quest.questId,
         questName: quest.name,
         resolvedAssetId,
-        fallbackTextureId,
+        overrideTextureId,
+        responseTextureId,
         hasRemoteAssetUrl: Boolean(remoteAssetUrl),
-        usedLocationTextureFallback: !questRaw?.assetId && fallbackTextureId !== null
+        assetSource: overrideTextureId
+            ? 'location-selection'
+            : responseTextureId
+                ? 'response-metadata'
+                : (resolvedAssetId ? 'generator-payload' : 'none')
     });
 
     questState.quests.set(localQuestId, quest);
@@ -3985,17 +3998,10 @@ function applyGeneratedQuest(data, locationTextureFallback = null) {
     updateCounter();
 }
 
-function resolveQuestGeneratedAssetId(questData, fallbackTextureId = null) {
+function resolveQuestGeneratedAssetId(questData) {
     if (!questData) {
-        const normalizedFallback = normalizeNumericId(fallbackTextureId);
-        if (normalizedFallback !== null && normalizedFallback > 0) {
-            console.log('Quest asset resolution using fallback due to missing quest data', {
-                fallbackTextureId: normalizedFallback
-            });
-        } else {
-            console.warn('Quest asset resolution failed: no quest data and no fallback texture id');
-        }
-        return normalizedFallback !== null && normalizedFallback > 0 ? normalizedFallback : null;
+        console.warn('Quest asset resolution failed: no quest data provided');
+        return null;
     }
     const candidateSources = [
         ['assetId', questData.assetId],
@@ -4019,16 +4025,8 @@ function resolveQuestGeneratedAssetId(questData, fallbackTextureId = null) {
             return normalized;
         }
     }
-    const fallbackNormalized = normalizeNumericId(fallbackTextureId);
-    if (fallbackNormalized !== null && fallbackNormalized > 0) {
-        console.log('Quest asset resolution falling back to location texture', {
-            fallbackTextureId: fallbackNormalized
-        });
-        return fallbackNormalized;
-    }
     console.warn('Quest asset resolution failed: no usable asset id found', {
-        questData,
-        fallbackTextureId
+        questData
     });
     return null;
 }
