@@ -22,11 +22,20 @@ let assignedTalents = new Map(); // talentId -> { points: number, talentOrder: n
 
 // ==================== INITIALIZATION ====================
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('enemyForm')) {
-        initEnemyDesigner();
-    }
-});
+let enemyDesignerBootstrapped = false;
+
+function ensureEnemyDesignerInit() {
+    if (enemyDesignerBootstrapped) return;
+    if (!document.getElementById('enemyForm')) return;
+    enemyDesignerBootstrapped = true;
+    initEnemyDesigner();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureEnemyDesignerInit);
+} else {
+    ensureEnemyDesignerInit();
+}
 
 function initEnemyDesigner() {
     console.log('🎮 Initializing Enemy Designer...');

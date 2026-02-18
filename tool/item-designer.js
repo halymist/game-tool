@@ -25,13 +25,20 @@ let itemAssets = []; // Available item assets from S3
 let selectedAssetId = null; // Currently selected asset ID
 let selectedAssetIcon = null; // Currently selected asset icon URL
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    // Only initialize if we're on a page with the item form
-    if (document.getElementById('itemForm')) {
-        initItemDesigner();
-    }
-});
+let itemDesignerBootstrapped = false;
+
+function ensureItemDesignerInit() {
+    if (itemDesignerBootstrapped) return;
+    if (!document.getElementById('itemForm')) return;
+    itemDesignerBootstrapped = true;
+    initItemDesigner();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureItemDesignerInit);
+} else {
+    ensureItemDesignerInit();
+}
 
 function initItemDesigner() {
     console.log('🎨 Initializing Item Designer...');

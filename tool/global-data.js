@@ -1292,3 +1292,59 @@ function blobToBase64(blob) {
 }
 
 console.log('🌍 Global Data Manager loaded - ready to load effects and enemies data from server');
+
+// ==================== SHARED SETTLEMENT DROPDOWN ====================
+/**
+ * Populate any <select> element with the current settlements list.
+ * Returns the numeric settlement ID that ended up selected (or null).
+ *
+ * @param {string} selectId – DOM id of the <select>
+ * @param {number|null} preferredId – settlement id to keep selected if possible
+ * @returns {number|null} the id that is now selected
+ */
+function populateSettlementSelect(selectId, preferredId) {
+    const select = document.getElementById(selectId);
+    if (!select) return null;
+
+    const settlements = GlobalData?.settlements || [];
+
+    if (settlements.length === 0) {
+        select.innerHTML = '<option value="">Loading settlements…</option>';
+        select.value = '';
+        // Trigger a load if settlements haven't been fetched yet
+        if (typeof loadSettlementsData === 'function') {
+            loadSettlementsData().catch(e => console.error('Settlement load failed:', e));
+        }
+        return null;
+    }
+
+    const previousValue = select.value || (preferredId != null ? String(preferredId) : '');
+
+    const sorted = [...settlements].sort((a, b) => {
+        const nA = (a.settlement_name || '').toLowerCase();
+        const nB = (b.settlement_name || '').toLowerCase();
+        return nA === nB
+            ? (a.settlement_id || 0) - (b.settlement_id || 0)
+            : nA.localeCompare(nB);
+    });
+
+    select.innerHTML = '';
+    sorted.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.settlement_id;
+        opt.textContent = s.settlement_name || `Settlement #${s.settlement_id}`;
+        select.appendChild(opt);
+    });
+
+    // Try to restore previous selection, fall back to first option
+    let nextValue = '';
+    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
+        nextValue = previousValue;
+    } else if (select.options.length > 0) {
+        nextValue = select.options[0].value;
+    }
+    select.value = nextValue;
+
+    const num = nextValue ? parseInt(nextValue, 10) : null;
+    return Number.isNaN(num) ? null : num;
+}

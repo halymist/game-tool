@@ -8,13 +8,17 @@ let talentEditorState = {
 
 let talentAssets = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('talents-content')) {
-        // Initialized via showPage for better UX
-        window.loadTalentEditorData = loadTalentEditorData;
-        window.initTalentDesigner = initTalentDesigner;
-    }
-});
+function registerTalentDesigner() {
+    if (!document.getElementById('talents-content')) return;
+    window.loadTalentEditorData = loadTalentEditorData;
+    window.initTalentDesigner = initTalentDesigner;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerTalentDesigner);
+} else {
+    registerTalentDesigner();
+}
 
 async function initTalentDesigner() {
     console.log('🌟 Initializing Talent Editor...');

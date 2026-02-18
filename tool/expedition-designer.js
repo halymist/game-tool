@@ -4269,60 +4269,11 @@ function buildRewardFromServer(serverSlide) {
 
 // ==================== SETTLEMENT SELECTION ====================
 function populateSettlementDropdown() {
-    const select = document.getElementById('expeditionSettlementSelect');
-    if (!select) return;
-
-    const previousValue = select.value || (expeditionState.selectedSettlementId ? String(expeditionState.selectedSettlementId) : '');
-    const settlements = GlobalData?.settlements || [];
-    select.innerHTML = '';
-
-    if (settlements.length === 0) {
-        const emptyOption = document.createElement('option');
-        emptyOption.value = '';
-        emptyOption.textContent = '-- No Settlements --';
-        select.appendChild(emptyOption);
-        select.value = '';
-        if (expeditionState.selectedSettlementId !== null) {
-            expeditionState.selectedSettlementId = null;
-            filterAndRenderSlides();
-        }
-        return;
-    }
-
-    const sortedSettlements = [...settlements].sort((a, b) => {
-        const nameA = (a.settlement_name || '').toLowerCase();
-        const nameB = (b.settlement_name || '').toLowerCase();
-        if (nameA === nameB) {
-            return (a.settlement_id || 0) - (b.settlement_id || 0);
-        }
-        return nameA.localeCompare(nameB);
-    });
-
-    sortedSettlements.forEach(settlement => {
-        const option = document.createElement('option');
-        option.value = settlement.settlement_id;
-        option.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
-        select.appendChild(option);
-    });
-
-    let nextValue = '';
-    if (previousValue && select.querySelector(`option[value="${previousValue}"]`)) {
-        nextValue = previousValue;
-    } else if (expeditionState.selectedSettlementId !== null) {
-        const candidate = String(expeditionState.selectedSettlementId);
-        if (select.querySelector(`option[value="${candidate}"]`)) {
-            nextValue = candidate;
-        }
-    }
-    if (!nextValue && select.options.length > 0) {
-        nextValue = select.options[0].value;
-    }
-    select.value = nextValue;
-
-    const numericValue = nextValue ? parseInt(nextValue, 10) : null;
-    const sanitizedValue = Number.isNaN(numericValue) ? null : numericValue;
-    if (sanitizedValue !== expeditionState.selectedSettlementId) {
-        expeditionState.selectedSettlementId = sanitizedValue;
+    if (typeof populateSettlementSelect !== 'function') return;
+    const prevId = expeditionState.selectedSettlementId;
+    const newId = populateSettlementSelect('expeditionSettlementSelect', prevId);
+    if (newId !== prevId) {
+        expeditionState.selectedSettlementId = newId;
         filterAndRenderSlides();
     }
 }

@@ -59,12 +59,20 @@ function resolveSettlementItemIcon(item) {
     return SETTLEMENT_FALLBACK_ITEM_ICON;
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('settlementDesigner')) {
-        initSettlementDesigner();
-    }
-});
+let settlementEventHandlersBound = false;
+
+function ensureSettlementDesignerInit() {
+    if (settlementEventHandlersBound) return;
+    if (!document.getElementById('settlementDesigner')) return;
+    settlementEventHandlersBound = true;
+    initSettlementDesigner();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureSettlementDesignerInit);
+} else {
+    ensureSettlementDesignerInit();
+}
 
 function initSettlementDesigner() {
     console.log('🏘️ Initializing Settlement Designer...');
@@ -227,7 +235,7 @@ async function loadSettlementDesignerData(options = {}) {
         settlementState.settlements = GlobalData.settlements;
         settlementState.settlementAssets = GlobalData.settlementAssets;
         settlementState.questAssets = GlobalData.questAssets;
-        populateSettlementSelect();
+        populateSettlementEditorSelect();
         populateBlessingDropdowns();
         return;
     }
@@ -251,7 +259,7 @@ async function loadSettlementDesignerData(options = {}) {
     settlementState.questAssets = GlobalData.questAssets;
 
     // Populate UI
-    populateSettlementSelect();
+    populateSettlementEditorSelect();
     populateBlessingDropdowns();
 
     // Start with a blank "new settlement" state
@@ -372,7 +380,7 @@ async function loadSettlementEffectsData() {
     }
 }
 
-function populateSettlementSelect() {
+function populateSettlementEditorSelect() {
     const select = document.getElementById('settlementSelect');
     if (!select) return;
 
@@ -1496,7 +1504,7 @@ async function saveSettlement() {
             settlementState.settlements = GlobalData.settlements;
             
             // Repopulate UI
-            populateSettlementSelect();
+            populateSettlementEditorSelect();
 
             // Select the saved settlement
             if (result.settlementId) {
@@ -1562,7 +1570,7 @@ async function deleteSettlement() {
             // Reload settlements
             await refreshSettlementsData();
             settlementState.settlements = GlobalData.settlements;
-            populateSettlementSelect();
+            populateSettlementEditorSelect();
             createNewSettlement();
 
             alert('Settlement deleted successfully!');

@@ -17,12 +17,17 @@ const defaultPromptPayload = {
     designer_prompt: {}
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('concept-content')) {
-        window.initConceptManager = initConceptManager;
-        window.loadConceptData = loadConceptData;
-    }
-});
+function registerConceptDesigner() {
+    if (!document.getElementById('concept-content')) return;
+    window.initConceptManager = initConceptManager;
+    window.loadConceptData = loadConceptData;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerConceptDesigner);
+} else {
+    registerConceptDesigner();
+}
 
 async function initConceptManager() {
     setupConceptListeners();

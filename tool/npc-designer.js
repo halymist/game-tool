@@ -8,12 +8,17 @@ let npcState = {
 
 const npcDataSubscriptions = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('npcs-content')) {
-        window.initNpcManager = initNpcManager;
-        window.loadNpcData = loadNpcData;
-    }
-});
+function registerNpcDesigner() {
+    if (!document.getElementById('npcs-content')) return;
+    window.initNpcManager = initNpcManager;
+    window.loadNpcData = loadNpcData;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerNpcDesigner);
+} else {
+    registerNpcDesigner();
+}
 
 async function initNpcManager() {
     console.log('👥 Initializing NPC Manager...');

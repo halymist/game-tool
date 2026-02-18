@@ -12,12 +12,20 @@ let perkAssets = [];
 let perkSelectedAssetId = null;
 let perkSelectedAssetIcon = null;
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('perkForm')) {
-        initPerkDesigner();
-    }
-});
+let perkDesignerBootstrapped = false;
+
+function ensurePerkDesignerInit() {
+    if (perkDesignerBootstrapped) return;
+    if (!document.getElementById('perkForm')) return;
+    perkDesignerBootstrapped = true;
+    initPerkDesigner();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensurePerkDesignerInit);
+} else {
+    ensurePerkDesignerInit();
+}
 
 function initPerkDesigner() {
     console.log('🎨 Initializing Perk Designer...');

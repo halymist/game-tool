@@ -253,7 +253,7 @@ func main() {
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
 	fmt.Println("  GET /dashboard - Dashboard")
-	fmt.Println("  GET /static/ - Static files (CSS/JS public, others protected)")
+	fmt.Println("  GET /static/ - Static files (public)")
 	fmt.Println("  GET /api/getEffects - Get all effects (authenticated)")
 	fmt.Println("  GET /api/getItems - Get all items (authenticated)")
 	fmt.Println("  POST /api/createItem - Create/update item (authenticated)")
@@ -323,22 +323,7 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	urlPath := strings.TrimPrefix(r.URL.Path, "/static/")
 	filePath := filepath.Join("../tool", urlPath)
 
-	// Allow CSS and JS files without authentication
-	ext := filepath.Ext(urlPath)
-	if ext == ".css" || ext == ".js" {
-		log.Printf("SERVING PUBLIC STATIC: %s", urlPath)
-		serveFile(w, filePath)
-		return
-	}
-
-	// For other files (images, etc.), require authentication
-	if !isAuthenticated(r) {
-		log.Printf("AUTH DENIED - Protected static file: %s", urlPath)
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	log.Printf("SERVING PROTECTED STATIC: %s", urlPath)
+	log.Printf("SERVING STATIC: %s", urlPath)
 	serveFile(w, filePath)
 }
 

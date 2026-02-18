@@ -5,12 +5,17 @@ let serverState = {
     selectedServerId: null
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('servers-content')) {
-        window.initServerManager = initServerManager;
-        window.loadServerData = loadServerData;
-    }
-});
+function registerServerDesigner() {
+    if (!document.getElementById('servers-content')) return;
+    window.initServerManager = initServerManager;
+    window.loadServerData = loadServerData;
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', registerServerDesigner);
+} else {
+    registerServerDesigner();
+}
 
 async function initServerManager() {
     console.log('🖥️ Initializing Server Manager...');

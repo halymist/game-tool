@@ -60,7 +60,6 @@ const questPreviewState = {
 };
 
 const questDataSubscriptions = [];
-let questSettlementLoadPromise = null;
 
 // ==================== INITIALIZATION ====================
 function initQuestDesigner() {
@@ -199,21 +198,6 @@ function initQuestDesigner() {
     // Load data subscriptions + initial populate
     setupQuestDataSubscriptions();
     populateQuestSettlementSelect();
-
-    // Safety: if settlements weren't loaded yet at init time,
-    // the subscription will handle it. But just in case, retry once.
-    const select = document.getElementById('questSettlementSelect');
-    if (select && select.options.length <= 1) {
-        setTimeout(() => {
-            const settlements = (typeof getSettlements === 'function')
-                ? getSettlements()
-                : (window.GlobalData?.settlements || []);
-            if (settlements.length > 0 && select.options.length <= 1) {
-                console.log('🔄 Quest settlement retry: populating with', settlements.length, 'settlements');
-                populateQuestSettlementSelect();
-            }
-        }, 2000);
-    }
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -1584,7 +1568,7 @@ function populateQuestAssetGallery(filterText = '') {
 
 function selectQuestAsset(assetId, assetUrl) {
     if (!questState.editingQuestAsset) return;
-    
+
     const quest = questState.quests.get(questState.editingQuestAsset);
     if (quest) {
         const assetCollection = getSharedQuestAssets();
@@ -1593,86 +1577,18 @@ function selectQuestAsset(assetId, assetUrl) {
         quest.assetUrl = asset.url || assetUrl;
         quest.assetRemoteUrl = assetUrl;
         renderQuest(quest);
-        }
     }
-    
+
     closeQuestAssetModal();
 }
 
 function populateQuestSettlementSelect() {
-    const select = document.getElementById('questSettlementSelect');
-    if (!select) return;
-
-    const previousValue = select.value;
-    const source = typeof getSettlements === 'function'
-        ? getSettlements()
-        : (GlobalData?.settlements || []);
-    const settlements = Array.isArray(source) ? source : [];
-
-    if (settlements.length === 0) {
-        select.innerHTML = '<option value="">Loading settlements...</option>';
-        select.value = '';
-        if (!questSettlementLoadPromise && typeof loadSettlementsData === 'function') {
-            questSettlementLoadPromise = loadSettlementsData()
-                .catch((error) => console.error('Failed to fetch settlements for quest designer', error))
-                .finally(() => {
-                    questSettlementLoadPromise = null;
-                });
-        }
-        if (questSettlementLoadPromise) {
-            questSettlementLoadPromise.then(() => {
-                populateQuestSettlementSelect();
-            });
-        }
-        return;
-    }
-
-    const sortedSettlements = [...settlements].sort((a, b) => {
-        const nameA = (a.settlement_name || '').toLowerCase();
-        const nameB = (b.settlement_name || '').toLowerCase();
-        if (nameA === nameB) {
-            return (a.settlement_id || 0) - (b.settlement_id || 0);
-        }
-        return nameA.localeCompare(nameB);
-    });
-
-    select.innerHTML = '';
-    sortedSettlements.forEach((settlement) => {
-        const opt = document.createElement('option');
-        opt.value = settlement.settlement_id;
-        opt.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
-        select.appendChild(opt);
-    });
-
-    const requestedValue = previousValue || (questState.selectedSettlementId ? String(questState.selectedSettlementId) : '');
-    const hasRequestedValue = Boolean(requestedValue && select.querySelector(`option[value="${requestedValue}"]`));
-
-    let nextValue = '';
-    if (hasRequestedValue) {
-        nextValue = requestedValue;
-    } else if (select.options.length > 0) {
-        nextValue = select.options[0].value;
-    }
-
-    select.value = nextValue;
-    if (select.value !== nextValue && select.options.length > 0) {
-        // Fallback in case the browser could not match the value string
-        select.selectedIndex = 0;
-        nextValue = select.options[0].value;
-    }
-
-    const numericValue = nextValue ? parseInt(nextValue, 10) : null;
-    const sanitizedValue = Number.isNaN(numericValue) ? null : numericValue;
-    const selectionChanged = questState.selectedSettlementId !== sanitizedValue;
-    questState.selectedSettlementId = sanitizedValue;
-
-    if (selectionChanged) {
-        if (sanitizedValue && typeof onQuestSettlementChange === 'function') {
-            onQuestSettlementChange();
-        } else {
-            clearQuestCanvas();
-            loadQuestChains();
-        }
+    if (typeof populateSettlementSelect !== 'function') return;
+    const prevId = questState.selectedSettlementId;
+    const newId = populateSettlementSelect('questSettlementSelect', prevId);
+    if (newId !== prevId) {
+        questState.selectedSettlementId = newId;
+        onQuestSettlementChange();
     }
 }
 
