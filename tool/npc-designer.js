@@ -41,23 +41,26 @@ function setupNpcDataSubscriptions() {
     }));
 }
 
-async function loadNpcData() {
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
+async function loadNpcData(options = {}) {
+    const forceReload = options?.forceReload === true;
 
-        const response = await fetch('http://localhost:8080/api/getNpcs', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (!data.success) {
-            setNpcStatus(data.message || 'Failed to load NPCs', true);
-            return;
-        }
-
-        npcState.npcs = data.npcs || [];
+    // If already loaded from GlobalData and not forcing, just re-render
+    if (!forceReload && npcState.npcs.length > 0) {
         npcState.filtered = [...npcState.npcs];
         renderNpcTable();
+        return;
+    }
+
+    try {
+        // Use global loader (caches, deduplicates)
+        if (typeof loadNpcsData === 'function') {
+            await loadNpcsData(forceReload ? { forceReload: true } : {});
+        }
+
+        npcState.npcs = GlobalData.npcs || [];
+        npcState.filtered = [...npcState.npcs];
+        renderNpcTable();
+        populateNpcSettlementFilters();
         if (!npcState.selectedId) {
             createNewNpc();
         }
@@ -201,6 +204,11 @@ async function saveNpc(e) {
             npcState.npcs.unshift(saved);
         }
 
+        // Sync back to GlobalData
+        if (typeof setGlobalArray === 'function') {
+            setGlobalArray('npcs', [...npcState.npcs]);
+        }
+
         npcState.filtered = [...npcState.npcs];
         selectNpc(saved.npc_id);
         setNpcStatus('Saved', false);
@@ -231,6 +239,12 @@ async function deleteNpc() {
 
         npcState.npcs = npcState.npcs.filter(n => n.npc_id !== npcState.selectedId);
         npcState.filtered = [...npcState.npcs];
+
+        // Sync back to GlobalData
+        if (typeof setGlobalArray === 'function') {
+            setGlobalArray('npcs', [...npcState.npcs]);
+        }
+
         createNewNpc();
         setNpcStatus('Deleted', false);
         renderNpcTable();

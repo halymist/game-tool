@@ -2096,45 +2096,21 @@
             if (targetElement) {
                 targetElement.style.display = 'block';
                 
-                // If showing the enemy designer, load data
-                if (pageName === 'enemies' && window.enemyDesigner) {
-                    console.log('Loading enemies and effects data...');
-                    window.enemyDesigner.loadEnemiesAndEffects();
-                }
-
-                // If showing the talent editor, initialize or reload
+                // If showing the talent editor, initialize once (init calls loadTalentEditorData internally)
                 if (pageName === 'talents') {
                     if (window.initTalentDesigner && !window.talentDesignerInitialized) {
                         console.log('Initializing talent editor...');
                         window.initTalentDesigner();
                         window.talentDesignerInitialized = true;
                     }
-                    if (window.loadTalentEditorData) {
-                        window.loadTalentEditorData();
-                    }
-                }
-                
-                // If showing the item designer, load data
-                if (pageName === 'items' && window.itemDesigner) {
-                    console.log('Loading items and effects data...');
-                    window.itemDesigner.loadItemsAndEffects();
-                }
-                
-                // If showing the perk designer, load data
-                if (pageName === 'perks' && window.perkDesigner) {
-                    console.log('Loading perks and effects data...');
-                    window.perkDesigner.loadPerksAndEffects();
                 }
 
-                // If showing the NPC manager, initialize or reload
+                // If showing the NPC manager, initialize once (init calls loadNpcData internally)
                 if (pageName === 'npcs') {
                     if (window.initNpcManager && !window.npcManagerInitialized) {
                         console.log('Initializing NPC manager...');
                         window.initNpcManager();
                         window.npcManagerInitialized = true;
-                    }
-                    if (window.loadNpcData) {
-                        window.loadNpcData();
                     }
                 }
 
@@ -2191,7 +2167,6 @@
                 
                 // If showing the settlement designer, load data
                 if (pageName === 'settlements' && window.loadSettlementDesignerData) {
-                    console.log('Loading settlement designer data...');
                     window.loadSettlementDesignerData();
                 }
                 
@@ -2262,6 +2237,10 @@
                 'questAssets',
                 'items',
                 'perks',
+                'npcs',
+                'itemAssets',
+                'perkAssets',
+                'enemyAssets',
                 'effects',
                 'enemies'
             ];

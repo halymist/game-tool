@@ -59,8 +59,8 @@ const questPreviewState = {
     history: [],
 };
 
-const QUEST_ASSET_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const questDataSubscriptions = [];
+let questSettlementLoadPromise = null;
 
 // ==================== INITIALIZATION ====================
 function initQuestDesigner() {
@@ -196,9 +196,24 @@ function initQuestDesigner() {
     updateCounter();
     console.log('✅ Quest Designer ready');
     
-    // Load data
+    // Load data subscriptions + initial populate
     setupQuestDataSubscriptions();
     populateQuestSettlementSelect();
+
+    // Safety: if settlements weren't loaded yet at init time,
+    // the subscription will handle it. But just in case, retry once.
+    const select = document.getElementById('questSettlementSelect');
+    if (select && select.options.length <= 1) {
+        setTimeout(() => {
+            const settlements = (typeof getSettlements === 'function')
+                ? getSettlements()
+                : (window.GlobalData?.settlements || []);
+            if (settlements.length > 0 && select.options.length <= 1) {
+                console.log('🔄 Quest settlement retry: populating with', settlements.length, 'settlements');
+                populateQuestSettlementSelect();
+            }
+        }, 2000);
+    }
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -356,7 +371,7 @@ function renderQuest(quest) {
     el.style.top = `${quest.y}px`;
     
     // Background style
-    const hasBackground = quest.assetUrl && quest.assetUrl !== QUEST_ASSET_PLACEHOLDER;
+    const hasBackground = !!quest.assetUrl;
     const bodyStyle = hasBackground ? `style="background-image: url(${quest.assetUrl});"` : '';
     const bodyClass = hasBackground ? 'quest-slide-body has-bg' : 'quest-slide-body';
     
@@ -1474,13 +1489,8 @@ function isQuestAssetGalleryOpen() {
 }
 
 function getQuestAssetThumbSrc(asset) {
-    if (!asset) return QUEST_ASSET_PLACEHOLDER;
-    if (asset.localUrl) return asset.localUrl;
-    if (typeof getQuestAssetObjectUrl === 'function') {
-        const cached = getQuestAssetObjectUrl(asset);
-        if (cached) return cached;
-    }
-    return QUEST_ASSET_PLACEHOLDER;
+    if (!asset) return '';
+    return asset.url || '';
 }
 
 function getSharedQuestAssets() {
@@ -1491,30 +1501,6 @@ function getSharedQuestAssets() {
         GlobalData.questAssets = [];
     }
     return GlobalData.questAssets;
-}
-
-function hydrateQuestAssetThumbnails(assets) {
-    if (typeof ensureQuestAssetObjectUrl !== 'function') return;
-    const gallery = document.getElementById('questAssetGallery');
-    if (!gallery || !Array.isArray(assets)) return;
-
-    assets.forEach((asset) => {
-        ensureQuestAssetObjectUrl(asset)
-            .then((objectUrl) => {
-                const img = gallery.querySelector(`.quest-asset-item[data-asset-id="${asset.id}"] img`);
-                if (img) {
-                    img.src = objectUrl;
-                    img.dataset.loaded = 'true';
-                }
-            })
-            .catch(() => {
-                const img = gallery.querySelector(`.quest-asset-item[data-asset-id="${asset.id}"] img`);
-                if (img && !img.dataset.loaded) {
-                    img.src = asset.url;
-                    img.dataset.loaded = 'fallback';
-                }
-            });
-    });
 }
 
 // Get location-asset mapping from GlobalData
@@ -1594,8 +1580,6 @@ function populateQuestAssetGallery(filterText = '') {
             }
         });
     });
-
-    hydrateQuestAssetThumbnails(filteredAssets);
 }
 
 function selectQuestAsset(assetId, assetUrl) {
@@ -1606,28 +1590,9 @@ function selectQuestAsset(assetId, assetUrl) {
         const assetCollection = getSharedQuestAssets();
         const asset = assetCollection.find(a => a.id === assetId) || { id: assetId, url: assetUrl };
         quest.assetId = assetId;
-        quest.assetUrl = (typeof getQuestAssetObjectUrl === 'function'
-            ? (getQuestAssetObjectUrl(asset) || quest.assetUrl || QUEST_ASSET_PLACEHOLDER)
-            : assetUrl);
+        quest.assetUrl = asset.url || assetUrl;
         quest.assetRemoteUrl = assetUrl;
         renderQuest(quest);
-
-        if (typeof ensureQuestAssetObjectUrl === 'function') {
-            ensureQuestAssetObjectUrl(asset)
-                .then((objectUrl) => {
-                    const targetQuest = questState.quests.get(quest.questId);
-                    if (targetQuest && targetQuest.assetId === assetId) {
-                        targetQuest.assetUrl = objectUrl;
-                        renderQuest(targetQuest);
-                    }
-                })
-                .catch(() => {
-                    const targetQuest = questState.quests.get(quest.questId);
-                    if (targetQuest && targetQuest.assetId === assetId) {
-                        targetQuest.assetUrl = assetUrl;
-                        renderQuest(targetQuest);
-                    }
-                });
         }
     }
     
@@ -1639,27 +1604,40 @@ function populateQuestSettlementSelect() {
     if (!select) return;
 
     const previousValue = select.value;
-    const settlements = typeof getSettlements === 'function'
+    const source = typeof getSettlements === 'function'
         ? getSettlements()
         : (GlobalData?.settlements || []);
-
-    select.innerHTML = '';
+    const settlements = Array.isArray(source) ? source : [];
 
     if (settlements.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = '-- No Settlements --';
-        select.appendChild(opt);
+        select.innerHTML = '<option value="">Loading settlements...</option>';
         select.value = '';
-        if (questState.selectedSettlementId !== null) {
-            questState.selectedSettlementId = null;
-            clearQuestCanvas();
-            loadQuestChains();
+        if (!questSettlementLoadPromise && typeof loadSettlementsData === 'function') {
+            questSettlementLoadPromise = loadSettlementsData()
+                .catch((error) => console.error('Failed to fetch settlements for quest designer', error))
+                .finally(() => {
+                    questSettlementLoadPromise = null;
+                });
+        }
+        if (questSettlementLoadPromise) {
+            questSettlementLoadPromise.then(() => {
+                populateQuestSettlementSelect();
+            });
         }
         return;
     }
 
-    settlements.forEach((settlement) => {
+    const sortedSettlements = [...settlements].sort((a, b) => {
+        const nameA = (a.settlement_name || '').toLowerCase();
+        const nameB = (b.settlement_name || '').toLowerCase();
+        if (nameA === nameB) {
+            return (a.settlement_id || 0) - (b.settlement_id || 0);
+        }
+        return nameA.localeCompare(nameB);
+    });
+
+    select.innerHTML = '';
+    sortedSettlements.forEach((settlement) => {
         const opt = document.createElement('option');
         opt.value = settlement.settlement_id;
         opt.textContent = settlement.settlement_name || `Settlement #${settlement.settlement_id}`;
@@ -1886,9 +1864,7 @@ async function loadQuestChainData(chainId) {
         // Load quests
         chainQuests.forEach(q => {
             const remoteAssetUrl = q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null;
-            const cachedAssetUrl = q.asset_id && typeof getQuestAssetObjectUrl === 'function'
-                ? getQuestAssetObjectUrl(q.asset_id)
-                : null;
+            const assetObj = q.asset_id ? getSharedQuestAssets().find(a => a.id === q.asset_id) : null;
             const quest = {
                 questId: q.quest_id,
                 serverId: q.quest_id,
@@ -1897,7 +1873,7 @@ async function loadQuestChainData(chainId) {
                 travelText: q.travel_text || '',
                 failureText: q.failure_text || '',
                 assetId: q.asset_id,
-                assetUrl: cachedAssetUrl || remoteAssetUrl,
+                assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
                 assetRemoteUrl: remoteAssetUrl,
                 sortOrder: q.sort_order || 0,
                 x: q.pos_x || 50,
@@ -1907,18 +1883,6 @@ async function loadQuestChainData(chainId) {
             questState.quests.set(q.quest_id, quest);
             questState.serverQuests.set(q.quest_id, { ...quest });
             maxQuestId = Math.max(maxQuestId, q.quest_id);
-
-            if (q.asset_id && typeof ensureQuestAssetObjectUrl === 'function' && !cachedAssetUrl) {
-                ensureQuestAssetObjectUrl(q.asset_id)
-                    .then((objectUrl) => {
-                        const targetQuest = questState.quests.get(q.quest_id);
-                        if (targetQuest && targetQuest.assetId === q.asset_id) {
-                            targetQuest.assetUrl = objectUrl;
-                            renderQuest(targetQuest);
-                        }
-                    })
-                    .catch(() => {});
-            }
         });
         
         // Load options
@@ -2176,9 +2140,6 @@ async function uploadQuestAsset(file) {
         getSharedQuestAssets().push({ id: result.assetId, url: result.url });
         if (typeof notifyGlobalDataChange === 'function') {
             notifyGlobalDataChange('questAssets', GlobalData.questAssets);
-        }
-        if (typeof ensureQuestAssetObjectUrl === 'function') {
-            ensureQuestAssetObjectUrl({ id: result.assetId, url: result.url }).catch(() => {});
         }
 
         // Refresh gallery and auto-select
@@ -3001,7 +2962,7 @@ function renderQuestPreviewScene() {
 
     const sceneEl = document.getElementById('questPreviewScene');
     if (sceneEl) {
-        const hasBackground = quest.assetUrl && quest.assetUrl !== QUEST_ASSET_PLACEHOLDER;
+        const hasBackground = !!quest.assetUrl;
         if (hasBackground) {
             sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(3,7,18,0.08) 10%, rgba(3,7,18,0.85) 95%), url(${quest.assetUrl})`;
             sceneEl.style.backgroundSize = 'cover';
@@ -3852,9 +3813,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         ? overrideTextureId
         : (responseTextureId ?? resolveQuestGeneratedAssetId(questRaw));
     const remoteAssetUrl = resolvedAssetId ? getQuestAssetRemoteUrl(resolvedAssetId) : null;
-    const cachedAssetUrl = resolvedAssetId && typeof getQuestAssetObjectUrl === 'function'
-        ? getQuestAssetObjectUrl(resolvedAssetId)
-        : null;
+    const assetObj = resolvedAssetId ? getSharedQuestAssets().find(a => a.id === resolvedAssetId) : null;
 
     const quest = {
         questId: localQuestId,
@@ -3864,7 +3823,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         travelText: questRaw.travel_text || questRaw.travelText || '',
         failureText: questRaw.failure_text || questRaw.failureText || '',
         assetId: resolvedAssetId,
-        assetUrl: cachedAssetUrl || remoteAssetUrl,
+        assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
         assetRemoteUrl: remoteAssetUrl,
         sortOrder: questRaw.sort_order || questRaw.sortOrder || 0,
         x: questRaw.pos_x ?? questRaw.x ?? 50,
@@ -3886,17 +3845,6 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
     });
 
     questState.quests.set(localQuestId, quest);
-    if (resolvedAssetId && typeof ensureQuestAssetObjectUrl === 'function' && !cachedAssetUrl) {
-        ensureQuestAssetObjectUrl(resolvedAssetId)
-            .then((objectUrl) => {
-                const targetQuest = questState.quests.get(localQuestId);
-                if (targetQuest && targetQuest.assetId === resolvedAssetId) {
-                    targetQuest.assetUrl = objectUrl;
-                    renderQuest(targetQuest);
-                }
-            })
-            .catch(() => {});
-    }
 
     const optionMapping = new Map();
     const normalizedOptions = normalizeGeneratedOptions(data.options || []);

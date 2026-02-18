@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -311,22 +310,13 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Generate presigned URL
-		presignInput := &s3.GetObjectInput{
-			Bucket: aws.String(S3_BUCKET_NAME),
-			Key:    obj.Key,
-		}
-		presignResult, err := s3Presigner.PresignGetObject(context.TODO(), presignInput, func(opts *s3.PresignOptions) {
-			opts.Expires = time.Hour * 24
-		})
-		if err != nil {
-			log.Printf("Failed to presign URL for %s: %v", *obj.Key, err)
-			continue
-		}
+		// Direct public S3 URL (same as quest/perk/item assets)
+		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+			S3_BUCKET_NAME, S3_REGION, key)
 
 		assets = append(assets, SettlementAsset{
 			ID:  assetID,
-			URL: presignResult.URL,
+			URL: publicURL,
 		})
 	}
 

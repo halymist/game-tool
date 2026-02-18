@@ -179,8 +179,9 @@ function setupEventListeners() {
     }
 }
 
-async function loadItemsAndEffects() {
-    console.log('Loading items and effects data...');
+async function loadItemsAndEffects(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (forceReload) console.log('🔄 Reloading items data...');
     
     try {
         // Load effects first
@@ -188,20 +189,19 @@ async function loadItemsAndEffects() {
         populateItemEffectDropdown();
         
         // Then load items (this also loads pending items)
-        await loadItemsData();
+        await loadItemsData({ forceReload });
         allItems = getItems();
         allPendingItems = getPendingItems();
         filteredItems = [...allItems];
         filteredPendingItems = [...allPendingItems];
         
         // Load item assets from S3
-        await loadItemAssets();
+        await loadItemAssets({ forceReload });
         itemAssets = getItemAssets();
         createItemAssetGallery();
         
         renderItemList();
         renderPendingItemList();
-        console.log('✅ Items data loaded:', allItems.length, 'items,', allPendingItems.length, 'pending,', itemAssets.length, 'assets');
         
     } catch (error) {
         console.error('Error loading items data:', error);
@@ -405,7 +405,7 @@ async function mergeApprovedItems() {
         if (result.success) {
             alert('✅ Items merged successfully!');
             // Reload data to reflect changes
-            await loadItemsAndEffects();
+            await loadItemsAndEffects({ forceReload: true });
         } else {
             alert('Error merging items: ' + (result.message || 'Unknown error'));
         }
@@ -821,7 +821,7 @@ async function saveItem(e) {
         
         if (result.success) {
             alert(isUpdate ? 'Item updated successfully!' : 'Item created successfully!');
-            loadItemsAndEffects();
+            await loadItemsAndEffects({ forceReload: true });
             clearForm();
             document.getElementById('itemEditorTitle').textContent = 'Create New Item';
             selectedItemId = null;
@@ -860,8 +860,6 @@ function createItemAssetGallery() {
         console.log('No item assets available for gallery');
         return;
     }
-    
-    console.log('Creating item asset gallery with', itemAssets.length, 'assets');
     
     const assetGrid = document.getElementById('itemAssetGrid');
     if (!assetGrid) return;

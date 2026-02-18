@@ -130,12 +130,10 @@ window.initQuestchainDesigner = initQuestchainDesigner;
 
 // ==================== ASSETS ====================
 async function loadQuestchainAssets() {
-    console.log('🖼️ Loading quest assets from GlobalData...');
     try {
         // Use shared GlobalData loader
         await loadQuestAssetsData();
         questchainState.questAssets = GlobalData.questAssets || [];
-        console.log(`✅ Loaded ${questchainState.questAssets.length} quest assets from GlobalData`);
         populateQuestchainAssetGallery();
     } catch (error) {
         console.error('Failed to load quest assets:', error);
@@ -153,13 +151,15 @@ function populateQuestchainAssetGallery() {
         gallery.innerHTML = '<p style="color:#888;text-align:center;padding:20px;">No assets yet. Upload one above!</p>';
         return;
     }
-    
+
     questchainState.questAssets.forEach(asset => {
         const div = document.createElement('div');
         div.className = 'questchain-asset-item';
         div.dataset.assetId = asset.id;
-        div.innerHTML = `<img src="${asset.url}" alt="Quest Asset">`;
-        div.addEventListener('click', () => selectQuestchainAsset(asset.id, asset.url));
+        div.innerHTML = `<img src="${asset.url}" alt="Quest Asset" loading="lazy">`;
+        div.addEventListener('click', () => {
+            selectQuestchainAsset(asset.id, asset.url);
+        });
         gallery.appendChild(div);
     });
 }
@@ -1768,7 +1768,9 @@ async function loadQuestchainData(questchainId) {
                     x: q.pos_x || 100 + (idx % 3) * 400,
                     y: q.pos_y || 100 + Math.floor(idx / 3) * 350,
                     assetId: q.asset_id,
-                    assetUrl: q.asset_id ? questchainState.questAssets.find(a => a.id === q.asset_id)?.url : null,
+                    assetUrl: q.asset_id
+                        ? (() => { const a = questchainState.questAssets.find(x => x.id === q.asset_id); return a ? a.url : null; })()
+                        : null,
                     ending: q.ending,
                     requisiteOptionId: null, // Will be set after options are loaded
                     sortOrder: q.sort_order || idx
@@ -1855,8 +1857,6 @@ async function loadQuestchainData(questchainId) {
         renderQuestchainConnections();
         updateQuestchainCounter();
         resetQuestchainView();
-        
-        console.log(`✅ Loaded questchain with ${questchainState.questSlides.size} quests, ${questchainState.options.size} options`);
     } catch (error) {
         console.error('Failed to load questchain data:', error);
     }

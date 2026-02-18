@@ -40,7 +40,6 @@ var (
 
 var jwksSet jwk.Set
 var s3Client *s3.Client
-var s3Presigner *s3.PresignClient
 var db *sql.DB
 
 func init() {
@@ -118,10 +117,8 @@ func init() {
 		log.Printf("CRITICAL: Failed to load AWS config: %v", err)
 		log.Printf("Check your AWS environment variables")
 		s3Client = nil
-		s3Presigner = nil
 	} else {
 		s3Client = s3.NewFromConfig(cfg)
-		s3Presigner = s3.NewPresignClient(s3Client)
 		log.Printf("SUCCESS: S3 client initialized for region: %s", S3_REGION)
 
 		// Test the credentials by attempting to list buckets (this will fail gracefully if no permission)

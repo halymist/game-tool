@@ -136,20 +136,22 @@ function setupPerkEventListeners() {
     }
 }
 
-async function loadPerksAndEffects() {
-    console.log('Loading perks and effects data...');
+async function loadPerksAndEffects(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (forceReload) console.log('🔄 Reloading perks data...');
     
     try {
         // Load effects first
         await loadEffectsData();
         populatePerkEffectDropdowns();
         
-        // Load perk assets
-        await loadPerkAssets();
+        // Load shared perk assets (also used by talents)
+        await loadPerkAssets({ forceReload });
+        perkAssets = typeof getPerkAssets === 'function' ? (getPerkAssets() || []) : [];
         createPerkAssetGallery();
         
         // Load perks
-        await loadPerksData();
+        await loadPerksData({ forceReload });
         allPerks = getPerks();
         allPendingPerks = getPendingPerks();
         filteredPerks = [...allPerks];
@@ -157,33 +159,9 @@ async function loadPerksAndEffects() {
         
         renderPerkList();
         renderPendingPerkList();
-        console.log('✅ Perks data loaded:', allPerks.length, 'perks,', allPendingPerks.length, 'pending');
         
     } catch (error) {
         console.error('Error loading perks data:', error);
-    }
-}
-
-async function loadPerkAssets() {
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        
-        const response = await fetch('http://localhost:8080/api/getPerkAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        const data = await response.json();
-        if (data.success && data.assets) {
-            perkAssets = data.assets;
-            console.log('✅ Loaded', perkAssets.length, 'perk assets');
-        }
-    } catch (error) {
-        console.error('Error loading perk assets:', error);
     }
 }
 
@@ -506,7 +484,7 @@ async function savePerk(e) {
         
         if (result.success) {
             alert(isUpdate ? 'Perk updated successfully!' : 'Perk created successfully!');
-            loadPerksAndEffects();
+            await loadPerksAndEffects({ forceReload: true });
             clearPerkForm();
             document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
             selectedPerkId = null;
@@ -630,7 +608,7 @@ async function mergeApprovedPerks() {
         
         if (result.success) {
             alert('Perks merged successfully!');
-            loadPerksAndEffects();
+            await loadPerksAndEffects({ forceReload: true });
         } else {
             alert('Error merging perks: ' + (result.message || 'Unknown error'));
         }

@@ -5,19 +5,139 @@
 const GlobalData = {
     effects: [],           // Array of all effects from database
     enemies: [],           // Array of all complete enemy data with signed URLs
+    pendingEnemies: [],    // Array of pending enemies from tooling
+    enemyAssets: [],       // Array of available enemy assets from S3
+    talents: [],           // Array of talent tree template (game.talents_info)
     perks: [],             // Array of all complete perk data with signed URLs
     pendingPerks: [],      // Array of pending perks from tooling.perks_info
     perkAssets: [],        // Array of available perk assets from S3
     items: [],             // Array of all complete item data with signed URLs
     pendingItems: [],      // Array of pending items from tooling.items
     itemAssets: [],        // Array of available item assets from S3
+    npcs: [],              // Array of all NPCs from game.npcs
     settlements: [],       // Array of all settlements from game.world_info
     settlementAssets: [],  // Array of available settlement assets from S3
     questAssets: []        // Array of available quest assets from S3 (images/quests)
 };
 
 const globalDataSubscribers = new Map();
-const questAssetObjectUrlCache = new Map();
+
+// === ASSET IMAGE CACHE ===
+const assetObjectUrlCache = new Map();
+const ASSET_CACHE_CONCURRENCY = 6;
+
+function getAssetCacheKey(type, assetId) {
+    return `${type}:${assetId}`;
+}
+
+function clearAssetCacheForType(type) {
+    const prefix = `${type}:`;
+    for (const [key, entry] of assetObjectUrlCache.entries()) {
+        if (!key.startsWith(prefix)) continue;
+        if (entry?.url) {
+            try {
+                URL.revokeObjectURL(entry.url);
+            } catch (error) {
+                console.warn('Failed to revoke asset URL', key, error);
+            }
+        }
+        assetObjectUrlCache.delete(key);
+    }
+}
+
+async function ensureAssetCached({ type, asset, idKey, urlKey, remoteKey }) {
+    if (!asset) return null;
+    const assetId = asset[idKey];
+    if (assetId === undefined || assetId === null) return null;
+
+    const currentUrl = asset[urlKey];
+    if (typeof currentUrl === 'string' && currentUrl.startsWith('blob:')) {
+        return currentUrl;
+    }
+
+    const remoteUrl = asset[remoteKey] || currentUrl;
+    if (!remoteUrl) return null;
+
+    const cacheKey = getAssetCacheKey(type, assetId);
+    const existingEntry = assetObjectUrlCache.get(cacheKey);
+
+    if (existingEntry?.url) {
+        asset[urlKey] = existingEntry.url;
+        if (!asset[remoteKey]) {
+            asset[remoteKey] = existingEntry.remoteUrl || remoteUrl;
+        }
+        return existingEntry.url;
+    }
+
+    if (existingEntry?.promise) {
+        return existingEntry.promise.then((cachedUrl) => {
+            if (cachedUrl) {
+                asset[urlKey] = cachedUrl;
+                if (!asset[remoteKey]) {
+                    asset[remoteKey] = existingEntry.remoteUrl || remoteUrl;
+                }
+            }
+            return cachedUrl;
+        });
+    }
+
+    const entry = { remoteUrl };
+    const loadPromise = fetch(remoteUrl, { mode: 'cors', credentials: 'omit' })
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.blob();
+        })
+        .then((blob) => {
+            const objectUrl = URL.createObjectURL(blob);
+            entry.url = objectUrl;
+            asset[urlKey] = objectUrl;
+            asset[remoteKey] = remoteUrl;
+            assetObjectUrlCache.set(cacheKey, { url: objectUrl, remoteUrl });
+            return objectUrl;
+        })
+        .catch((error) => {
+            console.warn(`Asset cache skipped for ${type} #${assetId}`, error);
+            asset[urlKey] = remoteUrl;
+            asset[remoteKey] = remoteUrl;
+            assetObjectUrlCache.delete(cacheKey);
+            return null;
+        });
+
+    entry.promise = loadPromise;
+    assetObjectUrlCache.set(cacheKey, entry);
+    return loadPromise;
+}
+
+async function cacheAssetList(type, assets, config = {}) {
+    if (!Array.isArray(assets) || assets.length === 0) return;
+
+    const idKey = config.idKey || 'id';
+    const urlKey = config.urlKey || 'url';
+    const remoteKey = config.remoteKey || `remote${urlKey.charAt(0).toUpperCase()}${urlKey.slice(1)}`;
+    const concurrency = Math.min(config.concurrency || ASSET_CACHE_CONCURRENCY, assets.length);
+
+    let nextIndex = 0;
+    async function worker() {
+        while (true) {
+            const currentIndex = nextIndex++;
+            if (currentIndex >= assets.length) break;
+            const asset = assets[currentIndex];
+            if (!asset || !asset[urlKey]) continue;
+            if (!asset[remoteKey]) {
+                asset[remoteKey] = asset[urlKey];
+            }
+            await ensureAssetCached({ type, asset, idKey, urlKey, remoteKey });
+        }
+    }
+
+    const workers = [];
+    for (let i = 0; i < concurrency; i++) {
+        workers.push(worker());
+    }
+    await Promise.all(workers);
+}
 
 function getGlobalDataSnapshot(key) {
     if (!key) return undefined;
@@ -70,98 +190,15 @@ function setGlobalArray(key, values) {
     if (Array.isArray(values)) {
         target.push(...values);
     }
-    if (key === 'questAssets') {
-        pruneQuestAssetObjectUrls(values || []);
-    }
     notifyGlobalDataChange(key, target);
     return target;
 }
 
 if (typeof window !== 'undefined') {
+    window.GlobalData = GlobalData;
     window.subscribeToGlobalData = subscribeToGlobalData;
     window.notifyGlobalDataChange = notifyGlobalDataChange;
-    window.getQuestAssetObjectUrl = getQuestAssetObjectUrl;
-    window.ensureQuestAssetObjectUrl = ensureQuestAssetObjectUrl;
     window.preloadGlobalData = preloadGlobalData;
-}
-
-function resolveQuestAssetReference(assetOrId) {
-    if (!assetOrId) return null;
-    if (typeof assetOrId === 'object') return assetOrId;
-    const id = parseInt(assetOrId, 10);
-    if (Number.isNaN(id)) return null;
-    return GlobalData.questAssets.find((asset) => asset.id === id) || null;
-}
-
-function pruneQuestAssetObjectUrls(latestAssets) {
-    const validIds = new Set(latestAssets.map((asset) => asset.id));
-    Array.from(questAssetObjectUrlCache.keys()).forEach((assetId) => {
-        if (!validIds.has(assetId)) {
-            invalidateQuestAssetCache(assetId);
-        }
-    });
-}
-
-function getQuestAssetObjectUrl(assetOrId) {
-    const asset = resolveQuestAssetReference(assetOrId);
-    if (!asset) return '';
-    if (asset.localUrl) return asset.localUrl;
-    const cached = questAssetObjectUrlCache.get(asset.id);
-    if (cached?.objectUrl) {
-        asset.localUrl = cached.objectUrl;
-        return asset.localUrl;
-    }
-    return '';
-}
-
-function ensureQuestAssetObjectUrl(assetOrId) {
-    const asset = resolveQuestAssetReference(assetOrId);
-    if (!asset || !asset.url || typeof fetch !== 'function') {
-        return Promise.resolve(asset?.url || '');
-    }
-
-    const cached = questAssetObjectUrlCache.get(asset.id);
-    if (cached?.objectUrl) {
-        asset.localUrl = cached.objectUrl;
-        return Promise.resolve(cached.objectUrl);
-    }
-    if (cached?.promise) {
-        return cached.promise;
-    }
-
-    const promise = fetch(asset.url, { cache: 'force-cache' })
-        .then((response) => {
-            if (!response.ok) {
-                throw new Error(`Failed to fetch quest asset ${asset.id}`);
-            }
-            return response.blob();
-        })
-        .then((blob) => {
-            const objectUrl = URL.createObjectURL(blob);
-            questAssetObjectUrlCache.set(asset.id, { objectUrl });
-            asset.localUrl = objectUrl;
-            return objectUrl;
-        })
-        .catch((error) => {
-            questAssetObjectUrlCache.delete(asset.id);
-            console.error('Quest asset cache error:', error);
-            throw error;
-        });
-
-    questAssetObjectUrlCache.set(asset.id, { promise });
-    return promise;
-}
-
-function invalidateQuestAssetCache(assetId) {
-    const cached = questAssetObjectUrlCache.get(assetId);
-    if (cached?.objectUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
-        try {
-            URL.revokeObjectURL(cached.objectUrl);
-        } catch (error) {
-            console.warn('Failed to revoke object URL for quest asset', assetId, error);
-        }
-    }
-    questAssetObjectUrlCache.delete(assetId);
 }
 
 // === EFFECTS DATA STRUCTURE ===
@@ -218,589 +255,567 @@ const Item = {
 
 // Track loading state to prevent duplicate requests
 let effectsLoadingPromise = null;
+let enemiesLoadingPromise = null;
+let perksLoadingPromise = null;
+let itemsLoadingPromise = null;
+let perkAssetsLoadingPromise = null;
+let itemAssetsLoadingPromise = null;
+let settlementsLoadingPromise = null;
+let questAssetsLoadingPromise = null;
+let settlementAssetsLoadingPromise = null;
+let enemyAssetsLoadingPromise = null;
+let npcsLoadingPromise = null;
 
-/**
- * Load all effects data from the server (loads only once, returns cached data)
- * @returns {Promise<Array>} Promise that resolves to array of effects
- */
-async function loadEffectsData() {
-    // If effects are already loaded, return them immediately
-    if (GlobalData.effects.length > 0) {
-        console.log('✅ Effects already loaded, using cached data:', GlobalData.effects.length, 'effects');
+// --- Effects ---
+async function loadEffectsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.effects.length > 0) {
         return GlobalData.effects;
     }
-    
-    // If already loading, wait for that request to finish
-    if (effectsLoadingPromise) {
-        console.log('Effects already loading, waiting for existing request...');
-        return effectsLoadingPromise;
-    }
-    
-    // Start new loading request
+    if (effectsLoadingPromise) return effectsLoadingPromise;
+
     effectsLoadingPromise = (async () => {
         try {
-            // Get current access token
             const token = await getCurrentAccessToken();
-            if (!token) {
-                console.error('Authentication required to load effects data');
-                throw new Error('Authentication required');
-            }
-
-            console.log('Loading effects data from server...');
-
-        const response = await fetch('http://localhost:8080/api/getEffects', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getEffects', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
             if (response.ok) {
                 const data = await response.json();
                 setGlobalArray('effects', data.effects || []);
-                console.log('✅ Effects data loaded successfully:', GlobalData.effects.length, 'effects');
                 return GlobalData.effects;
-                
             } else {
-                const error = await response.text();
-                console.error('Failed to load effects data:', error);
-                throw new Error(`Server error: ${error}`);
+                throw new Error('Server error: ' + await response.text());
             }
-
         } catch (error) {
-            console.error('Error loading effects data:', error);
+            console.error('Error loading effects:', error);
             throw error;
         } finally {
             effectsLoadingPromise = null;
         }
     })();
-    
     return effectsLoadingPromise;
 }
 
-/**
- * Load all enemies data from the server
- * @returns {Promise<Array>} Promise that resolves to array of complete enemy data
- */
-async function loadEnemiesData() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load enemies data');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading enemies data from server...');
-
-        const response = await fetch('http://localhost:8080/api/getEnemies', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Enemies count:', data.enemies ? data.enemies.length : 0);
-            setGlobalArray('enemies', data.enemies || []);
-            // Store effects if not already loaded
-            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
-                setGlobalArray('effects', data.effects);
-                console.log('Effects data also loaded from enemies endpoint');
-            }
-            
-            console.log('✅ Enemies data loaded successfully:', GlobalData.enemies.length, 'enemies');
-            return GlobalData.enemies;
-            
-        } else {
-            const error = await response.text();
-            console.error('Failed to load enemies data:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading enemies data:', error);
-        throw error;
+// --- Enemies ---
+async function loadEnemiesData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.enemies.length > 0) {
+        return GlobalData.enemies;
     }
+    if (enemiesLoadingPromise) return enemiesLoadingPromise;
+
+    enemiesLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getEnemies', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGlobalArray('enemies', data.enemies || []);
+                setGlobalArray('pendingEnemies', data.pendingEnemies || []);
+                // The getEnemies endpoint also returns talents, perks, effects
+                if (data.talents && data.talents.length > 0) {
+                    setGlobalArray('talents', data.talents);
+                }
+                if (data.perks && data.perks.length > 0 && GlobalData.perks.length === 0) {
+                    setGlobalArray('perks', data.perks);
+                }
+                if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                    setGlobalArray('effects', data.effects);
+                }
+                return GlobalData.enemies;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading enemies:', error);
+            throw error;
+        } finally {
+            enemiesLoadingPromise = null;
+        }
+    })();
+    return enemiesLoadingPromise;
 }
 
-/**
- * Load all perks data from the server
- * @returns {Promise<Array>} Promise that resolves to array of complete perk data
- */
-async function loadPerksData() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load perks data');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading perks data from server...');
-
-        const response = await fetch('http://localhost:8080/api/getPerks', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log('=== PERKS DATA LOADED ===');
-            console.log('Success:', data.success);
-            console.log('Effects count from perks endpoint:', data.effects ? data.effects.length : 0);
-            console.log('Perks count:', data.perks ? data.perks.length : 0);
-            console.log('Pending perks count:', data.pendingPerks ? data.pendingPerks.length : 0);
-            
-            // Store the loaded perks data
-            setGlobalArray('perks', data.perks || []);
-            setGlobalArray('pendingPerks', data.pendingPerks || []);
-            // Store effects if not already loaded
-            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
-                setGlobalArray('effects', data.effects);
-                console.log('Effects data also loaded from perks endpoint');
-            }
-            
-            console.log('✅ Perks data loaded successfully:', GlobalData.perks.length, 'perks,', GlobalData.pendingPerks.length, 'pending');
-            return GlobalData.perks;
-            
-        } else {
-            const error = await response.text();
-            console.error('Failed to load perks data:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading perks data:', error);
-        throw error;
+// --- Perks ---
+async function loadPerksData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.perks.length > 0) {
+        return GlobalData.perks;
     }
+    if (perksLoadingPromise) return perksLoadingPromise;
+
+    perksLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getPerks', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGlobalArray('perks', data.perks || []);
+                setGlobalArray('pendingPerks', data.pendingPerks || []);
+                if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                    setGlobalArray('effects', data.effects);
+                }
+                return GlobalData.perks;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading perks:', error);
+            throw error;
+        } finally {
+            perksLoadingPromise = null;
+        }
+    })();
+    return perksLoadingPromise;
 }
 
-/**
- * Load all items data from the server
- * @returns {Promise<Array>} Promise that resolves to array of complete item data
- */
-async function loadItemsData() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load items data');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading items data from server...');
-
-        const response = await fetch('http://localhost:8080/api/getItems', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            console.log('=== ITEMS DATA LOADED FROM SERVER ===');
-            console.log('Response data:', data);
-            console.log('Success:', data.success);
-            console.log('Effects count from items endpoint:', data.effects ? data.effects.length : 0);
-            console.log('Items count:', data.items ? data.items.length : 0);
-            console.log('Pending items count:', data.pendingItems ? data.pendingItems.length : 0);
-            
-            // Store the loaded items data
-            setGlobalArray('items', data.items || []);
-            setGlobalArray('pendingItems', data.pendingItems || []);
-            // Store effects if not already loaded
-            if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
-                setGlobalArray('effects', data.effects);
-                console.log('Effects data also loaded from items endpoint');
-            }
-            
-            console.log('✅ GlobalData.items now has:', GlobalData.items.length, 'items');
-            console.log('✅ GlobalData.pendingItems now has:', GlobalData.pendingItems.length, 'pending');
-            console.log('First item (if any):', GlobalData.items[0]);
-            return GlobalData.items;
-            
-        } else {
-            const error = await response.text();
-            console.error('Failed to load items data:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading items data:', error);
-        throw error;
+// --- Items ---
+async function loadItemsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.items.length > 0) {
+        return GlobalData.items;
     }
+    if (itemsLoadingPromise) return itemsLoadingPromise;
+
+    itemsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getItems', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGlobalArray('items', data.items || []);
+                setGlobalArray('pendingItems', data.pendingItems || []);
+                if (data.effects && data.effects.length > 0 && GlobalData.effects.length === 0) {
+                    setGlobalArray('effects', data.effects);
+                }
+                return GlobalData.items;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading items:', error);
+            throw error;
+        } finally {
+            itemsLoadingPromise = null;
+        }
+    })();
+    return itemsLoadingPromise;
 }
 
-/**
- * Get pending items data
- * @returns {Array} Array of pending items
- */
 function getPendingItems() {
     return GlobalData.pendingItems;
 }
 
-/**
- * Get pending perks data
- * @returns {Array} Array of pending perks
- */
 function getPendingPerks() {
     return GlobalData.pendingPerks;
 }
 
-/**
- * Load all perk assets from S3 bucket
- * @returns {Promise<Array>} Promise that resolves to array of perk assets
- */
-async function loadPerkAssets() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load perk assets');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading perk assets from S3...');
-
-        const response = await fetch('http://localhost:8080/api/getPerkAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            setGlobalArray('perkAssets', data.assets || []);
-            console.log('✅ Perk assets loaded successfully:', GlobalData.perkAssets.length, 'assets');
-            return GlobalData.perkAssets;
-        } else {
-            const error = await response.text();
-            console.error('Failed to load perk assets:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading perk assets:', error);
-        throw error;
+// --- Perk Assets (S3) – shared by perk-designer & talent-designer ---
+async function loadPerkAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.perkAssets.length > 0) {
+        return GlobalData.perkAssets;
     }
+    if (perkAssetsLoadingPromise) return perkAssetsLoadingPromise;
+
+    perkAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getPerkAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = Array.isArray(data?.assets) ? data.assets : [];
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    remoteIcon: asset.icon
+                }));
+                clearAssetCacheForType('perk');
+                await cacheAssetList('perk', normalizedAssets, {
+                    idKey: 'assetID',
+                    urlKey: 'icon',
+                    remoteKey: 'remoteIcon'
+                });
+                setGlobalArray('perkAssets', normalizedAssets);
+                return GlobalData.perkAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading perk assets:', error);
+            throw error;
+        } finally {
+            perkAssetsLoadingPromise = null;
+        }
+    })();
+    return perkAssetsLoadingPromise;
 }
 
-/**
- * Get perk assets data
- * @returns {Array} Array of perk assets
- */
 function getPerkAssets() {
     return GlobalData.perkAssets;
 }
 
-/**
- * Load all item assets from S3 bucket
- * @returns {Promise<Array>} Promise that resolves to array of item assets
- */
-async function loadItemAssets() {
-    try {
-        // Get current access token
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load item assets');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading item assets from S3...');
-
-        const response = await fetch('http://localhost:8080/api/getItemAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            setGlobalArray('itemAssets', data.assets || []);
-            console.log('✅ Item assets loaded successfully:', GlobalData.itemAssets.length, 'assets');
-            return GlobalData.itemAssets;
-        } else {
-            const error = await response.text();
-            console.error('Failed to load item assets:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading item assets:', error);
-        throw error;
+// --- Item Assets (S3) ---
+async function loadItemAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.itemAssets.length > 0) {
+        return GlobalData.itemAssets;
     }
+    if (itemAssetsLoadingPromise) return itemAssetsLoadingPromise;
+
+    itemAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getItemAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = Array.isArray(data?.assets) ? data.assets : [];
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    remoteIcon: asset.icon
+                }));
+                clearAssetCacheForType('item');
+                await cacheAssetList('item', normalizedAssets, {
+                    idKey: 'assetID',
+                    urlKey: 'icon',
+                    remoteKey: 'remoteIcon'
+                });
+                setGlobalArray('itemAssets', normalizedAssets);
+                return GlobalData.itemAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading item assets:', error);
+            throw error;
+        } finally {
+            itemAssetsLoadingPromise = null;
+        }
+    })();
+    return itemAssetsLoadingPromise;
 }
 
-/**
- * Get item assets data
- * @returns {Array} Array of item assets
- */
 function getItemAssets() {
     return GlobalData.itemAssets;
 }
 
-// Track loading state for settlements
-let settlementsLoadingPromise = null;
-
-/**
- * Load all settlements data from the server (loads only once, returns cached data)
- * @returns {Promise<Array>} Promise that resolves to array of settlements
- */
-async function loadSettlementsData() {
-    // If settlements are already loaded, return them immediately
-    if (GlobalData.settlements.length > 0) {
-        console.log('✅ Settlements already loaded, using cached data:', GlobalData.settlements.length, 'settlements');
+// --- Settlements ---
+async function loadSettlementsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.settlements.length > 0) {
         return GlobalData.settlements;
     }
-    
-    // If already loading, wait for that request to finish
-    if (settlementsLoadingPromise) {
-        console.log('Settlements already loading, waiting for existing request...');
-        return settlementsLoadingPromise;
-    }
-    
-    // Start new loading request
+    if (settlementsLoadingPromise) return settlementsLoadingPromise;
+
     settlementsLoadingPromise = (async () => {
         try {
             const token = await getCurrentAccessToken();
-            if (!token) {
-                console.error('Authentication required to load settlements data');
-                throw new Error('Authentication required');
-            }
-
-            console.log('Loading settlements data from server...');
-
+            if (!token) throw new Error('Authentication required');
             const response = await fetch('http://localhost:8080/api/getSettlements', {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
-
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.settlements) {
                     setGlobalArray('settlements', data.settlements);
-                    console.log('✅ Settlements data loaded successfully:', GlobalData.settlements.length, 'settlements');
                 }
                 return GlobalData.settlements;
             } else {
-                const error = await response.text();
-                console.error('Failed to load settlements data:', error);
-                throw new Error(`Server error: ${error}`);
+                throw new Error('Server error: ' + await response.text());
             }
-
         } catch (error) {
-            console.error('Error loading settlements data:', error);
+            console.error('Error loading settlements:', error);
             throw error;
         } finally {
             settlementsLoadingPromise = null;
         }
     })();
-    
     return settlementsLoadingPromise;
 }
 
-/**
- * Load all settlement assets from S3 bucket
- * @returns {Promise<Array>} Promise that resolves to array of settlement assets
- */
-async function loadSettlementAssetsData() {
-    // If already loaded, return cached
-    if (GlobalData.settlementAssets.length > 0) {
-        console.log('✅ Settlement assets already loaded, using cached data:', GlobalData.settlementAssets.length, 'assets');
-        return GlobalData.settlementAssets;
-    }
-    
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('Authentication required to load settlement assets');
-            throw new Error('Authentication required');
-        }
-
-        console.log('Loading settlement assets from S3...');
-
-        const response = await fetch('http://localhost:8080/api/getSettlementAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            setGlobalArray('settlementAssets', data.assets || []);
-            console.log('✅ Settlement assets loaded successfully:', GlobalData.settlementAssets.length, 'assets');
-            return GlobalData.settlementAssets;
-        } else {
-            const error = await response.text();
-            console.error('Failed to load settlement assets:', error);
-            throw new Error(`Server error: ${error}`);
-        }
-
-    } catch (error) {
-        console.error('Error loading settlement assets:', error);
-        throw error;
-    }
-}
-
-/**
- * Get all settlements data
- * @returns {Array} Array of settlements
- */
 function getSettlements() {
     return GlobalData.settlements;
 }
 
-/**
- * Get settlement by ID
- * @param {number|string} settlementId - The settlement ID to find
- * @returns {Object|null} Settlement object or null if not found
- */
 function getSettlementById(settlementId) {
     const id = parseInt(settlementId);
     return GlobalData.settlements.find(s => s.settlement_id === id) || null;
 }
 
-/**
- * Get settlement assets data
- * @returns {Array} Array of settlement assets
- */
+// --- Settlement Assets (S3) ---
+async function loadSettlementAssetsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.settlementAssets.length > 0) {
+        return GlobalData.settlementAssets;
+    }
+    if (settlementAssetsLoadingPromise) return settlementAssetsLoadingPromise;
+
+    settlementAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getSettlementAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = Array.isArray(data?.assets) ? data.assets : [];
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    remoteUrl: asset.url
+                }));
+                clearAssetCacheForType('settlement');
+                await cacheAssetList('settlement', normalizedAssets, {
+                    idKey: 'id',
+                    urlKey: 'url',
+                    remoteKey: 'remoteUrl'
+                });
+                setGlobalArray('settlementAssets', normalizedAssets);
+                return GlobalData.settlementAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading settlement assets:', error);
+            throw error;
+        } finally {
+            settlementAssetsLoadingPromise = null;
+        }
+    })();
+
+    return settlementAssetsLoadingPromise;
+}
+
 function getSettlementAssets() {
     return GlobalData.settlementAssets;
 }
 
-/**
- * Refresh settlements data (force reload)
- * @returns {Promise<Array>} Promise that resolves to array of settlements
- */
 async function refreshSettlementsData() {
     setGlobalArray('settlements', []);
-    return loadSettlementsData();
+    return loadSettlementsData({ forceReload: true });
 }
 
-// === QUEST ASSETS ===
-
-let questAssetsLoadingPromise = null;
-
-/**
- * Load all quest assets from S3 bucket (images/quests folder)
- * @returns {Promise<Array>} Promise that resolves to array of quest assets
- */
-async function loadQuestAssetsData() {
-    // If already loaded, return cached
-    if (GlobalData.questAssets.length > 0) {
-        console.log('✅ Quest assets already loaded, using cached data:', GlobalData.questAssets.length, 'assets');
+// --- Quest Assets (S3) ---
+async function loadQuestAssetsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.questAssets.length > 0) {
         return GlobalData.questAssets;
     }
-    
-    // If already loading, wait for that request to finish
-    if (questAssetsLoadingPromise) {
-        console.log('Quest assets already loading, waiting for existing request...');
-        return questAssetsLoadingPromise;
-    }
-    
+    if (questAssetsLoadingPromise) return questAssetsLoadingPromise;
+
     questAssetsLoadingPromise = (async () => {
         try {
             const token = await getCurrentAccessToken();
-            if (!token) {
-                console.error('Authentication required to load quest assets');
-                throw new Error('Authentication required');
-            }
-
-            console.log('Loading quest assets from S3...');
-
+            if (!token) throw new Error('Authentication required');
             const response = await fetch('http://localhost:8080/api/getQuestAssets', {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
-
             if (response.ok) {
                 const data = await response.json();
-                const assets = Array.isArray(data) ? data : (data.assets || []);
-                setGlobalArray('questAssets', assets);
-                console.log('✅ Quest assets loaded successfully:', GlobalData.questAssets.length, 'assets');
+                const rawAssets = Array.isArray(data) ? data : (data.assets || []);
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    remoteUrl: asset.url
+                }));
+                clearAssetCacheForType('quest');
+                await cacheAssetList('quest', normalizedAssets, {
+                    idKey: 'id',
+                    urlKey: 'url',
+                    remoteKey: 'remoteUrl'
+                });
+                setGlobalArray('questAssets', normalizedAssets);
                 return GlobalData.questAssets;
             } else {
-                const error = await response.text();
-                console.error('Failed to load quest assets:', error);
-                throw new Error(`Server error: ${error}`);
+                throw new Error('Server error: ' + await response.text());
             }
-
         } catch (error) {
             console.error('Error loading quest assets:', error);
-            questAssetsLoadingPromise = null;
             throw error;
+        } finally {
+            questAssetsLoadingPromise = null;
         }
     })();
-    
     return questAssetsLoadingPromise;
 }
 
-/**
- * Get quest assets data
- * @returns {Array} Array of quest assets
- */
 function getQuestAssets() {
     return GlobalData.questAssets;
 }
 
-/**
- * Refresh quest assets data (force reload)
- * @returns {Promise<Array>} Promise that resolves to array of quest assets
- */
 async function refreshQuestAssetsData() {
     setGlobalArray('questAssets', []);
     questAssetsLoadingPromise = null;
-    return loadQuestAssetsData();
+    return loadQuestAssetsData({ forceReload: true });
 }
 
+async function loadEnemyAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.enemyAssets.length > 0) {
+        return GlobalData.enemyAssets;
+    }
+    if (enemyAssetsLoadingPromise) return enemyAssetsLoadingPromise;
+
+    enemyAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getEnemyAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = Array.isArray(data) ? data : (data.assets || []);
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    remoteUrl: asset.url
+                }));
+                clearAssetCacheForType('enemy');
+                await cacheAssetList('enemy', normalizedAssets, {
+                    idKey: 'id',
+                    urlKey: 'url',
+                    remoteKey: 'remoteUrl'
+                });
+                setGlobalArray('enemyAssets', normalizedAssets);
+                return GlobalData.enemyAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading enemy assets:', error);
+            throw error;
+        } finally {
+            enemyAssetsLoadingPromise = null;
+        }
+    })();
+    return enemyAssetsLoadingPromise;
+}
+
+function getEnemyAssets() {
+    return GlobalData.enemyAssets;
+}
+
+function getTalents() {
+    return GlobalData.talents;
+}
+
+function getPendingEnemies() {
+    return GlobalData.pendingEnemies;
+}
+
+// --- NPCs ---
+async function loadNpcsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.npcs.length > 0) {
+        return GlobalData.npcs;
+    }
+    if (npcsLoadingPromise) return npcsLoadingPromise;
+
+    npcsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('http://localhost:8080/api/getNpcs', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.npcs) {
+                    setGlobalArray('npcs', data.npcs);
+                }
+                return GlobalData.npcs;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading NPCs:', error);
+            throw error;
+        } finally {
+            npcsLoadingPromise = null;
+        }
+    })();
+    return npcsLoadingPromise;
+}
+
+function getNpcs() {
+    return GlobalData.npcs;
+}
+
+// === PRELOAD REGISTRY ===
+
 const GLOBAL_DATA_LOADERS = {
-    settlements: () => loadSettlementsData(),
+    effects:          () => loadEffectsData(),
+    enemies:          () => loadEnemiesData(),
+    perks:            () => loadPerksData(),
+    items:            () => loadItemsData(),
+    npcs:             () => loadNpcsData(),
+    perkAssets:       () => loadPerkAssets(),
+    itemAssets:       () => loadItemAssets(),
+    enemyAssets:      () => loadEnemyAssets(),
+    settlements:      () => loadSettlementsData(),
     settlementAssets: () => loadSettlementAssetsData(),
-    questAssets: () => loadQuestAssetsData(),
-    items: () => loadItemsData(),
-    perks: () => loadPerksData(),
-    effects: () => loadEffectsData(),
-    enemies: () => loadEnemiesData()
+    questAssets:      () => loadQuestAssetsData()
 };
 
 async function preloadGlobalData(keys = []) {
-    if (!Array.isArray(keys) || keys.length === 0) {
-        return Promise.resolve();
-    }
+    if (!Array.isArray(keys) || keys.length === 0) return Promise.resolve();
     const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
     const tasks = uniqueKeys.map((key) => {
         const loader = GLOBAL_DATA_LOADERS[key];
         if (typeof loader !== 'function') {
-            console.warn(`No global data loader registered for key "${key}"`);
+            console.warn(`No global data loader for "${key}"`);
             return Promise.resolve();
         }
         return loader().catch((error) => {
-            console.error(`Global data loader failed for "${key}"`, error);
-            throw error;
+            console.error(`Preload failed for "${key}"`, error);
         });
     });
-    return Promise.all(tasks);
+    return Promise.all(tasks).then(() => {
+        const dataEntries = [
+            `${GlobalData.effects.length} effects`,
+            `${GlobalData.enemies.length} enemies`,
+            `${GlobalData.perks.length} perks`,
+            `${GlobalData.items.length} items`,
+            `${GlobalData.talents.length} talents`,
+            `${GlobalData.npcs.length} npcs`,
+            `${GlobalData.settlements.length} settlements`
+        ];
+        const assetEntries = [
+            `${GlobalData.questAssets.length} quest`,
+            `${GlobalData.settlementAssets.length} settlement`,
+            `${GlobalData.perkAssets.length} perk`,
+            `${GlobalData.itemAssets.length} item`,
+            `${GlobalData.enemyAssets.length} enemy`
+        ];
+        console.log(`🌍 GlobalData ready — ${dataEntries.join(', ')}`);
+        console.log(`🖼️ Asset galleries — ${assetEntries.join(', ')}`);
+    });
 }
 
 // === DATA ACCESS FUNCTIONS ===

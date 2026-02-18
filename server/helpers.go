@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -36,27 +35,6 @@ func getNextAssetID() (int, error) {
 	}
 
 	return maxAssetID, nil
-}
-
-// generateSignedURL generates a signed URL for private S3 object access
-func generateSignedURL(key string, expiration time.Duration) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized")
-	}
-
-	presignClient := s3.NewPresignClient(s3Client)
-	request, err := presignClient.PresignGetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(S3_BUCKET_NAME),
-		Key:    aws.String(key),
-	}, func(opts *s3.PresignOptions) {
-		opts.Expires = expiration
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %v", err)
-	}
-
-	return request.URL, nil
 }
 
 // uploadImageToS3WithCustomKey uploads an image to S3 with a specified key/filename

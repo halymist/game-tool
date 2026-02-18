@@ -20,6 +20,45 @@ let settlementState = {
     editingLocationIndex: null // index of location being edited, null for new
 };
 
+const SETTLEMENT_FALLBACK_ITEM_ICON = buildSettlementEmojiDataUri('🎒');
+
+const settlementAssetPreloadPromise = (async () => {
+    if (typeof loadItemAssets === 'function') {
+        try {
+            await loadItemAssets();
+        } catch (error) {
+            console.warn('Settlement item asset preload failed', error);
+        }
+    }
+})();
+
+if (typeof subscribeToGlobalData === 'function') {
+    subscribeToGlobalData('itemAssets', () => {
+        renderVendorItems();
+    });
+}
+
+function buildSettlementEmojiDataUri(symbol) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="80">${symbol}</text></svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function getSettlementItemAssetIcon(assetId) {
+    if (!assetId || !window.GlobalData?.itemAssets) return null;
+    const numericId = Number(assetId);
+    const asset = GlobalData.itemAssets.find(entry => Number(entry.assetID ?? entry.id) === numericId);
+    return asset?.icon || null;
+}
+
+function resolveSettlementItemIcon(item) {
+    if (!item) return SETTLEMENT_FALLBACK_ITEM_ICON;
+    const assetId = item.assetID ?? item.assetId ?? item.asset_id ?? item.item_asset_id;
+    const cached = getSettlementItemAssetIcon(assetId);
+    if (cached) return cached;
+    if (item.icon && item.icon.startsWith('blob:')) return item.icon;
+    return SETTLEMENT_FALLBACK_ITEM_ICON;
+}
+
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('settlementDesigner')) {
@@ -178,8 +217,20 @@ function setupSettlementEventListeners() {
     }
 }
 
-async function loadSettlementDesignerData() {
-    console.log('Loading settlement data...');
+let settlementDesignerLoaded = false;
+
+async function loadSettlementDesignerData(options = {}) {
+    const forceReload = options?.forceReload === true;
+
+    // If already loaded once, just re-populate UI from cached GlobalData
+    if (!forceReload && settlementDesignerLoaded) {
+        settlementState.settlements = GlobalData.settlements;
+        settlementState.settlementAssets = GlobalData.settlementAssets;
+        settlementState.questAssets = GlobalData.questAssets;
+        populateSettlementSelect();
+        populateBlessingDropdowns();
+        return;
+    }
 
     const token = await getCurrentAccessToken();
     if (!token) {
@@ -187,53 +238,17 @@ async function loadSettlementDesignerData() {
         return;
     }
 
-    // Load settlements from GlobalData (shared across pages)
-    try {
-        await loadSettlementsData();
-        settlementState.settlements = GlobalData.settlements;
-        console.log('✅ Using GlobalData.settlements:', settlementState.settlements.length, 'settlements');
-    } catch (error) {
-        console.error('Error loading settlements:', error);
-    }
+    // All global loaders cache internally — these are no-ops if already loaded
+    try { await loadSettlementsData(); } catch (e) { console.error('Error loading settlements:', e); }
+    try { await loadSettlementAssetsData(); } catch (e) { console.error('Error loading settlement assets:', e); }
+    try { await loadQuestAssetsData(); } catch (e) { console.error('Error loading quest assets:', e); }
+    try { await loadBlessingsData(); } catch (e) { console.error('Error loading blessings:', e); }
+    try { await loadSettlementItemsData(); } catch (e) { console.error('Error loading items for vendor:', e); }
+    try { await loadSettlementEffectsData(); } catch (e) { console.error('Error loading effects for enchanter:', e); }
 
-    // Load settlement assets from GlobalData
-    try {
-        await loadSettlementAssetsData();
-        settlementState.settlementAssets = GlobalData.settlementAssets;
-        console.log('✅ Using GlobalData.settlementAssets:', settlementState.settlementAssets?.length || 0, 'assets');
-    } catch (error) {
-        console.error('Error loading settlement assets:', error);
-    }
-
-    // Load quest assets from GlobalData (for location textures)
-    try {
-        await loadQuestAssetsData();
-        settlementState.questAssets = GlobalData.questAssets;
-        console.log('✅ Using GlobalData.questAssets:', settlementState.questAssets?.length || 0, 'assets for locations');
-    } catch (error) {
-        console.error('Error loading quest assets:', error);
-    }
-
-    // Load perks for blessings dropdown
-    try {
-        await loadBlessingsData();
-    } catch (error) {
-        console.error('Error loading blessings:', error);
-    }
-
-    // Load items for vendor
-    try {
-        await loadSettlementItemsData();
-    } catch (error) {
-        console.error('Error loading items for vendor:', error);
-    }
-
-    // Load effects for enchanter
-    try {
-        await loadSettlementEffectsData();
-    } catch (error) {
-        console.error('Error loading effects for enchanter:', error);
-    }
+    settlementState.settlements = GlobalData.settlements;
+    settlementState.settlementAssets = GlobalData.settlementAssets;
+    settlementState.questAssets = GlobalData.questAssets;
 
     // Populate UI
     populateSettlementSelect();
@@ -241,30 +256,10 @@ async function loadSettlementDesignerData() {
 
     // Start with a blank "new settlement" state
     createNewSettlement();
+    settlementDesignerLoaded = true;
 }
 
-async function loadSettlementAssets() {
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('http://localhost:8080/api/getSettlementAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            settlementState.settlementAssets = data.assets || [];
-            console.log('✅ Loaded', settlementState.settlementAssets.length, 'settlement assets');
-        }
-    } catch (error) {
-        console.error('Error loading settlement assets:', error);
-    }
-}
+// loadSettlementAssets removed — use loadSettlementAssetsData() from global-data.js
 
 async function loadBlessingsData() {
     // Load perks as blessings - they're in the perks table
@@ -286,7 +281,6 @@ async function loadBlessingsData() {
             if (response.ok) {
                 const data = await response.json();
                 settlementState.blessings = data.perks || [];
-                console.log('✅ Loaded', settlementState.blessings.length, 'perks/blessings');
             }
         } catch (error) {
             console.error('Error loading perks:', error);
@@ -300,7 +294,6 @@ async function loadSettlementItemsData() {
         try {
             const items = await loadItemsData();  // This returns the items when loaded
             settlementState.items = items || [];
-            console.log('✅ Settlement got', settlementState.items.length, 'items from global loadItemsData');
             return;
         } catch (e) {
             console.log('Error loading items via loadItemsData:', e);
@@ -311,7 +304,6 @@ async function loadSettlementItemsData() {
     if (typeof getItems === 'function') {
         settlementState.items = getItems() || [];
         if (settlementState.items.length > 0) {
-            console.log('✅ Settlement got', settlementState.items.length, 'items from getItems');
             return;
         }
     }
@@ -332,7 +324,6 @@ async function loadSettlementItemsData() {
         if (response.ok) {
             const data = await response.json();
             settlementState.items = data.items || [];
-            console.log('✅ Loaded', settlementState.items.length, 'items directly');
         }
     } catch (error) {
         console.error('Error loading items:', error);
@@ -345,7 +336,6 @@ async function loadSettlementEffectsData() {
         try {
             const effects = await loadEffectsData();  // This returns the effects when loaded
             settlementState.effects = effects || [];
-            console.log('✅ Settlement got', settlementState.effects.length, 'effects from global loadEffectsData');
             return;
         } catch (e) {
             console.log('Error loading effects via loadEffectsData:', e);
@@ -356,7 +346,6 @@ async function loadSettlementEffectsData() {
     if (typeof getEffects === 'function') {
         settlementState.effects = getEffects() || [];
         if (settlementState.effects.length > 0) {
-            console.log('✅ Settlement got', settlementState.effects.length, 'effects from getEffects');
             return;
         }
     }
@@ -377,7 +366,6 @@ async function loadSettlementEffectsData() {
         if (response.ok) {
             const data = await response.json();
             settlementState.effects = data.effects || [];
-            console.log('✅ Loaded', settlementState.effects.length, 'effects directly');
         }
     } catch (error) {
         console.error('Error loading effects:', error);
@@ -675,18 +663,10 @@ function updateAssetPreview(target, assetId) {
     const area = document.getElementById(areaId);
     if (!area) return;
 
-    let assetUrl = null;
-
-    // Find asset URL
     if (assetId) {
         const asset = settlementState.settlementAssets.find(a => a.id === assetId);
-        if (asset) {
-            assetUrl = asset.url;
-        }
-    }
-
-    if (assetUrl) {
-        area.innerHTML = `<img src="${assetUrl}" alt="${target} asset">`;
+        const src = asset ? asset.url : '';
+        area.innerHTML = `<img src="${src}" alt="${target} asset">`;
         area.closest('.settlement-card')?.classList.add('has-asset');
     } else {
         area.innerHTML = `
@@ -718,15 +698,11 @@ function renderVendorItems() {
     grid.innerHTML = settlementState.vendorItems.map((itemId, index) => {
         const item = settlementState.items.find(i => (i.item_id || i.id) === itemId);
         const name = item ? (item.item_name || item.name) : `Item ${itemId}`;
-        const icon = item?.icon || '';
+        const icon = resolveSettlementItemIcon(item);
         
         return `
             <div class="item-grid-cell" title="${escapeSettlementHtml(name)}">
-                ${icon ? `<img src="${icon}" alt="${escapeSettlementHtml(name)}">` : 
-                    `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#4a5568" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <path d="M12 8v8M8 12h8"/>
-                    </svg>`}
+                <img src="${icon}" alt="${escapeSettlementHtml(name)}" onerror="this.src='${SETTLEMENT_FALLBACK_ITEM_ICON}'">
                 <span class="item-name">${escapeSettlementHtml(name)}</span>
                 <button class="remove-btn" onclick="removeVendorItem(${index}); event.stopPropagation();">×</button>
             </div>
@@ -772,7 +748,7 @@ function showAddItemDialog() {
     const itemsHtml = settlementState.items.map(item => {
         const id = item.item_id || item.id;
         const name = item.item_name || item.name || `Item ${id}`;
-        const icon = item.icon || '';
+        const icon = resolveSettlementItemIcon(item);
         const isSelected = settlementState.vendorItems.includes(id);
         
         return `
@@ -780,11 +756,7 @@ function showAddItemDialog() {
                  data-item-id="${id}" 
                  onclick="toggleVendorItemSelection(${id})"
                  style="cursor: pointer;">
-                ${icon ? `<img src="${icon}" alt="${escapeSettlementHtml(name)}">` : 
-                    `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#4a5568" stroke-width="2">
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <path d="M12 8v8M8 12h8"/>
-                    </svg>`}
+                <img src="${icon}" alt="${escapeSettlementHtml(name)}" onerror="this.src='${SETTLEMENT_FALLBACK_ITEM_ICON}'">
                 <span class="item-name">${escapeSettlementHtml(name)}</span>
             </div>
         `;
@@ -1157,23 +1129,25 @@ function populateAssetGallery() {
     if (!grid) return;
 
     const currentAssetId = getCurrentAssetId();
+    const isQuestAsset = settlementState.currentAssetTarget === 'location';
     
     // Use quest assets for location textures, settlement assets for everything else
-    const assets = settlementState.currentAssetTarget === 'location' 
+    const assets = isQuestAsset
         ? settlementState.questAssets 
         : settlementState.settlementAssets;
+
+    if (assets.length === 0) {
+        grid.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 40px;">No assets found. Upload some!</p>';
+        return;
+    }
 
     grid.innerHTML = assets.map(asset => `
         <div class="settlement-asset-item ${asset.id === currentAssetId ? 'selected' : ''}" 
              data-asset-id="${asset.id}" onclick="selectAsset(${asset.id})">
-            <img src="${asset.url}" alt="Asset ${asset.id}">
+            <img src="${asset.url}" alt="Asset ${asset.id}" loading="lazy">
             <div class="asset-id">ID: ${asset.id}</div>
         </div>
     `).join('');
-
-    if (assets.length === 0) {
-        grid.innerHTML = '<p style="color: #a0aec0; text-align: center; padding: 40px;">No assets found. Upload some!</p>';
-    }
 }
 
 function getCurrentAssetId() {
@@ -1204,8 +1178,8 @@ function getCurrentAssetId() {
 }
 
 function selectAsset(assetId) {
-    // Find the asset URL from the appropriate array
-    const assets = settlementState.currentAssetTarget === 'location' 
+    const isQuestAsset = settlementState.currentAssetTarget === 'location';
+    const assets = isQuestAsset
         ? settlementState.questAssets 
         : settlementState.settlementAssets;
     const asset = assets.find(a => a.id === assetId);
@@ -1216,11 +1190,7 @@ function selectAsset(assetId) {
 
 // Select asset with both ID and URL (like quest designer pattern)
 function selectSettlementAsset(assetId, assetUrl) {
-    console.log('selectSettlementAsset called:', { assetId, assetUrl, currentTarget: settlementState.currentAssetTarget });
-    if (!settlementState.currentAssetTarget) {
-        console.log('❌ currentAssetTarget is null, returning early');
-        return;
-    }
+    if (!settlementState.currentAssetTarget) return;
     
     const target = settlementState.currentAssetTarget;
     
@@ -1344,23 +1314,15 @@ async function uploadLocationTexture(file) {
         if (!response.ok) throw new Error('Upload failed');
 
         const result = await response.json();
-        console.log('✅ Quest asset uploaded:', result);
 
         // Add to assets array
-        console.log('Before push, questAssets length:', settlementState.questAssets?.length);
-        console.log('currentAssetTarget before auto-select:', settlementState.currentAssetTarget);
-        
         settlementState.questAssets.push({
             id: result.assetId,
             url: result.url
         });
-        
-        console.log('After push, questAssets length:', settlementState.questAssets?.length);
 
         // Refresh gallery and auto-select (same pattern as quest designer)
-        console.log('Calling populateAssetGallery...');
         populateAssetGallery();
-        console.log('Calling selectSettlementAsset...');
         selectSettlementAsset(result.assetId, result.url);
 
     } catch (error) {
@@ -1597,7 +1559,10 @@ async function deleteSettlement() {
             console.log('✅ Settlement deleted');
 
             // Reload settlements
-            await loadSettlementDesignerData();
+            await refreshSettlementsData();
+            settlementState.settlements = GlobalData.settlements;
+            populateSettlementSelect();
+            createNewSettlement();
 
             alert('Settlement deleted successfully!');
         } else {
@@ -1761,12 +1726,13 @@ function renderLocations() {
         card.className = 'location-card' + (location.texture_id ? ' has-texture' : '');
         card.onclick = () => openEditLocationModal(index);
         
-        // Find texture URL
+        // Find texture URL from quest assets
         let textureHtml = '';
         if (location.texture_id) {
             const asset = settlementState.questAssets.find(a => a.id === location.texture_id);
-            if (asset && asset.url) {
-                textureHtml = `<img src="${asset.url}" alt="${escapeSettlementHtml(location.name)}">`;
+            const src = asset ? asset.url : '';
+            if (src) {
+                textureHtml = `<img src="${src}" alt="${escapeSettlementHtml(location.name)}">`;
             }
         }
         
@@ -1819,11 +1785,10 @@ function updateLocationTexturePreview(assetId) {
     
     if (assetId) {
         const asset = settlementState.questAssets.find(a => a.id === assetId);
-        if (asset && asset.url) {
-            textureArea.classList.add('has-texture');
-            textureArea.innerHTML = `<img src="${asset.url}" alt="Location texture">`;
-            return;
-        }
+        const src = asset ? asset.url : '';
+        textureArea.classList.add('has-texture');
+        textureArea.innerHTML = `<img src="${src}" alt="Location texture">`;
+        return;
     }
     
     textureArea.classList.remove('has-texture');

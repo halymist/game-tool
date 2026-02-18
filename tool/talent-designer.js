@@ -66,34 +66,31 @@ function setupTalentEditorListeners() {
     if (resetBtn) resetBtn.addEventListener('click', resetTalentForm);
 }
 
-async function loadTalentEditorData() {
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
+async function loadTalentEditorData(options = {}) {
+    const forceReload = options?.forceReload === true;
 
-        // Load effects if not already loaded
+    // If talents are already loaded and we aren't forcing a reload, just re-render
+    if (!forceReload && talentEditorState.talents.length > 0) {
+        renderTalentGrid();
+        return;
+    }
+
+    try {
+        // Use global loaders (cached, deduplicated)
         if (typeof loadEffectsData === 'function') {
             await loadEffectsData();
         }
 
-        const response = await fetch('http://localhost:8080/api/getTalentsInfo', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            console.error('Failed to load talents:', data.message);
-            return;
+        // GlobalData.talents is populated by loadEnemiesData (getEnemies returns talents)
+        // Ensure enemies have been loaded so talents are available
+        if (typeof loadEnemiesData === 'function' && GlobalData.talents.length === 0) {
+            await loadEnemiesData();
         }
 
-        talentEditorState.talents = data.talents || [];
+        talentEditorState.talents = GlobalData.talents || [];
         talentEditorState.filteredTalents = [...talentEditorState.talents];
 
-        await loadTalentAssets();
+        await ensureTalentAssets();
         createTalentAssetGallery();
 
         populateTalentEffectOptions();
@@ -117,7 +114,19 @@ function populateTalentEffectOptions() {
     });
 }
 
-async function loadTalentAssets() {
+async function ensureTalentAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+
+    if (typeof loadPerkAssets === 'function' && typeof getPerkAssets === 'function') {
+        await loadPerkAssets({ forceReload });
+        talentAssets = getPerkAssets() || [];
+        return;
+    }
+
+    await loadTalentAssetsFallback();
+}
+
+async function loadTalentAssetsFallback() {
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
@@ -221,13 +230,10 @@ async function uploadTalentAsset(file) {
 
         const result = await response.json();
         if (result.success) {
-            talentAssets.push({
-                assetID: result.assetID,
-                name: result.assetID.toString(),
-                icon: result.icon || base64Data
-            });
+            await ensureTalentAssets({ forceReload: true });
             createTalentAssetGallery();
-            selectTalentAsset(result.assetID, result.icon || base64Data);
+            const refreshedIcon = getTalentAssetIcon(result.assetID) || result.icon || base64Data;
+            selectTalentAsset(result.assetID, refreshedIcon);
             alert('Talent asset uploaded successfully!');
         } else {
             alert('Error uploading asset: ' + (result.message || 'Unknown error'));
@@ -388,6 +394,11 @@ async function saveTalentChanges() {
         const idx = talentEditorState.talents.findIndex(t => t.talentId === updated.talentId);
         if (idx >= 0) {
             talentEditorState.talents[idx] = updated;
+        }
+
+        // Sync back to GlobalData
+        if (typeof setGlobalArray === 'function') {
+            setGlobalArray('talents', [...talentEditorState.talents]);
         }
 
         setTalentStatus('Saved!', false);

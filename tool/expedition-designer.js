@@ -51,7 +51,6 @@ const expeditionPreviewState = {
     settlementId: null
 };
 
-const EXPEDITION_ASSET_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const expeditionDataSubscriptions = [];
 
 // ==================== INITIALIZATION ====================
@@ -395,7 +394,7 @@ function renderExpeditionPreview() {
     const sceneEl = document.getElementById('expeditionPreviewScene');
     if (sceneEl) {
         const previewUrl = slide.assetPreviewUrl;
-        const hasBackground = previewUrl && previewUrl !== EXPEDITION_ASSET_PLACEHOLDER;
+        const hasBackground = !!previewUrl;
         if (hasBackground) {
             sceneEl.style.backgroundImage = `linear-gradient(180deg, rgba(5,10,25,0.1) 5%, rgba(5,10,25,0.85) 95%), url(${previewUrl})`;
             sceneEl.style.backgroundSize = 'cover';
@@ -765,7 +764,7 @@ function renderSlide(slide) {
     
     // Build background style for slide body
     const previewUrl = slide.assetPreviewUrl;
-    const hasBackground = previewUrl && previewUrl !== EXPEDITION_ASSET_PLACEHOLDER;
+    const hasBackground = !!previewUrl;
     const bodyBgStyle = hasBackground
         ? `style="background-image: url(${previewUrl});"`
         : '';
@@ -1179,6 +1178,62 @@ function getRewardLabel(reward) {
     }
 }
 
+const EXPEDITION_FALLBACK_ICONS = {
+    enemy: buildEmojiDataUri('👹'),
+    item: buildEmojiDataUri('🎒'),
+    potion: buildEmojiDataUri('🧪')
+};
+
+const expeditionAssetPreloadPromise = (async () => {
+    const loaders = [];
+    if (typeof loadQuestAssetsData === 'function') loaders.push(loadQuestAssetsData().catch(err => console.warn('Quest assets preload failed', err)));
+    if (typeof loadEnemyAssets === 'function') loaders.push(loadEnemyAssets().catch(err => console.warn('Enemy assets preload failed', err)));
+    if (typeof loadItemAssets === 'function') loaders.push(loadItemAssets().catch(err => console.warn('Item assets preload failed', err)));
+    if (loaders.length === 0) return;
+    try {
+        await Promise.all(loaders);
+    } catch (error) {
+        console.warn('Expedition asset preload encountered errors', error);
+    }
+})();
+
+function buildEmojiDataUri(symbol) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="80">${symbol}</text></svg>`;
+    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function getCachedItemIconByAssetId(assetId) {
+    if (!assetId || !window.GlobalData?.itemAssets) return null;
+    const numericId = Number(assetId);
+    const entry = GlobalData.itemAssets.find(asset => Number(asset.assetID ?? asset.id) === numericId);
+    return entry?.icon || null;
+}
+
+function getCachedEnemyIconByAssetId(assetId) {
+    if (!assetId || !window.GlobalData?.enemyAssets) return null;
+    const numericId = Number(assetId);
+    const entry = GlobalData.enemyAssets.find(asset => Number(asset.id ?? asset.assetID) === numericId);
+    return entry?.url || entry?.icon || null;
+}
+
+function resolveItemIconSrc(item, fallbackKey = 'item') {
+    if (!item) return EXPEDITION_FALLBACK_ICONS[fallbackKey] || EXPEDITION_FALLBACK_ICONS.item;
+    const assetId = item.assetID ?? item.assetId ?? item.asset_id ?? item.item_asset_id;
+    const cached = getCachedItemIconByAssetId(assetId);
+    if (cached) return cached;
+    if (item.icon && item.icon.startsWith('blob:')) return item.icon;
+    return EXPEDITION_FALLBACK_ICONS[fallbackKey] || EXPEDITION_FALLBACK_ICONS.item;
+}
+
+function resolveEnemyIconSrc(enemy) {
+    if (!enemy) return EXPEDITION_FALLBACK_ICONS.enemy;
+    const assetId = enemy.assetId ?? enemy.assetID ?? enemy.asset_id;
+    const cached = getCachedEnemyIconByAssetId(assetId);
+    if (cached) return cached;
+    if (enemy.icon && enemy.icon.startsWith('blob:')) return enemy.icon;
+    return EXPEDITION_FALLBACK_ICONS.enemy;
+}
+
 // ==================== EFFECT MODAL (Slide Effects) ====================
 let effectModalContext = { slideId: null };
 
@@ -1324,12 +1379,12 @@ function populateRewardPickers() {
             itemGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No items loaded</p>';
         } else {
             nonPotionItems.forEach(item => {
-                const iconUrl = item.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/items/${item.assetID}.webp`;
+                const iconUrl = resolveItemIconSrc(item, 'item');
                 const div = document.createElement('div');
                 div.className = 'item-picker-item';
                 div.dataset.itemId = item.id;
                 div.innerHTML = `
-                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🎒</text></svg>'">
+                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='${EXPEDITION_FALLBACK_ICONS.item}'">
                     <span>${item.name || 'Item #' + item.id}</span>
                 `;
                 div.addEventListener('click', () => selectRewardItem(item.id));
@@ -1347,12 +1402,12 @@ function populateRewardPickers() {
             potionGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No potions loaded</p>';
         } else {
             potions.forEach(item => {
-                const iconUrl = item.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/items/${item.assetID}.webp`;
+                const iconUrl = resolveItemIconSrc(item, 'potion');
                 const div = document.createElement('div');
                 div.className = 'item-picker-item';
                 div.dataset.potionId = item.id;
                 div.innerHTML = `
-                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🧪</text></svg>'">
+                    <img src="${iconUrl}" alt="${item.name}" onerror="this.src='${EXPEDITION_FALLBACK_ICONS.potion}'">
                     <span>${item.name || 'Potion #' + item.id}</span>
                 `;
                 div.addEventListener('click', () => selectRewardPotion(item.id));
@@ -1502,13 +1557,13 @@ function populateDropdownsOnce() {
             enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;">No enemies loaded yet</p>';
         } else {
             enemies.forEach((enemy, idx) => {
-                const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+                const iconUrl = resolveEnemyIconSrc(enemy);
                 console.log(`Enemy ${idx}:`, { id: enemy.enemyId, name: enemy.enemyName, assetId: enemy.assetId, icon: iconUrl });
                 const item = document.createElement('div');
                 item.className = 'enemy-picker-item';
                 item.dataset.enemyId = enemy.enemyId;
                 item.innerHTML = `
-                    <img src="${iconUrl}" alt="${enemy.enemyName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>👹</text></svg>'">
+                    <img src="${iconUrl}" alt="${enemy.enemyName}" onerror="this.src='${EXPEDITION_FALLBACK_ICONS.enemy}'">
                     <span>${enemy.enemyName || 'Enemy #' + enemy.enemyId}</span>
                 `;
                 item.addEventListener('click', () => selectEnemyForOption(enemy.enemyId));
@@ -2300,13 +2355,8 @@ function isExpeditionAssetGalleryOpen() {
 }
 
 function getExpeditionAssetThumbSrc(asset) {
-    if (!asset) return EXPEDITION_ASSET_PLACEHOLDER;
-    if (asset.localUrl) return asset.localUrl;
-    if (typeof getQuestAssetObjectUrl === 'function') {
-        const cached = getQuestAssetObjectUrl(asset);
-        if (cached) return cached;
-    }
-    return EXPEDITION_ASSET_PLACEHOLDER;
+    if (!asset) return '';
+    return asset.url || '';
 }
 
 function getExpeditionAssetUrlById(assetId) {
@@ -2320,52 +2370,6 @@ function getExpeditionAssetUrlById(assetId) {
     return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetId}.webp`;
 }
 
-function hydrateExpeditionAssetThumbnails(assets) {
-    if (typeof ensureQuestAssetObjectUrl !== 'function') return;
-    const gallery = document.getElementById('expeditionAssetGallery');
-    if (!gallery || !Array.isArray(assets)) return;
-
-    assets.forEach((asset) => {
-        ensureQuestAssetObjectUrl(asset)
-            .then((objectUrl) => {
-                const img = gallery.querySelector(`.expedition-asset-item[data-asset-id="${asset.id}"] img`);
-                if (img) {
-                    img.src = objectUrl;
-                    img.dataset.loaded = 'true';
-                }
-            })
-            .catch(() => {
-                const img = gallery.querySelector(`.expedition-asset-item[data-asset-id="${asset.id}"] img`);
-                if (img && !img.dataset.loaded) {
-                    img.src = asset.url;
-                    img.dataset.loaded = 'fallback';
-                }
-            });
-    });
-}
-
-function hydrateSlideAssetPreview(slideId, assetId, fallbackUrl = null) {
-    if (typeof ensureQuestAssetObjectUrl !== 'function' || !assetId) return;
-    ensureQuestAssetObjectUrl(assetId)
-        .then((objectUrl) => {
-            const slide = expeditionState.slides.get(slideId);
-            if (slide && slide.assetId === assetId) {
-                slide.assetPreviewUrl = objectUrl;
-                renderSlide(slide);
-                renderConnections();
-            }
-        })
-        .catch(() => {
-            if (!fallbackUrl) return;
-            const slide = expeditionState.slides.get(slideId);
-            if (slide && slide.assetId === assetId) {
-                slide.assetPreviewUrl = fallbackUrl;
-                renderSlide(slide);
-                renderConnections();
-            }
-        });
-}
-
 function primeSlideAssetPreview(slide, assetId, remoteUrl) {
     if (!slide) return;
     slide.assetId = assetId ?? null;
@@ -2374,13 +2378,9 @@ function primeSlideAssetPreview(slide, assetId, remoteUrl) {
         slide.assetPreviewUrl = null;
         return;
     }
-    const cachedPreview = typeof getQuestAssetObjectUrl === 'function'
-        ? getQuestAssetObjectUrl(slide.assetId)
-        : null;
-    slide.assetPreviewUrl = cachedPreview || EXPEDITION_ASSET_PLACEHOLDER;
-    if (!cachedPreview) {
-        hydrateSlideAssetPreview(slide.id, slide.assetId, slide.assetUrl);
-    }
+    const assets = GlobalData?.questAssets || [];
+    const assetObj = assets.find(a => a.id === slide.assetId);
+    slide.assetPreviewUrl = assetObj ? assetObj.url : (slide.assetUrl || null);
 }
 // Get location-asset mapping from GlobalData (shared with quest)
 function getExpeditionLocationAssetIds() {
@@ -2460,8 +2460,6 @@ function populateExpeditionAssetGallery(filterText = '') {
             }
         });
     });
-
-    hydrateExpeditionAssetThumbnails(filteredAssets);
 }
 
 function selectExpeditionAsset(assetId, assetUrl) {
@@ -3280,9 +3278,6 @@ async function uploadExpeditionAsset(file) {
         if (typeof notifyGlobalDataChange === 'function') {
             notifyGlobalDataChange('questAssets', GlobalData.questAssets);
         }
-        if (typeof ensureQuestAssetObjectUrl === 'function') {
-            ensureQuestAssetObjectUrl({ id: result.assetId, url: result.url }).catch(() => {});
-        }
 
         // Refresh gallery and auto-select
         populateExpeditionAssetGallery();
@@ -4051,6 +4046,14 @@ async function loadExpedition() {
     }
 
     try {
+        if (expeditionAssetPreloadPromise && typeof expeditionAssetPreloadPromise.then === 'function') {
+            try {
+                await expeditionAssetPreloadPromise;
+            } catch (preloadError) {
+                console.warn('Proceeding without full expedition asset preload', preloadError);
+            }
+        }
+
         const token = await getCurrentAccessToken();
         if (!token) {
             throw new Error('Not authenticated');
@@ -4100,6 +4103,7 @@ async function loadExpedition() {
         let localId = 1;
         for (const serverSlide of data.slides) {
             const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
+            const resolvedAssetUrl = serverSlide.assetId ? getExpeditionAssetUrlById(serverSlide.assetId) : null;
             const slide = {
                 id: localId,
                 text: serverSlide.text || '',
@@ -4108,14 +4112,14 @@ async function loadExpedition() {
                 y: serverSlide.posY || 100,
                 options: [],
                 assetId: serverSlide.assetId || null,
-                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
+                assetUrl: resolvedAssetUrl,
                 assetPreviewUrl: null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId || null
             };
 
-            primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
+            primeSlideAssetPreview(slide, slide.assetId, resolvedAssetUrl);
 
             // Map slideId -> localId
             slideIdToLocalId.set(serverSlideId, localId);
@@ -4280,11 +4284,6 @@ function populateSettlementDropdown() {
         return;
     }
 
-    const allOption = document.createElement('option');
-    allOption.value = '';
-    allOption.textContent = 'All Settlements';
-    select.appendChild(allOption);
-
     const sortedSettlements = [...settlements].sort((a, b) => {
         const nameA = (a.settlement_name || '').toLowerCase();
         const nameB = (b.settlement_name || '').toLowerCase();
@@ -4309,6 +4308,9 @@ function populateSettlementDropdown() {
         if (select.querySelector(`option[value="${candidate}"]`)) {
             nextValue = candidate;
         }
+    }
+    if (!nextValue && select.options.length > 0) {
+        nextValue = select.options[0].value;
     }
     select.value = nextValue;
 
@@ -4413,6 +4415,7 @@ async function loadExpeditionForSettlement(settlementId) {
         let localId = 1;
         for (const serverSlide of data.slides) {
             const serverSlideId = serverSlide.slideId ?? serverSlide.toolingId ?? serverSlide.id;
+            const resolvedAssetUrl = serverSlide.assetId ? getExpeditionAssetUrlById(serverSlide.assetId) : null;
             const slide = {
                 id: localId,
                 text: serverSlide.text || '',
@@ -4421,14 +4424,14 @@ async function loadExpeditionForSettlement(settlementId) {
                 y: serverSlide.posY || 100,
                 options: [],
                 assetId: serverSlide.assetId || null,
-                assetUrl: serverSlide.assetId ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${serverSlide.assetId}.webp` : null,
+                assetUrl: resolvedAssetUrl,
                 assetPreviewUrl: null,
                 reward: buildRewardFromServer(serverSlide),
                 effect: serverSlide.effectId ? { effectId: serverSlide.effectId, effectFactor: serverSlide.effectFactor } : null,
                 settlementId: serverSlide.settlementId
             };
 
-            primeSlideAssetPreview(slide, slide.assetId, slide.assetUrl);
+            primeSlideAssetPreview(slide, slide.assetId, resolvedAssetUrl);
 
             // Map slideId -> localId
             slideIdToLocalId.set(serverSlideId, localId);

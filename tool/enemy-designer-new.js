@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initEnemyDesigner() {
     console.log('🎮 Initializing Enemy Designer...');
-    loadEnemiesData();
+    loadEnemyDesignerData();
     setupEnemyEventListeners();
     console.log('✅ Enemy Designer initialized');
 }
@@ -117,40 +117,25 @@ function setupEnemyEventListeners() {
 
 // ==================== DATA LOADING ====================
 
-async function loadEnemiesData() {
-    console.log('Loading enemies data...');
+async function loadEnemyDesignerData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (forceReload) console.log('🔄 Reloading enemies data...');
     
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            console.error('No auth token');
-            return;
-        }
-        
-        const response = await fetch('http://localhost:8080/api/getEnemies', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-            console.error('Failed to load enemies:', data.message);
-            return;
-        }
-        
-        // Store reference data
-        allTalents = data.talents || [];
-        enemyPerks = data.perks || [];
-        window.effectsData = data.effects || [];
-        
-        // Store enemies
-        allEnemies = data.enemies || [];
-        allPendingEnemies = data.pendingEnemies || [];
+        // Load enemies (also populates talents, perks, effects in GlobalData)
+        await loadEnemiesData({ forceReload });
+        allEnemies = getEnemies();
+        allPendingEnemies = getPendingEnemies();
         filteredEnemies = [...allEnemies];
         filteredPendingEnemies = [...allPendingEnemies];
         
-        // Load assets
-        await loadEnemyAssets();
+        // Get talents and perks from GlobalData (populated by loadEnemiesData)
+        allTalents = getTalents();
+        enemyPerks = getPerks();
+        
+        // Load enemy assets from S3
+        await loadEnemyAssets({ forceReload });
+        enemyAssets = getEnemyAssets();
         
         // Render UI
         renderEnemyList();
@@ -158,27 +143,8 @@ async function loadEnemiesData() {
         createEnemyAssetGallery();
         buildTalentTreeGrid();
         
-        console.log(`✅ Loaded: ${allEnemies.length} enemies, ${allPendingEnemies.length} pending, ${allTalents.length} talents, ${enemyPerks.length} perks`);
-        
     } catch (error) {
-        console.error('Error loading enemies:', error);
-    }
-}
-
-async function loadEnemyAssets() {
-    try {
-        const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/getEnemyAssets', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-            enemyAssets = data.assets || [];
-        }
-    } catch (error) {
-        console.error('Error loading enemy assets:', error);
-        enemyAssets = [];
+        console.error('Error loading enemy designer data:', error);
     }
 }
 
@@ -742,7 +708,7 @@ async function saveEnemy(e) {
             alert('Enemy saved to pending! It needs approval before merging.');
             
             // Switch to pending tab and reload
-            await loadEnemiesData();
+            await loadEnemyDesignerData({ forceReload: true });
             switchEnemyTab('pending');
         } else {
             alert('Error saving enemy: ' + (result.message || 'Unknown error'));
@@ -804,7 +770,7 @@ async function mergeApprovedEnemies() {
         
         if (result.success) {
             alert('Enemies merged successfully!');
-            await loadEnemiesData();
+            await loadEnemyDesignerData({ forceReload: true });
         } else {
             alert('Error: ' + result.message);
         }
@@ -894,7 +860,8 @@ async function handleEnemyIconUpload(file) {
         const base64 = await blobToBase64(webpBlob);
         
         // Calculate next asset ID
-        const maxId = enemyAssets.reduce((max, a) => Math.max(max, a.assetID || 0), 0);
+        const currentAssets = getEnemyAssets();
+        const maxId = currentAssets.reduce((max, a) => Math.max(max, a.assetID || 0), 0);
         const newAssetId = maxId + 1;
         
         const token = await getCurrentAccessToken();
@@ -916,11 +883,9 @@ async function handleEnemyIconUpload(file) {
         if (result.success) {
             console.log('✅ Asset uploaded:', result.assetID);
             
-            enemyAssets.push({
-                assetID: result.assetID,
-                name: result.assetID.toString(),
-                icon: result.icon
-            });
+            // Reload assets from global store to stay in sync
+            await loadEnemyAssets({ forceReload: true });
+            enemyAssets = getEnemyAssets();
             
             selectEnemyAsset(result.assetID, result.icon);
             createEnemyAssetGallery();
