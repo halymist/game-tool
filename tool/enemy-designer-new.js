@@ -716,8 +716,45 @@ async function saveEnemy(e) {
             console.log('✅ Enemy saved, tooling_id:', result.toolingId);
             alert('Enemy saved to pending! It needs approval before merging.');
             
-            // Switch to pending tab and reload
-            await loadEnemyDesignerData({ forceReload: true });
+            // Determine the asset icon URL for the pending enemy
+            let assetIcon = enemySelectedAssetIcon || null;
+            if (!assetIcon && enemySelectedAssetId) {
+                const asset = enemyAssets.find(a => a.assetID === enemySelectedAssetId || a.id === enemySelectedAssetId);
+                assetIcon = asset ? (asset.icon || asset.url) : null;
+            }
+
+            // Build a local pending object instead of full reload
+            const pendingEnemy = {
+                toolingId: result.toolingId,
+                gameId: enemyData.gameId,
+                enemyName: enemyData.enemyName,
+                strength: enemyData.strength,
+                stamina: enemyData.stamina,
+                agility: enemyData.agility,
+                luck: enemyData.luck,
+                armor: enemyData.armor,
+                minDamage: enemyData.minDamage,
+                maxDamage: enemyData.maxDamage,
+                assetId: enemyData.assetId,
+                icon: assetIcon,
+                description: enemyData.description,
+                talents: enemyData.talents,
+                action: enemyData.gameId ? 'update' : 'insert',
+                approved: false
+            };
+
+            // If editing an existing pending enemy, replace it; otherwise push new
+            const existingIdx = allPendingEnemies.findIndex(e => e.toolingId === result.toolingId);
+            if (existingIdx !== -1) {
+                allPendingEnemies[existingIdx] = pendingEnemy;
+            } else {
+                allPendingEnemies.push(pendingEnemy);
+            }
+            filteredPendingEnemies = [...allPendingEnemies];
+            // Keep GlobalData in sync
+            setGlobalArray('pendingEnemies', allPendingEnemies);
+            
+            renderPendingEnemyList();
             switchEnemyTab('pending');
         } else {
             alert('Error saving enemy: ' + (result.message || 'Unknown error'));
@@ -808,6 +845,7 @@ async function removePendingEnemy(toolingId) {
         if (result.success) {
             allPendingEnemies = allPendingEnemies.filter(e => e.toolingId !== toolingId);
             filteredPendingEnemies = filteredPendingEnemies.filter(e => e.toolingId !== toolingId);
+            setGlobalArray('pendingEnemies', allPendingEnemies);
             
             if (selectedEnemyId === toolingId && isViewingPendingEnemy) {
                 createNewEnemy();
@@ -892,11 +930,19 @@ async function handleEnemyIconUpload(file) {
         if (result.success) {
             console.log('✅ Asset uploaded:', result.assetID);
             
-            // Reload assets from global store to stay in sync
-            await loadEnemyAssets({ forceReload: true });
-            enemyAssets = getEnemyAssets();
+            // Push locally instead of full reload
+            const newAsset = {
+                assetID: result.assetID,
+                id: result.assetID,
+                name: String(result.assetID),
+                icon: result.icon || base64,
+                url: result.icon || base64,
+                remoteUrl: result.icon || base64
+            };
+            enemyAssets.push(newAsset);
+            GlobalData.enemyAssets.push(newAsset);
             
-            selectEnemyAsset(result.assetID, result.icon);
+            selectEnemyAsset(result.assetID, result.icon || base64);
             createEnemyAssetGallery();
         } else {
             alert('Upload failed: ' + result.message);

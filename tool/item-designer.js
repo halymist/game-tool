@@ -361,6 +361,7 @@ async function removePendingItem(toolingId) {
             // Remove from local state
             allPendingItems = allPendingItems.filter(i => i.toolingId !== toolingId);
             filteredPendingItems = filteredPendingItems.filter(i => i.toolingId !== toolingId);
+            setGlobalArray('pendingItems', allPendingItems);
             
             // Clear form if this item was selected
             if (selectedItemId === toolingId && isViewingPendingItem) {
@@ -828,10 +829,45 @@ async function saveItem(e) {
         
         if (result.success) {
             alert(isUpdate ? 'Item updated successfully!' : 'Item created successfully!');
-            await loadItemsAndEffects({ forceReload: true });
+            
+            // Build a local pending object instead of full reload
+            const pendingItem = {
+                toolingId: result.toolingId,
+                gameId: itemData.id,
+                name: itemData.name,
+                type: itemData.type,
+                assetID: itemData.assetID,
+                silver: itemData.silver,
+                strength: itemData.strength,
+                stamina: itemData.stamina,
+                agility: itemData.agility,
+                luck: itemData.luck,
+                armor: itemData.armor,
+                socket: itemData.socket,
+                effectID: itemData.effectID,
+                effectFactor: itemData.effectFactor,
+                minDamage: itemData.minDamage,
+                maxDamage: itemData.maxDamage,
+                action: result.action || (isUpdate ? 'update' : 'insert'),
+                approved: false
+            };
+
+            // If editing an existing pending item, replace it; otherwise push new
+            const existingIdx = allPendingItems.findIndex(i => i.toolingId === result.toolingId);
+            if (existingIdx !== -1) {
+                allPendingItems[existingIdx] = pendingItem;
+            } else {
+                allPendingItems.push(pendingItem);
+            }
+            filteredPendingItems = [...allPendingItems];
+            // Keep GlobalData in sync
+            setGlobalArray('pendingItems', allPendingItems);
+            
+            renderPendingItemList();
             clearForm();
             document.getElementById('itemEditorTitle').textContent = 'Create New Item';
             selectedItemId = null;
+            switchTab('pending');
         } else {
             alert('Error saving item: ' + (result.message || 'Unknown error'));
         }

@@ -492,10 +492,39 @@ async function savePerk(e) {
         
         if (result.success) {
             alert(isUpdate ? 'Perk updated successfully!' : 'Perk created successfully!');
-            await loadPerksAndEffects({ forceReload: true });
+            
+            // Build a local pending object instead of full reload
+            const pendingPerk = {
+                toolingId: result.toolingId,
+                gameId: perkData.id,
+                name: perkData.name,
+                assetID: perkData.assetID,
+                description: perkData.description,
+                effect1_id: perkData.effect1_id,
+                factor1: perkData.factor1,
+                effect2_id: perkData.effect2_id,
+                factor2: perkData.factor2,
+                is_blessing: perkData.is_blessing,
+                action: result.action || (isUpdate ? 'update' : 'insert'),
+                approved: false
+            };
+
+            // If editing an existing pending perk, replace it; otherwise push new
+            const existingIdx = allPendingPerks.findIndex(p => p.toolingId === result.toolingId);
+            if (existingIdx !== -1) {
+                allPendingPerks[existingIdx] = pendingPerk;
+            } else {
+                allPendingPerks.push(pendingPerk);
+            }
+            filteredPendingPerks = [...allPendingPerks];
+            // Keep GlobalData in sync
+            setGlobalArray('pendingPerks', allPendingPerks);
+            
+            renderPendingPerkList();
             clearPerkForm();
             document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
             selectedPerkId = null;
+            switchPerkTab('pending');
         } else {
             alert('Error saving perk: ' + (result.message || 'Unknown error'));
         }
@@ -576,6 +605,7 @@ async function removePendingPerk(toolingId) {
             // Remove from local state
             allPendingPerks = allPendingPerks.filter(p => p.toolingId !== toolingId);
             filteredPendingPerks = filteredPendingPerks.filter(p => p.toolingId !== toolingId);
+            setGlobalArray('pendingPerks', allPendingPerks);
             
             // Clear form if this perk was selected
             if (selectedPerkId === toolingId && isViewingPendingPerk) {
