@@ -1976,6 +1976,8 @@ function determineOptionType(o) {
 
 // Extract reward object from option data
 function extractReward(o) {
+    // Normalize a reward field: AI may return {id, name} objects; extract just the numeric id
+    const normId = v => (v && typeof v === 'object') ? (v.id ?? null) : (v ?? null);
     if (o.reward_stat_type && o.reward_stat_amount) {
         return { type: 'stat', statType: o.reward_stat_type, amount: o.reward_stat_amount };
     }
@@ -1986,16 +1988,16 @@ function extractReward(o) {
         return { type: 'talent' };
     }
     if (o.reward_item) {
-        return { type: 'item', itemId: o.reward_item };
+        return { type: 'item', itemId: normId(o.reward_item) };
     }
     if (o.reward_potion) {
-        return { type: 'potion', potionId: o.reward_potion };
+        return { type: 'potion', potionId: normId(o.reward_potion) };
     }
     if (o.reward_perk) {
-        return { type: 'perk', perkId: o.reward_perk };
+        return { type: 'perk', perkId: normId(o.reward_perk) };
     }
     if (o.reward_blessing) {
-        return { type: 'blessing', blessingId: o.reward_blessing };
+        return { type: 'blessing', blessingId: normId(o.reward_blessing) };
     }
     return null;
 }
