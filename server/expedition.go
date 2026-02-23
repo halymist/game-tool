@@ -15,6 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/lib/pq"
 )
 
 type ExpeditionSlide struct {
@@ -290,267 +291,127 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	for _, slide := range req.Slides {
-		var slideID int
-
-		assetID := 0
-		if slide.AssetID != nil {
-			assetID = *slide.AssetID
-		}
-
-		rewardStatType := slide.RewardStatType
-		rewardStatAmount := slide.RewardStatAmt
-		rewardTalent := slide.RewardTalent
-		rewardItem := slide.RewardItem
-		rewardPerk := slide.RewardPerk
-		rewardBlessing := slide.RewardBlessing
-		rewardPotion := slide.RewardPotion
-		rewardSilver := slide.RewardSilver
-
-		err := tx.QueryRow(`
-			INSERT INTO tooling.expedition_slides (
-				slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
-				reward_stat_type, reward_stat_amount, reward_talent, reward_item,
-				reward_perk, reward_blessing, reward_potion, reward_silver,
-				pos_x, pos_y, slide_state
-			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-			) RETURNING slide_id
-		`, slide.Text, assetID, slide.EffectID, slide.EffectFactor, slide.IsStart, req.SettlementID,
-			rewardStatType, rewardStatAmount, rewardTalent, rewardItem,
-			rewardPerk, rewardBlessing, rewardPotion, rewardSilver,
-			slide.PosX, slide.PosY, "insert").Scan(&slideID)
-
+	// ---- Bulk insert new slides (1 round trip) ----
+	if len(req.Slides) > 0 {
+		inserted, err := bulkInsertSlides(tx, req.Slides, req.SettlementID)
 		if err != nil {
-			log.Printf("Failed to insert slide %d: %v", slide.ID, err)
-			http.Error(w, fmt.Sprintf("Failed to save slide: %v", err), http.StatusInternalServerError)
+			log.Printf("Failed to bulk insert slides: %v", err)
+			http.Error(w, "Failed to save slides", http.StatusInternalServerError)
 			return
 		}
-
-		slideMapping[slide.ID] = slideID
-		log.Printf("Inserted slide local:%d -> slide_id:%d", slide.ID, slideID)
+		for localID, dbID := range inserted {
+			slideMapping[localID] = dbID
+		}
+		log.Printf("Bulk inserted %d slides", len(inserted))
 	}
 
-	for _, slide := range req.Slides {
-		slideID := slideMapping[slide.ID]
+	// ---- Bulk insert new options for new slides (1 round trip) ----
+	if len(req.Slides) > 0 {
+		inserted, err := bulkInsertOptionsForSlides(tx, req.Slides, slideMapping)
+		if err != nil {
+			log.Printf("Failed to bulk insert slide options: %v", err)
+			http.Error(w, "Failed to save options", http.StatusInternalServerError)
+			return
+		}
+		for key, id := range inserted {
+			optionMapping[key] = id
+		}
+		log.Printf("Bulk inserted options for new slides")
+	}
 
-		for optIdx, option := range slide.Options {
-			var optionID int
-
-			err := tx.QueryRow(`
-				INSERT INTO tooling.expedition_options (
-					slide_id, option_text, stat_type, stat_required,
-					effect_id, effect_amount, enemy_id, faction_required, silver_required
-				) VALUES (
-					$1, $2, $3, $4, $5, $6, $7, $8, $9
-				) RETURNING option_id
-			`, slideID, option.Text, option.StatType, option.StatRequired,
-				option.EffectID, option.EffectAmount, option.EnemyID, option.FactionReq, option.SilverRequired).Scan(&optionID)
-
-			if err != nil {
-				log.Printf("Failed to insert option for slide %d: %v", slide.ID, err)
-				http.Error(w, "Failed to save option", http.StatusInternalServerError)
+	// ---- Bulk insert new options for existing slides (1 round trip) ----
+	if len(req.NewOptions) > 0 {
+		inserted, slideIDs, err := bulkInsertNewOptions(tx, req.NewOptions, slideMapping)
+		if err != nil {
+			log.Printf("Failed to bulk insert new options: %v", err)
+			http.Error(w, "Failed to save new options", http.StatusInternalServerError)
+			return
+		}
+		for key, id := range inserted {
+			optionMapping[key] = id
+		}
+		if len(slideIDs) > 0 {
+			if _, err := tx.Exec(`
+				UPDATE tooling.expedition_slides
+				SET slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
+				WHERE slide_id = ANY($1)
+			`, pq.Array(slideIDs)); err != nil {
+				log.Printf("Failed to mark slides updated after new options: %v", err)
+				http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
 				return
 			}
-
-			optionKey := formatOptionKey(slide.ID, optIdx)
-			optionMapping[optionKey] = optionID
-			log.Printf("Inserted option slide:%d opt:%d -> option_id:%d", slide.ID, optIdx, optionID)
 		}
+		log.Printf("Bulk inserted %d new options for existing slides", len(inserted))
 	}
 
-	for _, slide := range req.Slides {
-		for optIdx, option := range slide.Options {
-			optionKey := formatOptionKey(slide.ID, optIdx)
-			optionID := optionMapping[optionKey]
-
-			for _, conn := range option.Connections {
-				var targetSlideID int
-				if conn.TargetSlideDBID != nil && *conn.TargetSlideDBID > 0 {
-					targetSlideID = *conn.TargetSlideDBID
-				} else {
-					var ok bool
-					targetSlideID, ok = slideMapping[conn.TargetSlideLocalID]
-					if !ok {
-						log.Printf("Warning: Target slide %d not found in mapping, skipping connection", conn.TargetSlideLocalID)
-						continue
-					}
-				}
-
-				_, err := tx.Exec(`
-					INSERT INTO tooling.expedition_outcomes (
-						option_id, target_slide_id
-					) VALUES ($1, $2)
-				`, optionID, targetSlideID)
-
-				if err != nil {
-					log.Printf("Failed to insert outcome: %v", err)
-					http.Error(w, "Failed to save connection", http.StatusInternalServerError)
-					return
-				}
-
-				log.Printf("Inserted outcome: option:%d -> slide:%d", optionID, targetSlideID)
-			}
-		}
-	}
-
-	for _, newOpt := range req.NewOptions {
-		var optionID int
-
-		slideID := newOpt.SlideID
-		if slideID == 0 {
-			if mappedID, ok := slideMapping[newOpt.SlideLocalID]; ok {
-				slideID = mappedID
-			}
-		}
-
-		if slideID == 0 {
-			log.Printf("Failed to resolve slide ID for new option (local slide %d, provided slideId %d)", newOpt.SlideLocalID, newOpt.SlideID)
-			http.Error(w, "Failed to determine slide for new option", http.StatusBadRequest)
-			return
-		}
-
-		err := tx.QueryRow(`
-			INSERT INTO tooling.expedition_options (
-				slide_id, option_text, stat_type, stat_required,
-				effect_id, effect_amount, enemy_id, faction_required, silver_required
-			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9
-			) RETURNING option_id
-		`, slideID, newOpt.Text, newOpt.StatType, newOpt.StatRequired,
-			newOpt.EffectID, newOpt.EffectAmount, newOpt.EnemyID, newOpt.FactionReq, newOpt.SilverRequired).Scan(&optionID)
-
-		if err != nil {
-			log.Printf("Failed to insert new option for slide %d: %v", newOpt.SlideID, err)
-			http.Error(w, "Failed to save new option", http.StatusInternalServerError)
-			return
-		}
-
-		if err := markSlideState(newOpt.SlideID); err != nil {
-			log.Printf("Failed to mark slide %d updated: %v", newOpt.SlideID, err)
-			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
-			return
-		}
-
-		optionKey := formatOptionKey(newOpt.SlideLocalID, newOpt.OptionIndex)
-		optionMapping[optionKey] = optionID
-		log.Printf("Inserted new option for slide:%d -> option_id:%d (mapped as %s)", newOpt.SlideID, optionID, optionKey)
-
-		for _, conn := range newOpt.Connections {
-			var targetSlideID int
-			if conn.TargetSlideDBID != nil && *conn.TargetSlideDBID > 0 {
-				targetSlideID = *conn.TargetSlideDBID
-			} else {
-				var ok bool
-				targetSlideID, ok = slideMapping[conn.TargetSlideLocalID]
-				if !ok {
-					log.Printf("Warning: Target slide %d not found in mapping, skipping connection for new option", conn.TargetSlideLocalID)
-					continue
-				}
-			}
-
-			_, err := tx.Exec(`
+	// ---- Bulk insert outcomes (connections) (1 round trip) ----
+	{
+		optionIDs, targetIDs := collectOutcomeRows(req.Slides, req.NewOptions, req.NewConnections, optionMapping, slideMapping)
+		if len(optionIDs) > 0 {
+			if _, err := tx.Exec(`
 				INSERT INTO tooling.expedition_outcomes (option_id, target_slide_id)
-				VALUES ($1, $2)
-			`, optionID, targetSlideID)
-
-			if err != nil {
-				log.Printf("Failed to insert outcome for new option: %v", err)
-				http.Error(w, "Failed to save connection for new option", http.StatusInternalServerError)
+				SELECT * FROM unnest($1::int[], $2::int[])
+			`, pq.Array(optionIDs), pq.Array(targetIDs)); err != nil {
+				log.Printf("Failed to bulk insert outcomes: %v", err)
+				http.Error(w, "Failed to save connections", http.StatusInternalServerError)
 				return
 			}
-
-			log.Printf("Inserted outcome for new option: option:%d -> slide:%d", optionID, targetSlideID)
+			log.Printf("Bulk inserted %d outcome rows", len(optionIDs))
 		}
-	}
-
-	for _, newConn := range req.NewConnections {
-		var targetSlideID int
-		if newConn.TargetSlideDBID != nil && *newConn.TargetSlideDBID > 0 {
-			targetSlideID = *newConn.TargetSlideDBID
-		} else {
-			var ok bool
-			targetSlideID, ok = slideMapping[newConn.TargetSlideLocalID]
-			if !ok {
-				log.Printf("Warning: Target slide %d not found in mapping, skipping new connection", newConn.TargetSlideLocalID)
-				continue
+		// Mark parent slides of new connections for existing options
+		newConnOptionIDs := uniqueOptionIDs(req.NewConnections)
+		if len(newConnOptionIDs) > 0 {
+			if _, err := tx.Exec(`
+				UPDATE tooling.expedition_slides
+				SET slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
+				WHERE slide_id IN (
+					SELECT slide_id FROM tooling.expedition_options WHERE option_id = ANY($1)
+				)
+			`, pq.Array(newConnOptionIDs)); err != nil {
+				log.Printf("Failed to mark slides updated after new connections: %v", err)
+				http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+				return
 			}
 		}
-
-		_, err := tx.Exec(`
-			INSERT INTO tooling.expedition_outcomes (option_id, target_slide_id)
-			VALUES ($1, $2)
-		`, newConn.OptionID, targetSlideID)
-
-		if err != nil {
-			log.Printf("Failed to insert new connection for option %d: %v", newConn.OptionID, err)
-			http.Error(w, "Failed to save new connection", http.StatusInternalServerError)
-			return
-		}
-
-		if err := markSlideStateForOption(newConn.OptionID); err != nil {
-			log.Printf("Failed to mark slide updated for option %d: %v", newConn.OptionID, err)
-			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
-			return
-		}
-
-		log.Printf("Inserted new connection: option:%d -> slide:%d", newConn.OptionID, targetSlideID)
 	}
 
-	for _, update := range req.SlideUpdates {
-		assetID := 0
-		if update.AssetID != nil {
-			assetID = *update.AssetID
-		}
-
-		_, err := tx.Exec(`
-			UPDATE tooling.expedition_slides SET
-				slide_text = $1, asset_id = $2, effect_id = $3, effect_factor = $4,
-				is_start = $5, reward_stat_type = $6, reward_stat_amount = $7,
-				reward_talent = $8, reward_item = $9, reward_perk = $10,
-				reward_blessing = $11, reward_potion = $12, reward_silver = $13,
-				pos_x = $14, pos_y = $15,
-				slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
-			WHERE slide_id = $16
-		`, update.Text, assetID, update.EffectID, update.EffectFactor,
-			update.IsStart, update.RewardStatType, update.RewardStatAmt,
-			update.RewardTalent, update.RewardItem, update.RewardPerk,
-			update.RewardBlessing, update.RewardPotion, update.RewardSilver,
-			update.PosX, update.PosY, update.SlideID)
-
-		if err != nil {
-			log.Printf("Failed to update slide %d: %v", update.SlideID, err)
-			http.Error(w, "Failed to update slide", http.StatusInternalServerError)
+	// ---- Bulk update existing slides (1 round trip) ----
+	if len(req.SlideUpdates) > 0 {
+		if err := bulkUpdateSlides(tx, req.SlideUpdates); err != nil {
+			log.Printf("Failed to bulk update slides: %v", err)
+			http.Error(w, "Failed to update slides", http.StatusInternalServerError)
 			return
 		}
-
-		log.Printf("Updated slide slide_id:%d", update.SlideID)
+		log.Printf("Bulk updated %d slides", len(req.SlideUpdates))
 	}
 
-	for _, update := range req.OptionUpdates {
-		_, err := tx.Exec(`
-			UPDATE tooling.expedition_options SET
-				option_text = $1, stat_type = $2, stat_required = $3,
-				effect_id = $4, effect_amount = $5, enemy_id = $6,
-				faction_required = $7, silver_required = $8
-			WHERE option_id = $9
-		`, update.Text, update.StatType, update.StatRequired,
-			update.EffectID, update.EffectAmount, update.EnemyID,
-			update.FactionReq, update.SilverRequired, update.OptionID)
-
-		if err != nil {
-			log.Printf("Failed to update option %d: %v", update.OptionID, err)
-			http.Error(w, "Failed to update option", http.StatusInternalServerError)
+	// ---- Bulk update existing options (1 round trip) ----
+	if len(req.OptionUpdates) > 0 {
+		if err := bulkUpdateOptions(tx, req.OptionUpdates); err != nil {
+			log.Printf("Failed to bulk update options: %v", err)
+			http.Error(w, "Failed to update options", http.StatusInternalServerError)
 			return
 		}
-
-		if err := markSlideStateForOption(update.OptionID); err != nil {
-			log.Printf("Failed to mark slide updated for option %d: %v", update.OptionID, err)
-			http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
-			return
+		updatedIDs := make([]int, 0, len(req.OptionUpdates))
+		for _, u := range req.OptionUpdates {
+			if u.OptionID > 0 {
+				updatedIDs = append(updatedIDs, u.OptionID)
+			}
 		}
-
-		log.Printf("Updated option option_id:%d", update.OptionID)
+		if len(updatedIDs) > 0 {
+			if _, err := tx.Exec(`
+				UPDATE tooling.expedition_slides
+				SET slide_state = CASE WHEN slide_state = 'insert' THEN 'insert' ELSE 'update' END
+				WHERE slide_id IN (
+					SELECT slide_id FROM tooling.expedition_options WHERE option_id = ANY($1)
+				)
+			`, pq.Array(updatedIDs)); err != nil {
+				log.Printf("Failed to mark slides updated after option updates: %v", err)
+				http.Error(w, "Failed to update slide state", http.StatusInternalServerError)
+				return
+			}
+		}
+		log.Printf("Bulk updated %d options", len(req.OptionUpdates))
 	}
 
 	// Commit transaction
@@ -575,6 +436,441 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 
 func formatOptionKey(slideID, optionIndex int) string {
 	return fmt.Sprintf("%d-%d", slideID, optionIndex)
+}
+
+// optionRowSpec is an internal helper used when bulk-inserting options.
+type optionRowSpec struct {
+	key   string
+	slide int
+	opt   ExpeditionOption
+}
+
+// nullInt converts *int to sql.NullInt64
+func nullInt(v *int) sql.NullInt64 {
+	if v == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*v), Valid: true}
+}
+
+// nullStr converts *string to sql.NullString
+func nullStr(v *string) sql.NullString {
+	if v == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *v, Valid: true}
+}
+
+// nullBool converts *bool to sql.NullBool
+func nullBool(v *bool) sql.NullBool {
+	if v == nil {
+		return sql.NullBool{}
+	}
+	return sql.NullBool{Bool: *v, Valid: true}
+}
+
+// bulkInsertSlides inserts all new slides in one round trip using unnest.
+// Returns map[localID]dbID.
+func bulkInsertSlides(tx *sql.Tx, slides []ExpeditionSlide, defaultSettlement *int) (map[int]int, error) {
+	n := len(slides)
+	texts := make([]string, n)
+	assets := make([]int64, n)
+	effectIDs := make([]sql.NullInt64, n)
+	effectFactors := make([]sql.NullInt64, n)
+	isStarts := make([]bool, n)
+	settlements := make([]sql.NullInt64, n)
+	rewardStatTypes := make([]sql.NullString, n)
+	rewardStatAmts := make([]sql.NullInt64, n)
+	rewardTalents := make([]sql.NullBool, n)
+	rewardItems := make([]sql.NullInt64, n)
+	rewardPerks := make([]sql.NullInt64, n)
+	rewardBlessings := make([]sql.NullInt64, n)
+	rewardPotions := make([]sql.NullInt64, n)
+	rewardSilvers := make([]sql.NullInt64, n)
+	posXs := make([]float64, n)
+	posYs := make([]float64, n)
+
+	for i, s := range slides {
+		texts[i] = s.Text
+		if s.AssetID != nil {
+			assets[i] = int64(*s.AssetID)
+		}
+		effectIDs[i] = nullInt(s.EffectID)
+		effectFactors[i] = nullInt(s.EffectFactor)
+		isStarts[i] = s.IsStart
+		setID := s.SettlementID
+		if setID == nil {
+			setID = defaultSettlement
+		}
+		settlements[i] = nullInt(setID)
+		rewardStatTypes[i] = nullStr(s.RewardStatType)
+		rewardStatAmts[i] = nullInt(s.RewardStatAmt)
+		rewardTalents[i] = nullBool(s.RewardTalent)
+		rewardItems[i] = nullInt(s.RewardItem)
+		rewardPerks[i] = nullInt(s.RewardPerk)
+		rewardBlessings[i] = nullInt(s.RewardBlessing)
+		rewardPotions[i] = nullInt(s.RewardPotion)
+		rewardSilvers[i] = nullInt(s.RewardSilver)
+		posXs[i] = s.PosX
+		posYs[i] = s.PosY
+	}
+
+	slideStates := make([]string, n)
+	for i := range slideStates {
+		slideStates[i] = "insert"
+	}
+
+	rows, err := tx.Query(`
+		INSERT INTO tooling.expedition_slides (
+			slide_text, asset_id, effect_id, effect_factor, is_start, settlement_id,
+			reward_stat_type, reward_stat_amount, reward_talent, reward_item,
+			reward_perk, reward_blessing, reward_potion, reward_silver,
+			pos_x, pos_y, slide_state
+		)
+		SELECT * FROM unnest(
+			$1::text[], $2::int[], $3::int[], $4::int[], $5::bool[], $6::int[],
+			$7::text[], $8::int[], $9::bool[], $10::int[],
+			$11::int[], $12::int[], $13::int[], $14::int[],
+			$15::float8[], $16::float8[], $17::text[]
+		)
+		RETURNING slide_id
+	`,
+		pq.Array(texts), pq.Array(assets), pq.Array(effectIDs), pq.Array(effectFactors),
+		pq.Array(isStarts), pq.Array(settlements),
+		pq.Array(rewardStatTypes), pq.Array(rewardStatAmts), pq.Array(rewardTalents), pq.Array(rewardItems),
+		pq.Array(rewardPerks), pq.Array(rewardBlessings), pq.Array(rewardPotions), pq.Array(rewardSilvers),
+		pq.Array(posXs), pq.Array(posYs), pq.Array(slideStates),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	mapping := make(map[int]int, n)
+	i := 0
+	for rows.Next() {
+		var dbID int
+		if err := rows.Scan(&dbID); err != nil {
+			return nil, err
+		}
+		mapping[slides[i].ID] = dbID
+		i++
+	}
+	return mapping, rows.Err()
+}
+
+// bulkInsertOptionsForSlides inserts all options that belong to newly inserted slides.
+// Returns map["localSlideID-optIdx"]optionID.
+func bulkInsertOptionsForSlides(tx *sql.Tx, slides []ExpeditionSlide, slideMapping map[int]int) (map[string]int, error) {
+	var rows []optionRowSpec
+	for _, s := range slides {
+		dbID := slideMapping[s.ID]
+		for idx, o := range s.Options {
+			rows = append(rows, optionRowSpec{key: formatOptionKey(s.ID, idx), slide: dbID, opt: o})
+		}
+	}
+	if len(rows) == 0 {
+		return map[string]int{}, nil
+	}
+	return insertOptionRows(tx, rows)
+}
+
+// bulkInsertNewOptions inserts options for existing slides from req.NewOptions.
+// Returns map[key]optionID and the list of affected slide DB IDs (for state marking).
+func bulkInsertNewOptions(tx *sql.Tx, newOpts []NewOptionForExistingSlide, slideMapping map[int]int) (map[string]int, []int, error) {
+	var rows []optionRowSpec
+	slideSet := make(map[int]struct{})
+	for _, no := range newOpts {
+		slideID := no.SlideID
+		if slideID == 0 {
+			if mapped, ok := slideMapping[no.SlideLocalID]; ok {
+				slideID = mapped
+			}
+		}
+		if slideID == 0 {
+			return nil, nil, fmt.Errorf("cannot resolve slide ID for new option (local %d, provided %d)", no.SlideLocalID, no.SlideID)
+		}
+		rows = append(rows, optionRowSpec{
+			key:   formatOptionKey(no.SlideLocalID, no.OptionIndex),
+			slide: slideID,
+			opt: ExpeditionOption{
+				Text: no.Text, StatType: no.StatType, StatRequired: no.StatRequired,
+				EffectID: no.EffectID, EffectAmount: no.EffectAmount, EnemyID: no.EnemyID,
+				FactionReq: no.FactionReq, SilverRequired: no.SilverRequired,
+			},
+		})
+		slideSet[slideID] = struct{}{}
+	}
+	mapping, err := insertOptionRows(tx, rows)
+	if err != nil {
+		return nil, nil, err
+	}
+	slideIDs := make([]int, 0, len(slideSet))
+	for id := range slideSet {
+		slideIDs = append(slideIDs, id)
+	}
+	return mapping, slideIDs, nil
+}
+
+// insertOptionRows is the shared unnest INSERT for both option insert helpers.
+func insertOptionRows(tx *sql.Tx, rows []optionRowSpec) (map[string]int, error) {
+	n := len(rows)
+	slideIDs := make([]int64, n)
+	texts := make([]string, n)
+	statTypes := make([]sql.NullString, n)
+	statReqs := make([]sql.NullInt64, n)
+	effectIDs := make([]sql.NullInt64, n)
+	effectAmts := make([]sql.NullInt64, n)
+	enemyIDs := make([]sql.NullInt64, n)
+	factionReqs := make([]sql.NullString, n)
+	silverReqs := make([]sql.NullInt64, n)
+
+	for i, r := range rows {
+		slideIDs[i] = int64(r.slide)
+		texts[i] = r.opt.Text
+		statTypes[i] = nullStr(r.opt.StatType)
+		statReqs[i] = nullInt(r.opt.StatRequired)
+		effectIDs[i] = nullInt(r.opt.EffectID)
+		effectAmts[i] = nullInt(r.opt.EffectAmount)
+		enemyIDs[i] = nullInt(r.opt.EnemyID)
+		factionReqs[i] = nullStr(r.opt.FactionReq)
+		silverReqs[i] = nullInt(r.opt.SilverRequired)
+	}
+
+	dbRows, err := tx.Query(`
+		INSERT INTO tooling.expedition_options (
+			slide_id, option_text, stat_type, stat_required,
+			effect_id, effect_amount, enemy_id, faction_required, silver_required
+		)
+		SELECT * FROM unnest(
+			$1::int[], $2::text[], $3::text[], $4::int[],
+			$5::int[], $6::int[], $7::int[], $8::text[], $9::int[]
+		)
+		RETURNING option_id
+	`,
+		pq.Array(slideIDs), pq.Array(texts), pq.Array(statTypes), pq.Array(statReqs),
+		pq.Array(effectIDs), pq.Array(effectAmts), pq.Array(enemyIDs), pq.Array(factionReqs), pq.Array(silverReqs),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer dbRows.Close()
+
+	mapping := make(map[string]int, n)
+	i := 0
+	for dbRows.Next() {
+		var id int
+		if err := dbRows.Scan(&id); err != nil {
+			return nil, err
+		}
+		mapping[rows[i].key] = id
+		i++
+	}
+	return mapping, dbRows.Err()
+}
+
+// collectOutcomeRows gathers all (optionID, targetSlideID) pairs for the bulk outcome insert.
+func collectOutcomeRows(
+	newSlides []ExpeditionSlide,
+	newOptions []NewOptionForExistingSlide,
+	newConns []NewConnectionForExistingOption,
+	optionMapping map[string]int,
+	slideMapping map[int]int,
+) ([]int64, []int64) {
+	var optIDs, targetIDs []int64
+
+	addConn := func(optionID int, connections []ExpeditionConnection) {
+		for _, c := range connections {
+			var targetID int
+			if c.TargetSlideDBID != nil && *c.TargetSlideDBID > 0 {
+				targetID = *c.TargetSlideDBID
+			} else if id, ok := slideMapping[c.TargetSlideLocalID]; ok {
+				targetID = id
+			} else {
+				log.Printf("Warning: target slide %d not in mapping, skipping connection", c.TargetSlideLocalID)
+				continue
+			}
+			optIDs = append(optIDs, int64(optionID))
+			targetIDs = append(targetIDs, int64(targetID))
+		}
+	}
+
+	for _, s := range newSlides {
+		for idx, o := range s.Options {
+			if id, ok := optionMapping[formatOptionKey(s.ID, idx)]; ok {
+				addConn(id, o.Connections)
+			}
+		}
+	}
+	for _, no := range newOptions {
+		if id, ok := optionMapping[formatOptionKey(no.SlideLocalID, no.OptionIndex)]; ok {
+			addConn(id, no.Connections)
+		}
+	}
+	for _, nc := range newConns {
+		if nc.OptionID <= 0 {
+			continue
+		}
+		var targetID int
+		if nc.TargetSlideDBID != nil && *nc.TargetSlideDBID > 0 {
+			targetID = *nc.TargetSlideDBID
+		} else if id, ok := slideMapping[nc.TargetSlideLocalID]; ok {
+			targetID = id
+		} else {
+			log.Printf("Warning: target slide %d not in mapping, skipping new connection", nc.TargetSlideLocalID)
+			continue
+		}
+		optIDs = append(optIDs, int64(nc.OptionID))
+		targetIDs = append(targetIDs, int64(targetID))
+	}
+	return optIDs, targetIDs
+}
+
+// uniqueOptionIDs returns a deduplicated slice of option IDs from NewConnectionForExistingOption.
+func uniqueOptionIDs(conns []NewConnectionForExistingOption) []int64 {
+	seen := make(map[int]struct{})
+	var out []int64
+	for _, c := range conns {
+		if c.OptionID <= 0 {
+			continue
+		}
+		if _, ok := seen[c.OptionID]; ok {
+			continue
+		}
+		seen[c.OptionID] = struct{}{}
+		out = append(out, int64(c.OptionID))
+	}
+	return out
+}
+
+// bulkUpdateSlides updates all existing slides in one round trip using unnest.
+func bulkUpdateSlides(tx *sql.Tx, updates []SlideUpdate) error {
+	n := len(updates)
+	ids := make([]int64, n)
+	texts := make([]string, n)
+	assets := make([]int64, n)
+	effectIDs := make([]sql.NullInt64, n)
+	effectFactors := make([]sql.NullInt64, n)
+	isStarts := make([]bool, n)
+	rewardStatTypes := make([]sql.NullString, n)
+	rewardStatAmts := make([]sql.NullInt64, n)
+	rewardTalents := make([]sql.NullBool, n)
+	rewardItems := make([]sql.NullInt64, n)
+	rewardPerks := make([]sql.NullInt64, n)
+	rewardBlessings := make([]sql.NullInt64, n)
+	rewardPotions := make([]sql.NullInt64, n)
+	rewardSilvers := make([]sql.NullInt64, n)
+	posXs := make([]float64, n)
+	posYs := make([]float64, n)
+
+	for i, u := range updates {
+		ids[i] = int64(u.SlideID)
+		texts[i] = u.Text
+		if u.AssetID != nil {
+			assets[i] = int64(*u.AssetID)
+		}
+		effectIDs[i] = nullInt(u.EffectID)
+		effectFactors[i] = nullInt(u.EffectFactor)
+		isStarts[i] = u.IsStart
+		rewardStatTypes[i] = nullStr(u.RewardStatType)
+		rewardStatAmts[i] = nullInt(u.RewardStatAmt)
+		rewardTalents[i] = nullBool(u.RewardTalent)
+		rewardItems[i] = nullInt(u.RewardItem)
+		rewardPerks[i] = nullInt(u.RewardPerk)
+		rewardBlessings[i] = nullInt(u.RewardBlessing)
+		rewardPotions[i] = nullInt(u.RewardPotion)
+		rewardSilvers[i] = nullInt(u.RewardSilver)
+		posXs[i] = u.PosX
+		posYs[i] = u.PosY
+	}
+
+	_, err := tx.Exec(`
+		UPDATE tooling.expedition_slides AS s SET
+			slide_text       = v.slide_text,
+			asset_id         = v.asset_id,
+			effect_id        = v.effect_id,
+			effect_factor    = v.effect_factor,
+			is_start         = v.is_start,
+			reward_stat_type   = v.reward_stat_type,
+			reward_stat_amount = v.reward_stat_amount,
+			reward_talent    = v.reward_talent,
+			reward_item      = v.reward_item,
+			reward_perk      = v.reward_perk,
+			reward_blessing  = v.reward_blessing,
+			reward_potion    = v.reward_potion,
+			reward_silver    = v.reward_silver,
+			pos_x            = v.pos_x,
+			pos_y            = v.pos_y,
+			slide_state      = CASE WHEN s.slide_state = 'insert' THEN 'insert' ELSE 'update' END
+		FROM (
+			SELECT * FROM unnest(
+				$1::int[], $2::text[], $3::int[], $4::int[], $5::int[], $6::bool[],
+				$7::text[], $8::int[], $9::bool[], $10::int[],
+				$11::int[], $12::int[], $13::int[], $14::int[],
+				$15::float8[], $16::float8[]
+			) AS t(slide_id, slide_text, asset_id, effect_id, effect_factor, is_start,
+			       reward_stat_type, reward_stat_amount, reward_talent, reward_item,
+			       reward_perk, reward_blessing, reward_potion, reward_silver, pos_x, pos_y)
+		) AS v
+		WHERE s.slide_id = v.slide_id
+	`,
+		pq.Array(ids), pq.Array(texts), pq.Array(assets), pq.Array(effectIDs), pq.Array(effectFactors),
+		pq.Array(isStarts),
+		pq.Array(rewardStatTypes), pq.Array(rewardStatAmts), pq.Array(rewardTalents), pq.Array(rewardItems),
+		pq.Array(rewardPerks), pq.Array(rewardBlessings), pq.Array(rewardPotions), pq.Array(rewardSilvers),
+		pq.Array(posXs), pq.Array(posYs),
+	)
+	return err
+}
+
+// bulkUpdateOptions updates all existing options in one round trip using unnest.
+func bulkUpdateOptions(tx *sql.Tx, updates []OptionUpdate) error {
+	n := len(updates)
+	ids := make([]int64, n)
+	texts := make([]string, n)
+	statTypes := make([]sql.NullString, n)
+	statReqs := make([]sql.NullInt64, n)
+	effectIDs := make([]sql.NullInt64, n)
+	effectAmts := make([]sql.NullInt64, n)
+	enemyIDs := make([]sql.NullInt64, n)
+	factionReqs := make([]sql.NullString, n)
+	silverReqs := make([]sql.NullInt64, n)
+
+	for i, u := range updates {
+		ids[i] = int64(u.OptionID)
+		texts[i] = u.Text
+		statTypes[i] = nullStr(u.StatType)
+		statReqs[i] = nullInt(u.StatRequired)
+		effectIDs[i] = nullInt(u.EffectID)
+		effectAmts[i] = nullInt(u.EffectAmount)
+		enemyIDs[i] = nullInt(u.EnemyID)
+		factionReqs[i] = nullStr(u.FactionReq)
+		silverReqs[i] = nullInt(u.SilverRequired)
+	}
+
+	_, err := tx.Exec(`
+		UPDATE tooling.expedition_options AS o SET
+			option_text      = v.option_text,
+			stat_type        = v.stat_type,
+			stat_required    = v.stat_required,
+			effect_id        = v.effect_id,
+			effect_amount    = v.effect_amount,
+			enemy_id         = v.enemy_id,
+			faction_required = v.faction_required,
+			silver_required  = v.silver_required
+		FROM (
+			SELECT * FROM unnest(
+				$1::int[], $2::text[], $3::text[], $4::int[],
+				$5::int[], $6::int[], $7::int[], $8::text[], $9::int[]
+			) AS t(option_id, option_text, stat_type, stat_required,
+			       effect_id, effect_amount, enemy_id, faction_required, silver_required)
+		) AS v
+		WHERE o.option_id = v.option_id
+	`,
+		pq.Array(ids), pq.Array(texts), pq.Array(statTypes), pq.Array(statReqs),
+		pq.Array(effectIDs), pq.Array(effectAmts), pq.Array(enemyIDs), pq.Array(factionReqs), pq.Array(silverReqs),
+	)
+	return err
 }
 
 // ==================== LOAD EXPEDITION DATA ====================

@@ -3656,10 +3656,9 @@ async function saveExpedition() {
                 effectFactor = slide.effect.effectFactor || null;
             }
 
-            // Extract asset ID from assetUrl if needed
-            let assetId = null;
-            if (slide.assetUrl) {
-                // Try to extract asset ID from URL pattern
+            // Extract asset ID - prefer direct assetId, fall back to parsing assetUrl
+            let assetId = slide.assetId ?? null;
+            if (!assetId && slide.assetUrl) {
                 const match = slide.assetUrl.match(/\/(\d+)\.webp/);
                 if (match) {
                     assetId = parseInt(match[1]);
