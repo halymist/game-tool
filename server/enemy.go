@@ -29,6 +29,7 @@ type TalentInfo struct {
 // EnemyTalent represents a talent assigned to an enemy
 type EnemyTalent struct {
 	TalentID    int  `json:"talentId" db:"talent_id"`
+	Points      int  `json:"points" db:"points"`
 	TalentOrder int  `json:"talentOrder" db:"talent_order"`
 	PerkID      *int `json:"perkId" db:"perk_id"`
 }
@@ -96,6 +97,7 @@ type EnemyResponse struct {
 // TalentInput is the input structure for creating enemy talents
 type TalentInput struct {
 	TalentID    int  `json:"talentId"`
+	Points      int  `json:"points"`
 	TalentOrder int  `json:"talentOrder"`
 	PerkID      *int `json:"perkId"`
 }
@@ -287,62 +289,7 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 		action = "update"
 	}
 
-	// Build talents array for PostgreSQL as a properly formatted string
-	var talentsArrayStr *string
-	if len(req.Talents) > 0 {
-		// Convert talents to PostgreSQL array of composite type format
-		// Format: ARRAY[ROW(talent_id, talent_order, perk_id), ...]::game.talent_input[]
-		talentParts := make([]string, len(req.Talents))
-		for i, t := range req.Talents {
-			if t.PerkID != nil {
-				talentParts[i] = fmt.Sprintf("ROW(%d,%d,%d)", t.TalentID, t.TalentOrder, *t.PerkID)
-			} else {
-				talentParts[i] = fmt.Sprintf("ROW(%d,%d,NULL)", t.TalentID, t.TalentOrder)
-			}
-		}
-		arrayStr := "ARRAY[" + strings.Join(talentParts, ",") + "]::game.talent_input[]"
-		talentsArrayStr = &arrayStr
-	}
-
-	// Call tooling.create_enemy stored procedure
-	var toolingID int
-	var query string
-
-	if talentsArrayStr != nil {
-		// Use a query that embeds the talents array directly (since it's a complex type)
-		query = fmt.Sprintf(`SELECT tooling.create_enemy($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, %s)`, *talentsArrayStr)
-		err = db.QueryRow(query,
-			req.GameID,
-			action,
-			req.EnemyName,
-			req.Strength,
-			req.Stamina,
-			req.Agility,
-			req.Luck,
-			req.Armor,
-			req.MinDamage,
-			req.MaxDamage,
-			req.AssetID,
-			req.Description,
-		).Scan(&toolingID)
-	} else {
-		query = `SELECT tooling.create_enemy($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NULL)`
-		err = db.QueryRow(query,
-			req.GameID,
-			action,
-			req.EnemyName,
-			req.Strength,
-			req.Stamina,
-			req.Agility,
-			req.Luck,
-			req.Armor,
-			req.MinDamage,
-			req.MaxDamage,
-			req.AssetID,
-			req.Description,
-		).Scan(&toolingID)
-	}
-
+	toolingID, err := createPendingEnemy(req, action)
 	if err != nil {
 		log.Printf("Error creating enemy: %v", err)
 		json.NewEncoder(w).Encode(ToolingResponse{Success: false, Message: err.Error()})
@@ -355,6 +302,43 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 		"toolingId": toolingID,
 		"message":   "Enemy created successfully",
 	})
+}
+
+// createPendingEnemy writes to tooling.enemies and tooling.enemy_talents directly, matching the lean schema.
+func createPendingEnemy(req CreateEnemyRequest, action string) (int, error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var toolingID int
+	if err := tx.QueryRow(`
+		INSERT INTO tooling.enemies (game_id, action, approved, enemy_name, strength, stamina, agility, luck,
+		                             armor, min_damage, max_damage, asset_id, description)
+		VALUES ($1,$2,FALSE,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		RETURNING tooling_id
+	`, req.GameID, action, req.EnemyName, req.Strength, req.Stamina, req.Agility, req.Luck, req.Armor,
+		req.MinDamage, req.MaxDamage, req.AssetID, req.Description).Scan(&toolingID); err != nil {
+		return 0, fmt.Errorf("insert pending enemy: %w", err)
+	}
+
+	if len(req.Talents) > 0 {
+		for _, t := range req.Talents {
+			if _, err := tx.Exec(`
+				INSERT INTO tooling.enemy_talents (enemy_id, talent_id, points, talent_order, perk_id, action, approved)
+				VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+			`, toolingID, t.TalentID, t.Points, t.TalentOrder, t.PerkID, action); err != nil {
+				return 0, fmt.Errorf("insert pending talent %d: %w", t.TalentID, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit pending enemy: %w", err)
+	}
+
+	return toolingID, nil
 }
 
 // handleToggleApproveEnemy toggles approval for a pending enemy
@@ -422,8 +406,7 @@ func handleMergeEnemies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := db.Exec("SELECT tooling.merge_enemies()")
-	if err != nil {
+	if err := mergeEnemies(); err != nil {
 		log.Printf("Error merging enemies: %v", err)
 		json.NewEncoder(w).Encode(ToolingResponse{Success: false, Message: err.Error()})
 		return
@@ -431,6 +414,167 @@ func handleMergeEnemies(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(ToolingResponse{Success: true, Message: "Enemies merged successfully"})
 	log.Println("✅ Enemies merged")
+}
+
+// mergeEnemies moves approved pending enemies into the game schema without relying on
+// the old tooling.merge_enemies() function (which expected denormalized enemy_talents).
+// This keeps enemy_talents lean: enemy_id, talent_id, talent_order, perk_id.
+func mergeEnemies() error {
+	type pendingEnemy struct {
+		toolingID   int
+		gameID      *int
+		action      string
+		name        string
+		strength    int
+		stamina     int
+		agility     int
+		luck        int
+		armor       int
+		minDamage   int
+		maxDamage   int
+		assetID     int
+		description *string
+	}
+	type pendingTalent struct {
+		enemyToolingID int
+		talentID       int
+		points         int
+		talentOrder    int
+		perkID         *int
+	}
+
+	// Load all approved pending enemies into memory BEFORE starting the transaction work
+	rows, err := db.Query(`
+		SELECT tooling_id, game_id, action, enemy_name, strength, stamina, agility, luck,
+		       armor, min_damage, max_damage, asset_id, description
+		FROM tooling.enemies
+		WHERE approved = TRUE
+		ORDER BY tooling_id
+	`)
+	if err != nil {
+		return fmt.Errorf("query pending enemies: %w", err)
+	}
+
+	var enemies []pendingEnemy
+	for rows.Next() {
+		var p pendingEnemy
+		if err := rows.Scan(&p.toolingID, &p.gameID, &p.action, &p.name, &p.strength, &p.stamina,
+			&p.agility, &p.luck, &p.armor, &p.minDamage, &p.maxDamage, &p.assetID, &p.description); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan pending enemy: %w", err)
+		}
+		enemies = append(enemies, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate pending enemies: %w", err)
+	}
+
+	// Load all talents for these enemies into memory
+	var talents []pendingTalent
+	for _, e := range enemies {
+		trows, err := db.Query(`
+			SELECT talent_id, COALESCE(points, 1), talent_order, perk_id
+			FROM tooling.enemy_talents
+			WHERE enemy_id = $1
+			ORDER BY talent_order
+		`, e.toolingID)
+		if err != nil {
+			return fmt.Errorf("query talents for enemy %d: %w", e.toolingID, err)
+		}
+		for trows.Next() {
+			var t pendingTalent
+			t.enemyToolingID = e.toolingID
+			if err := trows.Scan(&t.talentID, &t.points, &t.talentOrder, &t.perkID); err != nil {
+				trows.Close()
+				return fmt.Errorf("scan talent for enemy %d: %w", e.toolingID, err)
+			}
+			talents = append(talents, t)
+		}
+		trows.Close()
+	}
+
+	// Now do all writes in a single transaction with no open result sets
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Map toolingID -> gameEnemyID for talent inserts
+	toolingToGameID := make(map[int]int)
+
+	for _, p := range enemies {
+		var targetID int
+		switch strings.ToLower(p.action) {
+		case "insert":
+			err := tx.QueryRow(`
+				INSERT INTO game.enemies (enemy_name, strength, stamina, agility, luck, armor,
+					min_damage, max_damage, asset_id, description, version)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1)
+				RETURNING enemy_id
+			`, p.name, p.strength, p.stamina, p.agility, p.luck, p.armor,
+				p.minDamage, p.maxDamage, p.assetID, p.description).Scan(&targetID)
+			if err != nil {
+				return fmt.Errorf("insert enemy %s: %w", p.name, err)
+			}
+
+		case "update":
+			if p.gameID == nil {
+				return fmt.Errorf("pending enemy %d marked update without game_id", p.toolingID)
+			}
+			targetID = *p.gameID
+			_, err := tx.Exec(`
+				UPDATE game.enemies
+				SET enemy_name=$1, strength=$2, stamina=$3, agility=$4, luck=$5, armor=$6,
+				    min_damage=$7, max_damage=$8, asset_id=$9, description=$10,
+				    version = COALESCE(version,1) + 1
+				WHERE enemy_id=$11
+			`, p.name, p.strength, p.stamina, p.agility, p.luck, p.armor,
+				p.minDamage, p.maxDamage, p.assetID, p.description, targetID)
+			if err != nil {
+				return fmt.Errorf("update enemy %d: %w", targetID, err)
+			}
+			_, err = tx.Exec(`DELETE FROM game.enemy_talents WHERE enemy_id = $1`, targetID)
+			if err != nil {
+				return fmt.Errorf("clear talents for enemy %d: %w", targetID, err)
+			}
+
+		default:
+			return fmt.Errorf("unsupported action '%s' for pending enemy %d", p.action, p.toolingID)
+		}
+		toolingToGameID[p.toolingID] = targetID
+	}
+
+	// Insert talents
+	for _, t := range talents {
+		targetID := toolingToGameID[t.enemyToolingID]
+		_, err := tx.Exec(`
+			INSERT INTO game.enemy_talents (enemy_id, talent_id, points, talent_order, perk_id)
+			VALUES ($1, $2, $3, $4, $5)
+		`, targetID, t.talentID, t.points, t.talentOrder, t.perkID)
+		if err != nil {
+			return fmt.Errorf("insert talent %d for enemy %d: %w", t.talentID, targetID, err)
+		}
+	}
+
+	// Cleanup tooling tables
+	for _, p := range enemies {
+		_, err := tx.Exec(`DELETE FROM tooling.enemy_talents WHERE enemy_id = $1`, p.toolingID)
+		if err != nil {
+			return fmt.Errorf("cleanup pending talents for %d: %w", p.toolingID, err)
+		}
+		_, err = tx.Exec(`DELETE FROM tooling.enemies WHERE tooling_id = $1`, p.toolingID)
+		if err != nil {
+			return fmt.Errorf("cleanup pending enemy %d: %w", p.toolingID, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit merge: %w", err)
+	}
+
+	return nil
 }
 
 // handleRemovePendingEnemy removes a pending enemy
@@ -548,7 +692,7 @@ func getAllEnemies() ([]GameEnemy, error) {
 // getEnemyTalents retrieves talents for a specific enemy
 func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT et.talent_id, et.talent_order, et.perk_id
+		SELECT et.talent_id, et.points, et.talent_order, et.perk_id
 		FROM game.enemy_talents et
 		WHERE et.enemy_id = $1
 		ORDER BY et.talent_order
@@ -563,7 +707,7 @@ func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.TalentOrder, &t.PerkID)
+		err := rows.Scan(&t.TalentID, &t.Points, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}
@@ -617,7 +761,7 @@ func getPendingEnemies() ([]PendingEnemy, error) {
 // getPendingEnemyTalents retrieves pending talents for a specific pending enemy
 func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT et.talent_id, et.talent_order, et.perk_id
+		SELECT et.talent_id, COALESCE(et.points, 1), et.talent_order, et.perk_id
 		FROM tooling.enemy_talents et
 		WHERE et.enemy_id = $1
 		ORDER BY et.talent_order
@@ -632,7 +776,7 @@ func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.TalentOrder, &t.PerkID)
+		err := rows.Scan(&t.TalentID, &t.Points, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}

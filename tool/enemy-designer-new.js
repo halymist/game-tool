@@ -257,6 +257,11 @@ function switchEnemyTab(tab) {
         if (pendingList) pendingList.style.display = 'block';
         if (newBtn) newBtn.style.display = 'none';
         if (mergeBtn) mergeBtn.style.display = 'inline-flex';
+        
+        // Auto-select first pending enemy when switching to pending tab
+        if (filteredPendingEnemies.length > 0 && !isViewingPendingEnemy) {
+            selectPendingEnemy(filteredPendingEnemies[0].toolingId);
+        }
     }
 }
 
@@ -276,6 +281,7 @@ function selectEnemy(enemyId) {
 }
 
 function selectPendingEnemy(toolingId) {
+	enemyActiveTab = 'pending';
     selectedEnemyId = toolingId;
     isViewingPendingEnemy = true;
     
@@ -286,6 +292,7 @@ function selectPendingEnemy(toolingId) {
     loadTalentsIntoTree(enemy.talents || []);
     setEnemyFormLocked(true);
     renderPendingEnemyList();
+    renderEnemyList();
 }
 
 function populateEnemyForm(enemy, isPending = false) {
@@ -510,6 +517,7 @@ function upgradeTalent(talentId) {
         
         updateTalentCellDisplay(talentId);
         closeTalentUpgradeModal();
+		checkEnemySaveConditions();
         
         // If max points reached and has perk slot, prompt for perk
         if (current.points + 1 === talent.maxPoints && (talent.perkSlot === true || talent.perkSlot > 0)) {
@@ -538,6 +546,7 @@ function downgradeTalent(talentId) {
     
     updateTalentCellDisplay(talentId);
     closeTalentUpgradeModal();
+    checkEnemySaveConditions();
 }
 
 function handleTalentClick(talent) {
@@ -565,6 +574,7 @@ function handleTalentRightClick(talent) {
         }
         
         updateTalentCellDisplay(talent.talentId);
+        checkEnemySaveConditions();
     }
 }
 
@@ -600,7 +610,7 @@ function loadTalentsIntoTree(talents) {
         if (!def) return;
 
         assignedTalents.set(t.talentId, {
-            points: def.maxPoints || 0, // Use shared talent definition for cap/points
+            points: t.points || 1, // Use actual invested points from server
             talentOrder: t.talentOrder,
             perkId: t.perkId || null
         });
@@ -610,6 +620,7 @@ function loadTalentsIntoTree(talents) {
     });
 
     currentTalentOrder = maxOrder;
+    checkEnemySaveConditions();
 }
 
 function clearTalentTree() {
@@ -681,6 +692,7 @@ async function saveEnemy(e) {
         if (data.points > 0) {
             talents.push({
                 talentId: talentId,
+                points: data.points,
                 talentOrder: data.talentOrder,
                 perkId: data.perkId
             });
@@ -904,10 +916,7 @@ function checkEnemySaveConditions() {
     const btn = document.getElementById('enemySaveBtn');
     if (!btn) return;
     const name = (document.getElementById('enemyName')?.value || '').trim();
-    const stamina = parseInt(document.getElementById('enemyStamina')?.value) || 0;
-    const minDmg = parseInt(document.getElementById('enemyMinDamage')?.value) || 0;
-    const maxDmg = parseInt(document.getElementById('enemyMaxDamage')?.value) || 0;
-    const valid = name.length > 0 && !!enemySelectedAssetId && stamina > 0 && minDmg > 0 && maxDmg > 0;
+    const valid = name.length > 0 && !!enemySelectedAssetId;
     btn.disabled = !valid;
     btn.classList.toggle('btn-disabled', !valid);
 }
