@@ -53,6 +53,25 @@ const questState = {
     deletedOptionIds: [],
 };
 
+// Faction lookup: UI keeps string keys, backend expects integer codes (namespaced for quests)
+const QUEST_FACTION_KEY_TO_CODE = { order: 1, guild: 2, companions: 3 };
+const QUEST_FACTION_CODE_TO_KEY = { 1: 'order', 2: 'guild', 3: 'companions' };
+const QUEST_FACTION_LABELS = { order: 'Order', guild: 'Guild', companions: 'Companions' };
+
+function questFactionKeyToCode(key) {
+    return key ? QUEST_FACTION_KEY_TO_CODE[key] || null : null;
+}
+
+function questFactionCodeToKey(code) {
+    if (code === null || code === undefined) return null;
+    return QUEST_FACTION_CODE_TO_KEY[Number(code)] || null;
+}
+
+function questFormatFactionLabel(key) {
+    if (!key) return '';
+    return QUEST_FACTION_LABELS[key] || key;
+}
+
 const questPreviewState = {
     questId: null,
     currentNode: null,
@@ -1844,6 +1863,7 @@ async function loadQuestChainData(chainId) {
         
         // Load options
         chainOptions.forEach(o => {
+            const factionKey = questFactionCodeToKey(o.faction_required);
             const option = {
                 optionId: o.option_id,
                 serverId: o.option_id,
@@ -1853,7 +1873,7 @@ async function loadQuestChainData(chainId) {
                 x: o.x || o.pos_x || 0,
                 y: o.y || o.pos_y || 0,
                 isStart: o.start || false,
-                type: determineOptionType(o),
+                type: determineOptionType({ ...o, factionRequired: factionKey }),
                 questEnd: !!o.quest_end,
                 statType: o.stat_type,
                 statRequired: o.stat_required,
@@ -1861,7 +1881,7 @@ async function loadQuestChainData(chainId) {
                 effectAmount: o.effect_amount,
                 optionEffectId: o.option_effect_id,
                 optionEffectFactor: o.option_effect_factor,
-                factionRequired: o.faction_required,
+                factionRequired: factionKey,
                 silverRequired: o.silver_required,
                 enemyId: o.enemy_id,
                 reward: extractReward(o),
@@ -1966,7 +1986,9 @@ async function loadQuestChainData(chainId) {
 // Determine option type from DB fields
 function determineOptionType(o) {
     if (o.quest_end) return 'end';
-    if (o.faction_required) return 'faction';
+    const rawFaction = o.faction_required ?? o.factionRequired;
+    const factionKey = questFactionCodeToKey(rawFaction) || (typeof rawFaction === 'string' ? rawFaction : null);
+    if (factionKey) return 'faction';
     if (o.enemy_id) return 'combat';
     if (o.silver_required) return 'silver';
     if (o.effect_id && o.effect_amount) return 'effect_check';
@@ -2706,7 +2728,7 @@ async function saveQuest() {
                 effectAmount: option.type === 'effect_check' ? option.effectAmount : null,
                 optionEffectId: option.optionEffectId || null,
                 optionEffectFactor: option.optionEffectFactor || null,
-                factionRequired: option.type === 'faction' ? option.factionRequired : null,
+                factionRequired: option.type === 'faction' ? questFactionKeyToCode(option.factionRequired) : null,
                 silverRequired: option.type === 'silver' ? option.silverRequired : null,
                 enemyId: option.type === 'combat' ? option.enemyId : null,
                 rewardStatType: option.reward?.type === 'stat' ? option.reward.statType : null,
@@ -3827,6 +3849,8 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         const localOptionId = questState.nextOptionId++;
         optionMapping.set(opt.option_id ?? index, localOptionId);
 
+        const factionKey = questFactionCodeToKey(opt.faction_required ?? opt.factionRequired);
+
         const option = {
             optionId: localOptionId,
             serverId: null,
@@ -3844,7 +3868,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
             effectAmount: opt.effect_amount,
             optionEffectId: opt.option_effect_id,
             optionEffectFactor: opt.option_effect_factor,
-            factionRequired: opt.faction_required,
+            factionRequired: factionKey,
             silverRequired: opt.silver_required,
             enemyId: opt.enemy_id,
             reward: extractReward(opt)

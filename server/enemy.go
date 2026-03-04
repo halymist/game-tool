@@ -29,7 +29,6 @@ type TalentInfo struct {
 // EnemyTalent represents a talent assigned to an enemy
 type EnemyTalent struct {
 	TalentID    int  `json:"talentId" db:"talent_id"`
-	MaxPoints   int  `json:"maxPoints" db:"max_points"`
 	TalentOrder int  `json:"talentOrder" db:"talent_order"`
 	PerkID      *int `json:"perkId" db:"perk_id"`
 }
@@ -79,7 +78,6 @@ type PendingEnemyTalent struct {
 	Approved    bool   `json:"approved" db:"approved"`
 	EnemyID     int    `json:"enemyId" db:"enemy_id"`
 	TalentID    int    `json:"talentId" db:"talent_id"`
-	MaxPoints   int    `json:"maxPoints" db:"max_points"`
 	TalentOrder int    `json:"talentOrder" db:"talent_order"`
 	PerkID      *int   `json:"perkId" db:"perk_id"`
 }
@@ -550,10 +548,10 @@ func getAllEnemies() ([]GameEnemy, error) {
 // getEnemyTalents retrieves talents for a specific enemy
 func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT talent_id, max_points, talent_order, perk_id
-		FROM game.enemy_talents
-		WHERE enemy_id = $1
-		ORDER BY talent_order
+		SELECT et.talent_id, et.talent_order, et.perk_id
+		FROM game.enemy_talents et
+		WHERE et.enemy_id = $1
+		ORDER BY et.talent_order
 	`
 
 	rows, err := db.Query(query, enemyID)
@@ -565,7 +563,7 @@ func getEnemyTalents(enemyID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.TalentOrder, &t.PerkID)
+		err := rows.Scan(&t.TalentID, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}
@@ -619,10 +617,10 @@ func getPendingEnemies() ([]PendingEnemy, error) {
 // getPendingEnemyTalents retrieves pending talents for a specific pending enemy
 func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	query := `
-		SELECT talent_id, max_points, talent_order, perk_id
-		FROM tooling.enemy_talents
-		WHERE enemy_id = $1
-		ORDER BY talent_order
+		SELECT et.talent_id, et.talent_order, et.perk_id
+		FROM tooling.enemy_talents et
+		WHERE et.enemy_id = $1
+		ORDER BY et.talent_order
 	`
 
 	rows, err := db.Query(query, enemyToolingID)
@@ -634,7 +632,7 @@ func getPendingEnemyTalents(enemyToolingID int) ([]EnemyTalent, error) {
 	var talents []EnemyTalent
 	for rows.Next() {
 		var t EnemyTalent
-		err := rows.Scan(&t.TalentID, &t.MaxPoints, &t.TalentOrder, &t.PerkID)
+		err := rows.Scan(&t.TalentID, &t.TalentOrder, &t.PerkID)
 		if err != nil {
 			return nil, err
 		}

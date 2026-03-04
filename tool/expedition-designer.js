@@ -53,6 +53,25 @@ const expeditionPreviewState = {
 
 const expeditionDataSubscriptions = [];
 
+// Faction lookup: UI uses string keys, backend expects integer codes
+const FACTION_KEY_TO_CODE = { order: 1, guild: 2, companions: 3 };
+const FACTION_CODE_TO_KEY = { 1: 'order', 2: 'guild', 3: 'companions' };
+const FACTION_LABELS = { order: 'Order', guild: 'Guild', companions: 'Companions' };
+
+function factionKeyToCode(key) {
+    return key ? FACTION_KEY_TO_CODE[key] || null : null;
+}
+
+function factionCodeToKey(code) {
+    if (code === null || code === undefined) return null;
+    return FACTION_CODE_TO_KEY[Number(code)] || null;
+}
+
+function formatFactionLabel(key) {
+    if (!key) return '';
+    return FACTION_LABELS[key] || key;
+}
+
 // ==================== INITIALIZATION ====================
 function initExpeditionDesigner() {
     console.log('🗺️ initExpeditionDesigner called');
@@ -531,7 +550,7 @@ function getExpeditionOptionRequirement(option) {
             return 'Combat encounter';
         case 'faction':
             if (option.factionRequired) {
-                const label = option.factionRequired.charAt(0).toUpperCase() + option.factionRequired.slice(1);
+                 const label = formatFactionLabel(option.factionRequired);
                 return `${label} members`;
             }
             return 'Faction gate';
@@ -742,7 +761,7 @@ function renderSlide(slide) {
         } else if (opt.type === 'combat' && opt.enemyId) {
             detailBadges.push(`<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`);
         } else if (opt.type === 'faction' && opt.factionRequired) {
-            const factionLabel = opt.factionRequired.charAt(0).toUpperCase() + opt.factionRequired.slice(1);
+            const factionLabel = formatFactionLabel(opt.factionRequired);
             detailBadges.push(`<span class="option-detail-badge faction">${factionLabel}</span>`);
         } else if (opt.type === 'silver' && opt.silverRequired != null) {
             detailBadges.push(`<span class="option-detail-badge silver">🪙${opt.silverRequired}</span>`);
@@ -1107,6 +1126,7 @@ async function deleteOption(slideId, optionIndex) {
     if (!isServerOption) {
         // Remove any tracked originals for unsaved options as part of reindexing
         expeditionState.originalOptions.delete(optionKey);
+                const factionLabel = formatFactionLabel(opt.factionRequired);
     }
     
     // Remove connections for this option
@@ -3125,7 +3145,8 @@ function normalizeGeneratedExpeditionOption(optData = {}) {
     const effectId = optData.effectId ?? optData.effect_id ?? null;
     const effectAmount = optData.effectAmount ?? optData.effect_amount ?? null;
     const enemyId = optData.enemyId ?? optData.enemy_id ?? null;
-    const factionRequired = optData.factionRequired ?? optData.faction_required ?? null;
+    const factionRequiredCode = optData.factionRequired ?? optData.faction_required ?? null;
+    const factionRequired = factionCodeToKey(factionRequiredCode);
     const silverRequired = optData.silverRequired ?? optData.silver_required ?? null;
 
     let optType = 'dialogue';
@@ -3575,7 +3596,7 @@ async function saveExpedition() {
                             effectId: opt.type === 'effect' ? opt.effectId : null,
                             effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                             enemyId: opt.type === 'combat' ? opt.enemyId : null,
-                            factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
+                            factionRequired: opt.type === 'faction' ? factionKeyToCode(opt.factionRequired) : null,
                             silverRequired: opt.type === 'silver' ? opt.silverRequired : null,
                             connections: connections
                         });
@@ -3684,6 +3705,8 @@ async function saveExpedition() {
                 
                 console.log(`Slide ${localId} option ${optIdx} connections:`, connections);
 
+                const factionCode = factionKeyToCode(opt.factionRequired);
+
                 return {
                     text: opt.text || '',
                     statType: opt.type === 'skill' ? opt.statType : null,
@@ -3691,7 +3714,7 @@ async function saveExpedition() {
                     effectId: opt.type === 'effect' ? opt.effectId : null,
                     effectAmount: opt.type === 'effect' ? opt.effectAmount : null,
                     enemyId: opt.type === 'combat' ? opt.enemyId : null,
-                    factionRequired: opt.type === 'faction' ? opt.factionRequired : null,
+                    factionRequired: opt.type === 'faction' ? factionCode : null,
                     silverRequired: opt.type === 'silver' ? opt.silverRequired : null,
                     connections: connections
                 };
@@ -3765,7 +3788,7 @@ async function saveExpedition() {
             effectId: option.type === 'effect' ? option.effectId : null,
             effectAmount: option.type === 'effect' ? option.effectAmount : null,
             enemyId: option.type === 'combat' ? option.enemyId : null,
-            factionRequired: option.type === 'faction' ? option.factionRequired : null,
+            factionRequired: option.type === 'faction' ? factionKeyToCode(option.factionRequired) : null,
             silverRequired: option.type === 'silver' ? option.silverRequired : null
         }));
 
@@ -4160,10 +4183,12 @@ async function loadExpedition() {
             for (let optIdx = 0; optIdx < serverSlide.options.length; optIdx++) {
                 const serverOpt = serverSlide.options[optIdx];
                 
+                const factionKey = factionCodeToKey(serverOpt.factionRequired);
+
                 // Determine option type
                 let optType = 'dialogue';
                 if (serverOpt.silverRequired != null) optType = 'silver';
-                else if (serverOpt.factionRequired) optType = 'faction';
+                else if (factionKey) optType = 'faction';
                 else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
@@ -4176,7 +4201,7 @@ async function loadExpedition() {
                     effectId: optType === 'effect' ? serverOpt.effectId : null,
                     effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
                     enemyId: optType === 'combat' ? serverOpt.enemyId : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    factionRequired: optType === 'faction' ? factionKey : null,
                     silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 };
 
@@ -4196,7 +4221,7 @@ async function loadExpedition() {
                     effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
                     effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
                     enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    factionRequired: optType === 'faction' ? factionKey : null,
                     silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 });
 
@@ -4423,10 +4448,12 @@ async function loadExpeditionForSettlement(settlementId) {
             for (let optIdx = 0; optIdx < serverSlide.options.length; optIdx++) {
                 const serverOpt = serverSlide.options[optIdx];
                 
+                const factionKey = factionCodeToKey(serverOpt.factionRequired);
+
                 // Determine option type
                 let optType = 'dialogue';
                 if (serverOpt.silverRequired != null) optType = 'silver';
-                else if (serverOpt.factionRequired) optType = 'faction';
+                else if (factionKey) optType = 'faction';
                 else if (serverOpt.statType) optType = 'skill';
                 else if (serverOpt.effectId) optType = 'effect';
                 else if (serverOpt.enemyId) optType = 'combat';
@@ -4439,7 +4466,7 @@ async function loadExpeditionForSettlement(settlementId) {
                     effectId: optType === 'effect' ? serverOpt.effectId : null,
                     effectAmount: optType === 'effect' ? serverOpt.effectAmount : null,
                     enemyId: optType === 'combat' ? serverOpt.enemyId : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    factionRequired: optType === 'faction' ? factionKey : null,
                     silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 };
 
@@ -4459,7 +4486,7 @@ async function loadExpeditionForSettlement(settlementId) {
                     effectId: optType === 'effect' ? (serverOpt.effectId || null) : null,
                     effectAmount: optType === 'effect' ? (serverOpt.effectAmount || null) : null,
                     enemyId: optType === 'combat' ? (serverOpt.enemyId || null) : null,
-                    factionRequired: optType === 'faction' ? (serverOpt.factionRequired || null) : null,
+                    factionRequired: optType === 'faction' ? factionKey : null,
                     silverRequired: optType === 'silver' ? (serverOpt.silverRequired ?? null) : null
                 });
 

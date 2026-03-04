@@ -47,7 +47,7 @@ type ExpeditionOption struct {
 	EffectID       *int    `json:"effectId"`
 	EffectAmount   *int    `json:"effectAmount"`
 	EnemyID        *int    `json:"enemyId"`
-	FactionReq     *string `json:"factionRequired"`
+	FactionReq     *int    `json:"factionRequired"`
 	SilverRequired *int    `json:"silverRequired"`
 	// Connections to target slides (local IDs from the designer)
 	Connections []ExpeditionConnection `json:"connections"`
@@ -70,7 +70,7 @@ type NewOptionForExistingSlide struct {
 	EffectID       *int                   `json:"effectId"`
 	EffectAmount   *int                   `json:"effectAmount"`
 	EnemyID        *int                   `json:"enemyId"`
-	FactionReq     *string                `json:"factionRequired"`
+	FactionReq     *int                   `json:"factionRequired"`
 	SilverRequired *int                   `json:"silverRequired"`
 	Connections    []ExpeditionConnection `json:"connections"`
 }
@@ -111,7 +111,7 @@ type OptionUpdate struct {
 	EffectID       *int    `json:"effectId"`
 	EffectAmount   *int    `json:"effectAmount"`
 	EnemyID        *int    `json:"enemyId"`
-	FactionReq     *string `json:"factionRequired"`
+	FactionReq     *int    `json:"factionRequired"`
 	SilverRequired *int    `json:"silverRequired"`
 }
 
@@ -622,7 +622,7 @@ func insertOptionRows(tx *sql.Tx, rows []optionRowSpec) (map[string]int, error) 
 	effectIDs := make([]sql.NullInt64, n)
 	effectAmts := make([]sql.NullInt64, n)
 	enemyIDs := make([]sql.NullInt64, n)
-	factionReqs := make([]sql.NullString, n)
+	factionReqs := make([]sql.NullInt64, n)
 	silverReqs := make([]sql.NullInt64, n)
 
 	for i, r := range rows {
@@ -633,7 +633,7 @@ func insertOptionRows(tx *sql.Tx, rows []optionRowSpec) (map[string]int, error) 
 		effectIDs[i] = nullInt(r.opt.EffectID)
 		effectAmts[i] = nullInt(r.opt.EffectAmount)
 		enemyIDs[i] = nullInt(r.opt.EnemyID)
-		factionReqs[i] = nullStr(r.opt.FactionReq)
+		factionReqs[i] = nullInt(r.opt.FactionReq)
 		silverReqs[i] = nullInt(r.opt.SilverRequired)
 	}
 
@@ -644,7 +644,7 @@ func insertOptionRows(tx *sql.Tx, rows []optionRowSpec) (map[string]int, error) 
 		)
 		SELECT * FROM unnest(
 			$1::int[], $2::text[], $3::text[], $4::int[],
-			$5::int[], $6::int[], $7::int[], $8::text[], $9::int[]
+			$5::int[], $6::int[], $7::int[], $8::int[], $9::int[]
 		)
 		RETURNING option_id
 	`,
@@ -833,7 +833,7 @@ func bulkUpdateOptions(tx *sql.Tx, updates []OptionUpdate) error {
 	effectIDs := make([]sql.NullInt64, n)
 	effectAmts := make([]sql.NullInt64, n)
 	enemyIDs := make([]sql.NullInt64, n)
-	factionReqs := make([]sql.NullString, n)
+	factionReqs := make([]sql.NullInt64, n)
 	silverReqs := make([]sql.NullInt64, n)
 
 	for i, u := range updates {
@@ -844,7 +844,7 @@ func bulkUpdateOptions(tx *sql.Tx, updates []OptionUpdate) error {
 		effectIDs[i] = nullInt(u.EffectID)
 		effectAmts[i] = nullInt(u.EffectAmount)
 		enemyIDs[i] = nullInt(u.EnemyID)
-		factionReqs[i] = nullStr(u.FactionReq)
+		factionReqs[i] = nullInt(u.FactionReq)
 		silverReqs[i] = nullInt(u.SilverRequired)
 	}
 
@@ -861,7 +861,7 @@ func bulkUpdateOptions(tx *sql.Tx, updates []OptionUpdate) error {
 		FROM (
 			SELECT * FROM unnest(
 				$1::int[], $2::text[], $3::text[], $4::int[],
-				$5::int[], $6::int[], $7::int[], $8::text[], $9::int[]
+				$5::int[], $6::int[], $7::int[], $8::int[], $9::int[]
 			) AS t(option_id, option_text, stat_type, stat_required,
 			       effect_id, effect_amount, enemy_id, faction_required, silver_required)
 		) AS v
@@ -906,7 +906,7 @@ type LoadedOption struct {
 	EffectID       *int            `json:"effectId"`
 	EffectAmount   *int            `json:"effectAmount"`
 	EnemyID        *int            `json:"enemyId"`
-	FactionReq     *string         `json:"factionRequired"`
+	FactionReq     *int            `json:"factionRequired"`
 	SilverRequired *int            `json:"silverRequired"`
 	Outcomes       []LoadedOutcome `json:"outcomes"`
 }
@@ -1458,7 +1458,7 @@ type toolingOption struct {
 	EffectID        sql.NullInt64
 	EffectAmount    sql.NullInt64
 	EnemyID         sql.NullInt64
-	FactionRequired sql.NullString
+	FactionRequired sql.NullInt64
 	SilverRequired  sql.NullInt64
 }
 

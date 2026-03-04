@@ -56,7 +56,7 @@ type QuestOption struct {
 	EffectAmount       *int    `json:"effect_amount"`
 	OptionEffectID     *int    `json:"option_effect_id"`
 	OptionEffectFactor *int    `json:"option_effect_factor"`
-	FactionRequired    *string `json:"faction_required"`
+	FactionRequired    *int    `json:"faction_required"`
 	SilverRequired     *int    `json:"silver_required"`
 	EnemyID            *int    `json:"enemy_id"`
 	Start              bool    `json:"start"`
@@ -385,7 +385,7 @@ type NewQuestOption struct {
 	EffectAmount       *int    `json:"effectAmount"`
 	OptionEffectID     *int    `json:"optionEffectId"`
 	OptionEffectFactor *int    `json:"optionEffectFactor"`
-	FactionRequired    *string `json:"factionRequired"`
+	FactionRequired    *int    `json:"factionRequired"`
 	SilverRequired     *int    `json:"silverRequired"`
 	EnemyID            *int    `json:"enemyId"`
 	QuestEnd           *bool   `json:"questEnd"`
@@ -414,7 +414,7 @@ type QuestOptionUpdate struct {
 	EffectAmount       *int    `json:"effectAmount"`
 	OptionEffectID     *int    `json:"optionEffectId"`
 	OptionEffectFactor *int    `json:"optionEffectFactor"`
-	FactionRequired    *string `json:"factionRequired"`
+	FactionRequired    *int    `json:"factionRequired"`
 	SilverRequired     *int    `json:"silverRequired"`
 	EnemyID            *int    `json:"enemyId"`
 	QuestEnd           *bool   `json:"questEnd"`
@@ -763,7 +763,7 @@ func bulkInsertQuestOptions(tx *sql.Tx, opts []NewQuestOption) (map[int]int, err
 	effectAmts := make([]sql.NullInt64, n)
 	optEffectIDs := make([]sql.NullInt64, n)
 	optEffectFactors := make([]sql.NullInt64, n)
-	factionReqs := make([]sql.NullString, n)
+	factionReqs := make([]sql.NullInt64, n)
 	silverReqs := make([]sql.NullInt64, n)
 	enemyIDs := make([]sql.NullInt64, n)
 	questEnds := make([]sql.NullBool, n)
@@ -789,7 +789,7 @@ func bulkInsertQuestOptions(tx *sql.Tx, opts []NewQuestOption) (map[int]int, err
 		effectAmts[i] = nullInt(o.EffectAmount)
 		optEffectIDs[i] = nullInt(o.OptionEffectID)
 		optEffectFactors[i] = nullInt(o.OptionEffectFactor)
-		factionReqs[i] = nullStr(o.FactionRequired)
+		factionReqs[i] = nullInt(o.FactionRequired)
 		silverReqs[i] = nullInt(o.SilverRequired)
 		enemyIDs[i] = nullInt(o.EnemyID)
 		questEnds[i] = nullBool(o.QuestEnd)
@@ -816,7 +816,7 @@ func bulkInsertQuestOptions(tx *sql.Tx, opts []NewQuestOption) (map[int]int, err
 		SELECT * FROM unnest(
 			$1::int[], $2::text[], $3::text[], $4::bool[],
 			$5::text[], $6::int[], $7::int[], $8::int[], $9::int[], $10::int[],
-			$11::text[], $12::int[], $13::int[], $14::bool[],
+			$11::int[], $12::int[], $13::int[], $14::bool[],
 			$15::text[], $16::int[], $17::bool[], $18::int[], $19::int[],
 			$20::int[], $21::int[], $22::int[], $23::float8[], $24::float8[]
 		)
@@ -858,7 +858,7 @@ func bulkUpdateQuestOptions(tx *sql.Tx, updates []QuestOptionUpdate) error {
 	effectAmts := make([]sql.NullInt64, n)
 	optEffectIDs := make([]sql.NullInt64, n)
 	optEffectFactors := make([]sql.NullInt64, n)
-	factionReqs := make([]sql.NullString, n)
+	factionReqs := make([]sql.NullInt64, n)
 	silverReqs := make([]sql.NullInt64, n)
 	enemyIDs := make([]sql.NullInt64, n)
 	questEnds := make([]sql.NullBool, n)
@@ -884,7 +884,7 @@ func bulkUpdateQuestOptions(tx *sql.Tx, updates []QuestOptionUpdate) error {
 		effectAmts[i] = nullInt(u.EffectAmount)
 		optEffectIDs[i] = nullInt(u.OptionEffectID)
 		optEffectFactors[i] = nullInt(u.OptionEffectFactor)
-		factionReqs[i] = nullStr(u.FactionRequired)
+		factionReqs[i] = nullInt(u.FactionRequired)
 		silverReqs[i] = nullInt(u.SilverRequired)
 		enemyIDs[i] = nullInt(u.EnemyID)
 		questEnds[i] = nullBool(u.QuestEnd)
@@ -929,7 +929,7 @@ func bulkUpdateQuestOptions(tx *sql.Tx, updates []QuestOptionUpdate) error {
 			SELECT * FROM unnest(
 				$1::int[], $2::text[], $3::text[], $4::bool[],
 				$5::text[], $6::int[], $7::int[], $8::int[], $9::int[], $10::int[],
-				$11::text[], $12::int[], $13::int[], $14::bool[],
+				$11::int[], $12::int[], $13::int[], $14::bool[],
 				$15::text[], $16::int[], $17::bool[], $18::int[], $19::int[],
 				$20::int[], $21::int[], $22::int[], $23::float8[], $24::float8[]
 			) AS t(option_id, node_text, option_text, start,

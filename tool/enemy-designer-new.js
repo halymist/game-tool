@@ -591,24 +591,24 @@ function updateTalentCellDisplay(talentId) {
 
 function loadTalentsIntoTree(talents) {
     clearTalentTree();
-    
     if (!talents || talents.length === 0) return;
-    
-    // Find max talent order to continue from
+
     let maxOrder = 0;
-    
+
     talents.forEach(t => {
+        const def = allTalents.find(defTalent => defTalent.talentId === t.talentId);
+        if (!def) return;
+
         assignedTalents.set(t.talentId, {
-            points: t.maxPoints, // The stored max_points is the invested points
+            points: def.maxPoints || 0, // Use shared talent definition for cap/points
             talentOrder: t.talentOrder,
             perkId: t.perkId || null
         });
-        
+
         if (t.talentOrder > maxOrder) maxOrder = t.talentOrder;
-        
         updateTalentCellDisplay(t.talentId);
     });
-    
+
     currentTalentOrder = maxOrder;
 }
 
