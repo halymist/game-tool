@@ -2561,6 +2561,22 @@ function setupExpeditionGeneratePanel() {
     document.getElementById('expeditionGenerateBlessingRewardFilter')?.addEventListener('input', (e) => {
         populateExpeditionGenerateRewardBlessings(e.target.value);
     });
+
+    // Make all multi-selects in the expedition generate panel click-to-toggle
+    ['expeditionGenerateNpcs', 'expeditionGenerateEnemies',
+     'expeditionGenerateRewardItems', 'expeditionGenerateRewardPerks',
+     'expeditionGenerateRewardPotions', 'expeditionGenerateRewardBlessings'].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        select.addEventListener('mousedown', function(e) {
+            if (e.target.tagName !== 'OPTION') return;
+            e.preventDefault();
+            const scrollTop = this.scrollTop;
+            e.target.selected = !e.target.selected;
+            this.dispatchEvent(new Event('change'));
+            requestAnimationFrame(() => { this.scrollTop = scrollTop; });
+        });
+    });
 }
 
 function toggleExpeditionGeneratePanel() {
@@ -2624,18 +2640,12 @@ function populateExpeditionGenerateLocations(filterText = '') {
     const settlements = GlobalData?.settlements || [];
     const search = (filterText || '').trim().toLowerCase();
     const currentVal = hidden?.value || '';
+    const selectedId = expeditionState.selectedSettlementId;
+    const filtered = selectedId
+        ? settlements.filter(s => s.settlement_id === selectedId)
+        : settlements;
 
-    const anyOpt = document.createElement('div');
-    anyOpt.className = 'combobox-option' + (!currentVal ? ' selected' : '');
-    anyOpt.textContent = '-- Any Location --';
-    anyOpt.addEventListener('click', () => {
-        hidden.value = '';
-        document.getElementById('expeditionGenerateLocationInput').value = '';
-        dropdown.classList.remove('open');
-    });
-    dropdown.appendChild(anyOpt);
-
-    settlements.forEach(settlement => {
+    filtered.forEach(settlement => {
         (settlement.locations || []).forEach(loc => {
             const name = loc.name || '';
             if (search && !name.toLowerCase().includes(search)) return;

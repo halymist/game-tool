@@ -405,6 +405,8 @@ function populateSettlementEditorSelect() {
     const select = document.getElementById('settlementSelect');
     if (!select) return;
 
+    const prevId = settlementState.selectedSettlementId;
+
     select.innerHTML = '<option value="">-- New Settlement --</option>';
     
     settlementState.settlements.forEach(settlement => {
@@ -413,6 +415,11 @@ function populateSettlementEditorSelect() {
         option.textContent = settlement.settlement_name || `Settlement ${settlement.settlement_id}`;
         select.appendChild(option);
     });
+
+    // Restore previous selection if it still exists
+    if (prevId && select.querySelector(`option[value="${prevId}"]`)) {
+        select.value = prevId;
+    }
 }
 
 function populateBlessingDropdowns() {

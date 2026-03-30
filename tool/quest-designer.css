@@ -188,6 +188,18 @@
     min-height: 120px;
 }
 
+.quest-generate-field select[multiple] option {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    margin: 1px 0;
+}
+
+.quest-generate-field select[multiple] option:checked {
+    background: var(--accent) linear-gradient(0deg, var(--accent) 0%, var(--accent) 100%);
+    color: #fff;
+}
+
 .quest-generate-field textarea {
     min-height: 90px;
     resize: vertical;

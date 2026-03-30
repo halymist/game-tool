@@ -3191,6 +3191,11 @@ function setupQuestGeneratePanel() {
     document.getElementById('questGenerateQuestFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateQuests(e.target.value);
     });
+
+    // Make all multi-selects in the quest generate panel click-to-toggle
+    ['questGenerateNpcs', 'questGenerateEnemies', 'questGenerateQuests',
+     'questGenerateRewardItems', 'questGenerateRewardPerks',
+     'questGenerateRewardPotions', 'questGenerateRewardBlessings'].forEach(initToggleMultiSelect);
 }
 
 function toggleQuestGeneratePanel() {
@@ -3256,18 +3261,12 @@ function populateQuestGenerateLocations(filterText = '') {
     const settlements = GlobalData?.settlements || [];
     const search = (filterText || '').trim().toLowerCase();
     const currentVal = hidden?.value || '';
+    const selectedId = questState.selectedSettlementId;
+    const filtered = selectedId
+        ? settlements.filter(s => s.settlement_id === selectedId)
+        : settlements;
 
-    const anyOpt = document.createElement('div');
-    anyOpt.className = 'combobox-option' + (!currentVal ? ' selected' : '');
-    anyOpt.textContent = '-- Any Location --';
-    anyOpt.addEventListener('click', () => {
-        hidden.value = '';
-        document.getElementById('questGenerateLocationInput').value = '';
-        dropdown.classList.remove('open');
-    });
-    dropdown.appendChild(anyOpt);
-
-    settlements.forEach(settlement => {
+    filtered.forEach(settlement => {
         (settlement.locations || []).forEach(loc => {
             const name = loc.name || '';
             if (search && !name.toLowerCase().includes(search)) return;
@@ -3484,6 +3483,19 @@ function populateQuestGenerateQuests(filterText = '') {
         opt.value = quest.quest_id || quest.serverId || quest.questId || '';
         opt.textContent = quest.quest_name || quest.name || `Quest ${opt.value}`;
         select.appendChild(opt);
+    });
+}
+
+function initToggleMultiSelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.addEventListener('mousedown', function(e) {
+        if (e.target.tagName !== 'OPTION') return;
+        e.preventDefault();
+        const scrollTop = this.scrollTop;
+        e.target.selected = !e.target.selected;
+        this.dispatchEvent(new Event('change'));
+        requestAnimationFrame(() => { this.scrollTop = scrollTop; });
     });
 }
 
