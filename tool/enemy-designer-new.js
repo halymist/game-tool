@@ -197,7 +197,8 @@ function renderPendingEnemyList() {
     }
     
     list.innerHTML = filteredPendingEnemies.map(enemy => {
-        const iconUrl = enemy.icon || (enemy.assetId && enemy.assetId > 0 ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp` : null);
+        const asset = enemyAssets.find(a => a.assetID === enemy.assetId);
+        const iconUrl = enemy.icon || (asset ? asset.icon : null);
         return `
         <div class="enemy-list-item pending-enemy ${enemy.toolingId === selectedEnemyId && enemyActiveTab === 'pending' ? 'selected' : ''}"
              data-id="${enemy.toolingId}" onclick="selectPendingEnemy(${enemy.toolingId})">
@@ -319,11 +320,12 @@ function populateEnemyForm(enemy, isPending = false) {
     document.getElementById('enemyMinDamage').value = enemy.minDamage || 0;
     document.getElementById('enemyMaxDamage').value = enemy.maxDamage || 0;
     
-    // Set asset
+    // Set asset — use local gallery lookup
     enemySelectedAssetId = enemy.assetId || null;
     const iconPreview = document.getElementById('enemyIconPreview');
-    if (enemy.icon || (enemy.assetId && enemy.assetId > 0)) {
-        const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+    const asset = enemyAssets.find(a => a.assetID === enemy.assetId);
+    const iconUrl = enemy.icon || (asset ? asset.icon : null);
+    if (iconUrl) {
         iconPreview.innerHTML = `<img src="${iconUrl}" alt="Enemy icon" />`;
         enemySelectedAssetIcon = iconUrl;
     } else {

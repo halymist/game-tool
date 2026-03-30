@@ -59,7 +59,6 @@ type PendingItem struct {
 	MinDamage    *int   `json:"minDamage" db:"min_damage"`
 	MaxDamage    *int   `json:"maxDamage" db:"max_damage"`
 	Approved     bool   `json:"approved" db:"approved"`
-	Icon         string `json:"icon,omitempty"`
 }
 
 // ItemsResponse represents the JSON response structure for items
@@ -146,14 +145,6 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Warning: Error getting pending items: %v", err)
 		// Don't fail the whole request, just log the warning
 		pendingItems = []PendingItem{}
-	}
-
-	// Generate icons for pending items
-	for i := range pendingItems {
-		if pendingItems[i].AssetID > 0 {
-			pendingItems[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/items/%d.webp",
-				S3_BUCKET_NAME, S3_REGION, pendingItems[i].AssetID)
-		}
 	}
 
 	log.Printf("Retrieved %d pending items from tooling.items", len(pendingItems))

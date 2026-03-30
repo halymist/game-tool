@@ -63,7 +63,6 @@ type PendingPerk struct {
 	Factor2     *int    `json:"factor2" db:"factor_2"`
 	Description *string `json:"description" db:"description"`
 	IsBlessing  bool    `json:"is_blessing" db:"is_blessing"`
-	Icon        string  `json:"icon,omitempty"`
 }
 
 // PerkAsset represents an available perk asset from S3
@@ -144,14 +143,6 @@ func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("Warning: Error getting pending perks: %v", err)
 		pendingPerks = []PendingPerk{}
-	}
-
-	// Generate icons for pending perks
-	for i := range pendingPerks {
-		if pendingPerks[i].AssetID > 0 {
-			pendingPerks[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/perks/%d.webp",
-				S3_BUCKET_NAME, S3_REGION, pendingPerks[i].AssetID)
-		}
 	}
 
 	log.Printf("Retrieved %d pending perks from tooling.perks_info", len(pendingPerks))

@@ -374,17 +374,8 @@ function populatePerkFormFromPending(perk) {
     updatePerkEffectDescription(1);
     updatePerkEffectDescription(2);
     
-    // Update icon preview - use server icon URL if available, otherwise look up by assetID
-    if (perk.icon) {
-        const preview = document.getElementById('perkIconPreview');
-        const placeholder = document.getElementById('perkIconPlaceholder');
-        const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
-        if (preview) { preview.src = perk.icon; preview.style.display = 'block'; }
-        if (placeholder) placeholder.style.display = 'none';
-        if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${perk.assetID}`;
-    } else {
-        updatePerkIconPreview(perk.assetID);
-    }
+    // Update icon preview using local asset gallery
+    updatePerkIconPreview(perk.assetID);
 }
 
 function setPerkFormLocked(locked) {
