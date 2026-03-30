@@ -471,21 +471,13 @@ function getTalentIconUrl(assetId) {
 function showTalentUpgradeModal(talent) {
     if (isViewingPendingEnemy) return;
     
-    const current = assignedTalents.get(talent.talentId) || { points: 0, talentOrder: 0, perkId: null };
-    const canUpgrade = current.points < talent.maxPoints;
-    
-    // Build description text with factor
-    let descText = talent.description || 'No description';
-    if (talent.factor) {
-        descText = `${descText} ${talent.factor}%`;
-    }
-    
-    const isMaxed = current.points >= talent.maxPoints;
-    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
-    const currentPerkName = current.perkId ? (enemyPerks.find(p => p.id === current.perkId)?.name || `Perk #${current.perkId}`) : null;
+    // Close any existing modal first
+    closeTalentUpgradeModal();
     
     const modal = document.createElement('div');
     modal.className = 'talent-upgrade-modal';
+    modal.dataset.talentId = talent.talentId;
+    
     modal.innerHTML = `
         <div class="talent-upgrade-content">
             <div class="talent-upgrade-header">
@@ -493,12 +485,12 @@ function showTalentUpgradeModal(talent) {
                 <button type="button" class="btn-close" onclick="closeTalentUpgradeModal()">✕</button>
             </div>
             <div class="talent-upgrade-body">
-                <p class="talent-upgrade-desc">${escapeHtml(descText)}</p>
-                ${isMaxed && hasPerkSlot && currentPerkName ? `<div class="talent-perk-assigned">⭐ ${escapeHtml(currentPerkName)} <button type="button" class="btn-change-perk" onclick="changeTalentPerk(${talent.talentId})">Change</button></div>` : ''}
+                <p class="talent-upgrade-desc"></p>
+                <div class="talent-perk-assigned" style="display:none;"></div>
             </div>
             <div class="talent-upgrade-actions">
-                ${canUpgrade ? `<button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})">⬆️ Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span></button>` : '<span class="maxed-text">MAXED</span>'}
-                ${current.points > 0 ? `<button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">⬇️ Remove Point</button>` : ''}
+                <button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})"></button>
+                <button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">⬇️ Remove Point</button>
             </div>
         </div>
     `;
@@ -508,6 +500,47 @@ function showTalentUpgradeModal(talent) {
     });
     
     document.body.appendChild(modal);
+    refreshTalentUpgradeModal(talent);
+}
+
+function refreshTalentUpgradeModal(talent) {
+    const modal = document.querySelector('.talent-upgrade-modal');
+    if (!modal) return;
+    
+    const current = assignedTalents.get(talent.talentId) || { points: 0, talentOrder: 0, perkId: null };
+    const canUpgrade = current.points < talent.maxPoints;
+    const isMaxed = current.points >= talent.maxPoints;
+    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
+    const currentPerkName = current.perkId ? (enemyPerks.find(p => p.id === current.perkId)?.name || `Perk #${current.perkId}`) : null;
+    
+    let descText = talent.description || 'No description';
+    if (talent.factor) descText = `${descText} ${talent.factor}%`;
+    
+    // Update description
+    modal.querySelector('.talent-upgrade-desc').textContent = descText;
+    
+    // Update perk assigned
+    const perkEl = modal.querySelector('.talent-perk-assigned');
+    if (isMaxed && hasPerkSlot && currentPerkName) {
+        perkEl.innerHTML = `⭐ ${escapeHtml(currentPerkName)} <button type="button" class="btn-change-perk" onclick="changeTalentPerk(${talent.talentId})">Change</button>`;
+        perkEl.style.display = '';
+    } else {
+        perkEl.style.display = 'none';
+    }
+    
+    // Update upgrade button — always present, just disabled when maxed
+    const upgradeBtn = modal.querySelector('.btn-upgrade');
+    if (canUpgrade) {
+        upgradeBtn.innerHTML = `⬆️ Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.disabled = false;
+    } else {
+        upgradeBtn.innerHTML = `✅ MAXED <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.disabled = true;
+    }
+    
+    // Update downgrade button — always present, just disabled when 0
+    const downgradeBtn = modal.querySelector('.btn-downgrade');
+    downgradeBtn.disabled = current.points === 0;
 }
 
 function closeTalentUpgradeModal() {
@@ -537,9 +570,7 @@ function upgradeTalent(talentId) {
             closeTalentUpgradeModal();
             showPerkSelectionModal(talent);
         } else {
-            // Refresh modal in place to show updated points
-            closeTalentUpgradeModal();
-            showTalentUpgradeModal(talent);
+            refreshTalentUpgradeModal(talent);
         }
     }
 }
@@ -564,9 +595,7 @@ function downgradeTalent(talentId) {
     
     updateTalentCellDisplay(talentId);
     checkEnemySaveConditions();
-    // Refresh modal in place to show updated points
-    closeTalentUpgradeModal();
-    showTalentUpgradeModal(talent);
+    refreshTalentUpgradeModal(talent);
 }
 
 function handleTalentClick(talent) {

@@ -357,12 +357,6 @@ input[type="text"], input[type="number"], select, textarea { font-family: inheri
 
 /* ── Locked Form ────────────────────────────────────── */
 .form-locked { position: relative; }
-.form-locked::before {
-    content: '🔒 Read Only – Pending Approval'; display: block;
-    background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25);
-    border-radius: var(--radius-sm); padding: 0.4rem 0.75rem;
-    color: #fbbf24; text-align: center; font-weight: 600; font-size: 0.8125rem; margin-bottom: 0.75rem;
-}
 .form-locked input:disabled, .form-locked select:disabled, .form-locked textarea:disabled {
     background: var(--bg-base) !important; color: var(--text-muted) !important; cursor: not-allowed; opacity: 0.6;
 }

@@ -594,12 +594,18 @@ console.log('🔧 Designer Base module loaded');
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
 
-    // 1. Dynamically created modals (talent upgrade, perk selection)
+    // 1. Dynamically created modals (talent upgrade, perk selection, settlement item/effect dialogs)
     const talentModal = document.querySelector('.talent-upgrade-modal');
     if (talentModal) { talentModal.remove(); return; }
 
     const perkModal = document.querySelector('.perk-selection-modal');
     if (perkModal) { perkModal.remove(); return; }
+
+    const itemSelectOverlay = document.getElementById('itemSelectOverlay');
+    if (itemSelectOverlay) { window.closeItemSelectDialog?.() || itemSelectOverlay.remove(); return; }
+
+    const effectSelectOverlay = document.getElementById('effectSelectOverlay');
+    if (effectSelectOverlay) { window.closeEffectSelectDialog?.() || effectSelectOverlay.remove(); return; }
 
     // 2. Modals using .open class
     const openModals = [
@@ -613,6 +619,7 @@ document.addEventListener('keydown', (e) => {
 
     // 3. Overlays using .active class (use proper close functions where available)
     const activeOverlays = [
+        { id: 'locationModalOverlay', close: () => window.closeLocationModal?.() || document.getElementById('locationModalOverlay')?.classList.remove('active') },
         { id: 'responsesModalOverlay', close: () => window.closeResponsesModal?.() || document.getElementById('responsesModalOverlay')?.classList.remove('active') },
         { id: 'questAssetGalleryOverlay', close: () => window.closeQuestAssetModal?.() || document.getElementById('questAssetGalleryOverlay')?.classList.remove('active') },
         { id: 'settlementAssetGalleryOverlay', close: () => window.closeAssetGallery?.() || document.getElementById('settlementAssetGalleryOverlay')?.classList.remove('active') },
