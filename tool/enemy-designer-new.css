@@ -241,15 +241,16 @@
 }
 .talent-hint { font-size: 0.6875rem; color: var(--text-muted); font-weight: normal; }
 
-.talent-detail-toggle {
-    position: absolute; top: 8px; right: 8px;
-    background: transparent; border: 1px solid var(--border-default);
-    border-radius: var(--radius-sm); padding: 4px 5px;
+.talent-detail-btn {
+    position: absolute; top: 2px; right: 2px;
+    background: rgba(0,0,0,0.6); border: none;
+    border-radius: 3px; padding: 2px 3px;
     cursor: pointer; color: var(--text-muted); display: flex; align-items: center;
-    transition: all 0.15s ease;
+    opacity: 0; transition: opacity 0.15s ease;
+    z-index: 2;
 }
-.talent-detail-toggle:hover { border-color: var(--accent); color: var(--accent); }
-.talent-detail-toggle.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
+.talent-cell:hover .talent-detail-btn { opacity: 1; }
+.talent-detail-btn:hover { color: var(--accent); }
 
 .talent-tree-grid {
     display: grid;

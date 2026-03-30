@@ -465,11 +465,7 @@ function selectSettlement(settlementId) {
     // Update save button label to "Update" for existing settlements
     const saveBtn = document.getElementById('saveSettlementBtn');
     if (saveBtn) {
-        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1-2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-        </svg> Update`;
+        saveBtn.textContent = 'Update';
     }
 
     checkSettlementSaveConditions();
@@ -790,6 +786,7 @@ function showAddItemDialog() {
         return `
             <div class="select-list-row ${isSelected ? 'selected' : ''}" 
                  data-item-id="${id}" 
+                 data-search-name="${escapeSettlementHtml(name.toLowerCase())}"
                  onclick="toggleVendorItemSelection(${id})">
                 <img class="select-list-icon" src="${icon}" alt="" onerror="this.style.display='none'">
                 <span class="select-list-name">${escapeSettlementHtml(name)}</span>
@@ -809,6 +806,9 @@ function showAddItemDialog() {
                     </svg>
                 </button>
             </div>
+            <div style="padding: 0 16px;">
+                <input type="text" class="select-list-search" placeholder="Search items..." oninput="filterSelectList(this, '#itemSelectOverlay')">
+            </div>
             <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
                 <div class="select-list">
                     ${itemsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No items available</p>'}
@@ -821,6 +821,7 @@ function showAddItemDialog() {
     `;
 
     document.body.appendChild(overlay);
+    overlay.querySelector('.select-list-search')?.focus();
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeItemSelectDialog();
     });
@@ -870,6 +871,7 @@ function showAddEffectDialog() {
         return `
             <div class="select-list-row ${isSelected ? 'selected' : ''}" 
                  data-effect-id="${id}" 
+                 data-search-name="${escapeSettlementHtml(name.toLowerCase())}"
                  onclick="toggleEnchanterEffectSelection(${id})">
                 <div class="select-list-info">
                     <span class="select-list-name">${escapeSettlementHtml(name)}</span>
@@ -891,6 +893,9 @@ function showAddEffectDialog() {
                     </svg>
                 </button>
             </div>
+            <div style="padding: 0 16px;">
+                <input type="text" class="select-list-search" placeholder="Search effects..." oninput="filterSelectList(this, '#effectSelectOverlay')">
+            </div>
             <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
                 <div class="select-list">
                     ${effectsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No effects available</p>'}
@@ -903,6 +908,7 @@ function showAddEffectDialog() {
     `;
 
     document.body.appendChild(overlay);
+    overlay.querySelector('.select-list-search')?.focus();
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeEffectSelectDialog();
     });
@@ -932,6 +938,15 @@ function toggleEnchanterEffectSelection(effectId) {
 function closeEffectSelectDialog() {
     const overlay = document.getElementById('effectSelectOverlay');
     if (overlay) overlay.remove();
+}
+
+function filterSelectList(input, overlaySelector) {
+    const query = input.value.toLowerCase().trim();
+    const rows = document.querySelectorAll(`${overlaySelector} .select-list-row`);
+    rows.forEach(row => {
+        const name = row.dataset.searchName || '';
+        row.style.display = name.includes(query) ? '' : 'none';
+    });
 }
 
 function removeVendorItem(index) {
@@ -1932,6 +1947,7 @@ window.toggleVendorItemSelection = toggleVendorItemSelection;
 window.closeItemSelectDialog = closeItemSelectDialog;
 window.toggleEnchanterEffectSelection = toggleEnchanterEffectSelection;
 window.closeEffectSelectDialog = closeEffectSelectDialog;
+window.filterSelectList = filterSelectList;
 window.openResponsesModal = openResponsesModal;
 window.closeResponsesModal = closeResponsesModal;
 window.addResponseEntry = addResponseEntry;

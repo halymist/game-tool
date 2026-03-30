@@ -18,7 +18,6 @@ let enemySelectedAssetIcon = null;
 
 // Talent tree state for current enemy being edited
 let currentTalentOrder = 0; // Next talent order to assign
-let talentDetailMode = false; // When true, clicking a talent opens the detail modal
 let assignedTalents = new Map(); // talentId -> { points: number, talentOrder: number, perkId: number|null }
 
 // ==================== INITIALIZATION ====================
@@ -420,21 +419,6 @@ function cancelEnemyEdit() {
 function buildTalentTreeGrid() {
     const grid = document.getElementById('talentTreeGrid');
     if (!grid) return;
-    
-    // Add settings gear toggle to talent section (once)
-    const section = grid.closest('.enemy-talent-section');
-    if (section && !section.querySelector('.talent-detail-toggle')) {
-        const toggle = document.createElement('button');
-        toggle.type = 'button';
-        toggle.className = 'talent-detail-toggle';
-        toggle.title = 'Toggle detail mode (click talents to view details)';
-        toggle.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
-        toggle.addEventListener('click', () => {
-            talentDetailMode = !talentDetailMode;
-            toggle.classList.toggle('active', talentDetailMode);
-        });
-        section.appendChild(toggle);
-    }
 
     // Render based on talents_info positions (row 1 bottom, col 1 left)
     grid.innerHTML = '';
@@ -462,7 +446,17 @@ function buildTalentTreeGrid() {
             <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
             <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
             ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
+            <button type="button" class="talent-detail-btn" title="View details">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
         `;
+
+        // Gear button opens modal (stop propagation so click handler doesn't fire)
+        const gearBtn = cell.querySelector('.talent-detail-btn');
+        gearBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isViewingPendingEnemy) showTalentUpgradeModal(talent);
+        });
 
         const label = document.createElement('div');
         label.className = 'talent-cell-label';
@@ -470,11 +464,7 @@ function buildTalentTreeGrid() {
 
         cell.addEventListener('click', () => {
             if (isViewingPendingEnemy) return;
-            if (talentDetailMode) {
-                showTalentUpgradeModal(talent);
-            } else {
-                upgradeTalent(talent.talentId);
-            }
+            upgradeTalent(talent.talentId);
         });
         cell.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -483,7 +473,7 @@ function buildTalentTreeGrid() {
         cell.addEventListener('dblclick', (e) => {
             e.preventDefault();
             // Double-click always just adds points (no modal penalty for fast clicking)
-            if (!isViewingPendingEnemy && !talentDetailMode) {
+            if (!isViewingPendingEnemy) {
                 upgradeTalent(talent.talentId);
             }
         });

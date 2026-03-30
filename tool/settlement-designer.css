@@ -125,6 +125,8 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    display: block;
 }
 
 .settlement-context-section textarea {
@@ -285,16 +287,17 @@
     padding: 16px;
 }
 
-.settlement-card.vendor-card-full .settlement-card-info {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+.settlement-card.vendor-card-full .settlement-card-info,
+.settlement-card-info:has(.vendor-items-section) {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    padding: 8px;
 }
 
-.settlement-card.vendor-card-full .vendor-items-section {
+.vendor-items-section {
     display: flex;
     flex-direction: column;
-    height: 100%;
 }
 
 .settlement-card:hover {
@@ -570,6 +573,20 @@
     text-align: center;
     flex-shrink: 0;
 }
+
+.select-list-search {
+    width: 100%;
+    padding: 7px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+}
+.select-list-search:focus { outline: none; border-color: var(--accent); }
 
 .item-grid-cell .remove-btn {
     position: absolute;

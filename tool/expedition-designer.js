@@ -1160,20 +1160,20 @@ async function deleteOption(slideId, optionIndex) {
 }
 
 function getTypeIcon(type) {
-    return { combat: 'CBT', skill: 'SKL', effect: 'EFF', item: 'ITM', faction: 'FAC', silver: 'SLV' }[type] || 'DLG';
+    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒', faction: '🛡️', silver: '🪙' }[type] || '💬';
 }
 
 function getRewardIcon(type) {
     const icons = {
-        stat: 'ST',
-        talent: 'TP',
-        item: 'IT',
-        perk: 'PK',
-        blessing: 'BL',
-        potion: 'PT',
-        silver: 'SL'
+        stat: '📊',
+        talent: '⭐',
+        item: '🎒',
+        perk: '🔮',
+        blessing: '✨',
+        potion: '🧪',
+        silver: '🪙'
     };
-    return icons[type] || 'RW';
+    return icons[type] || '🎁';
 }
 
 function getRewardLabel(reward) {
