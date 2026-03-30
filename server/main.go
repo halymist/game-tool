@@ -328,7 +328,6 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 }
 
 func verifyToken(tokenString string) (string, bool) {
-	// Parse the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Get the key ID from the token header
 		kid, ok := token.Header["kid"].(string)
