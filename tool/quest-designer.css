@@ -196,8 +196,8 @@
 }
 
 .quest-generate-field select[multiple] option:checked {
-    background: var(--accent) linear-gradient(0deg, var(--accent) 0%, var(--accent) 100%);
-    color: #fff;
+    background: rgba(59, 130, 246, 0.15) linear-gradient(0deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+    color: var(--accent);
 }
 
 .quest-generate-field textarea {

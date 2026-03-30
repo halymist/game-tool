@@ -467,6 +467,10 @@ function showTalentUpgradeModal(talent) {
         descText = `${descText} ${talent.factor}%`;
     }
     
+    const isMaxed = current.points >= talent.maxPoints;
+    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
+    const currentPerkName = current.perkId ? (enemyPerks.find(p => p.id === current.perkId)?.name || `Perk #${current.perkId}`) : null;
+    
     const modal = document.createElement('div');
     modal.className = 'talent-upgrade-modal';
     modal.innerHTML = `
@@ -476,14 +480,11 @@ function showTalentUpgradeModal(talent) {
                 <button type="button" class="btn-close" onclick="closeTalentUpgradeModal()">✕</button>
             </div>
             <div class="talent-upgrade-body">
-                <div class="talent-upgrade-points">
-                    <span class="current">${current.points}</span> / <span class="max">${talent.maxPoints}</span> points
-                </div>
                 <p class="talent-upgrade-desc">${escapeHtml(descText)}</p>
-                ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<p class="talent-perk-note">⭐ This talent has a perk slot when maxed</p>' : ''}
+                ${isMaxed && hasPerkSlot && currentPerkName ? `<div class="talent-perk-assigned">⭐ ${escapeHtml(currentPerkName)} <button type="button" class="btn-change-perk" onclick="changeTalentPerk(${talent.talentId})">Change</button></div>` : ''}
             </div>
             <div class="talent-upgrade-actions">
-                ${canUpgrade ? `<button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})">⬆️ Add Point</button>` : '<span class="maxed-text">MAXED</span>'}
+                ${canUpgrade ? `<button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})">⬆️ Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span></button>` : '<span class="maxed-text">MAXED</span>'}
                 ${current.points > 0 ? `<button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">⬇️ Remove Point</button>` : ''}
             </div>
         </div>
@@ -631,7 +632,16 @@ function clearTalentTree() {
     allTalents.forEach(t => updateTalentCellDisplay(t.talentId));
 }
 
+function changeTalentPerk(talentId) {
+    const talent = allTalents.find(t => t.talentId === talentId);
+    if (!talent) return;
+    closeTalentUpgradeModal();
+    showPerkSelectionModal(talent);
+}
+window.changeTalentPerk = changeTalentPerk;
+
 function showPerkSelectionModal(talent) {
+    const current = assignedTalents.get(talent.talentId) || { points: 0, talentOrder: 0, perkId: null };
     // Create modal for perk selection
     const modal = document.createElement('div');
     modal.className = 'perk-selection-modal';
@@ -640,7 +650,7 @@ function showPerkSelectionModal(talent) {
             <h3>Select Perk for ${escapeHtml(talent.talentName)}</h3>
             <select id="perkSelect">
                 <option value="">-- No Perk --</option>
-                ${enemyPerks.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+                ${enemyPerks.map(p => `<option value="${p.id}" ${p.id === current.perkId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
             </select>
             <div class="perk-selection-buttons">
                 <button type="button" class="btn-confirm" onclick="confirmPerkSelection(${talent.talentId})">Confirm</button>
