@@ -246,7 +246,7 @@
     min-height: 0;
     padding: 0 8px;
     justify-content: stretch;
-    align-items: flex-start;
+    align-items: stretch;
     flex-wrap: nowrap;
     overflow-x: auto;
 }
@@ -259,6 +259,10 @@
     flex: 1;
     min-width: 280px;
     max-width: 380px;
+}
+
+.settlement-card-wrapper .settlement-card {
+    margin-top: auto;
 }
 
 .settlement-card-title {
@@ -283,21 +287,45 @@
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.settlement-card.vendor-card-full {
-    padding: 16px;
-}
-
-.settlement-card.vendor-card-full .settlement-card-info,
-.settlement-card-info:has(.vendor-items-section) {
-    position: static;
-    background: none;
-    backdrop-filter: none;
+/* Vendor stock overlay – same pattern as other card-info overlays */
+.vendor-stock-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 30%;
     padding: 8px;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+    z-index: 2;
+    overflow-y: auto;
 }
 
-.vendor-items-section {
-    display: flex;
-    flex-direction: column;
+.vendor-stock-info .items-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+}
+
+.vendor-stock-info .item-grid-cell {
+    aspect-ratio: 1;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+}
+
+.vendor-stock-info .item-grid-cell img {
+    width: 80%;
+    height: 80%;
+    object-fit: contain;
 }
 
 .settlement-card:hover {
@@ -500,6 +528,8 @@
     border: 1px dashed var(--accent) !important;
     background: rgba(59, 130, 246, 0.05) !important;
     cursor: pointer;
+    max-width: 48px;
+    max-height: 48px;
 }
 .add-cell:hover {
     background: rgba(59, 130, 246, 0.15) !important;
@@ -583,6 +613,7 @@
     color: var(--text-primary);
     font-size: 0.8125rem;
     font-family: inherit;
+    margin-top: 6px;
     margin-bottom: 8px;
     box-sizing: border-box;
 }
