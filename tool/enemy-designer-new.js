@@ -773,6 +773,8 @@ async function saveEnemy(e) {
             
             renderPendingEnemyList();
             switchEnemyTab('pending');
+            // Select the newly created pending enemy to show read-only view
+            selectPendingEnemy(result.toolingId);
         } else {
             alert('Error saving enemy: ' + (result.message || 'Unknown error'));
         }

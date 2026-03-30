@@ -985,7 +985,7 @@ function bindSlideEvents(el, slide) {
                     element.classList.add('dragging');
                 }
             });
-            renderConnections();
+            requestRenderConnections();
         };
 
         const onUp = () => {
@@ -1832,7 +1832,7 @@ function onCanvasMouseMove(e) {
         if (container) {
             container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
         }
-        renderConnections();
+        requestRenderConnections();
     }
     
     if (expeditionState.isConnecting) {
@@ -2210,6 +2210,12 @@ function updateConnectionPreview(e) {
     preview.style.display = 'block';
 }
 
+function requestRenderConnections() {
+    if (!expeditionState._renderRAF) {
+        expeditionState._renderRAF = requestAnimationFrame(renderConnections);
+    }
+}
+
 function renderConnections() {
     const svg = document.getElementById('connectionsSvg');
     const canvas = document.getElementById('expeditionCanvas');
@@ -2217,6 +2223,7 @@ function renderConnections() {
         console.log('renderConnections: svg or canvas not found');
         return;
     }
+    expeditionState._renderRAF = 0;
     
     const rect = canvas.getBoundingClientRect();
     
@@ -2535,9 +2542,7 @@ function setupExpeditionGeneratePanel() {
     document.getElementById('expeditionGenerateBtn')?.addEventListener('click', toggleExpeditionGeneratePanel);
     document.getElementById('expeditionGenerateClose')?.addEventListener('click', toggleExpeditionGeneratePanel);
     document.getElementById('expeditionGenerateRun')?.addEventListener('click', generateExpeditionClusterPreview);
-    document.getElementById('expeditionGenerateLocationFilter')?.addEventListener('input', (e) => {
-        populateExpeditionGenerateLocations(e.target.value);
-    });
+    initExpeditionLocationCombobox();
     document.getElementById('expeditionGenerateNpcFilter')?.addEventListener('input', (e) => {
         populateExpeditionGenerateNpcs(e.target.value);
     });
@@ -2569,13 +2574,12 @@ function toggleExpeditionGeneratePanel() {
 }
 
 function setExpeditionGenerateLoading(isLoading, message = 'Generating...') {
-    const status = document.getElementById('expeditionGenerateStatus');
-    const statusText = status?.querySelector('.generate-status-text');
     const runBtn = document.getElementById('expeditionGenerateRun');
     const closeBtn = document.getElementById('expeditionGenerateClose');
-    if (status) status.style.display = isLoading ? 'flex' : 'none';
-    if (statusText) statusText.textContent = message;
-    if (runBtn) runBtn.disabled = isLoading;
+    if (runBtn) {
+        runBtn.disabled = isLoading;
+        runBtn.innerHTML = isLoading ? `<span class="spinner"></span>${message}` : 'Generate';
+    }
     if (closeBtn) closeBtn.disabled = isLoading;
 }
 
@@ -2583,27 +2587,68 @@ async function populateExpeditionGeneratePanel() {
     if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
         await loadSettlementsData();
     }
-    populateExpeditionGenerateLocations(document.getElementById('expeditionGenerateLocationFilter')?.value || '');
+    populateExpeditionGenerateLocations(document.getElementById('expeditionGenerateLocationInput')?.value || '');
     await loadExpeditionGenerateNpcs();
     populateExpeditionGenerateNpcs(document.getElementById('expeditionGenerateNpcFilter')?.value || '');
     populateExpeditionGenerateEnemies(document.getElementById('expeditionGenerateEnemyFilter')?.value || '');
     populateExpeditionGenerateRewards();
 }
 
+function initExpeditionLocationCombobox() {
+    const input = document.getElementById('expeditionGenerateLocationInput');
+    const hidden = document.getElementById('expeditionGenerateLocation');
+    const dropdown = document.getElementById('expeditionGenerateLocationDropdown');
+    if (!input || !hidden || !dropdown) return;
+
+    input.addEventListener('input', () => {
+        hidden.value = '';
+        populateExpeditionGenerateLocations(input.value);
+        dropdown.classList.add('open');
+    });
+    input.addEventListener('focus', () => {
+        populateExpeditionGenerateLocations(input.value);
+        dropdown.classList.add('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#expeditionGenerateLocationInput') && !e.target.closest('#expeditionGenerateLocationDropdown')) {
+            dropdown.classList.remove('open');
+        }
+    });
+}
+
 function populateExpeditionGenerateLocations(filterText = '') {
-    const select = document.getElementById('expeditionGenerateLocation');
-    if (!select) return;
+    const dropdown = document.getElementById('expeditionGenerateLocationDropdown');
+    const hidden = document.getElementById('expeditionGenerateLocation');
+    if (!dropdown) return;
+    dropdown.innerHTML = '';
     const settlements = GlobalData?.settlements || [];
-    select.innerHTML = '<option value="">-- Any Location --</option>';
-    const search = filterText.trim().toLowerCase();
+    const search = (filterText || '').trim().toLowerCase();
+    const currentVal = hidden?.value || '';
+
+    const anyOpt = document.createElement('div');
+    anyOpt.className = 'combobox-option' + (!currentVal ? ' selected' : '');
+    anyOpt.textContent = '-- Any Location --';
+    anyOpt.addEventListener('click', () => {
+        hidden.value = '';
+        document.getElementById('expeditionGenerateLocationInput').value = '';
+        dropdown.classList.remove('open');
+    });
+    dropdown.appendChild(anyOpt);
+
     settlements.forEach(settlement => {
         (settlement.locations || []).forEach(loc => {
             const name = loc.name || '';
             if (search && !name.toLowerCase().includes(search)) return;
-            const opt = document.createElement('option');
-            opt.value = loc.location_id || loc.id || '';
-            opt.textContent = name || `Location ${opt.value}`;
-            select.appendChild(opt);
+            const val = String(loc.location_id || loc.id || '');
+            const opt = document.createElement('div');
+            opt.className = 'combobox-option' + (val === currentVal ? ' selected' : '');
+            opt.textContent = name || `Location ${val}`;
+            opt.addEventListener('click', () => {
+                hidden.value = val;
+                document.getElementById('expeditionGenerateLocationInput').value = opt.textContent;
+                dropdown.classList.remove('open');
+            });
+            dropdown.appendChild(opt);
         });
     });
 }

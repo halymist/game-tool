@@ -3169,9 +3169,7 @@ function setupQuestGeneratePanel() {
     document.getElementById('questGenerateBtn')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateClose')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateRun')?.addEventListener('click', generateQuestPreview);
-    document.getElementById('questGenerateLocationFilter')?.addEventListener('input', (e) => {
-        populateQuestGenerateLocations(e.target.value);
-    });
+    initQuestLocationCombobox();
     document.getElementById('questGenerateNpcFilter')?.addEventListener('input', (e) => {
         populateQuestGenerateNpcs(e.target.value);
     });
@@ -3206,15 +3204,12 @@ function toggleQuestGeneratePanel() {
 }
 
 function setQuestGenerateLoading(isLoading, message = 'Generating...') {
-    const status = document.getElementById('questGenerateStatus');
-    const statusText = status?.querySelector('.generate-status-text');
     const runBtn = document.getElementById('questGenerateRun');
     const closeBtn = document.getElementById('questGenerateClose');
-    if (status) {
-        status.style.display = isLoading ? 'flex' : 'none';
+    if (runBtn) {
+        runBtn.disabled = isLoading;
+        runBtn.innerHTML = isLoading ? `<span class="spinner"></span>${message}` : 'Generate';
     }
-    if (statusText) statusText.textContent = message;
-    if (runBtn) runBtn.disabled = isLoading;
     if (closeBtn) closeBtn.disabled = isLoading;
 }
 
@@ -3222,7 +3217,7 @@ async function populateQuestGeneratePanel() {
     if ((!GlobalData?.settlements || GlobalData.settlements.length === 0) && typeof loadSettlementsData === 'function') {
         await loadSettlementsData();
     }
-    populateQuestGenerateLocations(document.getElementById('questGenerateLocationFilter')?.value || '');
+    populateQuestGenerateLocations(document.getElementById('questGenerateLocationInput')?.value || '');
     await loadQuestGenerateNpcs();
     await loadQuestGenerateAllQuests();
     populateQuestGenerateNpcs();
@@ -3231,20 +3226,61 @@ async function populateQuestGeneratePanel() {
     populateQuestGenerateQuests();
 }
 
+function initQuestLocationCombobox() {
+    const input = document.getElementById('questGenerateLocationInput');
+    const hidden = document.getElementById('questGenerateLocation');
+    const dropdown = document.getElementById('questGenerateLocationDropdown');
+    if (!input || !hidden || !dropdown) return;
+
+    input.addEventListener('input', () => {
+        hidden.value = '';
+        populateQuestGenerateLocations(input.value);
+        dropdown.classList.add('open');
+    });
+    input.addEventListener('focus', () => {
+        populateQuestGenerateLocations(input.value);
+        dropdown.classList.add('open');
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#questGenerateLocationInput') && !e.target.closest('#questGenerateLocationDropdown')) {
+            dropdown.classList.remove('open');
+        }
+    });
+}
+
 function populateQuestGenerateLocations(filterText = '') {
-    const select = document.getElementById('questGenerateLocation');
-    if (!select) return;
+    const dropdown = document.getElementById('questGenerateLocationDropdown');
+    const hidden = document.getElementById('questGenerateLocation');
+    if (!dropdown) return;
+    dropdown.innerHTML = '';
     const settlements = GlobalData?.settlements || [];
-    select.innerHTML = '<option value="">-- Any Location --</option>';
-    const search = filterText.trim().toLowerCase();
+    const search = (filterText || '').trim().toLowerCase();
+    const currentVal = hidden?.value || '';
+
+    const anyOpt = document.createElement('div');
+    anyOpt.className = 'combobox-option' + (!currentVal ? ' selected' : '');
+    anyOpt.textContent = '-- Any Location --';
+    anyOpt.addEventListener('click', () => {
+        hidden.value = '';
+        document.getElementById('questGenerateLocationInput').value = '';
+        dropdown.classList.remove('open');
+    });
+    dropdown.appendChild(anyOpt);
+
     settlements.forEach(settlement => {
         (settlement.locations || []).forEach(loc => {
             const name = loc.name || '';
             if (search && !name.toLowerCase().includes(search)) return;
-            const opt = document.createElement('option');
-            opt.value = loc.location_id || loc.id || '';
-            opt.textContent = name || `Location ${opt.value}`;
-            select.appendChild(opt);
+            const val = String(loc.location_id || loc.id || '');
+            const opt = document.createElement('div');
+            opt.className = 'combobox-option' + (val === currentVal ? ' selected' : '');
+            opt.textContent = name || `Location ${val}`;
+            opt.addEventListener('click', () => {
+                hidden.value = val;
+                document.getElementById('questGenerateLocationInput').value = opt.textContent;
+                dropdown.classList.remove('open');
+            });
+            dropdown.appendChild(opt);
         });
     });
 }
