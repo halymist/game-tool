@@ -134,10 +134,10 @@
                         </div>
                     </div>
                     <div class="quest-toolbar-right">
-                        <button id="addQuestBtn" class="btn-secondary" onclick="window.addQuestSlide()">+ Add Quest</button>
-                        <button id="addOptionBtn" class="btn-primary">+ Add Option</button>
-                        <button id="questGenerateBtn" class="btn-secondary">🧠 Generate Quest</button>
-                        <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">💾 Save</button>
+                        <button id="addQuestBtn" class="btn-secondary" onclick="window.addQuestSlide()">Add Quest</button>
+                        <button id="addOptionBtn" class="btn-primary">Add Option</button>
+                        <button id="questGenerateBtn" class="btn-secondary">Generate Quest</button>
+                        <button id="saveQuestBtn" class="btn-success" onclick="window.saveQuest()">Save</button>
                     </div>
                 </div>
                 
@@ -177,7 +177,6 @@
                     <div id="questOptionSidebar" class="quest-option-sidebar">
                         <!-- No selection state -->
                         <div id="sidebarNoSelection" class="sidebar-no-selection">
-                            <span>📋</span>
                             <p>Select a quest slide or option node to edit its properties</p>
                         </div>
 
@@ -190,7 +189,7 @@
 
                             <div class="sidebar-section">
                                 <div class="sidebar-actions quest-bg-actions">
-                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">🖼️ Set Background</button>
+                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">Set Background</button>
                                 </div>
                                 <div class="sidebar-field">
                                     <label>Travel Text</label>
@@ -201,7 +200,7 @@
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
                                 </div>
                                 <div class="sidebar-actions">
-                                    <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">🗑️ Delete Quest</button>
+                                    <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">Delete Quest</button>
                                 </div>
                             </div>
                         </div>
@@ -216,16 +215,16 @@
                             
                             <!-- Option Type -->
                             <div class="sidebar-section">
-                                <h4>🎯 Option Type</h4>
+                                <h4>Option Type</h4>
                                 <div class="sidebar-field">
                                     <select id="sidebarOptionType">
-                                        <option value="dialogue">💬 Dialogue</option>
-                                        <option value="stat_check">📊 Stat Check</option>
-                                        <option value="effect_check">✨ Effect Check</option>
-                                        <option value="combat">⚔️ Combat</option>
-                                        <option value="faction">🏰 Faction</option>
-                                        <option value="silver">🪙 Silver</option>
-                                        <option value="end">🏁 Quest End</option>
+                                        <option value="dialogue">Dialogue</option>
+                                        <option value="stat_check">Stat Check</option>
+                                        <option value="effect_check">Effect Check</option>
+                                        <option value="combat">Combat</option>
+                                        <option value="faction">Faction</option>
+                                        <option value="silver">Silver</option>
+                                        <option value="end">Quest End</option>
                                     </select>
                                 </div>
                                 
@@ -322,13 +321,13 @@
                                     <label>Reward Type:</label>
                                     <select id="sidebarRewardType">
                                         <option value="">-- None --</option>
-                                        <option value="stat">📊 Stat Bonus</option>
-                                        <option value="silver">🪙 Silver</option>
-                                        <option value="talent">⭐ Talent Point</option>
-                                        <option value="item">🎒 Item</option>
-                                        <option value="potion">🧪 Potion</option>
-                                        <option value="perk">💪 Perk</option>
-                                        <option value="blessing">🙏 Blessing</option>
+                                        <option value="stat">Stat Bonus</option>
+                                        <option value="silver">Silver</option>
+                                        <option value="talent">Talent Point</option>
+                                        <option value="item">Item</option>
+                                        <option value="potion">Potion</option>
+                                        <option value="perk">Perk</option>
+                                        <option value="blessing">Blessing</option>
                                     </select>
                                 </div>
                                 
@@ -406,7 +405,7 @@
                             
                             <!-- Actions -->
                             <div class="sidebar-actions">
-                                <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">🗑️ Delete Option</button>
+                                <button id="sidebarDeleteOption" class="btn-delete" onclick="window.deleteSelectedOption()">Delete Option</button>
                             </div>
                         </div>
                     </div>
@@ -414,7 +413,7 @@
                     <div id="questGenerateOverlay" class="generate-overlay" style="display:none;">
                         <div id="questGeneratePanel" class="generate-modal quest-generate-sidebar">
                             <div class="quest-generate-header">
-                                <h3>🧠 Generate Quest</h3>
+                                <h3>Generate Quest</h3>
                                 <button id="questGenerateClose" class="btn-secondary">Close</button>
                             </div>
                             <div class="quest-generate-body">
@@ -561,8 +560,8 @@
                 <div class="enemy-list-sidebar">
                     <div class="enemy-list-controls">
                         <div class="enemy-tab-toggle">
-                            <button type="button" id="gameEnemiesTab" class="tab-btn active">🎮 Game</button>
-                            <button type="button" id="pendingEnemiesTab" class="tab-btn">⏳ Pending</button>
+                            <button type="button" id="gameEnemiesTab" class="tab-btn active">Game</button>
+                            <button type="button" id="pendingEnemiesTab" class="tab-btn">Pending</button>
                         </div>
                         <input type="text" id="enemySearch" placeholder="Search enemies...">
                         <button type="button" id="newEnemyBtn" class="btn-new">+ New Enemy</button>
@@ -570,7 +569,7 @@
                     <div id="enemyList" class="enemy-list"></div>
                     <div id="pendingEnemyList" class="enemy-list" style="display: none;"></div>
                     <div class="enemy-list-buttons">
-                        <button type="button" id="mergeEnemiesBtn" class="btn-merge" style="display: none;">🔀 Merge Approved</button>
+                        <button type="button" id="mergeEnemiesBtn" class="btn-merge" style="display: none;">Merge Approved</button>
                     </div>
                 </div>
 
@@ -600,7 +599,7 @@
                                 <div class="enemy-info">
                                     <input type="hidden" id="enemyId" value="">
                                     <div class="enemy-row">
-                                        <div class="enemy-field enemy-field-grow"><label>Name</label><input type="text" id="enemyName" required placeholder="Enemy name..."></div>
+                                        <div class="enemy-field enemy-field-grow enemy-field-inline"><label>Name</label><input type="text" id="enemyName" required placeholder="Enemy name..."></div>
                                     </div>
                                     <div class="enemy-stats-grid">
                                         <div class="stat-row"><label>Strength</label><input type="number" id="enemyStrength" min="0" max="999" value="0"></div>
@@ -622,14 +621,12 @@
 
                             <!-- Description -->
                             <div class="enemy-description-row">
-                                <label for="enemyDescription">Description</label>
-                                <textarea id="enemyDescription" rows="2" placeholder="Enemy description..."></textarea>
+                                <textarea id="enemyDescription" rows="4" placeholder="Enemy description..."></textarea>
                             </div>
                         </div>
 
                         <!-- Talent Tree -->
                         <div class="enemy-talent-section">
-                            <h3>Talent Tree <span class="talent-hint">(Click to upgrade)</span></h3>
                             <div id="talentTreeGrid" class="talent-tree-grid">
                                 <!-- 7x8 grid will be populated by JS -->
                             </div>
@@ -638,7 +635,7 @@
                         <!-- Form Actions -->
                         <div class="enemy-form-actions">
                             <button type="button" id="enemyCancelBtn" class="btn-cancel">Cancel</button>
-                            <button type="submit" id="enemySaveBtn" class="btn-save" disabled>💾 Save to Pending</button>
+                            <button type="submit" id="enemySaveBtn" class="btn-save" disabled>Save to Pending</button>
                         </div>
                     </form>
                 </div>
@@ -761,8 +758,8 @@
                 <div class="item-list-sidebar">
                     <div class="item-list-controls">
                         <div class="item-tab-toggle">
-                            <button type="button" id="gameItemsTab" class="tab-btn active">🎮 Game Items</button>
-                            <button type="button" id="pendingItemsTab" class="tab-btn">⏳ Pending</button>
+                            <button type="button" id="gameItemsTab" class="tab-btn active">Game Items</button>
+                            <button type="button" id="pendingItemsTab" class="tab-btn">Pending</button>
                         </div>
                         <input type="text" id="itemSearch" placeholder="Search items...">
                         <select id="itemTypeFilter">
@@ -793,7 +790,7 @@
                     
                     <div class="item-list-buttons">
                         <button type="button" id="newItemBtn">+ New Item</button>
-                        <button type="button" id="mergeItemsBtn" class="btn-merge" style="display: none;">🔄 Merge Approved</button>
+                        <button type="button" id="mergeItemsBtn" class="btn-merge" style="display: none;">Merge Approved</button>
                     </div>
                 </div>
 
@@ -910,8 +907,8 @@
                 <div class="perk-list-sidebar">
                     <div class="perk-list-controls">
                         <div class="perk-tab-toggle">
-                            <button type="button" id="gamePerksTab" class="tab-btn active">🎮 Game Perks</button>
-                            <button type="button" id="pendingPerksTab" class="tab-btn">⏳ Pending</button>
+                            <button type="button" id="gamePerksTab" class="tab-btn active">Game Perks</button>
+                            <button type="button" id="pendingPerksTab" class="tab-btn">Pending</button>
                         </div>
                         <input type="text" id="perkSearch" placeholder="Search perks...">
                     </div>
@@ -924,7 +921,7 @@
                     
                     <div class="perk-list-buttons">
                         <button type="button" id="newPerkBtn">+ New Perk</button>
-                        <button type="button" id="mergePerksBtn" class="btn-merge" style="display: none;">🔄 Merge Approved</button>
+                        <button type="button" id="mergePerksBtn" class="btn-merge" style="display: none;">Merge Approved</button>
                     </div>
                 </div>
 
@@ -953,7 +950,7 @@
                                         <div class="perk-field perk-field-small">
                                             <label class="perk-blessing-label">
                                                 <input type="checkbox" id="perkIsBlessing">
-                                                <span>⭐ Blessing</span>
+                                                <span>Blessing</span>
                                             </label>
                                         </div>
                                     </div>
@@ -1022,11 +1019,11 @@
                         </div>
                     </div>
                     <div class="toolbar-right">
-                        <button id="addSlideBtn" class="btn-primary">+ Add Slide</button>
-                        <button id="expeditionGenerateBtn" class="btn-secondary">🧠 Generate Cluster</button>
-                        <button id="expeditionPreviewToggle" class="btn-secondary" type="button">▶ Preview</button>
-                        <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">💾 Save</button>
-                        <button id="mergeExpeditionBtn" class="btn-publish" onclick="window.mergeExpedition()">🚀 Publish to Game</button>
+                        <button id="addSlideBtn" class="btn-primary">Add Slide</button>
+                        <button id="expeditionGenerateBtn" class="btn-secondary">Generate Cluster</button>
+                        <button id="expeditionPreviewToggle" class="btn-secondary" type="button">Preview</button>
+                        <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">Save</button>
+                        <button id="mergeExpeditionBtn" class="btn-publish" onclick="window.mergeExpedition()">Publish to Game</button>
                     </div>
                 </div>
                 <div id="expeditionPreviewOverlay" class="quest-preview-overlay" aria-hidden="true">
@@ -1078,7 +1075,7 @@
                 <div id="expeditionGenerateOverlay" class="generate-overlay" style="display:none;">
                     <div id="expeditionGeneratePanel" class="generate-modal expedition-generate-sidebar">
                         <div class="quest-generate-header">
-                            <h3>🧠 Generate Cluster</h3>
+                            <h3>Generate Cluster</h3>
                             <button id="expeditionGenerateClose" class="btn-secondary">Close</button>
                         </div>
                         <div class="quest-generate-body">

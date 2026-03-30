@@ -170,6 +170,9 @@
 .enemy-info { flex: 1; display: flex; flex-direction: column; gap: 0.625rem; }
 .enemy-row { display: flex; gap: 0.75rem; }
 .enemy-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.enemy-field-inline { flex-direction: row; align-items: center; gap: 0.35rem; }
+.enemy-field-inline label { min-width: 40px; flex-shrink: 0; }
+.enemy-field-inline input { flex: 1; }
 .enemy-field-grow { flex: 1; }
 .enemy-field-small { flex: 0 0 80px; }
 
@@ -213,8 +216,7 @@
 /* Description */
 .enemy-description-row { border-top: 1px solid var(--border-subtle); padding-top: 0.875rem; }
 .enemy-description-row label {
-    display: block; font-size: 0.6875rem; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.2rem; font-weight: 500;
+    display: none;
 }
 .enemy-description-row textarea {
     width: 100%; padding: 0.45rem 0.5rem;
@@ -230,6 +232,7 @@
     background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;
     display: flex; flex-direction: column; align-items: center; width: 100%;
+    position: relative;
 }
 
 .enemy-talent-section h3 {
@@ -237,6 +240,16 @@
     margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; text-align: center;
 }
 .talent-hint { font-size: 0.6875rem; color: var(--text-muted); font-weight: normal; }
+
+.talent-detail-toggle {
+    position: absolute; top: 8px; right: 8px;
+    background: transparent; border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm); padding: 4px 5px;
+    cursor: pointer; color: var(--text-muted); display: flex; align-items: center;
+    transition: all 0.15s ease;
+}
+.talent-detail-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.talent-detail-toggle.active { background: var(--accent-subtle); border-color: var(--accent); color: var(--accent); }
 
 .talent-tree-grid {
     display: grid;
@@ -271,25 +284,22 @@
 }
 .talent-cell.empty { background: transparent; border-color: transparent; cursor: default; }
 .talent-cell:not(.empty):hover { border-color: var(--accent); background: var(--bg-hover); }
-.talent-cell.has-points { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+.talent-cell.has-points { border-color: var(--accent); background: rgba(59,130,246,0.06); }
 .talent-cell.maxed {
-    border-color: var(--success); background: rgba(34,197,94,0.1);
-    box-shadow: 0 0 8px rgba(34,197,94,0.15);
+    border-color: var(--accent); background: rgba(59,130,246,0.06);
 }
 .talent-cell.disabled { pointer-events: none; opacity: 0.5; }
 .talent-cell:not(.empty):active { transform: scale(0.92); }
 
-.talent-icon { width: 44px; height: 44px; object-fit: contain; pointer-events: none; }
+.talent-icon { width: 52px; height: 52px; object-fit: contain; pointer-events: none; }
 
 .talent-points {
     position: absolute; bottom: 2px; right: 2px;
-    background: rgba(0,0,0,0.6); color: var(--text-muted);
+    background: rgba(0,0,0,0.6); color: var(--text-secondary);
     font-size: 0.6rem; padding: 1px 4px; border-radius: 4px;
     pointer-events: none;
 }
-.talent-points .current-points { color: #fbbf24; font-weight: 600; }
-.talent-cell.maxed .talent-points { color: var(--success); }
-.talent-cell.maxed .talent-points .current-points { color: var(--success); }
+.talent-points .current-points { color: var(--text-secondary); font-weight: 600; }
 
 .talent-cell .perk-indicator {
     position: absolute; top: 3px; left: 3px;

@@ -773,7 +773,6 @@ function renderEnchanterEffects() {
 }
 
 function showAddItemDialog() {
-    // Create a modal overlay for item selection
     const existingOverlay = document.getElementById('itemSelectOverlay');
     if (existingOverlay) existingOverlay.remove();
 
@@ -789,18 +788,18 @@ function showAddItemDialog() {
         const isSelected = settlementState.vendorItems.includes(id);
         
         return `
-            <div class="item-grid-cell ${isSelected ? 'selected' : ''}" 
+            <div class="select-list-row ${isSelected ? 'selected' : ''}" 
                  data-item-id="${id}" 
-                 onclick="toggleVendorItemSelection(${id})"
-                 style="cursor: pointer;">
-                <img src="${icon}" alt="${escapeSettlementHtml(name)}" onerror="this.src='${SETTLEMENT_FALLBACK_ITEM_ICON}'">
-                <span class="item-name">${escapeSettlementHtml(name)}</span>
+                 onclick="toggleVendorItemSelection(${id})">
+                <img class="select-list-icon" src="${icon}" alt="" onerror="this.style.display='none'">
+                <span class="select-list-name">${escapeSettlementHtml(name)}</span>
+                <span class="select-list-check">${isSelected ? '\u2713' : ''}</span>
             </div>
         `;
     }).join('');
 
     overlay.innerHTML = `
-        <div class="settlement-asset-gallery" style="max-width: 800px;">
+        <div class="settlement-asset-gallery" style="max-width: 480px;">
             <div class="settlement-asset-gallery-header">
                 <h3>Select Items for Vendor</h3>
                 <button class="settlement-asset-gallery-close" onclick="closeItemSelectDialog()">
@@ -810,9 +809,9 @@ function showAddItemDialog() {
                     </svg>
                 </button>
             </div>
-            <div class="settlement-asset-gallery-content">
-                <div class="items-grid" style="max-height: none;">
-                    ${itemsHtml || '<p style="color: #a0aec0; text-align: center; padding: 40px;">No items available</p>'}
+            <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
+                <div class="select-list">
+                    ${itemsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No items available</p>'}
                 </div>
             </div>
             <div class="settlement-upload-section">
@@ -822,8 +821,6 @@ function showAddItemDialog() {
     `;
 
     document.body.appendChild(overlay);
-
-    // Close on backdrop click
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeItemSelectDialog();
     });
@@ -838,9 +835,11 @@ function toggleVendorItemSelection(itemId) {
     }
     
     // Update the selection visual in the dialog
-    const cell = document.querySelector(`#itemSelectOverlay .item-grid-cell[data-item-id="${itemId}"]`);
+    const cell = document.querySelector(`#itemSelectOverlay .select-list-row[data-item-id="${itemId}"]`);
     if (cell) {
         cell.classList.toggle('selected');
+        const check = cell.querySelector('.select-list-check');
+        if (check) check.textContent = cell.classList.contains('selected') ? '\u2713' : '';
     }
     
     // Update the main vendor items grid
@@ -854,11 +853,8 @@ function closeItemSelectDialog() {
 }
 
 function showAddEffectDialog() {
-    // Create a modal overlay for effect selection (similar to item selection)
     const existingOverlay = document.getElementById('effectSelectOverlay');
     if (existingOverlay) existingOverlay.remove();
-
-    console.log('🔮 showAddEffectDialog - settlementState.effects:', settlementState.effects.length);
 
     const overlay = document.createElement('div');
     overlay.id = 'effectSelectOverlay';
@@ -868,24 +864,24 @@ function showAddEffectDialog() {
     const effectsHtml = settlementState.effects.map(effect => {
         const id = effect.effect_id || effect.id;
         const name = effect.effect_name || effect.name || `Effect ${id}`;
+        const desc = effect.description || effect.effect_description || '';
         const isSelected = settlementState.enchanterEffects.includes(id);
         
         return `
-            <div class="item-grid-cell ${isSelected ? 'selected' : ''}" 
+            <div class="select-list-row ${isSelected ? 'selected' : ''}" 
                  data-effect-id="${id}" 
-                 onclick="toggleEnchanterEffectSelection(${id})"
-                 style="cursor: pointer;">
-                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="${isSelected ? '#48bb78' : '#4a5568'}" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 6v6l4 2"/>
-                </svg>
-                <span class="item-name">${escapeSettlementHtml(name)}</span>
+                 onclick="toggleEnchanterEffectSelection(${id})">
+                <div class="select-list-info">
+                    <span class="select-list-name">${escapeSettlementHtml(name)}</span>
+                    ${desc ? `<span class="select-list-desc">${escapeSettlementHtml(desc)}</span>` : ''}
+                </div>
+                <span class="select-list-check">${isSelected ? '\u2713' : ''}</span>
             </div>
         `;
     }).join('');
 
     overlay.innerHTML = `
-        <div class="settlement-asset-gallery" style="max-width: 800px;">
+        <div class="settlement-asset-gallery" style="max-width: 520px;">
             <div class="settlement-asset-gallery-header">
                 <h3>Select Effects for Enchanter</h3>
                 <button class="settlement-asset-gallery-close" onclick="closeEffectSelectDialog()">
@@ -895,9 +891,9 @@ function showAddEffectDialog() {
                     </svg>
                 </button>
             </div>
-            <div class="settlement-asset-gallery-content">
-                <div class="items-grid" style="max-height: none;">
-                    ${effectsHtml || '<p style="color: #a0aec0; text-align: center; padding: 40px;">No effects available</p>'}
+            <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
+                <div class="select-list">
+                    ${effectsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No effects available</p>'}
                 </div>
             </div>
             <div class="settlement-upload-section">
@@ -907,8 +903,6 @@ function showAddEffectDialog() {
     `;
 
     document.body.appendChild(overlay);
-
-    // Close on backdrop click
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeEffectSelectDialog();
     });
@@ -923,13 +917,11 @@ function toggleEnchanterEffectSelection(effectId) {
     }
     
     // Update the selection visual in the dialog
-    const cell = document.querySelector(`#effectSelectOverlay .item-grid-cell[data-effect-id="${effectId}"]`);
+    const cell = document.querySelector(`#effectSelectOverlay .select-list-row[data-effect-id="${effectId}"]`);
     if (cell) {
         cell.classList.toggle('selected');
-        const svg = cell.querySelector('svg');
-        if (svg) {
-            svg.setAttribute('stroke', cell.classList.contains('selected') ? '#48bb78' : '#4a5568');
-        }
+        const check = cell.querySelector('.select-list-check');
+        if (check) check.textContent = cell.classList.contains('selected') ? '\u2713' : '';
     }
     
     // Update the main enchanter effects list

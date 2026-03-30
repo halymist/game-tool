@@ -491,13 +491,13 @@ function renderOption(option) {
 
 function getOptionTypeBadge(type) {
     switch (type) {
-        case 'stat_check': return '📊';
-        case 'effect_check': return '✨';
-        case 'combat': return '⚔️';
-        case 'faction': return '🏰';
-        case 'silver': return '🪙';
-        case 'end': return '🏁';
-        default: return '💬';
+        case 'stat_check': return 'ST';
+        case 'effect_check': return 'EF';
+        case 'combat': return 'CB';
+        case 'faction': return 'FC';
+        case 'silver': return 'SL';
+        case 'end': return 'END';
+        default: return 'DLG';
     }
 }
 

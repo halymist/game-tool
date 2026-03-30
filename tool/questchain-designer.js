@@ -487,8 +487,8 @@ function renderQuestSlide(questSlide) {
                 <input type="checkbox" ${questSlide.isStart ? 'checked' : ''} data-quest-slide="${questSlide.id}">
                 <span>START</span>
             </label>
-            <button class="quest-slide-bg-btn" data-quest-slide="${questSlide.id}" title="Set background">🖼️</button>
-            <button class="quest-slide-delete-btn" data-quest-slide="${questSlide.id}" title="Delete quest">🗑️</button>
+            <button class="quest-slide-bg-btn" data-quest-slide="${questSlide.id}" title="Set background">BG</button>
+            <button class="quest-slide-delete-btn" data-quest-slide="${questSlide.id}" title="Delete quest">DEL</button>
         </div>
         <div class="quest-slide-connector quest-slide-connector-left" data-quest-slide="${questSlide.id}" title="Drag to connect to option">●</div>
         <div class="quest-slide-connector quest-slide-connector-right" data-quest-slide="${questSlide.id}" title="Drag to connect to option">●</div>
@@ -2101,7 +2101,7 @@ async function saveQuestchain() {
     const saveBtn = document.getElementById('saveQuestchainBtn');
     if (saveBtn) {
         saveBtn.disabled = true;
-        saveBtn.textContent = '⏳ Saving...';
+        saveBtn.textContent = 'Saving...';
     }
     
     try {
@@ -2246,7 +2246,7 @@ async function saveQuestchain() {
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.textContent = '💾 Save';
+            saveBtn.textContent = 'Save';
         }
     }
 }

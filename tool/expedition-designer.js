@@ -801,8 +801,8 @@ function renderSlide(slide) {
                 <input type="checkbox" ${slide.isStart ? 'checked' : ''} data-slide="${slide.id}">
                 <span>START</span>
             </label>
-            <button class="slide-bg-btn" data-slide="${slide.id}" title="Set background">🖼️</button>
-            <button class="slide-delete-btn" data-slide="${slide.id}" title="Delete slide">🗑️</button>
+            <button class="slide-bg-btn" data-slide="${slide.id}" title="Set background">BG</button>
+            <button class="slide-delete-btn" data-slide="${slide.id}" title="Delete slide">DEL</button>
         </div>
         <div class="slide-input-connector" title="Input">●</div>
         <div class="${bodyClass}" ${bodyBgStyle}>
@@ -1160,20 +1160,20 @@ async function deleteOption(slideId, optionIndex) {
 }
 
 function getTypeIcon(type) {
-    return { combat: '⚔️', skill: '🎯', effect: '✨', item: '🎒', faction: '🛡️', silver: '🪙' }[type] || '💬';
+    return { combat: 'CBT', skill: 'SKL', effect: 'EFF', item: 'ITM', faction: 'FAC', silver: 'SLV' }[type] || 'DLG';
 }
 
 function getRewardIcon(type) {
     const icons = {
-        stat: '📊',
-        talent: '⭐',
-        item: '🎒',
-        perk: '🔮',
-        blessing: '✨',
-        potion: '🧪',
-        silver: '🪙'
+        stat: 'ST',
+        talent: 'TP',
+        item: 'IT',
+        perk: 'PK',
+        blessing: 'BL',
+        potion: 'PT',
+        silver: 'SL'
     };
-    return icons[type] || '🎁';
+    return icons[type] || 'RW';
 }
 
 function getRewardLabel(reward) {
@@ -3589,7 +3589,7 @@ async function saveExpedition() {
     const saveBtn = document.getElementById('saveExpeditionBtn');
     if (saveBtn) {
         saveBtn.disabled = true;
-        saveBtn.textContent = '⏳ Saving...';
+        saveBtn.textContent = 'Saving...';
     }
 
     try {
@@ -4065,7 +4065,7 @@ async function saveExpedition() {
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.textContent = '💾 Save Expedition';
+            saveBtn.textContent = 'Save Expedition';
         }
     }
 }
@@ -4080,7 +4080,7 @@ async function mergeExpedition() {
     const mergeBtn = document.getElementById('mergeExpeditionBtn');
     if (mergeBtn) {
         mergeBtn.disabled = true;
-        mergeBtn.textContent = '🚀 Publishing...';
+        mergeBtn.textContent = 'Publishing...';
     }
 
     try {
@@ -4113,7 +4113,7 @@ async function mergeExpedition() {
     } finally {
         if (mergeBtn) {
             mergeBtn.disabled = false;
-            mergeBtn.textContent = '🚀 Publish to Game';
+            mergeBtn.textContent = 'Publish to Game';
         }
     }
 }
@@ -4124,7 +4124,7 @@ async function loadExpedition() {
     const loadBtn = document.getElementById('loadExpeditionBtn');
     if (loadBtn) {
         loadBtn.disabled = true;
-        loadBtn.textContent = '⏳ Loading...';
+        loadBtn.textContent = 'Loading...';
     }
 
     try {
