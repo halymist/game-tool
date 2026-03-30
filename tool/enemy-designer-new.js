@@ -196,13 +196,19 @@ function renderPendingEnemyList() {
         return;
     }
     
-    list.innerHTML = filteredPendingEnemies.map(enemy => `
+    list.innerHTML = filteredPendingEnemies.map(enemy => {
+        const iconUrl = enemy.icon || (enemy.assetId && enemy.assetId > 0 ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp` : null);
+        return `
         <div class="enemy-list-item pending-enemy ${enemy.toolingId === selectedEnemyId && enemyActiveTab === 'pending' ? 'selected' : ''}"
              data-id="${enemy.toolingId}" onclick="selectPendingEnemy(${enemy.toolingId})">
-            <div class="pending-enemy-header">
-                <span class="enemy-name">${escapeHtml(enemy.enemyName)}</span>
-                <span class="enemy-action ${enemy.action}">${enemy.action}</span>
+            <div class="enemy-list-icon">
+                ${iconUrl ? `<img src="${iconUrl}" alt="${escapeHtml(enemy.enemyName)}" />` : '<span class="no-icon">?</span>'}
             </div>
+            <div class="enemy-list-info">
+                <span class="enemy-name">${escapeHtml(enemy.enemyName)}</span>
+                <span class="enemy-stats">STR:${enemy.strength} STA:${enemy.stamina} AGI:${enemy.agility}</span>
+            </div>
+            <span class="enemy-action ${enemy.action}">${enemy.action}</span>
             <div class="pending-enemy-footer">
                 <div class="pending-enemy-actions" onclick="event.stopPropagation()">
                     <label class="approve-checkbox">
@@ -218,7 +224,7 @@ function renderPendingEnemyList() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function filterEnemies() {
@@ -286,8 +292,13 @@ function selectPendingEnemy(toolingId) {
     isViewingPendingEnemy = true;
     
     const enemy = allPendingEnemies.find(e => e.toolingId === toolingId);
-    if (!enemy) return;
+    if (!enemy) {
+        console.warn('Pending enemy not found:', toolingId);
+        return;
+    }
     
+    // Unlock form briefly to ensure clean population
+    setEnemyFormLocked(false);
     populateEnemyForm(enemy, true);
     loadTalentsIntoTree(enemy.talents || []);
     setEnemyFormLocked(true);
@@ -517,12 +528,16 @@ function upgradeTalent(talentId) {
         });
         
         updateTalentCellDisplay(talentId);
-        closeTalentUpgradeModal();
-		checkEnemySaveConditions();
+        checkEnemySaveConditions();
         
         // If max points reached and has perk slot, prompt for perk
         if (current.points + 1 === talent.maxPoints && (talent.perkSlot === true || talent.perkSlot > 0)) {
+            closeTalentUpgradeModal();
             showPerkSelectionModal(talent);
+        } else {
+            // Refresh modal in place to show updated points
+            closeTalentUpgradeModal();
+            showTalentUpgradeModal(talent);
         }
     }
 }
@@ -546,8 +561,10 @@ function downgradeTalent(talentId) {
     }
     
     updateTalentCellDisplay(talentId);
-    closeTalentUpgradeModal();
     checkEnemySaveConditions();
+    // Refresh modal in place to show updated points
+    closeTalentUpgradeModal();
+    showTalentUpgradeModal(talent);
 }
 
 function handleTalentClick(talent) {

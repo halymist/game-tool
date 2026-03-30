@@ -323,9 +323,13 @@ function selectPendingPerk(toolingId) {
     const perk = allPendingPerks.find(p => p.toolingId === toolingId);
     
     if (perk) {
+        // Unlock form briefly to ensure clean population
+        setPerkFormLocked(false);
         populatePerkFormFromPending(perk);
         setPerkFormLocked(true);
         document.getElementById('perkEditorTitle').textContent = `Pending: ${perk.action.toUpperCase()}`;
+    } else {
+        console.warn('Pending perk not found:', toolingId);
     }
     
     renderPerkList();
@@ -370,8 +374,17 @@ function populatePerkFormFromPending(perk) {
     updatePerkEffectDescription(1);
     updatePerkEffectDescription(2);
     
-    // Update icon preview
-    updatePerkIconPreview(perk.assetID);
+    // Update icon preview - use server icon URL if available, otherwise look up by assetID
+    if (perk.icon) {
+        const preview = document.getElementById('perkIconPreview');
+        const placeholder = document.getElementById('perkIconPlaceholder');
+        const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+        if (preview) { preview.src = perk.icon; preview.style.display = 'block'; }
+        if (placeholder) placeholder.style.display = 'none';
+        if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${perk.assetID}`;
+    } else {
+        updatePerkIconPreview(perk.assetID);
+    }
 }
 
 function setPerkFormLocked(locked) {

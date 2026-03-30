@@ -588,3 +588,78 @@ window.addListBuilderItem = addListBuilderItem;
 window.initListBuilderKeyHandler = initListBuilderKeyHandler;
 
 console.log('🔧 Designer Base module loaded');
+
+// ==================== GLOBAL ESC HANDLER ====================
+// Close the topmost open popup/overlay when pressing Escape
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+
+    // 1. Dynamically created modals (talent upgrade, perk selection)
+    const talentModal = document.querySelector('.talent-upgrade-modal');
+    if (talentModal) { talentModal.remove(); return; }
+
+    const perkModal = document.querySelector('.perk-selection-modal');
+    if (perkModal) { perkModal.remove(); return; }
+
+    // 2. Modals using .open class
+    const openModals = [
+        { id: 'optionModal', close: () => window.closeOptionModal?.() || document.getElementById('optionModal')?.classList.remove('open') },
+        { id: 'newQuestModal', close: () => document.getElementById('newQuestModal')?.classList.remove('open') }
+    ];
+    for (const m of openModals) {
+        const el = document.getElementById(m.id);
+        if (el && el.classList.contains('open')) { m.close(); return; }
+    }
+
+    // 3. Overlays using .active class (use proper close functions where available)
+    const activeOverlays = [
+        { id: 'responsesModalOverlay', close: () => window.closeResponsesModal?.() || document.getElementById('responsesModalOverlay')?.classList.remove('active') },
+        { id: 'questAssetGalleryOverlay', close: () => window.closeQuestAssetModal?.() || document.getElementById('questAssetGalleryOverlay')?.classList.remove('active') },
+        { id: 'settlementAssetGalleryOverlay', close: () => window.closeAssetGallery?.() || document.getElementById('settlementAssetGalleryOverlay')?.classList.remove('active') },
+        { id: 'questPreviewOverlay', close: () => {
+            const el = document.getElementById('questPreviewOverlay');
+            if (el) el.classList.remove('active');
+            document.body.classList.remove('quest-preview-open');
+        }},
+        { id: 'expeditionPreviewOverlay', close: () => {
+            const el = document.getElementById('expeditionPreviewOverlay');
+            if (el) { el.classList.remove('active'); el.setAttribute('aria-hidden', 'true'); }
+            const questOverlay = document.getElementById('questPreviewOverlay');
+            if (!questOverlay?.classList.contains('active')) {
+                document.body.classList.remove('quest-preview-open');
+            }
+        }}
+    ];
+    for (const o of activeOverlays) {
+        const el = document.getElementById(o.id);
+        if (el && el.classList.contains('active')) { o.close(); return; }
+    }
+
+    // 4. Overlays using display:flex/block
+    const displayOverlays = [
+        'enemyAssetGalleryOverlay',
+        'questGenerateOverlay',
+        'expeditionGenerateOverlay'
+    ];
+    for (const id of displayOverlays) {
+        const el = document.getElementById(id);
+        if (el && el.style.display && el.style.display !== 'none') {
+            el.style.display = 'none';
+            return;
+        }
+    }
+
+    // 5. Overlays using .hidden class (visible = no hidden class)
+    const hiddenOverlays = [
+        'talentAssetGalleryOverlay',
+        'itemAssetGalleryOverlay',
+        'perkAssetGalleryOverlay'
+    ];
+    for (const id of hiddenOverlays) {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('hidden')) {
+            el.classList.add('hidden');
+            return;
+        }
+    }
+});

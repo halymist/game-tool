@@ -484,9 +484,13 @@ function selectPendingItem(toolingId) {
     const item = allPendingItems.find(i => i.toolingId === toolingId);
     
     if (item) {
+        // Unlock form briefly to ensure clean population
+        setFormLocked(false);
         populateFormFromPending(item);
         setFormLocked(true);
         document.getElementById('itemEditorTitle').textContent = `Pending: ${item.action.toUpperCase()}`;
+    } else {
+        console.warn('Pending item not found:', toolingId);
     }
     
     renderItemList();
@@ -517,8 +521,17 @@ function populateFormFromPending(item) {
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
     
-    // Update icon preview by assetID
-    updateIconPreview(item.assetID);
+    // Update icon preview - use server icon URL if available, otherwise look up by assetID
+    if (item.icon) {
+        const preview = document.getElementById('itemIconPreview');
+        const placeholder = document.getElementById('itemIconPlaceholder');
+        const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+        if (preview) { preview.src = item.icon; preview.style.display = 'block'; }
+        if (placeholder) placeholder.style.display = 'none';
+        if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${item.assetID}`;
+    } else {
+        updateIconPreview(item.assetID);
+    }
     
     // Toggle weapon stats visibility
     toggleWeaponStats();
