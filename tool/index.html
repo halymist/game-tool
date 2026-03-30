@@ -1469,7 +1469,6 @@
                 <div class="settlement-top-bar">
                     <div class="settlement-select-wrapper">
                         <div class="settlement-select-group">
-                            <label for="settlementSelect">Settlement:</label>
                             <select id="settlementSelect" class="settlement-select">
                                 <option value="">-- New Settlement --</option>
                             </select>
@@ -1522,10 +1521,10 @@
                                 <div>
                                     <label for="factionSelect">Faction</label>
                                     <select id="factionSelect" class="faction-select">
-                                        <option value="">-- None --</option>
-                                        <option value="1">Faction 1</option>
-                                        <option value="2">Faction 2</option>
-                                        <option value="3">Faction 3</option>
+                                        <option value="">-- Neutral --</option>
+                                        <option value="1">Order</option>
+                                        <option value="2">Guild</option>
+                                        <option value="3">Companions</option>
                                     </select>
                                 </div>
                             </div>
@@ -1585,10 +1584,6 @@
                             </div>
                             <div class="settlement-card-info">
                                 <div class="vendor-items-section">
-                                    <div class="section-header">
-                                        <label>Items for Sale</label>
-                                        <button id="addVendorItemBtn" class="add-inline-btn">+</button>
-                                    </div>
                                     <div id="vendorItemsGrid" class="items-grid">
                                         <!-- Items will be populated here -->
                                     </div>
@@ -1642,10 +1637,6 @@
                                 
                                 <!-- Enchanter: Effects -->
                                 <div id="utilityEnchanterContent" class="utility-content">
-                                    <div class="section-header">
-                                        <label>Available Effects</label>
-                                        <button id="addEnchanterEffectBtn" class="add-inline-btn">+</button>
-                                    </div>
                                     <div id="enchanterEffectsList" class="effects-list">
                                         <!-- Effects will be populated here -->
                                     </div>

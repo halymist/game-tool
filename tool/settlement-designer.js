@@ -730,12 +730,11 @@ function renderVendorItems() {
     const grid = document.getElementById('vendorItemsGrid');
     if (!grid) return;
 
-    if (settlementState.vendorItems.length === 0) {
-        grid.innerHTML = '<div class="items-grid-empty">No items added</div>';
-        return;
-    }
+    const addBtn = `<div class="item-grid-cell add-cell" onclick="showAddItemDialog()" title="Add item">
+        <span class="add-cell-icon">+</span>
+    </div>`;
 
-    grid.innerHTML = settlementState.vendorItems.map((itemId, index) => {
+    const itemsHtml = settlementState.vendorItems.map((itemId, index) => {
         const item = settlementState.items.find(i => (i.item_id || i.id) === itemId);
         const name = item ? (item.item_name || item.name) : `Item ${itemId}`;
         const icon = resolveSettlementItemIcon(item);
@@ -743,36 +742,34 @@ function renderVendorItems() {
         return `
             <div class="item-grid-cell" title="${escapeSettlementHtml(name)}">
                 <img src="${icon}" alt="${escapeSettlementHtml(name)}" onerror="this.src='${SETTLEMENT_FALLBACK_ITEM_ICON}'">
-                <span class="item-name">${escapeSettlementHtml(name)}</span>
                 <button class="remove-btn" onclick="removeVendorItem(${index}); event.stopPropagation();">×</button>
             </div>
         `;
     }).join('');
+
+    grid.innerHTML = addBtn + itemsHtml;
 }
 
 function renderEnchanterEffects() {
     const list = document.getElementById('enchanterEffectsList');
     if (!list) return;
 
-    if (settlementState.enchanterEffects.length === 0) {
-        list.innerHTML = '<div style="text-align: center; color: #4a5568; font-style: italic; padding: 12px;">No effects added</div>';
-        return;
-    }
+    const addBtn = `<div class="effect-row add-cell" onclick="showAddEffectDialog()" style="cursor:pointer; justify-content:center;">
+        <span class="add-cell-icon">+</span>
+    </div>`;
 
-    list.innerHTML = settlementState.enchanterEffects.map((effectId, index) => {
+    const effectsHtml = settlementState.enchanterEffects.map((effectId, index) => {
         const effect = settlementState.effects.find(e => (e.effect_id || e.id) === effectId);
         const name = effect ? (effect.effect_name || effect.name) : `Effect ${effectId}`;
-        const description = effect ? (effect.effect_description || effect.description || '') : '';
         return `
             <div class="effect-row">
-                <div class="effect-item-content">
-                    <div class="effect-item-name">${escapeSettlementHtml(name)}</div>
-                    ${description ? `<div class="effect-item-description">${escapeSettlementHtml(description)}</div>` : ''}
-                </div>
+                <div class="effect-item-name">${escapeSettlementHtml(name)}</div>
                 <button class="effect-remove" onclick="removeEnchanterEffect(${index})">×</button>
             </div>
         `;
     }).join('');
+
+    list.innerHTML = addBtn + effectsHtml;
 }
 
 function showAddItemDialog() {
@@ -1937,6 +1934,8 @@ window.selectSettlement = selectSettlement;
 window.selectAsset = selectAsset;
 window.removeVendorItem = removeVendorItem;
 window.removeEnchanterEffect = removeEnchanterEffect;
+window.showAddItemDialog = showAddItemDialog;
+window.showAddEffectDialog = showAddEffectDialog;
 window.toggleVendorItemSelection = toggleVendorItemSelection;
 window.closeItemSelectDialog = closeItemSelectDialog;
 window.toggleEnchanterEffectSelection = toggleEnchanterEffectSelection;

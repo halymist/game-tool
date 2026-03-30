@@ -277,19 +277,19 @@
     box-shadow: 0 0 8px rgba(34,197,94,0.15);
 }
 .talent-cell.disabled { pointer-events: none; opacity: 0.5; }
+.talent-cell:not(.empty):active { transform: scale(0.92); }
 
-.talent-icon { width: 32px; height: 32px; object-fit: contain; }
+.talent-icon { width: 44px; height: 44px; object-fit: contain; pointer-events: none; }
 
-.talent-max {
-    position: absolute; top: 3px; right: 3px;
-    background: rgba(0,0,0,0.5); color: var(--text-secondary);
+.talent-points {
+    position: absolute; bottom: 2px; right: 2px;
+    background: rgba(0,0,0,0.6); color: var(--text-muted);
     font-size: 0.6rem; padding: 1px 4px; border-radius: 4px;
+    pointer-events: none;
 }
-.talent-current {
-    position: absolute; bottom: 3px; right: 3px;
-    background: rgba(0,0,0,0.5); color: #fbbf24;
-    font-size: 0.55rem; padding: 1px 4px; border-radius: 4px;
-}
+.talent-points .current-points { color: #fbbf24; font-weight: 600; }
+.talent-cell.maxed .talent-points { color: var(--success); }
+.talent-cell.maxed .talent-points .current-points { color: var(--success); }
 
 .talent-cell .perk-indicator {
     position: absolute; top: 3px; left: 3px;

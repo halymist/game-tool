@@ -439,9 +439,11 @@ function buildTalentTreeGrid() {
         cell.dataset.talentId = talent.talentId;
 
         const iconUrl = getTalentIconUrl(talent.assetId);
+        let descText = talent.description || '';
+        if (talent.factor) descText = `${descText} ${talent.factor}%`;
+        cell.title = `${talent.talentName}${descText ? '\n' + descText : ''}`;
         cell.innerHTML = `
-            <div class="talent-max">${talent.maxPoints}</div>
-            <div class="talent-current"><span class="current-points">0</span></div>
+            <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
             <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
             ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
         `;
@@ -450,11 +452,17 @@ function buildTalentTreeGrid() {
         label.className = 'talent-cell-label';
         label.textContent = talent.talentName || '';
 
-        cell.addEventListener('click', () => showTalentUpgradeModal(talent));
-        label.addEventListener('click', () => showTalentUpgradeModal(talent));
+        cell.addEventListener('click', () => {
+            if (isViewingPendingEnemy) return;
+            upgradeTalent(talent.talentId);
+        });
         cell.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             handleTalentRightClick(talent);
+        });
+        cell.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            showTalentUpgradeModal(talent);
         });
 
         wrapper.appendChild(cell);

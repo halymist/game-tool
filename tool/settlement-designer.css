@@ -434,19 +434,14 @@
     width: 100%;
 }
 
-/* ── Vendor Items ───────────────────────────────────── */
-.vendor-items-section {
-    margin-top: 8px;
-}
-
-.items-grid {
+/* ── Vendor Items ───────────────────────────────────── */\n\n.items-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 4px;
     background: var(--bg-base);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm);
-    padding: 8px;
+    padding: 6px;
     margin-top: 4px;
     max-height: 150px;
     overflow-y: auto;
@@ -482,8 +477,8 @@
 }
 
 .item-grid-cell img {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     object-fit: contain;
 }
 
@@ -496,6 +491,21 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
+}
+
+.add-cell {
+    border: 1px dashed var(--accent) !important;
+    background: rgba(59, 130, 246, 0.05) !important;
+    cursor: pointer;
+}
+.add-cell:hover {
+    background: rgba(59, 130, 246, 0.15) !important;
+}
+.add-cell-icon {
+    font-size: 1.25rem;
+    color: var(--accent);
+    font-weight: 600;
+    line-height: 1;
 }
 
 .item-grid-cell .remove-btn {
