@@ -605,7 +605,8 @@
 }
 
 .select-list-search {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 7px 10px;
     background: var(--bg-surface);
     border: 1px solid var(--border-default);
@@ -613,8 +614,7 @@
     color: var(--text-primary);
     font-size: 0.8125rem;
     font-family: inherit;
-    margin-top: 6px;
-    margin-bottom: 8px;
+    margin: 0;
     box-sizing: border-box;
 }
 .select-list-search:focus { outline: none; border-color: var(--accent); }

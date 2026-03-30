@@ -798,7 +798,7 @@ function showAddItemDialog() {
     overlay.innerHTML = `
         <div class="settlement-asset-gallery" style="max-width: 480px;">
             <div class="settlement-asset-gallery-header">
-                <h3>Select Items for Vendor</h3>
+                <input type="text" class="select-list-search" placeholder="Search items..." oninput="filterSelectList(this, '#itemSelectOverlay')">
                 <button class="settlement-asset-gallery-close" onclick="closeItemSelectDialog()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -806,16 +806,10 @@ function showAddItemDialog() {
                     </svg>
                 </button>
             </div>
-            <div style="padding: 0 16px;">
-                <input type="text" class="select-list-search" placeholder="Search items..." oninput="filterSelectList(this, '#itemSelectOverlay')">
-            </div>
             <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
                 <div class="select-list">
                     ${itemsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No items available</p>'}
                 </div>
-            </div>
-            <div class="settlement-upload-section">
-                <button class="btn-save-settlement" onclick="closeItemSelectDialog()">Done</button>
             </div>
         </div>
     `;
@@ -885,7 +879,7 @@ function showAddEffectDialog() {
     overlay.innerHTML = `
         <div class="settlement-asset-gallery" style="max-width: 520px;">
             <div class="settlement-asset-gallery-header">
-                <h3>Select Effects for Enchanter</h3>
+                <input type="text" class="select-list-search" placeholder="Search effects..." oninput="filterSelectList(this, '#effectSelectOverlay')">
                 <button class="settlement-asset-gallery-close" onclick="closeEffectSelectDialog()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -893,16 +887,10 @@ function showAddEffectDialog() {
                     </svg>
                 </button>
             </div>
-            <div style="padding: 0 16px;">
-                <input type="text" class="select-list-search" placeholder="Search effects..." oninput="filterSelectList(this, '#effectSelectOverlay')">
-            </div>
             <div class="settlement-asset-gallery-content" style="max-height: 60vh; overflow-y: auto;">
                 <div class="select-list">
                     ${effectsHtml || '<p style="color: var(--text-muted); text-align: center; padding: 40px;">No effects available</p>'}
                 </div>
-            </div>
-            <div class="settlement-upload-section">
-                <button class="btn-save-settlement" onclick="closeEffectSelectDialog()">Done</button>
             </div>
         </div>
     `;
