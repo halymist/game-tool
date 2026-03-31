@@ -816,7 +816,7 @@
                                 </div>
                                 <div class="item-info">
                                     <div class="item-row">
-                                        <div class="item-field item-field-grow"><label>Name</label><input type="text" id="itemName" placeholder="Item name" required></div>
+                                        <div class="item-field item-field-grow item-field-inline"><label>Name</label><input type="text" id="itemName" placeholder="Item name" required></div>
                                         <div class="item-field item-field-small"><label>Silver</label><input type="number" id="itemSilver" value="10" min="0" max="9999"></div>
                                         <div class="item-field item-field-small"><label>Type</label>
                                             <select id="itemType" required>
@@ -840,7 +840,7 @@
                                         </div>
                                     </div>
                                     <div class="item-row">
-                                        <div class="item-field item-field-full"><label>Description</label><textarea id="itemNotes" rows="3" placeholder="Short description..."></textarea></div>
+                                        <div class="item-field item-field-full"><textarea id="itemNotes" rows="3" placeholder="Short description..."></textarea></div>
                                     </div>
                                 </div>
                             </div>
@@ -946,7 +946,7 @@
                                 </div>
                                 <div class="perk-info">
                                     <div class="perk-row">
-                                        <div class="perk-field perk-field-grow"><label>Name</label><input type="text" id="perkName" placeholder="Perk name" required></div>
+                                        <div class="perk-field perk-field-grow perk-field-inline"><label>Name</label><input type="text" id="perkName" placeholder="Perk name" required></div>
                                         <div class="perk-field perk-field-small">
                                             <label class="perk-blessing-label">
                                                 <input type="checkbox" id="perkIsBlessing">
@@ -955,7 +955,7 @@
                                         </div>
                                     </div>
                                     <div class="perk-row">
-                                        <div class="perk-field perk-field-full"><label>Description</label><textarea id="perkDescription" rows="3" placeholder="Perk description..."></textarea></div>
+                                        <div class="perk-field perk-field-full"><textarea id="perkDescription" rows="3" placeholder="Perk description..."></textarea></div>
                                     </div>
                                 </div>
                             </div>
@@ -1849,6 +1849,7 @@
                 <div class="server-list-panel">
                     <div class="server-list-header">
                         <h3>Servers</h3>
+                        <button type="button" id="serverCreateOpenBtn" class="btn-server-create">Create</button>
                         <span id="serverStatus" class="server-status"></span>
                     </div>
                     <div class="server-table-wrapper">

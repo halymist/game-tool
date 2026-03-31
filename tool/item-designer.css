@@ -153,6 +153,9 @@ input[type="number"] { -moz-appearance: textfield; }
 .item-info { flex: 1; display: flex; flex-direction: column; gap: 0.625rem; }
 .item-row { display: flex; gap: 0.75rem; }
 .item-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.item-field-inline { flex-direction: row; align-items: center; gap: 0.35rem; }
+.item-field-inline label { min-width: 40px; flex-shrink: 0; }
+.item-field-inline input { flex: 1; }
 .item-field-grow { flex: 1; }
 .item-field-small { flex: 0 0 100px; }
 .item-field-full { flex: 1; }
@@ -186,10 +189,10 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .stat-row input[type="number"]:focus { outline: none; border-color: var(--accent); }
 
-.socket-row { cursor: pointer; }
-.socket-row:hover label { color: var(--accent); }
-.socket-row input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--accent); }
-.socket-row label { color: var(--text-primary); cursor: pointer; flex: 0; }
+.socket-row { cursor: pointer; padding: 0.35rem 0.5rem; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); transition: all 0.15s ease; }
+.socket-row:hover { border-color: var(--border-default); }
+.socket-row input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+.socket-row label { color: var(--text-secondary); cursor: pointer; flex: 0; font-size: 0.75rem; font-weight: 500; }
 
 #weaponStatsSection { display: none; margin-top: 0.625rem; }
 #weaponStatsSection.hidden { display: none !important; }

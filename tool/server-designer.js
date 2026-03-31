@@ -25,12 +25,8 @@ async function initServerManager() {
 }
 
 function setupServerListeners() {
-    document.getElementById('serverTableBody')?.addEventListener('click', (e) => {
-        const target = e.target;
-        if (!(target instanceof HTMLElement)) return;
-        if (target.id === 'serverCreateBtn') {
-            createServer(e);
-        }
+    document.getElementById('serverCreateOpenBtn')?.addEventListener('click', () => {
+        showCreateServerModal();
     });
 }
 
@@ -66,30 +62,8 @@ function renderServerTable() {
     const tbody = document.getElementById('serverTableBody');
     if (!tbody) return;
 
-    const hourOptions = Array.from({length: 24}, (_, i) => {
-        const hh = String(i).padStart(2, '0');
-        return `<option value="${hh}">${hh}:00</option>`;
-    }).join('');
-
-    const createRow = `
-        <tr class="server-create-row">
-            <td><input type="text" id="serverName" placeholder="Server name..."></td>
-            <td>
-                <div class="server-datetime-inputs">
-                    <input type="date" id="serverStartDate">
-                    <select id="serverStartHour">
-                        <option value="">--</option>
-                        ${hourOptions}
-                    </select>
-                </div>
-            </td>
-            <td colspan="3"></td>
-            <td><button type="button" id="serverCreateBtn" class="btn-save">Create</button></td>
-        </tr>
-    `;
-
     if (!serverState.servers.length) {
-        tbody.innerHTML = `${createRow}<tr><td colspan="6" class="server-empty">No servers found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="server-empty">No servers found</td></tr>`;
         renderServerPlanDetails(null);
         return;
     }
@@ -105,7 +79,7 @@ function renderServerTable() {
         </tr>
     `).join('');
 
-    tbody.innerHTML = `${createRow}${rows}`;
+    tbody.innerHTML = rows;
 }
 
 function selectServer(serverId) {
@@ -115,13 +89,107 @@ function selectServer(serverId) {
     renderServerPlanDetails(server);
 }
 
-async function createServer(e) {
-    e.preventDefault();
+function showCreateServerModal() {
+    let overlay = document.getElementById('serverCreateOverlay');
+    if (overlay) overlay.remove();
+
+    const hourOptions = Array.from({length: 24}, (_, i) => {
+        const hh = String(i).padStart(2, '0');
+        return `<option value="${hh}">${hh}:00</option>`;
+    }).join('');
+
+    overlay = document.createElement('div');
+    overlay.id = 'serverCreateOverlay';
+    overlay.className = 'server-create-overlay';
+    overlay.innerHTML = `
+        <div class="server-create-modal">
+            <h3>Create Server</h3>
+            <div id="serverModalForm">
+                <div class="server-modal-field">
+                    <label>Name</label>
+                    <input type="text" id="serverName" placeholder="Server name...">
+                </div>
+                <div class="server-modal-field">
+                    <label>Starts at</label>
+                    <div class="server-datetime-inputs">
+                        <input type="date" id="serverStartDate">
+                        <select id="serverStartHour">
+                            <option value="">--</option>
+                            ${hourOptions}
+                        </select>
+                    </div>
+                </div>
+                <div class="server-modal-actions">
+                    <button type="button" id="serverModalCancelBtn" class="btn-modal-cancel">Cancel</button>
+                    <button type="button" id="serverModalNextBtn" class="btn-modal-create">Next</button>
+                </div>
+            </div>
+            <div id="serverModalConfirm" style="display:none;">
+                <div class="server-confirm-summary" id="serverConfirmSummary"></div>
+                <div class="server-modal-actions">
+                    <button type="button" id="serverModalBackBtn" class="btn-modal-cancel">Back</button>
+                    <button type="button" id="serverModalCreateBtn" class="btn-modal-create">Create Server</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.querySelector('.server-list-panel').appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeCreateServerModal();
+    });
+    document.getElementById('serverModalCancelBtn').addEventListener('click', closeCreateServerModal);
+    document.getElementById('serverModalNextBtn').addEventListener('click', showServerConfirmation);
+    document.getElementById('serverModalBackBtn').addEventListener('click', () => {
+        document.getElementById('serverModalForm').style.display = '';
+        document.getElementById('serverModalConfirm').style.display = 'none';
+    });
+    document.getElementById('serverModalCreateBtn').addEventListener('click', () => createServer());
+
+    document.getElementById('serverName').focus();
+}
+
+function showServerConfirmation() {
+    const name = document.getElementById('serverName').value.trim() || '(unnamed)';
+    const dateVal = document.getElementById('serverStartDate').value;
+    const hourVal = document.getElementById('serverStartHour').value;
+
+    let startStr, endStr;
+    if (dateVal) {
+        const start = new Date(`${dateVal}T${hourVal || '00'}:00:00`);
+        const end = new Date(start.getTime() + 70 * 24 * 60 * 60 * 1000);
+        startStr = formatDateTime(start.toISOString());
+        endStr = formatDateTime(end.toISOString());
+    } else {
+        const now = new Date();
+        const end = new Date(now.getTime() + 70 * 24 * 60 * 60 * 1000);
+        startStr = 'Now';
+        endStr = formatDateTime(end.toISOString());
+    }
+
+    const summary = document.getElementById('serverConfirmSummary');
+    summary.innerHTML = `
+        <div class="server-confirm-row"><span>Name</span><strong>${escapeHtml(name)}</strong></div>
+        <div class="server-confirm-row"><span>Starts</span><strong>${startStr}</strong></div>
+        <div class="server-confirm-row"><span>Ends (+70 days)</span><strong>${endStr}</strong></div>
+    `;
+
+    document.getElementById('serverModalForm').style.display = 'none';
+    document.getElementById('serverModalConfirm').style.display = '';
+}
+
+function closeCreateServerModal() {
+    const overlay = document.getElementById('serverCreateOverlay');
+    if (overlay) overlay.remove();
+}
+
+async function createServer() {
 
     const name = document.getElementById('serverName').value.trim();
     const dateVal = document.getElementById('serverStartDate').value;
     const hourVal = document.getElementById('serverStartHour').value;
-    const startsAt = dateVal ? `${dateVal}T${hourVal || '00'}:00:00` : null;
+    const startsAt = dateVal ? `${dateVal}T${hourVal || '00'}:00` : null;
 
     try {
         const token = await getCurrentAccessToken();
@@ -148,9 +216,7 @@ async function createServer(e) {
         serverState.servers.unshift(data.server);
         serverState.selectedServerId = data.server?.id ?? serverState.selectedServerId;
         renderServerTable();
-        document.getElementById('serverName').value = '';
-        document.getElementById('serverStartDate').value = '';
-        document.getElementById('serverStartHour').value = '';
+        closeCreateServerModal();
         setServerStatus('Server created', false);
     } catch (error) {
         console.error('Error creating server:', error);

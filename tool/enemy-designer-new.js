@@ -243,6 +243,12 @@ function filterEnemies() {
 function switchEnemyTab(tab) {
     enemyActiveTab = tab;
     
+    // Clear selection when switching tabs
+    selectedEnemyId = null;
+    isViewingPendingEnemy = false;
+    clearEnemyForm();
+    clearTalentTree();
+    
     const gameTab = document.getElementById('gameEnemiesTab');
     const pendingTab = document.getElementById('pendingEnemiesTab');
     const gameList = document.getElementById('enemyList');
@@ -264,12 +270,10 @@ function switchEnemyTab(tab) {
         if (pendingList) pendingList.style.display = 'block';
         if (newBtn) newBtn.style.display = 'none';
         if (mergeBtn) mergeBtn.style.display = 'inline-flex';
-        
-        // Auto-select first pending enemy when switching to pending tab
-        if (filteredPendingEnemies.length > 0 && !isViewingPendingEnemy) {
-            selectPendingEnemy(filteredPendingEnemies[0].toolingId);
-        }
     }
+    
+    renderEnemyList();
+    renderPendingEnemyList();
 }
 
 // ==================== SELECTION ====================
