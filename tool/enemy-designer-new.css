@@ -47,6 +47,7 @@
     font-size: 0.8125rem;
     cursor: pointer;
     transition: all 0.15s ease;
+    text-align: center;
 }
 .enemy-list-buttons .btn-new:hover { background: rgba(34,197,94,0.18); border-color: var(--success); }
 
@@ -56,6 +57,7 @@
     background: var(--accent-subtle);
     border: 1px solid rgba(59,130,246,0.25);
     border-radius: var(--radius-sm);
+    text-align: center;
     color: var(--accent);
     font-weight: 600;
     font-size: 0.8125rem;

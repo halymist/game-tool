@@ -699,7 +699,6 @@
                                     <label for="talentPerkSlot">Perk Slot</label>
                                     <div class="talent-checkbox">
                                         <input type="checkbox" id="talentPerkSlot">
-                                        <span>Enabled</span>
                                     </div>
                                 </div>
                             </div>
@@ -758,7 +757,7 @@
                 <div class="item-list-sidebar">
                     <div class="item-list-controls">
                         <div class="item-tab-toggle">
-                            <button type="button" id="gameItemsTab" class="tab-btn active">Game Items</button>
+                            <button type="button" id="gameItemsTab" class="tab-btn active">Game</button>
                             <button type="button" id="pendingItemsTab" class="tab-btn">Pending</button>
                         </div>
                         <input type="text" id="itemSearch" placeholder="Search items...">
@@ -907,7 +906,7 @@
                 <div class="perk-list-sidebar">
                     <div class="perk-list-controls">
                         <div class="perk-tab-toggle">
-                            <button type="button" id="gamePerksTab" class="tab-btn active">Game Perks</button>
+                            <button type="button" id="gamePerksTab" class="tab-btn active">Game</button>
                             <button type="button" id="pendingPerksTab" class="tab-btn">Pending</button>
                         </div>
                         <input type="text" id="perkSearch" placeholder="Search perks...">
@@ -1848,8 +1847,10 @@
             <div class="server-manager-container">
                 <div class="server-list-panel">
                     <div class="server-list-header">
-                        <h3>Servers</h3>
-                        <button type="button" id="serverCreateOpenBtn" class="btn-server-create">Create</button>
+                        <div class="server-list-title-group">
+                            <h3>Servers</h3>
+                            <button type="button" id="serverCreateOpenBtn" class="btn-server-create">Create</button>
+                        </div>
                         <span id="serverStatus" class="server-status"></span>
                     </div>
                     <div class="server-table-wrapper">

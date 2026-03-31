@@ -30,6 +30,12 @@
     margin-bottom: 12px;
 }
 
+.server-list-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .server-list-header h3,
 .server-editor-header h3 {
     margin: 0;

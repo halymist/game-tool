@@ -189,7 +189,7 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .stat-row input[type="number"]:focus { outline: none; border-color: var(--accent); }
 
-.socket-row { cursor: pointer; padding: 0.35rem 0.5rem; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); transition: all 0.15s ease; }
+.socket-row { cursor: pointer; padding: 0.35rem 0.5rem; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); transition: all 0.15s ease; grid-column: 1 / -1; margin-top: 0.25rem; }
 .socket-row:hover { border-color: var(--border-default); }
 .socket-row input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
 .socket-row label { color: var(--text-secondary); cursor: pointer; flex: 0; font-size: 0.75rem; font-weight: 500; }
