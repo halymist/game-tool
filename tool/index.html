@@ -27,8 +27,10 @@
     </div>
     <div class="header">
         <div class="header-left">
+            <button id="back-to-dashboard" onclick="showPage('dashboard'); return false;" class="back-btn" style="display: none;">← Back</button>
+        </div>
+        <div class="header-center">
             <h1>Dashboard</h1>
-            <button id="back-to-dashboard" onclick="showPage('dashboard'); return false;" class="back-btn" style="display: none;">← Back to Dashboard</button>
         </div>
         <div class="user-info">
             <span id="username-display">Admin User</span>
@@ -2012,19 +2014,19 @@
         // Page navigation system
         const pages = {
             'dashboard': { title: 'Dashboard', element: 'dashboard-content' },
-            'quests': { title: 'Quest Manager', element: 'quests-content' },
-            'enemies': { title: 'Enemy Designer', element: 'enemies-content' },
-            'talents': { title: 'Talent Editor', element: 'talents-content' },
-            'items': { title: 'Item Designer', element: 'items-content' },
-            'perks': { title: 'Perk Designer', element: 'perks-content' },
+            'quests': { title: 'Quests', element: 'quests-content' },
+            'enemies': { title: 'Enemies', element: 'enemies-content' },
+            'talents': { title: 'Talents', element: 'talents-content' },
+            'items': { title: 'Items', element: 'items-content' },
+            'perks': { title: 'Perks', element: 'perks-content' },
             'dungeons': { title: 'Expeditions', element: 'dungeons-content' },
-            'settlements': { title: 'Settlement Designer', element: 'settlements-content' },
-            'npcs': { title: 'NPC Manager', element: 'npcs-content' },
-            'players': { title: 'Player Management', element: 'players-content' },
+            'settlements': { title: 'Settlements', element: 'settlements-content' },
+            'npcs': { title: 'NPCs', element: 'npcs-content' },
+            'players': { title: 'Players', element: 'players-content' },
             'concept': { title: 'Concept', element: 'concept-content' },
-            'servers': { title: 'Server Management', element: 'servers-content' },
-            'moderation': { title: 'Chat Moderation', element: 'moderation-content' },
-            'analytics': { title: 'Game Analytics', element: 'analytics-content' }
+            'servers': { title: 'Servers', element: 'servers-content' },
+            'moderation': { title: 'Chat', element: 'moderation-content' },
+            'analytics': { title: 'Analytics', element: 'analytics-content' }
         };
 
         let currentPage = 'dashboard';

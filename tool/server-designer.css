@@ -403,6 +403,15 @@
     gap: 1rem;
 }
 
+.server-modal-error {
+    font-size: 0.75rem;
+    color: var(--danger);
+    padding: 0.4rem 0.5rem;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: var(--radius-sm);
+}
+
 .server-modal-field input[type="date"] {
     padding: 0.5rem;
     font-size: 0.875rem;

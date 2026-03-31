@@ -119,6 +119,7 @@ function showCreateServerModal() {
                         </select>
                     </div>
                 </div>
+                <div id="serverModalError" class="server-modal-error" style="display:none;"></div>
                 <div class="server-modal-actions">
                     <button type="button" id="serverModalCancelBtn" class="btn-modal-cancel">Cancel</button>
                     <button type="button" id="serverModalNextBtn" class="btn-modal-create">Next</button>
@@ -151,9 +152,32 @@ function showCreateServerModal() {
 }
 
 function showServerConfirmation() {
-    const name = document.getElementById('serverName').value.trim() || '(unnamed)';
+    const name = document.getElementById('serverName').value.trim();
     const dateVal = document.getElementById('serverStartDate').value;
     const hourVal = document.getElementById('serverStartHour').value;
+
+    // Validation
+    const errors = [];
+    if (!name) {
+        errors.push('Name is required');
+    } else if (name.length < 6) {
+        errors.push('Name must be at least 6 characters');
+    } else if (!/^[a-zA-Z\s]+$/.test(name)) {
+        errors.push('Name can only contain letters and spaces');
+    }
+    if (!dateVal) {
+        errors.push('Start date is required');
+    }
+
+    const errEl = document.getElementById('serverModalError');
+    if (errors.length > 0) {
+        if (errEl) {
+            errEl.textContent = errors[0];
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+    if (errEl) errEl.style.display = 'none';
 
     let startStr, endStr;
     if (dateVal) {
