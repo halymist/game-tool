@@ -66,10 +66,23 @@ function renderServerTable() {
     const tbody = document.getElementById('serverTableBody');
     if (!tbody) return;
 
+    const hourOptions = Array.from({length: 24}, (_, i) => {
+        const hh = String(i).padStart(2, '0');
+        return `<option value="${hh}">${hh}:00</option>`;
+    }).join('');
+
     const createRow = `
         <tr class="server-create-row">
             <td><input type="text" id="serverName" placeholder="Server name..."></td>
-            <td><input type="datetime-local" id="serverStartsAt"></td>
+            <td>
+                <div class="server-datetime-inputs">
+                    <input type="date" id="serverStartDate">
+                    <select id="serverStartHour">
+                        <option value="">--</option>
+                        ${hourOptions}
+                    </select>
+                </div>
+            </td>
             <td colspan="3"></td>
             <td><button type="button" id="serverCreateBtn" class="btn-save">Create</button></td>
         </tr>
@@ -106,7 +119,9 @@ async function createServer(e) {
     e.preventDefault();
 
     const name = document.getElementById('serverName').value.trim();
-    const startsAt = document.getElementById('serverStartsAt').value;
+    const dateVal = document.getElementById('serverStartDate').value;
+    const hourVal = document.getElementById('serverStartHour').value;
+    const startsAt = dateVal ? `${dateVal}T${hourVal || '00'}:00:00` : null;
 
     try {
         const token = await getCurrentAccessToken();
@@ -134,7 +149,8 @@ async function createServer(e) {
         serverState.selectedServerId = data.server?.id ?? serverState.selectedServerId;
         renderServerTable();
         document.getElementById('serverName').value = '';
-        document.getElementById('serverStartsAt').value = '';
+        document.getElementById('serverStartDate').value = '';
+        document.getElementById('serverStartHour').value = '';
         setServerStatus('Server created', false);
     } catch (error) {
         console.error('Error creating server:', error);
@@ -159,7 +175,11 @@ function formatDateTime(value) {
     if (!value) return '—';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString();
+    const day = d.getDate();
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    return `${day}.${month}.${year} ${hours}:00`;
 }
 
 function escapeHtml(str) {
