@@ -2971,18 +2971,26 @@ async function generateExpeditionClusterPreview() {
             name: enemy.enemyName || enemy.enemy_name || enemy.name || ''
         }));
 
+    // Build full enemy catalog for AI to pick from
+    const allEnemyList = enemies.map(e => ({
+        id: e.enemyId || e.enemy_id || e.id,
+        name: e.enemyName || e.enemy_name || e.name || ''
+    }));
+
     const items = (expeditionGenerateState.rewardItems || [])
         .filter(item => selectedItemIds.includes(item.itemId || item.item_id || item.id))
         .map(item => ({
             id: item.itemId || item.item_id || item.id,
-            name: item.itemName || item.item_name || item.name || ''
+            name: item.itemName || item.item_name || item.name || '',
+            description: item.description || ''
         }));
 
     const perks = (expeditionGenerateState.rewardPerks || [])
         .filter(perk => selectedPerkIds.includes(perk.perk_id || perk.id))
         .map(perk => ({
             id: perk.perk_id || perk.id,
-            name: perk.perk_name || perk.name || ''
+            name: perk.perk_name || perk.name || '',
+            description: perk.description || ''
         }));
 
     const potions = (expeditionGenerateState.rewardPotions || [])
@@ -2998,6 +3006,26 @@ async function generateExpeditionClusterPreview() {
             id: perk.perk_id || perk.id,
             name: perk.perk_name || perk.name || ''
         }));
+
+    // Build full reward catalogs for AI to freely pick from
+    const allItemsList = (expeditionGenerateState.rewardItems || []).map(i => ({
+        id: i.itemId || i.item_id || i.id,
+        name: i.itemName || i.item_name || i.name || '',
+        description: i.description || ''
+    }));
+    const allPerksList = (expeditionGenerateState.rewardPerks || []).map(p => ({
+        id: p.perk_id || p.id,
+        name: p.perk_name || p.name || '',
+        description: p.description || ''
+    }));
+    const allPotionsList = (expeditionGenerateState.rewardPotions || []).map(i => ({
+        id: i.itemId || i.item_id || i.id,
+        name: i.itemName || i.item_name || i.name || ''
+    }));
+    const allBlessingsList = (expeditionGenerateState.rewardBlessings || []).map(p => ({
+        id: p.perk_id || p.id,
+        name: p.perk_name || p.name || ''
+    }));
 
     const settlementPayload = settlement
         ? {
@@ -3022,12 +3050,19 @@ async function generateExpeditionClusterPreview() {
                 : null
         },
         npcs,
-        enemies: selectedEnemies,
+        enemies: {
+            available: allEnemyList,
+            forced: selectedEnemies.length ? selectedEnemies : undefined
+        },
         rewards: {
-            possible_item_rewards: items,
-            possible_perk_rewards: perks,
-            possible_potion_rewards: potions,
-            possible_blessing_rewards: blessings,
+            available_items: allItemsList,
+            available_perks: allPerksList,
+            available_potions: allPotionsList,
+            available_blessings: allBlessingsList,
+            forced_items: items.length ? items : undefined,
+            forced_perks: perks.length ? perks : undefined,
+            forced_potions: potions.length ? potions : undefined,
+            forced_blessings: blessings.length ? blessings : undefined,
             possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
             reward_silver: true,
             reward_talent: true

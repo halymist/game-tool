@@ -142,6 +142,12 @@ func handleGenerateExpeditionCluster(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+OPENAI_API_KEY)
 
 	log.Printf("OpenAI expedition proxy: sending %d bytes", len(body))
+	var prettyExpBody bytes.Buffer
+	if err := json.Indent(&prettyExpBody, body, "", "  "); err == nil {
+		log.Printf("OpenAI expedition proxy full request body:\n%s", prettyExpBody.String())
+	} else {
+		log.Printf("OpenAI expedition proxy full request body (raw): %s", string(body))
+	}
 	log.Printf("Expedition new-slide JSON template: %s", `{"settlementId":1,"slides":[{"id":1,"text":"","assetId":null,"effectId":null,"effectFactor":null,"isStart":false,"rewardStatType":null,"rewardStatAmount":null,"rewardTalent":null,"rewardItem":null,"rewardPerk":null,"rewardBlessing":null,"rewardPotion":null,"rewardSilver":null,"posX":0,"posY":0,"options":[{"text":"","statType":null,"statRequired":null,"effectId":null,"effectAmount":null,"enemyId":null,"factionRequired":null,"connections":[{"targetSlideId":1,"targetToolingId":null,"weight":1}]}]}],"newOptions":[],"newConnections":[],"slideUpdates":[],"optionUpdates":[]}`)
 
 	client := &http.Client{Timeout: 300 * time.Second}
