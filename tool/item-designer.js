@@ -400,6 +400,9 @@ async function toggleApproval(toolingId, approved) {
             if (item) {
                 item.approved = !item.approved;
             }
+            // Re-sync filtered array and re-render
+            filteredPendingItems = [...allPendingItems];
+            renderPendingItemList();
         } else {
             alert('Error toggling approval: ' + (result.message || 'Unknown error'));
             // Revert checkbox

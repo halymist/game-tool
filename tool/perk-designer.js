@@ -685,7 +685,20 @@ async function savePerk(e) {
             setGlobalArray('pendingPerks', allPendingPerks);
             
             renderPendingPerkList();
-            switchPerkTab('pending');
+            // Switch to pending tab without clearing form
+            perkActiveTab = 'pending';
+            const gameTab = document.getElementById('gamePerksTab');
+            const pendingTab = document.getElementById('pendingPerksTab');
+            if (gameTab) gameTab.classList.toggle('active', false);
+            if (pendingTab) pendingTab.classList.toggle('active', true);
+            const perkList = document.getElementById('perkList');
+            const pendingList = document.getElementById('pendingPerkList');
+            if (perkList) perkList.style.display = 'none';
+            if (pendingList) pendingList.style.display = 'block';
+            const newPerkBtn = document.getElementById('newPerkBtn');
+            const mergePerksBtn = document.getElementById('mergePerksBtn');
+            if (newPerkBtn) newPerkBtn.style.display = 'none';
+            if (mergePerksBtn) mergePerksBtn.style.display = 'block';
             selectPendingPerk(result.toolingId);
         } else {
             alert('Error saving perk: ' + (result.message || 'Unknown error'));
@@ -723,6 +736,8 @@ async function togglePerkApproval(toolingId, approved) {
             if (perk) {
                 perk.approved = !perk.approved;
             }
+            filteredPendingPerks = [...allPendingPerks];
+            renderPendingPerkList();
         } else {
             alert('Error toggling approval: ' + (result.message || 'Unknown error'));
             const checkbox = document.querySelector(`input[onchange*="togglePerkApproval(${toolingId}"]`);

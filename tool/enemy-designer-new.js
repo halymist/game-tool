@@ -973,6 +973,8 @@ async function toggleEnemyApproval(toolingId, approved) {
         if (result.success) {
             const enemy = allPendingEnemies.find(e => e.toolingId === toolingId);
             if (enemy) enemy.approved = !enemy.approved;
+            filteredPendingEnemies = [...allPendingEnemies];
+            renderPendingEnemyList();
         } else {
             alert('Error: ' + result.message);
         }
