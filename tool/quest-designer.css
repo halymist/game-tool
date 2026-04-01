@@ -63,6 +63,10 @@
     font-size: 0.85rem;
 }
 
+.quest-select select {
+    min-width: 180px;
+}
+
 .quest-chain-context textarea {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);

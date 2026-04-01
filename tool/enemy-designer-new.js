@@ -41,6 +41,20 @@ function initEnemyDesigner() {
     console.log('🎮 Initializing Enemy Designer...');
     loadEnemyDesignerData();
     setupEnemyEventListeners();
+
+    // Re-sync talent definitions when talent designer saves changes
+    if (typeof subscribeToGlobalData === 'function') {
+        subscribeToGlobalData('talents', (talents) => {
+            allTalents = talents;
+            buildTalentTreeGrid();
+            if (selectedEnemyId != null) {
+                const enemy = allEnemies.find(e => e.enemyId === selectedEnemyId)
+                    || allPendingEnemies.find(e => e.enemyId === selectedEnemyId);
+                if (enemy) loadTalentsIntoTree(enemy.talents || []);
+            }
+        });
+    }
+
     console.log('✅ Enemy Designer initialized');
 }
 
@@ -261,7 +275,7 @@ function switchEnemyTab(tab) {
         pendingTab?.classList.remove('active');
         if (gameList) gameList.style.display = 'block';
         if (pendingList) pendingList.style.display = 'none';
-        if (newBtn) newBtn.style.display = 'inline-flex';
+        if (newBtn) newBtn.style.display = 'block';
         if (mergeBtn) mergeBtn.style.display = 'none';
     } else {
         gameTab?.classList.remove('active');
@@ -269,7 +283,7 @@ function switchEnemyTab(tab) {
         if (gameList) gameList.style.display = 'none';
         if (pendingList) pendingList.style.display = 'block';
         if (newBtn) newBtn.style.display = 'none';
-        if (mergeBtn) mergeBtn.style.display = 'inline-flex';
+        if (mergeBtn) mergeBtn.style.display = 'block';
     }
     
     renderEnemyList();

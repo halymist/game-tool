@@ -60,11 +60,6 @@
     font-size: 1.3rem;
 }
 
-#slideCounter {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
-
 .zoom-indicator {
     color: #4ecdc4;
     font-size: 0.85rem;
