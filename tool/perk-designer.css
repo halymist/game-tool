@@ -212,7 +212,6 @@ input[type="number"] { -moz-appearance: textfield; }
 .btn-save-perk:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-    pointer-events: none;
 }
 .btn-cancel-perk {
     background: rgba(239,68,68,0.1); color: var(--danger);
@@ -222,12 +221,12 @@ input[type="number"] { -moz-appearance: textfield; }
 
 /* ── Pending Perks ──────────────────────────────────── */
 .pending-perk {
-    background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm); padding: 0.625rem 0.75rem;
     cursor: pointer; transition: all 0.15s ease; margin-bottom: 0.375rem;
 }
-.pending-perk:hover { background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.35); }
-.pending-perk.selected { background: rgba(245,158,11,0.12); border-color: #f59e0b; }
+.pending-perk:hover { background: var(--bg-hover); border-color: var(--border-default); }
+.pending-perk.selected { background: var(--accent-subtle); border-color: var(--accent); }
 
 .pending-perk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.2rem; }
 

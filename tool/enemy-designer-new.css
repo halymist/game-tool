@@ -356,7 +356,7 @@
 .enemy-form-actions .btn-save:disabled,
 .enemy-form-actions .btn-save.btn-disabled {
     opacity: 0.35;
-    pointer-events: none;
+    cursor: not-allowed;
 }
 .enemy-form-actions .btn-cancel {
     background: var(--bg-elevated); color: var(--text-secondary);

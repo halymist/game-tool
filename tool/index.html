@@ -1367,6 +1367,7 @@
                 <div class="npc-list-panel">
                     <div class="npc-list-header">
                         <h3>NPCs</h3>
+                        <button type="button" onclick="createNewNpc()" class="btn-new-npc">New NPC</button>
                     </div>
                     <div class="npc-filters">
                         <input type="text" id="npcSearch" placeholder="Search by name..." autocomplete="off">
@@ -1451,7 +1452,6 @@
                         </div>
                         <div class="npc-form-actions">
                             <button type="button" id="npcDeleteBtn" class="btn-delete" disabled>Delete</button>
-                            <button type="button" onclick="createNewNpc()" class="btn-new-npc">+ New NPC</button>
                             <button type="submit" id="npcSaveBtn" class="btn-save" disabled>Save Changes</button>
                         </div>
                     </form>
@@ -1850,9 +1850,11 @@
                     <div class="server-list-header">
                         <div class="server-list-title-group">
                             <h3>Servers</h3>
-                            <button type="button" id="serverCreateOpenBtn" class="btn-server-create">Create</button>
                         </div>
-                        <span id="serverStatus" class="server-status"></span>
+                        <div class="server-list-actions">
+                            <button type="button" id="serverCreateOpenBtn" class="btn-server-create">Create</button>
+                            <span id="serverStatus" class="server-status"></span>
+                        </div>
                     </div>
                     <div class="server-table-wrapper">
                         <table class="server-table">

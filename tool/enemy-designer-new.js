@@ -771,17 +771,15 @@ function closePerkModal() {
 
 async function saveEnemy(e) {
     e.preventDefault();
+
+    const validationErrors = getEnemyValidationErrors();
+    if (validationErrors.length > 0) {
+        alert(`Cannot save enemy yet:\n- ${validationErrors.join('\n- ')}`);
+        checkEnemySaveConditions();
+        return;
+    }
     
     const name = document.getElementById('enemyName').value.trim();
-    if (!name) {
-        alert('Enemy name is required');
-        return;
-    }
-    
-    if (!enemySelectedAssetId) {
-        alert('Please select an icon for the enemy');
-        return;
-    }
     
     // Build talents array
     const talents = [];
@@ -1011,13 +1009,34 @@ function selectEnemyAsset(assetId, iconUrl) {
     checkEnemySaveConditions();
 }
 
+function getEnemyValidationErrors() {
+    const errors = [];
+    const name = (document.getElementById('enemyName')?.value || '').trim();
+    const stamina = parseInt(document.getElementById('enemyStamina')?.value, 10) || 0;
+    const minDamage = parseInt(document.getElementById('enemyMinDamage')?.value, 10) || 0;
+    const maxDamage = parseInt(document.getElementById('enemyMaxDamage')?.value, 10) || 0;
+
+    if (!enemySelectedAssetId) errors.push('Icon must be selected');
+    if (!name) errors.push('Name is required');
+    if (stamina <= 0) errors.push('Stamina must be greater than 0');
+    if (minDamage <= 0) errors.push('Min damage must be greater than 0');
+    if (maxDamage <= 0) errors.push('Max damage must be greater than 0');
+    if (maxDamage <= minDamage) errors.push('Max damage must be greater than min damage');
+
+    return errors;
+}
+
 function checkEnemySaveConditions() {
     const btn = document.getElementById('enemySaveBtn');
     if (!btn) return;
-    const name = (document.getElementById('enemyName')?.value || '').trim();
-    const valid = name.length > 0 && !!enemySelectedAssetId;
-    btn.disabled = !valid;
+    const errors = getEnemyValidationErrors();
+    const valid = errors.length === 0;
+
+    btn.disabled = false;
+    btn.type = valid ? 'submit' : 'button';
     btn.classList.toggle('btn-disabled', !valid);
+    btn.setAttribute('aria-disabled', valid ? 'false' : 'true');
+    btn.title = valid ? 'Save to Pending' : `Cannot save enemy yet:\n- ${errors.join('\n- ')}`;
 }
 
 async function handleEnemyIconUpload(file) {

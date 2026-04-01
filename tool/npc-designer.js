@@ -63,7 +63,13 @@ function getNpcFormSnapshot() {
 function checkNpcDirty() {
     if (!npcState.snapshot) return;
     const current = getNpcFormSnapshot();
-    setNpcSaveDirty(current !== npcState.snapshot);
+    const hasName = (document.getElementById('npcName')?.value || '').trim().length > 0;
+    setNpcSaveDirty(current !== npcState.snapshot && hasName);
+
+    const btn = document.getElementById('npcSaveBtn');
+    if (btn) {
+        btn.title = hasName ? '' : 'NPC name is required';
+    }
 }
 
 function setNpcSaveDirty(dirty) {

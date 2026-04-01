@@ -232,7 +232,7 @@
     cursor: not-allowed;
 }
 
-.npc-form-actions .btn-new-npc {
+.btn-new-npc {
     padding: 0.5rem 1.25rem;
     background: rgba(34, 197, 94, 0.1);
     border: 1px solid rgba(34, 197, 94, 0.25);
@@ -245,7 +245,7 @@
     transition: all 0.15s;
 }
 
-.npc-form-actions .btn-new-npc:hover {
+.btn-new-npc:hover {
     background: rgba(34, 197, 94, 0.18);
     border-color: var(--success);
 }

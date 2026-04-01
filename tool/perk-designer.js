@@ -479,28 +479,55 @@ function updatePerkEffectDescription(effectNum) {
     descSpan.textContent = text;
 }
 
+function getPerkValidationErrors() {
+    const errors = [];
+    const name = document.getElementById('perkName')?.value?.trim() || '';
+    const assetId = parseInt(document.getElementById('perkAssetID')?.value, 10) || 0;
+    const hasIcon = assetId > 1 || (document.getElementById('perkIconPreview')?.src && document.getElementById('perkIconPreview')?.style.display !== 'none');
+
+    const effect1 = document.getElementById('perkEffect1')?.value || '';
+    const factor1 = parseInt(document.getElementById('perkFactor1')?.value, 10) || 0;
+    const effect2 = document.getElementById('perkEffect2')?.value || '';
+    const factor2 = parseInt(document.getElementById('perkFactor2')?.value, 10) || 0;
+
+    const effect1Complete = !!effect1 && factor1 !== 0;
+    const effect2Complete = !!effect2 && factor2 !== 0;
+
+    if (!name) errors.push('Name is required');
+    if (!hasIcon) errors.push('Icon must be selected');
+    if (!effect1Complete && !effect2Complete) errors.push('At least one effect with a non-zero factor is required');
+
+    if (effect1 && factor1 === 0) errors.push('Effect 1 requires a non-zero factor');
+    if (!effect1 && factor1 !== 0) errors.push('Factor 1 requires selecting Effect 1');
+    if (effect2 && factor2 === 0) errors.push('Effect 2 requires a non-zero factor');
+    if (!effect2 && factor2 !== 0) errors.push('Factor 2 requires selecting Effect 2');
+
+    return errors;
+}
+
 function checkPerkSaveConditions() {
     const btn = document.querySelector('.btn-save-perk');
     if (!btn) return;
 
-    const name = document.getElementById('perkName')?.value?.trim();
-    const assetId = parseInt(document.getElementById('perkAssetID')?.value) || 0;
-    const hasIcon = assetId > 1 || (document.getElementById('perkIconPreview')?.src && document.getElementById('perkIconPreview')?.style.display !== 'none');
+    const errors = getPerkValidationErrors();
+    const canSave = errors.length === 0;
 
-    const effect1 = document.getElementById('perkEffect1')?.value;
-    const factor1 = parseInt(document.getElementById('perkFactor1')?.value) || 0;
-    const effect2 = document.getElementById('perkEffect2')?.value;
-    const factor2 = parseInt(document.getElementById('perkFactor2')?.value) || 0;
-
-    const hasEffect = (effect1 && factor1 !== 0) || (effect2 && factor2 !== 0);
-
-    const canSave = !!(name && hasIcon && hasEffect);
-    btn.disabled = !canSave;
+    btn.disabled = false;
+    btn.type = canSave ? 'submit' : 'button';
     btn.classList.toggle('btn-disabled', !canSave);
+    btn.setAttribute('aria-disabled', canSave ? 'false' : 'true');
+    btn.title = canSave ? 'Save Perk' : `Cannot save perk yet:\n- ${errors.join('\n- ')}`;
 }
 
 async function savePerk(e) {
     e.preventDefault();
+
+    const validationErrors = getPerkValidationErrors();
+    if (validationErrors.length > 0) {
+        alert(`Cannot save perk yet:\n- ${validationErrors.join('\n- ')}`);
+        checkPerkSaveConditions();
+        return;
+    }
     
     const perkId = document.getElementById('perkId').value;
     const isUpdate = !!perkId;

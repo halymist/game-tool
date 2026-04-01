@@ -771,23 +771,53 @@ function applyItemTypeRules() {
     }
 }
 
+function getItemValidationErrors() {
+    const errors = [];
+    const name = document.getElementById('itemName')?.value?.trim() || '';
+    const assetId = parseInt(document.getElementById('itemAssetID')?.value, 10) || 0;
+    const hasIcon = assetId > 1 || (document.getElementById('itemIconPreview')?.src && document.getElementById('itemIconPreview')?.style.display !== 'none');
+    const silver = parseInt(document.getElementById('itemSilver')?.value, 10) || 0;
+    const type = document.getElementById('itemType')?.value || '';
+    const minDamage = parseInt(document.getElementById('itemMinDamage')?.value, 10) || 0;
+    const maxDamage = parseInt(document.getElementById('itemMaxDamage')?.value, 10) || 0;
+
+    if (!name) errors.push('Name is required');
+    if (!hasIcon) errors.push('Icon must be selected');
+    if (!type) errors.push('Type is required');
+    if (silver <= 0) errors.push('Silver must be greater than 0');
+
+    if (WEAPON_TYPES.includes(type)) {
+        if (minDamage <= 0) errors.push('Min damage must be greater than 0 for weapons');
+        if (maxDamage <= 0) errors.push('Max damage must be greater than 0 for weapons');
+        if (maxDamage <= minDamage) errors.push('Max damage must be greater than min damage for weapons');
+    }
+
+    return errors;
+}
+
 function checkItemSaveConditions() {
     const btn = document.querySelector('.btn-save-item');
     if (!btn) return;
 
-    const name = document.getElementById('itemName')?.value?.trim();
-    const assetId = parseInt(document.getElementById('itemAssetID')?.value) || 0;
-    const hasIcon = assetId > 1 || (document.getElementById('itemIconPreview')?.src && document.getElementById('itemIconPreview')?.style.display !== 'none');
-    const silver = parseInt(document.getElementById('itemSilver')?.value) || 0;
-    const type = document.getElementById('itemType')?.value;
+    const errors = getItemValidationErrors();
+    const canSave = errors.length === 0;
 
-    const canSave = !!(name && hasIcon && silver > 0 && type);
-    btn.disabled = !canSave;
+    btn.disabled = false;
+    btn.type = canSave ? 'submit' : 'button';
     btn.classList.toggle('btn-disabled', !canSave);
+    btn.setAttribute('aria-disabled', canSave ? 'false' : 'true');
+    btn.title = canSave ? 'Save Item' : `Cannot save item yet:\n- ${errors.join('\n- ')}`;
 }
 
 async function saveItem(e) {
     e.preventDefault();
+
+    const validationErrors = getItemValidationErrors();
+    if (validationErrors.length > 0) {
+        alert(`Cannot save item yet:\n- ${validationErrors.join('\n- ')}`);
+        checkItemSaveConditions();
+        return;
+    }
     
     const itemId = document.getElementById('itemId').value;
     const isUpdate = !!itemId;
