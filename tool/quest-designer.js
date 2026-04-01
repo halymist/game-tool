@@ -3682,6 +3682,15 @@ async function generateQuestPreview() {
             name: enemy.enemyName || enemy.enemy_name || enemy.name || ''
         }));
 
+    // Build full enemy catalog for AI to pick from (compact id+name)
+    const allEnemyList = (() => {
+        let src = [];
+        if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) src = allEnemies;
+        else if (typeof getEnemies === 'function') src = getEnemies();
+        else src = GlobalData?.enemies || [];
+        return src.map(e => ({ id: e.enemyId || e.enemy_id || e.id, name: e.enemyName || e.enemy_name || e.name || '' }));
+    })();
+
     const quests = (questGenerateState.allQuests.length ? questGenerateState.allQuests : Array.from(questState.quests.values()))
         .filter(q => selectedQuestIds.includes(q.quest_id || q.questId || q.serverId))
         .map(q => ({
@@ -3717,6 +3726,15 @@ async function generateQuestPreview() {
             name: perk.perk_name || perk.name || ''
         }));
 
+    // Build full catalogs for AI to freely pick from (compact id+name)
+    const allItemsList = questGenerateState.rewardItems.map(i => ({ id: i.item_id || i.id, name: i.item_name || i.name || '' }));
+    const allPerksList = questGenerateState.rewardPerks.map(p => ({ id: p.perk_id || p.id, name: p.perk_name || p.name || '' }));
+    const allPotionsList = questGenerateState.rewardPotions.map(i => ({ id: i.item_id || i.id, name: i.item_name || i.name || '' }));
+    const allBlessingsList = questGenerateState.rewardBlessings.map(p => ({ id: p.perk_id || p.id, name: p.perk_name || p.name || '' }));
+
+    // Build effects catalog
+    const allEffectsList = (GlobalData?.effects || []).map(e => ({ id: e.effect_id || e.id, name: e.effect_name || e.name || '' }));
+
     const settlementPayload = settlement
         ? {
             id: settlement.settlement_id || settlement.id,
@@ -3741,12 +3759,22 @@ async function generateQuestPreview() {
                 : null
         },
         npcs,
-        enemies,
+        enemies: {
+            available: allEnemyList,
+            forced: enemies.length ? enemies : undefined
+        },
+        effects: {
+            available: allEffectsList
+        },
         rewards: {
-            possible_item_rewards: items,
-            possible_perk_rewards: perks,
-            possible_potion_rewards: potions,
-            possible_blessing_rewards: blessings,
+            available_items: allItemsList,
+            available_perks: allPerksList,
+            available_potions: allPotionsList,
+            available_blessings: allBlessingsList,
+            forced_items: items.length ? items : undefined,
+            forced_perks: perks.length ? perks : undefined,
+            forced_potions: potions.length ? potions : undefined,
+            forced_blessings: blessings.length ? blessings : undefined,
             possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
             reward_silver: true,
             reward_talent: true

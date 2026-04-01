@@ -60,6 +60,12 @@ func handleGenerateQuestAi(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("Authorization", "Bearer "+OPENAI_API_KEY)
 
 	log.Printf("OpenAI proxy: sending %d bytes", len(body))
+	var prettyBody bytes.Buffer
+	if err := json.Indent(&prettyBody, body, "", "  "); err == nil {
+		log.Printf("OpenAI proxy full request body:\n%s", prettyBody.String())
+	} else {
+		log.Printf("OpenAI proxy full request body (raw): %s", string(body))
+	}
 	log.Printf("Valid quest JSON template: %s", `{"chains":[{"name":"","context":"","questchain_id":1,"settlement_id":1}],"quests":[{"pos_x":0,"pos_y":0,"ending":null,"asset_id":null,"quest_id":1,"quest_name":"","sort_order":0,"start_text":"","travel_text":"","failure_text":"","default_entry":null,"questchain_id":1,"settlement_id":1,"requisite_option_id":null}],"options":[{"pos_x":0,"pos_y":0,"start":null,"enemy_id":null,"quest_id":1,"effect_id":null,"node_text":"","option_id":1,"quest_end":false,"stat_type":null,"stat_required":null,"option_text":"","reward_item":null,"reward_perk":null,"reward_potion":null,"reward_blessing":null,"reward_talent":null,"reward_stat_type":null,"reward_stat_amount":null,"reward_silver":null,"effect_amount":null,"faction_required":null,"option_effect_id":null,"option_effect_factor":null}],"requirements":[{"optionId":1,"requiredOptionId":2}]}`)
 	client := &http.Client{Timeout: 300 * time.Second}
 	resp, err := client.Do(req)
