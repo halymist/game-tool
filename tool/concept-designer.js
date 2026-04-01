@@ -2,7 +2,8 @@
 
 let conceptState = {
     payload: {},
-    expeditionSchema: {}
+    expeditionSchema: {},
+    snapshot: null
 };
 
 const defaultPromptPayload = {
@@ -36,6 +37,11 @@ async function initConceptManager() {
 
 function setupConceptListeners() {
     document.getElementById('conceptSaveBtn')?.addEventListener('click', saveConcept);
+
+    const fieldIds = ['conceptSystemPrompt', 'conceptWildsPrompt', 'conceptJson', 'conceptExpeditionJson', 'conceptExpeditionClusterPrompt'];
+    fieldIds.forEach(id => {
+        document.getElementById(id)?.addEventListener('input', checkConceptSaveConditions);
+    });
 }
 
 async function loadConceptData() {
@@ -62,6 +68,8 @@ async function loadConceptData() {
         if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt);
         renderConceptJson();
         renderExpeditionConceptJson();
+        snapshotConceptFields();
+        checkConceptSaveConditions();
     } catch (error) {
         console.error('Error loading concept:', error);
         setConceptStatus('Failed to load concept', true);
@@ -147,6 +155,8 @@ async function saveConcept() {
         renderConceptJson();
         conceptState.expeditionSchema = getSchemaObject(data.expeditionJsonSchema ?? parsedExpedition);
         renderExpeditionConceptJson();
+        snapshotConceptFields();
+        checkConceptSaveConditions();
         setConceptStatus('Saved', false);
     } catch (error) {
         console.error('Error saving concept:', error);
@@ -209,6 +219,37 @@ function getSchemaObject(value) {
     return {};
 }
 
+
+function snapshotConceptFields() {
+    conceptState.snapshot = {
+        systemPrompt: document.getElementById('conceptSystemPrompt')?.value ?? '',
+        wildsPrompt: document.getElementById('conceptWildsPrompt')?.value ?? '',
+        conceptJson: document.getElementById('conceptJson')?.value ?? '',
+        expeditionJson: document.getElementById('conceptExpeditionJson')?.value ?? '',
+        expeditionClusterPrompt: document.getElementById('conceptExpeditionClusterPrompt')?.value ?? ''
+    };
+}
+
+function isConceptDirty() {
+    const s = conceptState.snapshot;
+    if (!s) return false;
+    return (
+        (document.getElementById('conceptSystemPrompt')?.value ?? '') !== s.systemPrompt ||
+        (document.getElementById('conceptWildsPrompt')?.value ?? '') !== s.wildsPrompt ||
+        (document.getElementById('conceptJson')?.value ?? '') !== s.conceptJson ||
+        (document.getElementById('conceptExpeditionJson')?.value ?? '') !== s.expeditionJson ||
+        (document.getElementById('conceptExpeditionClusterPrompt')?.value ?? '') !== s.expeditionClusterPrompt
+    );
+}
+
+function checkConceptSaveConditions() {
+    const btn = document.getElementById('conceptSaveBtn');
+    if (!btn) return;
+    const dirty = isConceptDirty();
+    btn.disabled = !dirty;
+    btn.classList.toggle('btn-disabled', !dirty);
+    btn.title = dirty ? 'Save changes' : 'No changes to save';
+}
 
 function setConceptStatus(message, isError) {
     const status = document.getElementById('conceptStatus');

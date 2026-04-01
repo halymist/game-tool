@@ -11,6 +11,7 @@ let isViewingPendingPerk = false;
 let perkAssets = [];
 let perkSelectedAssetId = null;
 let perkSelectedAssetIcon = null;
+let perkFormSnapshot = null;
 
 let perkDesignerBootstrapped = false;
 
@@ -366,6 +367,7 @@ function selectPerk(perkId) {
     if (perk) {
         populatePerkForm(perk);
         setPerkFormLocked(false);
+        snapshotPerkForm();
         document.getElementById('perkEditorTitle').textContent = 'Edit Perk';
     }
     
@@ -455,6 +457,7 @@ function setPerkFormLocked(locked) {
 function createNewPerk() {
     selectedPerkId = null;
     isViewingPendingPerk = false;
+    perkFormSnapshot = null;
     setPerkFormLocked(false);
     clearPerkForm();
     document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
@@ -540,7 +543,7 @@ function getPerkValidationErrors() {
     const errors = [];
     const name = document.getElementById('perkName')?.value?.trim() || '';
     const assetId = parseInt(document.getElementById('perkAssetID')?.value, 10) || 0;
-    const hasIcon = assetId > 1;
+    const hasIcon = assetId > 1 || (document.getElementById('perkIconPreview')?.src && document.getElementById('perkIconPreview')?.style.display !== 'none');
 
     const effect1 = document.getElementById('perkEffect1')?.value || '';
     const factor1 = parseInt(document.getElementById('perkFactor1')?.value, 10) || 0;
@@ -559,7 +562,37 @@ function getPerkValidationErrors() {
     if (effect2 && factor2 === 0) errors.push('Effect 2 requires a non-zero factor');
     if (!effect2 && factor2 !== 0) errors.push('Factor 2 requires selecting Effect 2');
 
+    if (perkFormSnapshot && !isPerkFormDirty()) errors.push('No changes to save');
+
     return errors;
+}
+
+function snapshotPerkForm() {
+    perkFormSnapshot = {
+        name: document.getElementById('perkName')?.value || '',
+        assetID: document.getElementById('perkAssetID')?.value || '1',
+        description: document.getElementById('perkDescription')?.value || '',
+        isBlessing: document.getElementById('perkIsBlessing')?.checked || false,
+        effect1: document.getElementById('perkEffect1')?.value || '',
+        factor1: document.getElementById('perkFactor1')?.value || '',
+        effect2: document.getElementById('perkEffect2')?.value || '',
+        factor2: document.getElementById('perkFactor2')?.value || ''
+    };
+    checkPerkSaveConditions();
+}
+
+function isPerkFormDirty() {
+    if (!perkFormSnapshot) return true;
+    return (
+        (document.getElementById('perkName')?.value || '') !== perkFormSnapshot.name ||
+        (document.getElementById('perkAssetID')?.value || '1') !== perkFormSnapshot.assetID ||
+        (document.getElementById('perkDescription')?.value || '') !== perkFormSnapshot.description ||
+        (document.getElementById('perkIsBlessing')?.checked || false) !== perkFormSnapshot.isBlessing ||
+        (document.getElementById('perkEffect1')?.value || '') !== perkFormSnapshot.effect1 ||
+        (document.getElementById('perkFactor1')?.value || '') !== perkFormSnapshot.factor1 ||
+        (document.getElementById('perkEffect2')?.value || '') !== perkFormSnapshot.effect2 ||
+        (document.getElementById('perkFactor2')?.value || '') !== perkFormSnapshot.factor2
+    );
 }
 
 function checkPerkSaveConditions() {
@@ -652,10 +685,8 @@ async function savePerk(e) {
             setGlobalArray('pendingPerks', allPendingPerks);
             
             renderPendingPerkList();
-            clearPerkForm();
-            document.getElementById('perkEditorTitle').textContent = 'Create New Perk';
-            selectedPerkId = null;
             switchPerkTab('pending');
+            selectPendingPerk(result.toolingId);
         } else {
             alert('Error saving perk: ' + (result.message || 'Unknown error'));
         }

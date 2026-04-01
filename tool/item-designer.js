@@ -23,6 +23,7 @@ let activeTab = 'game'; // 'game' or 'pending'
 let isViewingPendingItem = false; // Whether form is showing a pending item (read-only)
 let itemAssets = []; // Available item assets from S3
 let selectedAssetId = null; // Currently selected asset ID
+let itemFormSnapshot = null; // Snapshot for dirty tracking on updates
 let selectedAssetIcon = null; // Currently selected asset icon URL
 
 let itemDesignerBootstrapped = false;
@@ -544,6 +545,7 @@ function selectItem(itemId) {
     if (item) {
         populateForm(item);
         setFormLocked(false);
+        snapshotItemForm();
         document.getElementById('itemEditorTitle').textContent = 'Edit Item';
     }
     
@@ -595,6 +597,9 @@ function populateFormFromPending(item) {
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
     
+    // Description
+    document.getElementById('itemNotes').value = item.description || '';
+    
     // Update icon preview using local asset gallery
     updateIconPreview(item.assetID);
     
@@ -645,6 +650,9 @@ function populateForm(item) {
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
     
+    // Description
+    document.getElementById('itemNotes').value = item.description || '';
+    
     // Update icon preview - use item.icon if available, otherwise look up by assetID
     if (item.icon) {
         const preview = document.getElementById('itemIconPreview');
@@ -667,6 +675,7 @@ function populateForm(item) {
 function createNewItem() {
     selectedItemId = null;
     isViewingPendingItem = false;
+    itemFormSnapshot = null;
     setFormLocked(false);
     clearForm();
     document.getElementById('itemEditorTitle').textContent = 'Create New Item';
@@ -696,6 +705,9 @@ function clearForm() {
     // Effect
     document.getElementById('itemEffect').value = '';
     document.getElementById('itemEffectFactor').value = '';
+    
+    // Description
+    document.getElementById('itemNotes').value = '';
     
     // Clear icon preview
     clearIconPreview();
@@ -866,7 +878,51 @@ function getItemValidationErrors() {
         if (maxDamage <= minDamage) errors.push('Max damage must be greater than min damage for weapons');
     }
 
+    if (itemFormSnapshot && !isItemFormDirty()) errors.push('No changes to save');
+
     return errors;
+}
+
+function snapshotItemForm() {
+    itemFormSnapshot = {
+        name: document.getElementById('itemName')?.value || '',
+        type: document.getElementById('itemType')?.value || '',
+        assetID: document.getElementById('itemAssetID')?.value || '1',
+        silver: document.getElementById('itemSilver')?.value || '10',
+        strength: document.getElementById('itemStrength')?.value || '',
+        stamina: document.getElementById('itemStamina')?.value || '',
+        agility: document.getElementById('itemAgility')?.value || '',
+        luck: document.getElementById('itemLuck')?.value || '',
+        armor: document.getElementById('itemArmor')?.value || '',
+        socket: document.getElementById('itemSocket')?.checked || false,
+        minDamage: document.getElementById('itemMinDamage')?.value || '',
+        maxDamage: document.getElementById('itemMaxDamage')?.value || '',
+        effectID: document.getElementById('itemEffect')?.value || '',
+        effectFactor: document.getElementById('itemEffectFactor')?.value || '',
+        description: document.getElementById('itemNotes')?.value || ''
+    };
+    checkItemSaveConditions();
+}
+
+function isItemFormDirty() {
+    if (!itemFormSnapshot) return true;
+    return (
+        (document.getElementById('itemName')?.value || '') !== itemFormSnapshot.name ||
+        (document.getElementById('itemType')?.value || '') !== itemFormSnapshot.type ||
+        (document.getElementById('itemAssetID')?.value || '1') !== itemFormSnapshot.assetID ||
+        (document.getElementById('itemSilver')?.value || '10') !== itemFormSnapshot.silver ||
+        (document.getElementById('itemStrength')?.value || '') !== itemFormSnapshot.strength ||
+        (document.getElementById('itemStamina')?.value || '') !== itemFormSnapshot.stamina ||
+        (document.getElementById('itemAgility')?.value || '') !== itemFormSnapshot.agility ||
+        (document.getElementById('itemLuck')?.value || '') !== itemFormSnapshot.luck ||
+        (document.getElementById('itemArmor')?.value || '') !== itemFormSnapshot.armor ||
+        (document.getElementById('itemSocket')?.checked || false) !== itemFormSnapshot.socket ||
+        (document.getElementById('itemMinDamage')?.value || '') !== itemFormSnapshot.minDamage ||
+        (document.getElementById('itemMaxDamage')?.value || '') !== itemFormSnapshot.maxDamage ||
+        (document.getElementById('itemEffect')?.value || '') !== itemFormSnapshot.effectID ||
+        (document.getElementById('itemEffectFactor')?.value || '') !== itemFormSnapshot.effectFactor ||
+        (document.getElementById('itemNotes')?.value || '') !== itemFormSnapshot.description
+    );
 }
 
 function checkItemSaveConditions() {
@@ -913,7 +969,8 @@ async function saveItem(e) {
         effectID: parseIntOrNull(document.getElementById('itemEffect').value),
         effectFactor: parseIntOrNull(document.getElementById('itemEffectFactor').value),
         minDamage: parseIntOrNull(document.getElementById('itemMinDamage').value),
-        maxDamage: parseIntOrNull(document.getElementById('itemMaxDamage').value)
+        maxDamage: parseIntOrNull(document.getElementById('itemMaxDamage').value),
+        description: document.getElementById('itemNotes').value.trim() || null
     };
 
     const isStatless = STATLESS_ITEM_TYPES.includes(itemType);
@@ -980,6 +1037,7 @@ async function saveItem(e) {
                 effectFactor: itemData.effectFactor,
                 minDamage: itemData.minDamage,
                 maxDamage: itemData.maxDamage,
+                description: itemData.description,
                 action: result.action || (isUpdate ? 'update' : 'insert'),
                 approved: false
             };
@@ -996,10 +1054,22 @@ async function saveItem(e) {
             setGlobalArray('pendingItems', allPendingItems);
             
             renderPendingItemList();
-            clearForm();
-            document.getElementById('itemEditorTitle').textContent = 'Create New Item';
-            selectedItemId = null;
-            switchTab('pending');
+            // Switch to pending tab without clearing form (switchTab clears selection)
+            activeTab = 'pending';
+            const gameTab = document.getElementById('gameItemsTab');
+            const pendingTab = document.getElementById('pendingItemsTab');
+            if (gameTab) gameTab.classList.toggle('active', false);
+            if (pendingTab) pendingTab.classList.toggle('active', true);
+            const itemList = document.getElementById('itemList');
+            const pendingList = document.getElementById('pendingItemList');
+            if (itemList) itemList.style.display = 'none';
+            if (pendingList) pendingList.style.display = 'block';
+            const newItemBtn = document.getElementById('newItemBtn');
+            const mergeItemsBtn = document.getElementById('mergeItemsBtn');
+            if (newItemBtn) newItemBtn.style.display = 'none';
+            if (mergeItemsBtn) mergeItemsBtn.style.display = 'block';
+            // Now select the newly created pending item (read-only)
+            selectPendingItem(result.toolingId);
         } else {
             alert('Error saving item: ' + (result.message || 'Unknown error'));
         }

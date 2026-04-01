@@ -19,46 +19,48 @@ import (
 
 // Item represents the database structure for items (game.items)
 type Item struct {
-	ID           int    `json:"id" db:"item_id"`
-	Name         string `json:"name" db:"item_name"`
-	AssetID      int    `json:"assetID" db:"asset_id"`
-	Type         string `json:"type" db:"type"`
-	Strength     *int   `json:"strength" db:"strength"`
-	Stamina      *int   `json:"stamina" db:"stamina"`
-	Agility      *int   `json:"agility" db:"agility"`
-	Luck         *int   `json:"luck" db:"luck"`
-	Armor        *int   `json:"armor" db:"armor"`
-	EffectID     *int   `json:"effectID" db:"effect_id"`
-	EffectFactor *int   `json:"effectFactor" db:"effect_factor"`
-	Socket       bool   `json:"socket" db:"socket"`
-	Silver       int    `json:"silver" db:"silver"`
-	MinDamage    *int   `json:"minDamage" db:"min_damage"`
-	MaxDamage    *int   `json:"maxDamage" db:"max_damage"`
-	Version      int    `json:"version" db:"version"`
-	Icon         string `json:"icon,omitempty"` // For signed URL
+	ID           int     `json:"id" db:"item_id"`
+	Name         string  `json:"name" db:"item_name"`
+	AssetID      int     `json:"assetID" db:"asset_id"`
+	Type         string  `json:"type" db:"type"`
+	Strength     *int    `json:"strength" db:"strength"`
+	Stamina      *int    `json:"stamina" db:"stamina"`
+	Agility      *int    `json:"agility" db:"agility"`
+	Luck         *int    `json:"luck" db:"luck"`
+	Armor        *int    `json:"armor" db:"armor"`
+	EffectID     *int    `json:"effectID" db:"effect_id"`
+	EffectFactor *int    `json:"effectFactor" db:"effect_factor"`
+	Socket       bool    `json:"socket" db:"socket"`
+	Silver       int     `json:"silver" db:"silver"`
+	MinDamage    *int    `json:"minDamage" db:"min_damage"`
+	MaxDamage    *int    `json:"maxDamage" db:"max_damage"`
+	Version      int     `json:"version" db:"version"`
+	Description  *string `json:"description" db:"description"`
+	Icon         string  `json:"icon,omitempty"` // For signed URL
 }
 
 // PendingItem represents the database structure for pending items (tooling.items)
 type PendingItem struct {
-	ToolingID    int    `json:"toolingId" db:"tooling_id"`
-	GameID       *int   `json:"gameId" db:"game_id"`
-	Action       string `json:"action" db:"action"`
-	Version      int    `json:"version" db:"version"`
-	Name         string `json:"name" db:"item_name"`
-	AssetID      int    `json:"assetID" db:"asset_id"`
-	Type         string `json:"type" db:"type"`
-	Strength     *int   `json:"strength" db:"strength"`
-	Stamina      *int   `json:"stamina" db:"stamina"`
-	Agility      *int   `json:"agility" db:"agility"`
-	Luck         *int   `json:"luck" db:"luck"`
-	Armor        *int   `json:"armor" db:"armor"`
-	EffectID     *int   `json:"effectID" db:"effect_id"`
-	EffectFactor *int   `json:"effectFactor" db:"effect_factor"`
-	Socket       bool   `json:"socket" db:"socket"`
-	Silver       int    `json:"silver" db:"silver"`
-	MinDamage    *int   `json:"minDamage" db:"min_damage"`
-	MaxDamage    *int   `json:"maxDamage" db:"max_damage"`
-	Approved     bool   `json:"approved" db:"approved"`
+	ToolingID    int     `json:"toolingId" db:"tooling_id"`
+	GameID       *int    `json:"gameId" db:"game_id"`
+	Action       string  `json:"action" db:"action"`
+	Version      int     `json:"version" db:"version"`
+	Name         string  `json:"name" db:"item_name"`
+	AssetID      int     `json:"assetID" db:"asset_id"`
+	Type         string  `json:"type" db:"type"`
+	Strength     *int    `json:"strength" db:"strength"`
+	Stamina      *int    `json:"stamina" db:"stamina"`
+	Agility      *int    `json:"agility" db:"agility"`
+	Luck         *int    `json:"luck" db:"luck"`
+	Armor        *int    `json:"armor" db:"armor"`
+	EffectID     *int    `json:"effectID" db:"effect_id"`
+	EffectFactor *int    `json:"effectFactor" db:"effect_factor"`
+	Socket       bool    `json:"socket" db:"socket"`
+	Silver       int     `json:"silver" db:"silver"`
+	MinDamage    *int    `json:"minDamage" db:"min_damage"`
+	MaxDamage    *int    `json:"maxDamage" db:"max_damage"`
+	Description  *string `json:"description" db:"description"`
+	Approved     bool    `json:"approved" db:"approved"`
 }
 
 // ItemsResponse represents the JSON response structure for items
@@ -195,7 +197,8 @@ func getAllItems() ([]Item, error) {
 			silver,
 			min_damage,
 			max_damage,
-			version
+			version,
+			description
 		FROM game.items 
 		ORDER BY item_id
 	`
@@ -226,6 +229,7 @@ func getAllItems() ([]Item, error) {
 			&item.MinDamage,
 			&item.MaxDamage,
 			&item.Version,
+			&item.Description,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning item row: %v", err)
@@ -244,22 +248,23 @@ func getAllItems() ([]Item, error) {
 
 // CreateItemRequest represents the request body for creating an item
 type CreateItemRequest struct {
-	ID           *int   `json:"id"`
-	Name         string `json:"name"`
-	AssetID      int    `json:"assetID"`
-	Type         string `json:"type"`
-	Strength     *int   `json:"strength"`
-	Stamina      *int   `json:"stamina"`
-	Agility      *int   `json:"agility"`
-	Luck         *int   `json:"luck"`
-	Armor        *int   `json:"armor"`
-	EffectID     *int   `json:"effectID"`
-	EffectFactor *int   `json:"effectFactor"`
-	Socket       bool   `json:"socket"`
-	Silver       int    `json:"silver"`
-	MinDamage    *int   `json:"minDamage"`
-	MaxDamage    *int   `json:"maxDamage"`
-	Icon         string `json:"icon,omitempty"`
+	ID           *int    `json:"id"`
+	Name         string  `json:"name"`
+	AssetID      int     `json:"assetID"`
+	Type         string  `json:"type"`
+	Strength     *int    `json:"strength"`
+	Stamina      *int    `json:"stamina"`
+	Agility      *int    `json:"agility"`
+	Luck         *int    `json:"luck"`
+	Armor        *int    `json:"armor"`
+	EffectID     *int    `json:"effectID"`
+	EffectFactor *int    `json:"effectFactor"`
+	Socket       bool    `json:"socket"`
+	Silver       int     `json:"silver"`
+	MinDamage    *int    `json:"minDamage"`
+	MaxDamage    *int    `json:"maxDamage"`
+	Description  *string `json:"description"`
+	Icon         string  `json:"icon,omitempty"`
 }
 
 // Valid item types (matches item_type enum in database)
@@ -370,7 +375,8 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 			$13, -- p_socket
 			$14, -- p_silver
 			$15, -- p_min_damage
-			$16  -- p_max_damage
+			$16, -- p_max_damage
+			$17  -- p_description
 		)
 	`
 
@@ -393,6 +399,7 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 		req.Silver,
 		req.MinDamage,
 		req.MaxDamage,
+		req.Description,
 	).Scan(&toolingID)
 
 	if err != nil {
@@ -446,6 +453,7 @@ func getPendingItems() ([]PendingItem, error) {
 			silver,
 			min_damage,
 			max_damage,
+			description,
 			COALESCE(approved, false) as approved
 		FROM tooling.items 
 		ORDER BY tooling_id DESC
@@ -479,6 +487,7 @@ func getPendingItems() ([]PendingItem, error) {
 			&item.Silver,
 			&item.MinDamage,
 			&item.MaxDamage,
+			&item.Description,
 			&item.Approved,
 		)
 		if err != nil {

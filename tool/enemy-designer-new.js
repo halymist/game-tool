@@ -19,6 +19,7 @@ let enemySelectedAssetIcon = null;
 // Talent tree state for current enemy being edited
 let currentTalentOrder = 0; // Next talent order to assign
 let assignedTalents = new Map(); // talentId -> { points: number, talentOrder: number, perkId: number|null }
+let enemyFormSnapshot = null; // Snapshot for dirty tracking on updates
 
 // ==================== INITIALIZATION ====================
 
@@ -374,6 +375,7 @@ function selectEnemy(enemyId) {
     populateEnemyForm(enemy);
     loadTalentsIntoTree(enemy.talents || []);
     setEnemyFormLocked(false);
+    snapshotEnemyForm();
     renderEnemyList();
 }
 
@@ -459,6 +461,7 @@ function setEnemyFormLocked(locked) {
 function createNewEnemy() {
     selectedEnemyId = null;
     isViewingPendingEnemy = false;
+    enemyFormSnapshot = null;
     
     clearEnemyForm();
     clearTalentTree();
@@ -1095,7 +1098,44 @@ function getEnemyValidationErrors() {
     if (maxDamage <= 0) errors.push('Max damage must be greater than 0');
     if (maxDamage <= minDamage) errors.push('Max damage must be greater than min damage');
 
+    if (enemyFormSnapshot && !isEnemyFormDirty()) errors.push('No changes to save');
+
     return errors;
+}
+
+function snapshotEnemyForm() {
+    enemyFormSnapshot = {
+        name: document.getElementById('enemyName')?.value || '',
+        description: document.getElementById('enemyDescription')?.value || '',
+        strength: document.getElementById('enemyStrength')?.value || '0',
+        stamina: document.getElementById('enemyStamina')?.value || '0',
+        agility: document.getElementById('enemyAgility')?.value || '0',
+        luck: document.getElementById('enemyLuck')?.value || '0',
+        armor: document.getElementById('enemyArmor')?.value || '0',
+        minDamage: document.getElementById('enemyMinDamage')?.value || '0',
+        maxDamage: document.getElementById('enemyMaxDamage')?.value || '0',
+        assetId: enemySelectedAssetId,
+        talents: JSON.stringify([...assignedTalents.entries()].sort((a, b) => a[0] - b[0]))
+    };
+    checkEnemySaveConditions();
+}
+
+function isEnemyFormDirty() {
+    if (!enemyFormSnapshot) return true;
+    const currentTalents = JSON.stringify([...assignedTalents.entries()].sort((a, b) => a[0] - b[0]));
+    return (
+        (document.getElementById('enemyName')?.value || '') !== enemyFormSnapshot.name ||
+        (document.getElementById('enemyDescription')?.value || '') !== enemyFormSnapshot.description ||
+        (document.getElementById('enemyStrength')?.value || '0') !== enemyFormSnapshot.strength ||
+        (document.getElementById('enemyStamina')?.value || '0') !== enemyFormSnapshot.stamina ||
+        (document.getElementById('enemyAgility')?.value || '0') !== enemyFormSnapshot.agility ||
+        (document.getElementById('enemyLuck')?.value || '0') !== enemyFormSnapshot.luck ||
+        (document.getElementById('enemyArmor')?.value || '0') !== enemyFormSnapshot.armor ||
+        (document.getElementById('enemyMinDamage')?.value || '0') !== enemyFormSnapshot.minDamage ||
+        (document.getElementById('enemyMaxDamage')?.value || '0') !== enemyFormSnapshot.maxDamage ||
+        enemySelectedAssetId !== enemyFormSnapshot.assetId ||
+        currentTalents !== enemyFormSnapshot.talents
+    );
 }
 
 function checkEnemySaveConditions() {
