@@ -27,6 +27,55 @@ async function initTalentDesigner() {
     console.log('✅ Talent Editor initialized');
 }
 
+function normalizeIntegerInputValue(input) {
+    if (!input) return;
+    const raw = String(input.value ?? '');
+    if (raw === '') return;
+
+    const allowNegative = input.min === '' || Number(input.min) < 0;
+    const negative = allowNegative && raw.startsWith('-');
+    let digits = raw.replace(/\D/g, '');
+    digits = digits.replace(/^0+(?=\d)/, '');
+
+    if (!digits) {
+        input.value = raw === '-' && allowNegative ? '-' : '';
+        return;
+    }
+
+    input.value = `${negative ? '-' : ''}${digits}`;
+}
+
+function attachStrictIntegerGuards(input, allowNegative = true) {
+    if (!input || input.dataset.strictIntegerBound === '1') return;
+    input.dataset.strictIntegerBound = '1';
+
+    input.addEventListener('keydown', (e) => {
+        const ctrlOrMeta = e.ctrlKey || e.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+        if (ctrlOrMeta || navKeys.includes(e.key)) return;
+
+        if (e.key >= '0' && e.key <= '9') return;
+
+        if (allowNegative && e.key === '-') {
+            if (input.value === '') return;
+        }
+
+        e.preventDefault();
+    });
+
+    input.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        const value = input.value || '';
+        const start = input.selectionStart ?? value.length;
+        const end = input.selectionEnd ?? value.length;
+        const next = value.slice(0, start) + pasted + value.slice(end);
+        const regex = allowNegative ? /^-?\d*$/ : /^\d*$/;
+        if (!regex.test(next)) e.preventDefault();
+    });
+
+    input.addEventListener('drop', (e) => e.preventDefault());
+}
+
 function setupTalentEditorListeners() {
     const effectSelect = document.getElementById('talentEffectId');
     if (effectSelect) {
@@ -37,10 +86,20 @@ function setupTalentEditorListeners() {
 
     const factorInput = document.getElementById('talentFactor');
     if (factorInput) {
+        attachStrictIntegerGuards(factorInput, true);
         factorInput.addEventListener('input', () => {
+            normalizeIntegerInputValue(factorInput);
             const effectId = document.getElementById('talentEffectId')?.value;
             if (effectId) updateEffectDescription(effectId);
         });
+        factorInput.addEventListener('blur', () => normalizeIntegerInputValue(factorInput));
+    }
+
+    const maxPointsInput = document.getElementById('talentMaxPoints');
+    if (maxPointsInput) {
+        attachStrictIntegerGuards(maxPointsInput, false);
+        maxPointsInput.addEventListener('input', () => normalizeIntegerInputValue(maxPointsInput));
+        maxPointsInput.addEventListener('blur', () => normalizeIntegerInputValue(maxPointsInput));
     }
 
     // Icon preview click is handled inline via onclick="toggleTalentAssetGallery()"

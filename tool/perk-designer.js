@@ -146,11 +146,19 @@ function setupPerkEventListeners() {
     // Factor input listeners to update effect descriptions
     const factor1Input = document.getElementById('perkFactor1');
     if (factor1Input) {
-        factor1Input.addEventListener('input', () => updatePerkEffectDescription(1));
+        attachStrictIntegerGuards(factor1Input, true);
+        factor1Input.addEventListener('input', () => {
+            normalizeIntegerInputValue(factor1Input);
+            updatePerkEffectDescription(1);
+        });
     }
     const factor2Input = document.getElementById('perkFactor2');
     if (factor2Input) {
-        factor2Input.addEventListener('input', () => updatePerkEffectDescription(2));
+        attachStrictIntegerGuards(factor2Input, true);
+        factor2Input.addEventListener('input', () => {
+            normalizeIntegerInputValue(factor2Input);
+            updatePerkEffectDescription(2);
+        });
     }
 
     // Save validation: enable save only when conditions met
@@ -161,6 +169,55 @@ function setupPerkEventListeners() {
     }
     // Initial check
     checkPerkSaveConditions();
+}
+
+function normalizeIntegerInputValue(input) {
+    if (!input) return;
+    const raw = String(input.value ?? '');
+    if (raw === '') return;
+
+    const allowNegative = input.min === '' || Number(input.min) < 0;
+    const negative = allowNegative && raw.startsWith('-');
+    let digits = raw.replace(/\D/g, '');
+    digits = digits.replace(/^0+(?=\d)/, '');
+
+    if (!digits) {
+        input.value = raw === '-' && allowNegative ? '-' : '';
+        return;
+    }
+
+    input.value = `${negative ? '-' : ''}${digits}`;
+}
+
+function attachStrictIntegerGuards(input, allowNegative = true) {
+    if (!input || input.dataset.strictIntegerBound === '1') return;
+    input.dataset.strictIntegerBound = '1';
+
+    input.addEventListener('keydown', (e) => {
+        const ctrlOrMeta = e.ctrlKey || e.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+        if (ctrlOrMeta || navKeys.includes(e.key)) return;
+
+        if (e.key >= '0' && e.key <= '9') return;
+
+        if (allowNegative && e.key === '-') {
+            if (input.value === '') return;
+        }
+
+        e.preventDefault();
+    });
+
+    input.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+        const value = input.value || '';
+        const start = input.selectionStart ?? value.length;
+        const end = input.selectionEnd ?? value.length;
+        const next = value.slice(0, start) + pasted + value.slice(end);
+        const regex = allowNegative ? /^-?\d*$/ : /^\d*$/;
+        if (!regex.test(next)) e.preventDefault();
+    });
+
+    input.addEventListener('drop', (e) => e.preventDefault());
 }
 
 async function loadPerksAndEffects(options = {}) {
@@ -483,7 +540,7 @@ function getPerkValidationErrors() {
     const errors = [];
     const name = document.getElementById('perkName')?.value?.trim() || '';
     const assetId = parseInt(document.getElementById('perkAssetID')?.value, 10) || 0;
-    const hasIcon = assetId > 1 || (document.getElementById('perkIconPreview')?.src && document.getElementById('perkIconPreview')?.style.display !== 'none');
+    const hasIcon = assetId > 1;
 
     const effect1 = document.getElementById('perkEffect1')?.value || '';
     const factor1 = parseInt(document.getElementById('perkFactor1')?.value, 10) || 0;
