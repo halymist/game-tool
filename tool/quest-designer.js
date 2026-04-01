@@ -284,6 +284,7 @@ function addQuest() {
     questState.quests.set(id, quest);
     renderQuest(quest);
     updateCounter();
+    checkQuestSaveConditions();
     
     console.log(`✅ Quest #${id} created`);
 }
@@ -356,6 +357,7 @@ function addOption() {
     }
     
     updateCounter();
+    checkQuestSaveConditions();
     
     console.log(`✅ Option #${id} created, linked to quest ${targetQuestId}`);
 }
@@ -716,6 +718,7 @@ function addConnection(fromType, fromId, toType, toId) {
     if (!exists) {
         questState.connections.push({ fromType, fromId, toType, toId });
         console.log('Connection added:', fromType, fromId, '->', toType, toId);
+        checkQuestSaveConditions();
     }
 }
 
@@ -822,6 +825,7 @@ function questRenderConnections() {
             if (confirm('Delete this connection?')) {
                 questState.connections.splice(idx, 1);
                 questRenderConnections();
+                checkQuestSaveConditions();
             }
         });
         
@@ -882,6 +886,7 @@ function deleteQuest(id) {
     updateCounter();
     updateQuestSelectionHighlights();
     refreshQuestSidebars();
+    checkQuestSaveConditions();
 }
 
 function deleteSelectedQuest() {
@@ -918,6 +923,7 @@ function deleteOption(id) {
     updateCounter();
     updateQuestSelectionHighlights();
     refreshQuestSidebars();
+    checkQuestSaveConditions();
 }
 
 // ==================== SELECTION ====================
@@ -1693,6 +1699,7 @@ function clearQuestCanvas() {
 
     const contextInput = document.getElementById('questChainContextInput');
     if (contextInput) contextInput.value = '';
+    checkQuestSaveConditions();
 }
 
 // Load quest chains for current settlement
@@ -1784,6 +1791,7 @@ window.onQuestChange = onQuestChange;
 // Update chain name in state
 function updateChainName(name) {
     questState.chainName = name;
+    checkQuestSaveConditions();
 }
 window.updateChainName = updateChainName;
 
@@ -1976,6 +1984,7 @@ async function loadQuestChainData(chainId) {
         questState.options.forEach(option => renderOption(option));
         questRenderConnections();
         updateCounter();
+        checkQuestSaveConditions();
         
         console.log(`✅ Loaded quest chain ${chainId}`);
     } catch (error) {
@@ -2365,6 +2374,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 option.isStart = e.target.checked;
                 renderOption(option);
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2379,6 +2389,7 @@ function setupSidebarEventListeners() {
                 option.type = e.target.value;
                 updateSidebarTypeFields(option.type);
                 updateOptionTypeBadge(option);
+                checkQuestSaveConditions();
                 if (option.type === 'stat_check' && !option.statType) {
                     const statTypeSelect = document.getElementById('sidebarStatType');
                     option.statType = statTypeSelect?.value || 'strength';
@@ -2618,12 +2629,94 @@ function deleteSelectedOption() {
 }
 window.deleteSelectedOption = deleteSelectedOption;
 
+// ==================== VALIDATION ====================
+function getQuestValidationErrors() {
+    const errors = [];
+
+    if (!questState.selectedSettlementId) {
+        errors.push('Settlement must be selected');
+    }
+
+    const chainName = (document.getElementById('questChainNameInput')?.value || questState.chainName || '').trim();
+    if (!chainName) {
+        errors.push('Chain name is required');
+    }
+
+    if (questState.quests.size === 0) {
+        errors.push('At least one quest branch is required');
+        return errors;
+    }
+
+    // Build lookup: which options belong to each quest
+    const questOptionsMap = new Map(); // questId -> [option]
+    questState.options.forEach(option => {
+        const qId = option.questId;
+        if (!questOptionsMap.has(qId)) questOptionsMap.set(qId, []);
+        questOptionsMap.get(qId).push(option);
+    });
+
+    // Build incoming/outgoing sets from connections
+    // Incoming: something connects TO this node
+    // Outgoing: this node connects to something
+    const incomingOptions = new Set();  // optionIds that have at least one connection leading to them
+    const outgoingOptions = new Set();  // optionIds that have at least one connection leading from them
+
+    questState.connections.forEach(conn => {
+        if (conn.toType === 'option') {
+            incomingOptions.add(conn.toId);
+        }
+        if (conn.fromType === 'option') {
+            outgoingOptions.add(conn.fromId);
+        }
+    });
+
+    // Check each quest branch has at least one ending option
+    questState.quests.forEach((quest, questId) => {
+        const options = questOptionsMap.get(questId) || [];
+        const hasEnding = options.some(opt => opt.type === 'end');
+        if (!hasEnding) {
+            errors.push(`Branch "${quest.name || 'Unnamed'}" has no ending option`);
+        }
+    });
+
+    // Check each option has proper connections
+    questState.options.forEach((option, optionId) => {
+        const label = option.optionText || option.nodeText || `Option #${optionId}`;
+        const quest = questState.quests.get(option.questId);
+        const branchName = quest?.name || 'Unnamed';
+
+        // Starting options don't need incoming connections
+        if (!option.isStart && !incomingOptions.has(optionId)) {
+            errors.push(`"${label}" in "${branchName}" has no incoming connection`);
+        }
+
+        // Ending options don't need outgoing connections
+        if (option.type !== 'end' && !outgoingOptions.has(optionId)) {
+            errors.push(`"${label}" in "${branchName}" has no outgoing connection`);
+        }
+    });
+
+    return errors;
+}
+
+function checkQuestSaveConditions() {
+    const btn = document.getElementById('saveQuestBtn');
+    if (!btn) return;
+    const errors = getQuestValidationErrors();
+    const valid = errors.length === 0;
+
+    btn.disabled = !valid;
+    btn.classList.toggle('btn-disabled', !valid);
+    btn.title = valid ? 'Save quest chain' : `Cannot save yet:\n- ${errors.join('\n- ')}`;
+}
+
 // ==================== SAVE ====================
 async function saveQuest() {
     console.log('💾 Saving quest data...');
-    
-    if (!questState.selectedSettlementId) {
-        alert('Please select a settlement first');
+
+    const errors = getQuestValidationErrors();
+    if (errors.length > 0) {
+        alert('Cannot save:\n- ' + errors.join('\n- '));
         return;
     }
     
@@ -2631,12 +2724,6 @@ async function saveQuest() {
     const chainName = chainNameInput?.value || questState.chainName || '';
     const chainContextInput = document.getElementById('questChainContextInput');
     const chainContext = chainContextInput?.value || questState.chainContext || '';
-    
-    if (!chainName.trim()) {
-        alert('Please enter a chain name');
-        chainNameInput?.focus();
-        return;
-    }
     
     const isNewChain = !questState.selectedChain;
     
