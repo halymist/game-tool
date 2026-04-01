@@ -736,9 +736,7 @@ function renderSlide(slide) {
     const optionsHtml = slide.options.map((opt, i) => {
         // Build detail badges for option metadata
         const detailBadges = [];
-        if (opt.type === 'skill' && opt.statType) {
-            detailBadges.push(`<span class="option-detail-badge skill">${opt.statType.slice(0,3).toUpperCase()}:${opt.statRequired || '?'}</span>`);
-        } else if (opt.type === 'effect' && opt.effectId) {
+        if (opt.type === 'effect' && opt.effectId) {
             detailBadges.push(`<span class="option-detail-badge effect">E#${opt.effectId}:${opt.effectAmount || '?'}</span>`);
         } else if (opt.type === 'combat' && opt.enemyId) {
             detailBadges.push(`<span class="option-detail-badge combat">⚔️#${opt.enemyId}</span>`);
@@ -757,19 +755,17 @@ function renderSlide(slide) {
             <input type="text" class="option-text-input" value="${escapeHtml(opt.text || '')}" 
                    data-slide="${slide.id}" data-option="${i}" placeholder="Option text...">
             ${detailsBadge}
-            <button class="option-edit-btn" data-slide="${slide.id}" data-option="${i}" title="Edit option">⚙️</button>
             <button class="option-delete-btn" data-slide="${slide.id}" data-option="${i}" title="Delete option">×</button>
+            <button class="option-edit-btn" data-slide="${slide.id}" data-option="${i}" title="Edit option">⚙️</button>
             <div class="option-connector option-connector-right" data-slide="${slide.id}" data-option="${i}" data-side="right" title="Drag to connect">●</div>
         </div>
     `}).join('');
     
     // Build background style for slide body
     const previewUrl = slide.assetPreviewUrl;
-    const hasBackground = !!previewUrl;
-    const bodyBgStyle = hasBackground
+    const bodyBgStyle = previewUrl
         ? `style="background-image: url(${previewUrl});"`
         : '';
-    const bodyClass = hasBackground ? 'slide-body has-bg' : 'slide-body';
     
     const canAddMoreOptions = slide.options.length < 4;
     const addOptionButtonHtml = canAddMoreOptions
@@ -783,11 +779,11 @@ function renderSlide(slide) {
                 <input type="checkbox" ${slide.isStart ? 'checked' : ''} data-slide="${slide.id}">
                 <span>START</span>
             </label>
-            <button class="slide-bg-btn" data-slide="${slide.id}" title="Set background">BG</button>
-            <button class="slide-delete-btn" data-slide="${slide.id}" title="Delete slide">DEL</button>
+            <button class="slide-bg-btn" data-slide="${slide.id}" title="Set background">🖼️</button>
+            <button class="slide-delete-btn" data-slide="${slide.id}" title="Delete slide">🗑️</button>
         </div>
         <div class="slide-input-connector" title="Input">●</div>
-        <div class="${bodyClass}" ${bodyBgStyle}>
+        <div class="slide-body" ${bodyBgStyle}>
             <textarea class="slide-text-input" data-slide="${slide.id}" placeholder="Enter slide text...">${escapeHtml(slide.text)}</textarea>
             <div class="slide-effect-section">
                 ${effectHtml}
