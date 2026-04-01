@@ -118,9 +118,11 @@ function initQuestDesigner() {
         if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
         
         const panel = document.getElementById('questGenerateOverlay');
-        if (panel && panel.style.display === 'flex') {
-            return;
-        }
+        if (panel && panel.style.display === 'flex') return;
+
+        // Don't capture wheel if preview overlay is open (allow scrolling options)
+        const previewOverlay = document.getElementById('questPreviewOverlay');
+        if (previewOverlay && previewOverlay.classList.contains('active')) return;
 
         const canvasRect = canvas.getBoundingClientRect();
         const isOverCanvas = e.clientX >= canvasRect.left && e.clientX <= canvasRect.right &&
@@ -1286,7 +1288,15 @@ function onCanvasWheel(e) {
     const zoomSpeed = 0.05;
     const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
     const newZoom = Math.max(0.1, Math.min(2, questState.zoom + delta));
+    const oldZoom = questState.zoom;
     
+    const canvas = document.getElementById('questCanvas');
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    questState.canvasOffset.x = mouseX - (mouseX - questState.canvasOffset.x) * (newZoom / oldZoom);
+    questState.canvasOffset.y = mouseY - (mouseY - questState.canvasOffset.y) * (newZoom / oldZoom);
     questState.zoom = newZoom;
     container.style.transform = `translate(${questState.canvasOffset.x}px, ${questState.canvasOffset.y}px) scale(${questState.zoom})`;
     

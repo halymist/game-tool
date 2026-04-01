@@ -1240,6 +1240,7 @@ body.quest-preview-open {
 
 .quest-preview-card {
     width: min(520px, 90vw);
+    max-height: min(90vh, 860px);
     background: rgba(19, 20, 27, 0.97);
     border: 1px solid var(--border-default);
     border-radius: 18px;
@@ -1249,6 +1250,7 @@ body.quest-preview-open {
     flex-direction: column;
     gap: 16px;
     position: relative;
+    overflow-y: auto;
 }
 
 .quest-preview-header {

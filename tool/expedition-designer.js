@@ -124,9 +124,11 @@ function initExpeditionDesigner() {
         if (galleryOverlay && galleryOverlay.classList.contains('active')) return;
 
         const panel = document.getElementById('expeditionGenerateOverlay');
-        if (panel && panel.style.display === 'flex') {
-            return;
-        }
+        if (panel && panel.style.display === 'flex') return;
+
+        // Don't capture wheel if preview overlay is open (allow scrolling options)
+        const previewOverlay = document.getElementById('expeditionPreviewOverlay');
+        if (previewOverlay && previewOverlay.classList.contains('active')) return;
         
         // Check if mouse is over the canvas
         const canvasRect = canvas.getBoundingClientRect();
@@ -441,14 +443,6 @@ function renderExpeditionPreview() {
 
     renderExpeditionPreviewOptions(slide);
 
-    const statusEl = document.getElementById('expeditionPreviewStatus');
-    if (statusEl) {
-        const settlementLabel = getExpeditionPreviewSettlementLabel(expeditionPreviewState.settlementId);
-        const optionCount = slide.options.length;
-        const optionLabel = optionCount === 1 ? '1 option' : `${optionCount} options`;
-        statusEl.textContent = `${settlementLabel} • ${optionLabel}`;
-    }
-
     const backBtn = document.getElementById('expeditionPreviewBack');
     if (backBtn) {
         backBtn.disabled = expeditionPreviewState.history.length === 0;
@@ -483,9 +477,6 @@ function renderExpeditionPreviewEmpty(message) {
         empty.textContent = message;
         optionsEl.appendChild(empty);
     }
-
-    const statusEl = document.getElementById('expeditionPreviewStatus');
-    if (statusEl) statusEl.textContent = '';
 
     const backBtn = document.getElementById('expeditionPreviewBack');
     if (backBtn) backBtn.disabled = true;
@@ -534,45 +525,46 @@ function getExpeditionOptionRequirement(option) {
     switch (option.type) {
         case 'skill':
             if (option.statType && option.statRequired) {
-                return `Requires ${option.statRequired}+ ${option.statType}`;
+                const cap = option.statType.charAt(0).toUpperCase() + option.statType.slice(1);
+                return `${cap}(${option.statRequired})`;
             }
             return 'Skill check';
         case 'effect':
             if (option.effectId) {
-                return `Needs effect #${option.effectId}${option.effectAmount ? ` (${option.effectAmount})` : ''}`;
+                return `Effect #${option.effectId}${option.effectAmount ? `(${option.effectAmount})` : ''}`;
             }
-            return 'Effect gate';
+            return 'Effect';
         case 'combat':
             if (option.enemyId) {
                 return `Enemy #${option.enemyId}`;
             }
-            return 'Combat encounter';
+            return 'Combat';
         case 'faction':
             if (option.factionRequired) {
-                 const label = formatFactionLabel(option.factionRequired);
-                return `${label} members`;
+                const label = formatFactionLabel(option.factionRequired);
+                return label;
             }
-            return 'Faction gate';
+            return 'Faction';
         case 'silver':
             if (option.silverRequired != null) {
-                return `Costs ${option.silverRequired} silver`;
+                return `${option.silverRequired} silver`;
             }
-            return 'Silver gate';
+            return 'Silver';
         default:
             return '';
     }
 }
 
 function getExpeditionOptionTypeBadge(type) {
+    const safeType = type || 'dialogue';
     const labels = {
         dialogue: 'Dialogue',
-        skill: 'Skill Check',
-        effect: 'Effect Check',
+        skill: 'Stat',
+        effect: 'Effect',
         combat: 'Combat',
-        faction: 'Faction Gate',
-        silver: 'Pay Silver'
+        faction: 'Faction',
+        silver: 'Silver'
     };
-    const safeType = type || 'dialogue';
     return `${getTypeIcon(safeType)} ${labels[safeType] || 'Choice'}`;
 }
 
@@ -2162,16 +2154,23 @@ function expeditionOnCanvasWheel(e) {
         container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
         renderConnections();
     } else {
-        // Zoom (default - no modifier needed)
+        // Zoom toward mouse cursor
         const zoomSpeed = 0.05;
         const delta = e.deltaY > 0 ? -zoomSpeed : zoomSpeed;
         const newZoom = Math.max(0.1, Math.min(2, expeditionState.zoom + delta));
+        const oldZoom = expeditionState.zoom;
         
+        const canvas = document.getElementById('expeditionCanvas');
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        expeditionState.canvasOffset.x = mouseX - (mouseX - expeditionState.canvasOffset.x) * (newZoom / oldZoom);
+        expeditionState.canvasOffset.y = mouseY - (mouseY - expeditionState.canvasOffset.y) * (newZoom / oldZoom);
         expeditionState.zoom = newZoom;
         
         container.style.transform = `translate(${expeditionState.canvasOffset.x}px, ${expeditionState.canvasOffset.y}px) scale(${expeditionState.zoom})`;
         
-        // Update zoom indicator
         const indicator = document.getElementById('zoomIndicator');
         if (indicator) {
             indicator.textContent = `${Math.round(expeditionState.zoom * 100)}%`;
