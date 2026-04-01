@@ -406,11 +406,6 @@ function renderExpeditionPreview() {
         return;
     }
 
-    const titleEl = document.getElementById('expeditionPreviewTitle');
-    if (titleEl) {
-        titleEl.textContent = slide.isStart ? `Start Slide #${slide.id}` : `Slide #${slide.id}`;
-    }
-
     const sceneEl = document.getElementById('expeditionPreviewScene');
     if (sceneEl) {
         const previewUrl = slide.assetPreviewUrl;
@@ -450,9 +445,6 @@ function renderExpeditionPreview() {
 }
 
 function renderExpeditionPreviewEmpty(message) {
-    const titleEl = document.getElementById('expeditionPreviewTitle');
-    if (titleEl) titleEl.textContent = 'Expedition Preview';
-
     const sceneEl = document.getElementById('expeditionPreviewScene');
     if (sceneEl) {
         sceneEl.style.backgroundImage = 'linear-gradient(180deg, #1b2350, #0f142d)';
@@ -497,10 +489,10 @@ function renderExpeditionPreviewOptions(slide) {
 
     slide.options.forEach((option, idx) => {
         const connections = getExpeditionPreviewConnections(slide.id, idx);
-        const typeBadge = getExpeditionOptionTypeBadge(option.type || 'dialogue');
+        const icon = getTypeIcon(option.type || 'dialogue');
         const requirement = getExpeditionOptionRequirement(option);
-        const summaryParts = [typeBadge];
-        if (requirement) summaryParts.push(requirement);
+        const label = requirement ? `${icon} ${requirement}` : getExpeditionOptionTypeBadge(option.type || 'dialogue');
+        const summaryParts = [label];
         summaryParts.push(formatExpeditionConnectionSummary(connections));
 
         const btn = document.createElement('button');

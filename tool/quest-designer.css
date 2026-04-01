@@ -64,7 +64,11 @@
 }
 
 .quest-select select {
-    min-width: 180px;
+    width: 220px;
+}
+
+.quest-chain-name input {
+    width: 180px;
 }
 
 .quest-chain-context textarea {
@@ -1266,14 +1270,6 @@ body.quest-preview-open {
     gap: 2px;
 }
 
-.quest-preview-label {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
-
 .quest-preview-heading h3 {
     margin: 0;
     color: var(--text-primary);
@@ -1418,19 +1414,6 @@ body.quest-preview-open {
     letter-spacing: 0.05em;
 }
 
-.quest-preview-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.quest-preview-status {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.8rem;
-}
-
 .quest-preview-empty {
     color: var(--text-muted);
     font-size: 0.85rem;
@@ -1453,10 +1436,5 @@ body.quest-preview-open {
 
     .quest-preview-header-actions {
         align-self: flex-end;
-    }
-
-    .quest-preview-footer {
-        flex-direction: column;
-        align-items: stretch;
     }
 }

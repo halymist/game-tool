@@ -3112,9 +3112,6 @@ function renderQuestPreviewScene() {
     const optionsEl = document.getElementById('questPreviewOptions');
     if (optionsEl) renderQuestPreviewOptions(options, optionsEl, node);
 
-    const statusEl = document.getElementById('questPreviewStatus');
-    if (statusEl) statusEl.textContent = statusParts.join(' • ');
-
     const backBtn = document.getElementById('questPreviewBack');
     if (backBtn) backBtn.disabled = questPreviewState.history.length === 0;
 }
