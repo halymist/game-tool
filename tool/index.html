@@ -190,8 +190,9 @@
                             </div>
 
                             <div class="sidebar-section">
-                                <div class="sidebar-actions quest-bg-actions">
-                                    <button id="sidebarQuestBgBtn" class="btn-secondary" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">Set Background</button>
+                                <div class="sidebar-actions quest-bg-actions" style="display: flex; gap: 8px;">
+                                    <button id="sidebarQuestBgBtn" class="btn-secondary" style="flex: 1;" onclick="window.openQuestAssetPicker && window.openQuestAssetPicker(window.questState?.selectedQuest)">Set Background</button>
+                                    <button id="sidebarUpdateQuestBtn" class="btn-secondary" style="flex: 1;">Update with AI</button>
                                 </div>
                                 <div class="sidebar-field">
                                     <label>Travel Text</label>
@@ -206,7 +207,6 @@
                                     <textarea id="sidebarSummaryText" placeholder="Comprehensive quest summary and branch overview..."></textarea>
                                 </div>
                                 <div class="sidebar-actions">
-                                    <button id="sidebarUpdateQuestBtn" class="btn-secondary" style="margin-bottom: 8px;">Update Quest with AI</button>
                                     <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">Delete Quest</button>
                                 </div>
                             </div>

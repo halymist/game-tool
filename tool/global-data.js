@@ -93,6 +93,14 @@ async function ensureAssetCached({ type, asset, idKey, urlKey, remoteKey }) {
         });
     }
 
+    // Public R2 URLs don't need blob caching — use directly
+    if (remoteUrl.startsWith(ASSET_PUBLIC_BASE_URL)) {
+        asset[urlKey] = remoteUrl;
+        asset[remoteKey] = remoteUrl;
+        assetObjectUrlCache.set(cacheKey, { url: remoteUrl, remoteUrl });
+        return remoteUrl;
+    }
+
     const entry = { remoteUrl };
     const loadPromise = fetch(remoteUrl, { mode: 'cors', credentials: 'omit' })
         .then((response) => {

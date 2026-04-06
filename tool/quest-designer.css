@@ -232,6 +232,11 @@
     color: var(--text-primary);
 }
 
+#questUpdatePanel {
+    max-width: 480px;
+    min-height: 340px;
+}
+
 #questUpdatePrompt {
     min-height: 200px;
     resize: vertical;

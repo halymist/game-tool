@@ -120,6 +120,9 @@ function initQuestDesigner() {
         const panel = document.getElementById('questGenerateOverlay');
         if (panel && panel.style.display === 'flex') return;
 
+        const updatePanel = document.getElementById('questUpdateOverlay');
+        if (updatePanel && updatePanel.style.display === 'flex') return;
+
         // Don't capture wheel if preview overlay is open (allow scrolling options)
         const previewOverlay = document.getElementById('questPreviewOverlay');
         if (previewOverlay && previewOverlay.classList.contains('active')) return;
@@ -2965,7 +2968,21 @@ async function saveQuest() {
         
         // Reload to get fresh data
         if (questState.selectedChain) {
+            // Remember which quest was selected so we can re-select after reload
+            const previouslySelectedQuestServerId = questState.selectedQuest
+                ? (questState.quests.get(questState.selectedQuest)?.serverId || null)
+                : null;
+
             await loadQuestChainData(questState.selectedChain);
+
+            // Re-select the quest that was selected before save
+            if (previouslySelectedQuestServerId) {
+                const reloadedId = Array.from(questState.quests.entries())
+                    .find(([, q]) => q.serverId === previouslySelectedQuestServerId)?.[0];
+                if (reloadedId !== undefined) {
+                    selectQuest(reloadedId);
+                }
+            }
         }
         
     } catch (error) {
@@ -3941,6 +3958,16 @@ function setupQuestUpdatePanel() {
     document.getElementById('sidebarUpdateQuestBtn')?.addEventListener('click', toggleQuestUpdatePanel);
     document.getElementById('questUpdateClose')?.addEventListener('click', toggleQuestUpdatePanel);
     document.getElementById('questUpdateRun')?.addEventListener('click', updateQuestWithAi);
+
+    // ESC to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('questUpdateOverlay');
+            if (overlay && overlay.style.display === 'flex') {
+                toggleQuestUpdatePanel();
+            }
+        }
+    });
 }
 
 function toggleQuestUpdatePanel() {
@@ -4188,20 +4215,23 @@ function applyUpdatedQuest(questId, parsed) {
     const quest = questState.quests.get(questId);
     if (!quest) return;
 
-    // The AI should return the same structure as a single quest in the generate format
-    // Look for the quest data in various possible response shapes
+    // Find quest data in AI response
     let updatedQuest = null;
     let updatedOptions = [];
+    let updatedRequirements = [];
 
     if (parsed.quests && Array.isArray(parsed.quests) && parsed.quests.length > 0) {
         updatedQuest = parsed.quests[0];
         updatedOptions = parsed.options || parsed.quest_options || [];
+        updatedRequirements = parsed.requirements || [];
     } else if (parsed.quest) {
         updatedQuest = parsed.quest;
         updatedOptions = parsed.options || parsed.quest_options || [];
+        updatedRequirements = parsed.requirements || [];
     } else if (parsed.quest_name || parsed.start_text) {
         updatedQuest = parsed;
         updatedOptions = parsed.options || parsed.quest_options || [];
+        updatedRequirements = parsed.requirements || [];
     }
 
     if (!updatedQuest) {
@@ -4210,44 +4240,127 @@ function applyUpdatedQuest(questId, parsed) {
         return;
     }
 
-    // Update quest text fields
+    // --- Remove all existing options and connections for this quest ---
+    const oldOptionIds = new Set();
+    questState.options.forEach((opt, optId) => {
+        if (opt.questId === questId) {
+            oldOptionIds.add(optId);
+        }
+    });
+    oldOptionIds.forEach(optId => {
+        // Track for server deletion if they had server IDs
+        const opt = questState.options.get(optId);
+        if (opt?.serverId) {
+            questState.deletedOptionIds.push(opt.serverId);
+        }
+        questState.options.delete(optId);
+        questState.serverOptions.delete(opt?.serverId);
+        // Remove DOM element
+        const el = document.querySelector(`[data-option-id="${optId}"]`);
+        if (el) el.remove();
+    });
+
+    // Remove connections involving this quest or its old options
+    questState.connections = questState.connections.filter(conn => {
+        if (conn.fromType === 'quest' && conn.fromId === questId) return false;
+        if (conn.toType === 'quest' && conn.toId === questId) return false;
+        if (conn.fromType === 'option' && oldOptionIds.has(conn.fromId)) return false;
+        if (conn.toType === 'option' && oldOptionIds.has(conn.toId)) return false;
+        return true;
+    });
+
+    // --- Update quest fields ---
     quest.name = updatedQuest.quest_name || updatedQuest.name || quest.name;
     quest.text = updatedQuest.start_text || updatedQuest.text || quest.text;
     quest.travelText = updatedQuest.travel_text || updatedQuest.travelText || quest.travelText;
     quest.failureText = updatedQuest.failure_text || updatedQuest.failureText || quest.failureText;
     quest.summary = updatedQuest.summary || quest.summary;
+    // Preserve assetId, serverId, etc.
 
-    // Update existing options and add new ones
-    if (updatedOptions.length > 0) {
-        // Build map of existing options by serverId for matching
-        const existingOptionsByServerId = new Map();
-        questState.options.forEach((opt, optId) => {
-            if (opt.questId === questId && opt.serverId) {
-                existingOptionsByServerId.set(opt.serverId, { opt, optId });
-            }
-        });
+    // --- Rebuild options from AI response ---
+    const optionMapping = new Map(); // AI option_id -> local option ID
+    const normalizedOptions = normalizeGeneratedOptions(updatedOptions);
 
-        updatedOptions.forEach(updOpt => {
-            const optionId = updOpt.option_id || updOpt.optionId;
-            const existing = optionId ? existingOptionsByServerId.get(optionId) : null;
+    normalizedOptions.forEach((opt, index) => {
+        const localOptionId = questState.nextOptionId++;
+        optionMapping.set(opt.option_id ?? index, localOptionId);
 
-            if (existing) {
-                // Update existing option
-                const opt = existing.opt;
-                if (updOpt.node_text !== undefined || updOpt.nodeText !== undefined) opt.nodeText = updOpt.node_text || updOpt.nodeText || opt.nodeText;
-                if (updOpt.option_text !== undefined || updOpt.optionText !== undefined) opt.optionText = updOpt.option_text || updOpt.optionText || opt.optionText;
-                renderOption(opt);
-            }
-            // New options from AI are not auto-added to preserve graph integrity
-        });
+        const factionKey = questFactionCodeToKey(opt.faction_required ?? opt.factionRequired);
+
+        const option = {
+            optionId: localOptionId,
+            serverId: null, // These are new local options until saved
+            questId: questId,
+            optionText: opt.option_text || 'Option',
+            nodeText: opt.node_text || '',
+            x: opt.x || 0,
+            y: opt.y || 0,
+            isStart: opt.start === true || false,
+            type: determineOptionType(opt),
+            questEnd: !!opt.quest_end,
+            statType: opt.stat_type,
+            statRequired: opt.stat_required,
+            effectId: opt.effect_id,
+            effectAmount: opt.effect_amount,
+            optionEffectId: opt.option_effect_id,
+            optionEffectFactor: opt.option_effect_factor,
+            factionRequired: factionKey,
+            silverRequired: opt.silver_required,
+            enemyId: opt.enemy_id,
+            reward: extractReward(opt)
+        };
+
+        questState.options.set(localOptionId, option);
+    });
+
+    // Ensure at least one start option
+    const hasStart = Array.from(questState.options.values()).some(opt => opt.questId === questId && opt.isStart);
+    if (!hasStart) {
+        const first = Array.from(questState.options.values()).find(opt => opt.questId === questId);
+        if (first) first.isStart = true;
     }
 
-    // Re-render
+    // --- Add quest -> start option connections ---
+    normalizedOptions.forEach((opt, index) => {
+        const localOptionId = optionMapping.get(opt.option_id ?? index);
+        if (localOptionId && (opt.start === true || (!hasStart && index === 0))) {
+            questState.connections.push({
+                fromType: 'quest',
+                fromId: questId,
+                toType: 'option',
+                toId: localOptionId
+            });
+        }
+    });
+
+    // --- Add option -> option requirement connections ---
+    updatedRequirements.forEach(req => {
+        const toId = optionMapping.get(req.optionId ?? req.option_id);
+        const fromId = optionMapping.get(req.requiredOptionId ?? req.required_option_id);
+        if (fromId && toId) {
+            questState.connections.push({
+                fromType: 'option',
+                fromId,
+                toType: 'option',
+                toId
+            });
+        }
+    });
+
+    // --- Re-render everything ---
     renderQuest(quest);
+    questState.options.forEach(option => {
+        if (option.questId === questId) renderOption(option);
+    });
+    questRenderConnections();
     updateQuestSidebar(questId);
     updateCounter();
     checkQuestSaveConditions();
-    console.log('Quest updated with AI response');
+    console.log('Quest fully replaced with AI response:', {
+        questId,
+        newOptionCount: normalizedOptions.length,
+        newRequirementCount: updatedRequirements.length
+    });
 }
 
 function getValidQuestJsonTemplate() {
