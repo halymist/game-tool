@@ -206,6 +206,7 @@
                                     <textarea id="sidebarSummaryText" placeholder="Comprehensive quest summary and branch overview..."></textarea>
                                 </div>
                                 <div class="sidebar-actions">
+                                    <button id="sidebarUpdateQuestBtn" class="btn-secondary" style="margin-bottom: 8px;">Update Quest with AI</button>
                                     <button id="sidebarDeleteQuest" onclick="window.deleteSelectedQuest && window.deleteSelectedQuest()">Delete Quest</button>
                                 </div>
                             </div>
@@ -504,6 +505,28 @@
                     <div class="quest-modal-actions">
                         <button class="btn-cancel" onclick="window.closeNewQuestModal()">Cancel</button>
                         <button class="btn-save" onclick="window.createNewQuest()">Create</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Update Quest with AI Overlay -->
+            <div id="questUpdateOverlay" class="generate-overlay" style="display:none;">
+                <div id="questUpdatePanel" class="generate-modal quest-generate-sidebar">
+                    <div class="quest-generate-header">
+                        <h3>Update Quest with AI</h3>
+                        <button id="questUpdateClose" class="btn-secondary">Close</button>
+                    </div>
+                    <div class="quest-generate-body">
+                        <div class="quest-update-info">
+                            <span id="questUpdateQuestName" class="quest-update-quest-name"></span>
+                        </div>
+                        <div class="quest-generate-field generate-prompt">
+                            <label>What would you like to change?</label>
+                            <textarea id="questUpdatePrompt" placeholder="Describe what you want adjusted — e.g. more combat encounters, darker storyline, add a betrayal twist, rebalance rewards..."></textarea>
+                        </div>
+                        <div class="quest-generate-actions">
+                            <button id="questUpdateRun" class="btn-primary btn-generate">Update</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1820,9 +1843,17 @@
                         <textarea id="conceptSystemPrompt" placeholder="Enter global system prompt..."></textarea>
                     </div>
                     <div class="concept-section concept-section-half">
+                        <label for="conceptQuestUpdatePrompt">Quest Update Prompt</label>
+                        <textarea id="conceptQuestUpdatePrompt" placeholder="Enter quest update/adjustment system prompt..."></textarea>
+                    </div>
+                </div>
+
+                <div class="concept-row">
+                    <div class="concept-section concept-section-half">
                         <label for="conceptExpeditionClusterPrompt">Expedition Cluster Prompt</label>
                         <textarea id="conceptExpeditionClusterPrompt" placeholder="Enter expedition cluster system prompt..."></textarea>
                     </div>
+                    <div class="concept-section concept-section-half concept-section-empty"></div>
                 </div>
 
                 <div class="concept-row">

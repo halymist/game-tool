@@ -219,6 +219,24 @@
     gap: 10px;
 }
 
+/* Quest Update Dialog */
+.quest-update-info {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+}
+
+.quest-update-quest-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#questUpdatePrompt {
+    min-height: 200px;
+    resize: vertical;
+}
+
 
 /* ==================== BUTTONS ==================== */
 .btn-primary {
@@ -895,7 +913,8 @@
 }
 
 #sidebarTravelText,
-#sidebarFailureText {
+#sidebarFailureText,
+#sidebarSummaryText {
     min-height: 170px;
 }
 

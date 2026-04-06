@@ -190,6 +190,7 @@ function initQuestDesigner() {
 
     // Quest generator panel
     setupQuestGeneratePanel();
+    setupQuestUpdatePanel();
     setupQuestPreviewOverlay();
     
     // Populate dropdowns from GlobalData or enemy-designer data - retry if not loaded yet
@@ -3617,41 +3618,23 @@ function collectMultiSelectValues(selectId) {
     return Array.from(select.selectedOptions).map(opt => opt.value);
 }
 
-async function generateQuestPreview() {
-    const locationId = document.getElementById('questGenerateLocation')?.value || '';
-    const prompt = document.getElementById('questGeneratePrompt')?.value || '';
-    const selectedNpcIds = collectMultiSelectValues('questGenerateNpcs').map(id => parseInt(id, 10));
-    const selectedEnemyIds = collectMultiSelectValues('questGenerateEnemies').map(id => parseInt(id, 10));
-    const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
-    const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
-    const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
-    const selectedPotionIds = collectMultiSelectValues('questGenerateRewardPotions').map(id => parseInt(id, 10));
-    const selectedBlessingIds = collectMultiSelectValues('questGenerateRewardBlessings').map(id => parseInt(id, 10));
-    let conceptPayload = {};
-    let conceptSystemPrompt = '';
-    let conceptWildsPrompt = '';
-    try {
-        const token = await getCurrentAccessToken();
-        if (token) {
-            const response = await fetch('http://localhost:8080/api/getConcept', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            if (data?.success) {
-                conceptPayload = data.payload || {};
-                conceptSystemPrompt = toPromptText(data.systemPrompt);
-                conceptWildsPrompt = toPromptText(data.wildsPrompt);
-            }
-        }
-    } catch (error) {
-        console.error('Failed to load concept for generator:', error);
-    }
-
-    const schema = conceptPayload?.json_schema ?? conceptPayload ?? {};
-
+function buildQuestAiRequestContext({
+    conceptPayload = {},
+    conceptWildsPrompt = '',
+    locationId = '',
+    selectedNpcIds = [],
+    selectedEnemyIds = [],
+    selectedQuestIds = [],
+    selectedItemIds = [],
+    selectedPerkIds = [],
+    selectedPotionIds = [],
+    selectedBlessingIds = []
+} = {}) {
+    const schemaSource = conceptPayload?.json_schema ?? conceptPayload ?? {};
     const settlements = GlobalData?.settlements || [];
     let settlement = null;
     let location = null;
+
     if (locationId) {
         settlements.some(s => {
             const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
@@ -3663,19 +3646,9 @@ async function generateQuestPreview() {
             return false;
         });
     }
-    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
-    if (location) {
-        console.log('Quest generator location context', {
-            locationId: location.location_id ?? location.id ?? null,
-            locationName: location.name ?? '',
-            textureId: selectedLocationTextureId
-        });
-    } else {
-        console.log('Quest generator location context', {
-            locationId,
-            locationName: null,
-            textureId: selectedLocationTextureId
-        });
+
+    if (!settlement && questState.selectedSettlementId) {
+        settlement = settlements.find(s => String(s.settlement_id || s.id) === String(questState.selectedSettlementId)) || null;
     }
 
     const npcLookup = new Map(questGenerateState.npcs.map(npc => [npc.npc_id || npc.id, npc]));
@@ -3707,7 +3680,6 @@ async function generateQuestPreview() {
             name: enemy.enemyName || enemy.enemy_name || enemy.name || ''
         }));
 
-    // Build full enemy catalog for AI to pick from (compact id+name)
     const allEnemyList = (() => {
         let src = [];
         if (typeof allEnemies !== 'undefined' && allEnemies.length > 0) src = allEnemies;
@@ -3720,7 +3692,8 @@ async function generateQuestPreview() {
         .filter(q => selectedQuestIds.includes(q.quest_id || q.questId || q.serverId))
         .map(q => ({
             id: q.quest_id || q.questId || q.serverId,
-            name: q.quest_name || q.name || ''
+            name: q.quest_name || q.name || '',
+            summary: q.summary || ''
         }));
 
     const items = questGenerateState.rewardItems
@@ -3751,13 +3724,10 @@ async function generateQuestPreview() {
             name: perk.perk_name || perk.name || ''
         }));
 
-    // Build full catalogs for AI to freely pick from (compact id+name)
     const allItemsList = questGenerateState.rewardItems.map(i => ({ id: i.item_id || i.id, name: i.item_name || i.name || '' }));
     const allPerksList = questGenerateState.rewardPerks.map(p => ({ id: p.perk_id || p.id, name: p.perk_name || p.name || '' }));
     const allPotionsList = questGenerateState.rewardPotions.map(i => ({ id: i.item_id || i.id, name: i.item_name || i.name || '' }));
     const allBlessingsList = questGenerateState.rewardBlessings.map(p => ({ id: p.perk_id || p.id, name: p.perk_name || p.name || '' }));
-
-    // Build effects catalog
     const allEffectsList = (GlobalData?.effects || []).map(e => ({ id: e.effect_id || e.id, name: e.effect_name || e.name || '' }));
 
     const settlementPayload = settlement
@@ -3770,8 +3740,8 @@ async function generateQuestPreview() {
         }
         : null;
 
-    const userContent = {
-        output_struct: schema,
+    return {
+        output_struct: schemaSource,
         world_wilds_prompt: conceptWildsPrompt,
         local_context: {
             settlement: settlementPayload,
@@ -3804,7 +3774,85 @@ async function generateQuestPreview() {
             reward_silver: true,
             reward_talent: true
         },
-        relevant_quests: quests,
+        relevant_quests: quests
+    };
+}
+
+async function generateQuestPreview() {
+    const locationId = document.getElementById('questGenerateLocation')?.value || '';
+    const prompt = document.getElementById('questGeneratePrompt')?.value || '';
+    const selectedNpcIds = collectMultiSelectValues('questGenerateNpcs').map(id => parseInt(id, 10));
+    const selectedEnemyIds = collectMultiSelectValues('questGenerateEnemies').map(id => parseInt(id, 10));
+    const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
+    const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
+    const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
+    const selectedPotionIds = collectMultiSelectValues('questGenerateRewardPotions').map(id => parseInt(id, 10));
+    const selectedBlessingIds = collectMultiSelectValues('questGenerateRewardBlessings').map(id => parseInt(id, 10));
+    let conceptPayload = {};
+    let conceptSystemPrompt = '';
+    let conceptWildsPrompt = '';
+    try {
+        const token = await getCurrentAccessToken();
+        if (token) {
+            const response = await fetch('http://localhost:8080/api/getConcept', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data?.success) {
+                conceptPayload = data.payload || {};
+                conceptSystemPrompt = toPromptText(data.systemPrompt);
+                conceptWildsPrompt = toPromptText(data.wildsPrompt);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load concept for generator:', error);
+    }
+
+    const settlements = GlobalData?.settlements || [];
+    let settlement = null;
+    let location = null;
+    if (locationId) {
+        settlements.some(s => {
+            const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
+            if (found) {
+                location = found;
+                settlement = s;
+                return true;
+            }
+            return false;
+        });
+    }
+    if (!settlement && questState.selectedSettlementId) {
+        settlement = settlements.find(s => String(s.settlement_id || s.id) === String(questState.selectedSettlementId)) || null;
+    }
+    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
+    if (location) {
+        console.log('Quest generator location context', {
+            locationId: location.location_id ?? location.id ?? null,
+            locationName: location.name ?? '',
+            textureId: selectedLocationTextureId
+        });
+    } else {
+        console.log('Quest generator location context', {
+            locationId,
+            locationName: null,
+            textureId: selectedLocationTextureId
+        });
+    }
+
+    const userContent = {
+        ...buildQuestAiRequestContext({
+            conceptPayload,
+            conceptWildsPrompt,
+            locationId,
+            selectedNpcIds,
+            selectedEnemyIds,
+            selectedQuestIds,
+            selectedItemIds,
+            selectedPerkIds,
+            selectedPotionIds,
+            selectedBlessingIds
+        }),
         prompt
     };
 
@@ -3885,6 +3933,321 @@ async function generateQuestPreview() {
     }
 
     setQuestGenerateLoading(false);
+}
+
+// ==================== QUEST UPDATER ====================
+
+function setupQuestUpdatePanel() {
+    document.getElementById('sidebarUpdateQuestBtn')?.addEventListener('click', toggleQuestUpdatePanel);
+    document.getElementById('questUpdateClose')?.addEventListener('click', toggleQuestUpdatePanel);
+    document.getElementById('questUpdateRun')?.addEventListener('click', updateQuestWithAi);
+}
+
+function toggleQuestUpdatePanel() {
+    const overlay = document.getElementById('questUpdateOverlay');
+    if (!overlay) return;
+    const isOpen = overlay.style.display === 'flex';
+    overlay.style.display = isOpen ? 'none' : 'flex';
+    if (!isOpen) {
+        // Populate with selected quest info
+        const quest = questState.selectedQuest ? questState.quests.get(questState.selectedQuest) : null;
+        const nameEl = document.getElementById('questUpdateQuestName');
+        if (nameEl) nameEl.textContent = quest ? (quest.name || `Quest ${quest.serverId || quest.questId}`) : 'No quest selected';
+        const promptEl = document.getElementById('questUpdatePrompt');
+        if (promptEl) promptEl.value = '';
+    }
+}
+
+function setQuestUpdateLoading(isLoading, message = 'Updating...') {
+    const runBtn = document.getElementById('questUpdateRun');
+    const closeBtn = document.getElementById('questUpdateClose');
+    if (runBtn) {
+        runBtn.disabled = isLoading;
+        runBtn.innerHTML = isLoading ? `<span class="spinner"></span>${message}` : 'Update';
+    }
+    if (closeBtn) closeBtn.disabled = isLoading;
+}
+
+function serializeQuestForAi(questId) {
+    const quest = questState.quests.get(questId);
+    if (!quest) return null;
+
+    const chainId = questState.selectedChain || null;
+    const settlementId = questState.selectedSettlementId || null;
+
+    let requisiteOptionId = null;
+    questState.connections.forEach(conn => {
+        if (conn.toType === 'quest' && conn.toId === questId && conn.fromType === 'option') {
+            const sourceOption = questState.options.get(conn.fromId);
+            requisiteOptionId = sourceOption?.serverId || conn.fromId;
+        }
+    });
+
+    const options = [];
+    questState.options.forEach((option, optId) => {
+        if (option.questId !== questId) return;
+
+        options.push({
+            pos_x: option.x || 0,
+            pos_y: option.y || 0,
+            start: option.isStart || false,
+            enemy_id: option.type === 'combat' ? (option.enemyId || null) : null,
+            quest_id: quest.serverId || questId,
+            effect_id: option.type === 'effect_check' ? (option.effectId || null) : null,
+            node_text: option.nodeText || '',
+            option_id: option.serverId || optId,
+            quest_end: option.type === 'end',
+            stat_type: option.type === 'stat_check' ? (option.statType || null) : null,
+            option_text: option.optionText || '',
+            reward_item: option.reward?.type === 'item' ? (option.reward.itemId || null) : null,
+            reward_perk: option.reward?.type === 'perk' ? (option.reward.perkId || null) : null,
+            effect_amount: option.type === 'effect_check' ? (option.effectAmount || null) : null,
+            reward_potion: option.reward?.type === 'potion' ? (option.reward.potionId || null) : null,
+            reward_talent: option.reward?.type === 'talent' ? true : null,
+            stat_required: option.type === 'stat_check' ? (option.statRequired || null) : null,
+            reward_blessing: option.reward?.type === 'blessing' ? (option.reward.blessingId || null) : null,
+            silver_required: option.type === 'silver' ? (option.silverRequired || null) : null,
+            faction_required: option.type === 'faction' ? (questFactionKeyToCode(option.factionRequired) || null) : null,
+            option_effect_id: option.optionEffectId || null,
+            reward_stat_type: option.reward?.type === 'stat' ? (option.reward.statType || null) : null,
+            reward_stat_amount: option.reward?.type === 'stat' ? (option.reward.amount || null) : null,
+            option_effect_factor: option.optionEffectFactor || null,
+            reward_silver: option.reward?.type === 'silver' ? (option.reward.amount || null) : null
+        });
+    });
+
+    const requirements = [];
+    questState.connections.forEach(conn => {
+        if (conn.fromType === 'option' && conn.toType === 'option') {
+            const fromOption = questState.options.get(conn.fromId);
+            const toOption = questState.options.get(conn.toId);
+            if (!fromOption || !toOption) return;
+            if (fromOption.questId !== questId || toOption.questId !== questId) return;
+            requirements.push({
+                optionId: toOption.serverId || conn.toId,
+                requiredOptionId: fromOption.serverId || conn.fromId
+            });
+        }
+    });
+
+    return {
+        chains: [
+            {
+                name: questState.chainName || '',
+                context: questState.chainContext || '',
+                questchain_id: chainId,
+                settlement_id: settlementId
+            }
+        ],
+        quests: [
+            {
+                pos_x: quest.x || 0,
+                pos_y: quest.y || 0,
+                ending: null,
+                summary: quest.summary || '',
+                asset_id: quest.assetId || null,
+                quest_id: quest.serverId || questId,
+                quest_name: quest.name || '',
+                sort_order: quest.sortOrder || 0,
+                start_text: quest.text || '',
+                travel_text: quest.travelText || '',
+                failure_text: quest.failureText || '',
+                default_entry: null,
+                questchain_id: chainId,
+                settlement_id: settlementId,
+                requisite_option_id: requisiteOptionId
+            }
+        ],
+        options,
+        requirements
+    };
+}
+
+async function updateQuestWithAi() {
+    const questId = questState.selectedQuest;
+    if (!questId) {
+        alert('No quest selected');
+        return;
+    }
+
+    const prompt = document.getElementById('questUpdatePrompt')?.value || '';
+    if (!prompt.trim()) {
+        alert('Please describe what you want to change');
+        return;
+    }
+
+    const questData = serializeQuestForAi(questId);
+    if (!questData) {
+        alert('Failed to serialize quest');
+        return;
+    }
+
+    // Fetch concept data for the update system prompt
+    let conceptUpdatePrompt = '';
+    let conceptWildsPrompt = '';
+    let conceptPayload = {};
+    try {
+        const token = await getCurrentAccessToken();
+        const conceptResp = await fetch('http://localhost:8080/api/getConcept', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const conceptData = await conceptResp.json();
+        if (conceptData.success) {
+            conceptUpdatePrompt = toPromptText(conceptData.questUpdatePrompt);
+            conceptWildsPrompt = toPromptText(conceptData.wildsPrompt);
+            conceptPayload = conceptData.payload || {};
+        }
+    } catch (err) {
+        console.warn('Failed to load concept for quest update:', err);
+    }
+
+    if (!conceptUpdatePrompt) {
+        alert('No Quest Update Prompt configured in Concept designer. Please add one first.');
+        return;
+    }
+
+    const userContent = {
+        ...buildQuestAiRequestContext({
+            conceptPayload,
+            conceptWildsPrompt,
+            selectedNpcIds: questGenerateState.npcs.map(npc => npc.npc_id || npc.id).filter(Boolean),
+            selectedEnemyIds: [],
+            selectedQuestIds: [],
+            selectedItemIds: [],
+            selectedPerkIds: [],
+            selectedPotionIds: [],
+            selectedBlessingIds: []
+        }),
+        existing_quest: questData,
+        prompt,
+        update_instructions: prompt
+    };
+
+    const payload = {
+        model: 'o3',
+        response_format: { type: 'json_object' },
+        messages: [
+            { role: 'system', content: conceptUpdatePrompt },
+            { role: 'user', content: JSON.stringify(userContent) }
+        ]
+    };
+
+    console.log('Quest update payload:', JSON.stringify(payload, null, 2));
+
+    try {
+        setQuestUpdateLoading(true, 'Updating quest...');
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Not authenticated');
+            setQuestUpdateLoading(false);
+            return;
+        }
+
+        const response = await fetch('http://localhost:8080/api/generateQuestAi', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        console.log('Quest update response:', data);
+
+        let content = data?.choices?.[0]?.message?.content;
+        if (!content && Array.isArray(data?.output)) {
+            const message = data.output.find(item => item.type === 'message');
+            const outputText = message?.content?.find(part => part.type === 'output_text');
+            content = outputText?.text || '';
+        }
+
+        if (content) {
+            try {
+                const parsed = JSON.parse(content);
+                console.log('Quest update JSON:', parsed);
+                applyUpdatedQuest(questId, parsed);
+                toggleQuestUpdatePanel();
+            } catch (err) {
+                console.warn('Failed to parse quest update JSON:', err, content);
+                setQuestUpdateLoading(false, 'Failed to parse response.');
+                return;
+            }
+        }
+    } catch (error) {
+        console.error('Quest update failed:', error);
+        alert(`Quest update failed: ${error.message || error}`);
+        setQuestUpdateLoading(false, 'Update failed.');
+        return;
+    }
+
+    setQuestUpdateLoading(false);
+}
+
+function applyUpdatedQuest(questId, parsed) {
+    const quest = questState.quests.get(questId);
+    if (!quest) return;
+
+    // The AI should return the same structure as a single quest in the generate format
+    // Look for the quest data in various possible response shapes
+    let updatedQuest = null;
+    let updatedOptions = [];
+
+    if (parsed.quests && Array.isArray(parsed.quests) && parsed.quests.length > 0) {
+        updatedQuest = parsed.quests[0];
+        updatedOptions = parsed.options || parsed.quest_options || [];
+    } else if (parsed.quest) {
+        updatedQuest = parsed.quest;
+        updatedOptions = parsed.options || parsed.quest_options || [];
+    } else if (parsed.quest_name || parsed.start_text) {
+        updatedQuest = parsed;
+        updatedOptions = parsed.options || parsed.quest_options || [];
+    }
+
+    if (!updatedQuest) {
+        console.warn('Could not find quest data in AI response:', parsed);
+        alert('AI response did not contain recognizable quest data');
+        return;
+    }
+
+    // Update quest text fields
+    quest.name = updatedQuest.quest_name || updatedQuest.name || quest.name;
+    quest.text = updatedQuest.start_text || updatedQuest.text || quest.text;
+    quest.travelText = updatedQuest.travel_text || updatedQuest.travelText || quest.travelText;
+    quest.failureText = updatedQuest.failure_text || updatedQuest.failureText || quest.failureText;
+    quest.summary = updatedQuest.summary || quest.summary;
+
+    // Update existing options and add new ones
+    if (updatedOptions.length > 0) {
+        // Build map of existing options by serverId for matching
+        const existingOptionsByServerId = new Map();
+        questState.options.forEach((opt, optId) => {
+            if (opt.questId === questId && opt.serverId) {
+                existingOptionsByServerId.set(opt.serverId, { opt, optId });
+            }
+        });
+
+        updatedOptions.forEach(updOpt => {
+            const optionId = updOpt.option_id || updOpt.optionId;
+            const existing = optionId ? existingOptionsByServerId.get(optionId) : null;
+
+            if (existing) {
+                // Update existing option
+                const opt = existing.opt;
+                if (updOpt.node_text !== undefined || updOpt.nodeText !== undefined) opt.nodeText = updOpt.node_text || updOpt.nodeText || opt.nodeText;
+                if (updOpt.option_text !== undefined || updOpt.optionText !== undefined) opt.optionText = updOpt.option_text || updOpt.optionText || opt.optionText;
+                renderOption(opt);
+            }
+            // New options from AI are not auto-added to preserve graph integrity
+        });
+    }
+
+    // Re-render
+    renderQuest(quest);
+    updateQuestSidebar(questId);
+    updateCounter();
+    checkQuestSaveConditions();
+    console.log('Quest updated with AI response');
 }
 
 function getValidQuestJsonTemplate() {
