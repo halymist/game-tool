@@ -2378,7 +2378,10 @@ function getExpeditionAssetUrlById(assetId) {
     if (match?.url) {
         return match.url;
     }
-    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${assetId}.webp`;
+    if (typeof window.buildPublicAssetUrl === 'function') {
+        return window.buildPublicAssetUrl(`images/quests/${assetId}.webp`);
+    }
+    return `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/quests/${assetId}.webp`;
 }
 
 function primeSlideAssetPreview(slide, assetId, remoteUrl) {

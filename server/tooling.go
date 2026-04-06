@@ -56,6 +56,16 @@ type UploadAssetResponse struct {
 	Icon    string `json:"icon,omitempty"`
 }
 
+// BuildAssetPublicURLForKey returns a public URL for an asset key.
+// If ASSET_PUBLIC_BASE_URL is configured (e.g. Cloudflare R2 public URL), it is preferred.
+func BuildAssetPublicURLForKey(key string) string {
+	trimmedKey := strings.TrimLeft(key, "/")
+	if base := strings.TrimRight(ASSET_PUBLIC_BASE_URL, "/"); base != "" {
+		return fmt.Sprintf("%s/%s", base, trimmedKey)
+	}
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", S3_BUCKET_NAME, S3_REGION, trimmedKey)
+}
+
 // ==================== S3 ASSET OPERATIONS ====================
 
 // ListAssetsFromS3 lists all assets from a specific S3 folder
@@ -98,8 +108,7 @@ func ListAssetsFromS3(folder string) ([]AssetInfo, error) {
 		}
 
 		// Direct public S3 URL
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, AssetInfo{
 			AssetID: assetID,
@@ -265,8 +274,7 @@ func CreateUploadAssetHandler(folder string) http.HandlerFunc {
 		}
 
 		// Generate public URL
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, s3Key)
+		publicURL := BuildAssetPublicURLForKey(s3Key)
 
 		json.NewEncoder(w).Encode(UploadAssetResponse{
 			Success: true,
@@ -372,8 +380,7 @@ func handleGenericUploadAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate public URL
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, s3Key)
+	publicURL := BuildAssetPublicURLForKey(s3Key)
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
@@ -509,8 +516,7 @@ func CreateMergeHandler(functionName string, entityName string) http.HandlerFunc
 
 // GeneratePublicURL generates a public S3 URL for an asset
 func GeneratePublicURL(folder string, assetID int) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/%s/%d.webp",
-		S3_BUCKET_NAME, S3_REGION, folder, assetID)
+	return BuildAssetPublicURLForKey(fmt.Sprintf("images/%s/%d.webp", folder, assetID))
 }
 
 // ==================== REMOVE PENDING HANDLER ====================

@@ -132,9 +132,7 @@ func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 	// Generate public URLs for perk icons (S3 bucket is publicly accessible)
 	for i := range perks {
 		if perks[i].AssetID > 0 {
-			// Direct public S3 URL
-			perks[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/perks/%d.webp",
-				S3_BUCKET_NAME, S3_REGION, perks[i].AssetID)
+			perks[i].Icon = GeneratePublicURL("perks", perks[i].AssetID)
 		}
 	}
 
@@ -649,8 +647,7 @@ func listPerkAssets() ([]PerkAsset, error) {
 		}
 
 		// Direct public S3 URL
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, PerkAsset{
 			AssetID: assetID,
@@ -727,8 +724,7 @@ func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate public URL for the uploaded asset
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, s3Key)
+	publicURL := BuildAssetPublicURLForKey(s3Key)
 
 	// Return success response
 	response := map[string]interface{}{

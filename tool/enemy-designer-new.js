@@ -579,7 +579,10 @@ function buildTalentTreeGrid() {
 
 function getTalentIconUrl(assetId) {
     if (!assetId) return '';
-    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/perks/${assetId}.webp`;
+    if (typeof window.buildPublicAssetUrl === 'function') {
+        return window.buildPublicAssetUrl(`images/perks/${assetId}.webp`);
+    }
+    return `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/perks/${assetId}.webp`;
 }
 
 function showTalentUpgradeModal(talent) {

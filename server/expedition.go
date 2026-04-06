@@ -1155,8 +1155,7 @@ func listExpeditionAssets() ([]ExpeditionAsset, error) {
 			continue
 		}
 
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, ExpeditionAsset{
 			AssetID: assetID,
@@ -1226,8 +1225,7 @@ func handleUploadExpeditionAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, s3Key)
+	publicURL := BuildAssetPublicURLForKey(s3Key)
 
 	response := map[string]interface{}{
 		"success": true,

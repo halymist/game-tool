@@ -1888,7 +1888,9 @@ function populateQcSidebarDropdowns() {
             enemyGrid.innerHTML = '<p style="color:#888;text-align:center;grid-column:1/-1;font-size:0.75rem;">No enemies loaded</p>';
         } else {
             enemies.forEach(enemy => {
-                const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+                const iconUrl = enemy.icon || ((typeof window.buildPublicAssetUrl === 'function')
+                    ? window.buildPublicAssetUrl(`images/enemies/${enemy.assetId}.webp`)
+                    : `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/enemies/${enemy.assetId}.webp`);
                 const item = document.createElement('div');
                 item.className = 'qc-enemy-picker-item';
                 item.dataset.enemyId = enemy.enemyId || enemy.id;

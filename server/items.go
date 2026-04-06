@@ -135,9 +135,7 @@ func handleGetItems(w http.ResponseWriter, r *http.Request) {
 	// Generate public URLs for item icons (S3 bucket is publicly accessible)
 	for i := range items {
 		if items[i].AssetID > 0 {
-			// Direct public S3 URL
-			items[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/items/%d.webp",
-				S3_BUCKET_NAME, S3_REGION, items[i].AssetID)
+			items[i].Icon = GeneratePublicURL("items", items[i].AssetID)
 		}
 	}
 
@@ -746,8 +744,7 @@ func listItemAssets() ([]ItemAsset, error) {
 		}
 
 		// Direct public S3 URL
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, ItemAsset{
 			AssetID: assetID,
@@ -824,8 +821,7 @@ func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate public URL for the uploaded asset
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, s3Key)
+	publicURL := BuildAssetPublicURLForKey(s3Key)
 
 	// Return success response
 	response := map[string]interface{}{

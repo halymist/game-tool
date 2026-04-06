@@ -310,9 +310,7 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Direct public S3 URL (same as quest/perk/item assets)
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, SettlementAsset{
 			ID:  assetID,
@@ -429,8 +427,7 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate public URL for the uploaded asset
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, key)
+	publicURL := BuildAssetPublicURLForKey(key)
 
 	// Return success response (consistent with quest asset endpoint)
 	response := map[string]interface{}{

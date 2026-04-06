@@ -20,6 +20,18 @@ const GlobalData = {
     questAssets: []        // Array of available quest assets from S3 (images/quests)
 };
 
+const DEFAULT_ASSET_PUBLIC_BASE_URL = 'https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev';
+const ASSET_PUBLIC_BASE_URL = String(window.ASSET_PUBLIC_BASE_URL || DEFAULT_ASSET_PUBLIC_BASE_URL).replace(/\/+$/, '');
+
+function getAssetPublicBaseUrl() {
+    return ASSET_PUBLIC_BASE_URL;
+}
+
+function buildPublicAssetUrl(path) {
+    if (!path) return '';
+    return `${ASSET_PUBLIC_BASE_URL}/${String(path).replace(/^\/+/, '')}`;
+}
+
 const globalDataSubscribers = new Map();
 
 // === ASSET IMAGE CACHE ===
@@ -199,6 +211,8 @@ if (typeof window !== 'undefined') {
     window.subscribeToGlobalData = subscribeToGlobalData;
     window.notifyGlobalDataChange = notifyGlobalDataChange;
     window.preloadGlobalData = preloadGlobalData;
+    window.getAssetPublicBaseUrl = getAssetPublicBaseUrl;
+    window.buildPublicAssetUrl = buildPublicAssetUrl;
 }
 
 // === EFFECTS DATA STRUCTURE ===

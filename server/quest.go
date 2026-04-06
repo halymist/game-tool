@@ -34,6 +34,7 @@ type Quest struct {
 	StartText         *string `json:"start_text"`
 	TravelText        *string `json:"travel_text"`
 	FailureText       *string `json:"failure_text"`
+	Summary           *string `json:"summary"`
 	RequisiteOptionID *int    `json:"requisite_option_id"`
 	Ending            *int    `json:"ending"`
 	DefaultEntry      bool    `json:"default_entry"`
@@ -142,7 +143,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	// Get quests for these chains
 	var quests []Quest
 	if len(chainIDs) > 0 {
-		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, requisite_option_id, ending, default_entry, settlement_id, asset_id,
+		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, summary, requisite_option_id, ending, default_entry, settlement_id, asset_id,
 			COALESCE(pos_x, 50) as pos_x, COALESCE(pos_y, 100) as pos_y, COALESCE(sort_order, 0) as sort_order
 			FROM game.quests WHERE questchain_id = ANY($1) ORDER BY questchain_id, sort_order, quest_id`
 
@@ -156,7 +157,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 
 		for questRows.Next() {
 			var q Quest
-			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.PosX, &q.PosY, &q.SortOrder)
+			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.Summary, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.PosX, &q.PosY, &q.SortOrder)
 			if err != nil {
 				log.Printf("Error scanning quest: %v", err)
 				continue
@@ -343,6 +344,7 @@ type NewQuestData struct {
 	StartText    string  `json:"startText"`
 	TravelText   string  `json:"travelText"`
 	FailureText  string  `json:"failureText"`
+	Summary      string  `json:"summary"`
 	AssetID      *int    `json:"assetId"`
 	PosX         float64 `json:"posX"`
 	PosY         float64 `json:"posY"`
@@ -356,6 +358,7 @@ type QuestUpdateData struct {
 	StartText   string  `json:"startText"`
 	TravelText  string  `json:"travelText"`
 	FailureText string  `json:"failureText"`
+	Summary     string  `json:"summary"`
 	AssetID     *int    `json:"assetId"`
 	PosX        float64 `json:"posX"`
 	PosY        float64 `json:"posY"`
@@ -629,6 +632,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 	startTexts := make([]string, n)
 	travelTexts := make([]string, n)
 	failureTexts := make([]string, n)
+	summaries := make([]string, n)
 	chainIDs := make([]int64, n)
 	assetIDs := make([]sql.NullInt64, n)
 	defaults := make([]bool, n)
@@ -641,6 +645,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		startTexts[i] = q.StartText
 		travelTexts[i] = q.TravelText
 		failureTexts[i] = q.FailureText
+		summaries[i] = q.Summary
 		chainIDs[i] = int64(questchainID)
 		assetIDs[i] = nullInt(q.AssetID)
 		defaults[i] = true
@@ -650,10 +655,10 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 	}
 
 	rows, err := tx.Query(`
-		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, questchain_id, asset_id, default_entry, pos_x, pos_y, sort_order)
-		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::int[], $6::int[], $7::bool[], $8::float8[], $9::float8[], $10::int[])
+		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, asset_id, default_entry, pos_x, pos_y, sort_order)
+		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[], $7::int[], $8::bool[], $9::float8[], $10::float8[], $11::int[])
 		RETURNING quest_id
-	`, pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts),
+	`, pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts), pq.Array(summaries),
 		pq.Array(chainIDs), pq.Array(assetIDs), pq.Array(defaults),
 		pq.Array(posXs), pq.Array(posYs), pq.Array(sortOrders))
 	if err != nil {
@@ -681,6 +686,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 	startTexts := make([]string, n)
 	travelTexts := make([]string, n)
 	failureTexts := make([]string, n)
+	summaries := make([]string, n)
 	assetIDs := make([]sql.NullInt64, n)
 	posXs := make([]float64, n)
 	posYs := make([]float64, n)
@@ -692,6 +698,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		startTexts[i] = u.StartText
 		travelTexts[i] = u.TravelText
 		failureTexts[i] = u.FailureText
+		summaries[i] = u.Summary
 		assetIDs[i] = nullInt(u.AssetID)
 		posXs[i] = u.PosX
 		posYs[i] = u.PosY
@@ -704,16 +711,17 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 			start_text   = v.start_text,
 			travel_text  = v.travel_text,
 			failure_text = v.failure_text,
+			summary      = v.summary,
 			asset_id     = v.asset_id,
 			pos_x        = v.pos_x,
 			pos_y        = v.pos_y,
 			sort_order   = v.sort_order
 		FROM (
-			SELECT * FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[], $7::float8[], $8::float8[], $9::int[])
-			AS t(quest_id, quest_name, start_text, travel_text, failure_text, asset_id, pos_x, pos_y, sort_order)
+			SELECT * FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::float8[], $9::float8[], $10::int[])
+			AS t(quest_id, quest_name, start_text, travel_text, failure_text, summary, asset_id, pos_x, pos_y, sort_order)
 		) AS v
 		WHERE q.quest_id = v.quest_id
-	`, pq.Array(ids), pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts),
+	`, pq.Array(ids), pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts), pq.Array(summaries),
 		pq.Array(assetIDs), pq.Array(posXs), pq.Array(posYs), pq.Array(sortOrders))
 	return err
 }
@@ -1161,8 +1169,7 @@ func listQuestAssets() ([]QuestAsset, error) {
 			continue
 		}
 
-		publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-			S3_BUCKET_NAME, S3_REGION, key)
+		publicURL := BuildAssetPublicURLForKey(key)
 
 		assets = append(assets, QuestAsset{
 			ID:  assetID,
@@ -1231,8 +1238,7 @@ func handleUploadQuestAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	publicURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		S3_BUCKET_NAME, S3_REGION, s3Key)
+	publicURL := BuildAssetPublicURLForKey(s3Key)
 
 	response := map[string]interface{}{
 		"success": true,

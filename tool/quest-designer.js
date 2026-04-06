@@ -3,8 +3,8 @@ console.log('📦 quest-designer.js LOADED');
 
 // ==================== STATE ====================
 const questState = {
-    // Quests (slides with asset, name, text, travelText, failureText, sortOrder for tree depth)
-    quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, assetId, assetUrl, x, y, sortOrder }
+    // Quests (slides with asset, name, text, travelText, failureText, summary, sortOrder for tree depth)
+    quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, summary, assetId, assetUrl, x, y, sortOrder }
     nextQuestId: 1,
     selectedQuest: null,
     selectedQuestIds: new Set(),
@@ -275,6 +275,7 @@ function addQuest() {
         text: '',
         travelText: '',
         failureText: '',
+        summary: '',
         assetId: null,
         assetUrl: null,
         assetRemoteUrl: null,
@@ -1135,6 +1136,9 @@ function updateQuestSidebar(questId) {
 
     const failureInput = document.getElementById('sidebarFailureText');
     if (failureInput) failureInput.value = quest.failureText || '';
+
+    const summaryInput = document.getElementById('sidebarSummaryText');
+    if (summaryInput) summaryInput.value = quest.summary || '';
 }
 
 function updateSidebarTypeFields(type) {
@@ -1857,7 +1861,7 @@ async function loadQuestChainData(chainId) {
         
         // Load quests
         chainQuests.forEach(q => {
-            const remoteAssetUrl = q.asset_id ? `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${q.asset_id}.webp` : null;
+            const remoteAssetUrl = q.asset_id ? buildQuestAssetRemoteUrl(q.asset_id) : null;
             const assetObj = q.asset_id ? getSharedQuestAssets().find(a => a.id === q.asset_id) : null;
             const quest = {
                 questId: q.quest_id,
@@ -1866,6 +1870,7 @@ async function loadQuestChainData(chainId) {
                 text: q.start_text || '',
                 travelText: q.travel_text || '',
                 failureText: q.failure_text || '',
+                summary: q.summary || '',
                 assetId: q.asset_id,
                 assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
                 assetRemoteUrl: remoteAssetUrl,
@@ -1939,6 +1944,7 @@ async function loadQuestChainData(chainId) {
                         start_text: q.start_text || '',
                         travel_text: q.travel_text || '',
                         failure_text: q.failure_text || '',
+                        summary: q.summary || '',
                         default_entry: q.default_entry ?? null,
                         questchain_id: q.questchain_id,
                         settlement_id: q.settlement_id || null,
@@ -2329,7 +2335,7 @@ function populateEnemyGrid() {
         // Handle both naming conventions (enemy-designer uses enemyId/enemyName, global-data uses id/name)
         const id = enemy.enemyId || enemy.enemy_id || enemy.id;
         const name = enemy.enemyName || enemy.enemy_name || enemy.name || `Enemy ${id}`;
-        const iconUrl = enemy.icon || `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/enemies/${enemy.assetId}.webp`;
+        const iconUrl = enemy.icon || buildQuestEnemyAssetRemoteUrl(enemy.assetId);
         
         const div = document.createElement('div');
         div.className = 'quest-enemy-item';
@@ -2613,6 +2619,16 @@ function setupSidebarEventListeners() {
         });
     }
 
+    // Quest summary text
+    const summaryText = document.getElementById('sidebarSummaryText');
+    if (summaryText) {
+        summaryText.addEventListener('input', (e) => {
+            if (!questState.selectedQuest) return;
+            const quest = questState.quests.get(questState.selectedQuest);
+            if (quest) quest.summary = e.target.value;
+        });
+    }
+
     const questPreviewBtn = document.getElementById('sidebarQuestPreviewBtn');
     if (questPreviewBtn) {
         questPreviewBtn.addEventListener('click', () => {
@@ -2776,6 +2792,7 @@ async function saveQuest() {
                     startText: quest.text || '',
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
+                    summary: quest.summary || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -2789,6 +2806,7 @@ async function saveQuest() {
                     startText: quest.text || '',
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
+                    summary: quest.summary || '',
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -3891,6 +3909,7 @@ function getValidQuestJsonTemplate() {
                 start_text: '',
                 travel_text: '',
                 failure_text: '',
+                summary: '',
                 default_entry: null,
                 questchain_id: 1,
                 settlement_id: 1,
@@ -3988,6 +4007,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         text: questRaw.start_text || questRaw.startText || '',
         travelText: questRaw.travel_text || questRaw.travelText || '',
         failureText: questRaw.failure_text || questRaw.failureText || '',
+        summary: questRaw.summary || '',
         assetId: resolvedAssetId,
         assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
         assetRemoteUrl: remoteAssetUrl,
@@ -4130,7 +4150,21 @@ function getQuestAssetRemoteUrl(assetId) {
     if (match?.url) {
         return match.url;
     }
-    return `https://gamedata-assets.s3.eu-north-1.amazonaws.com/images/quests/${normalized}.webp`;
+    return buildQuestAssetRemoteUrl(normalized);
+}
+
+function buildQuestAssetRemoteUrl(assetId) {
+    const baseBuilder = (typeof window.buildPublicAssetUrl === 'function')
+        ? window.buildPublicAssetUrl
+        : (path) => `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/${String(path).replace(/^\/+/, '')}`;
+    return baseBuilder(`images/quests/${assetId}.webp`);
+}
+
+function buildQuestEnemyAssetRemoteUrl(assetId) {
+    const baseBuilder = (typeof window.buildPublicAssetUrl === 'function')
+        ? window.buildPublicAssetUrl
+        : (path) => `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/${String(path).replace(/^\/+/, '')}`;
+    return baseBuilder(`images/enemies/${assetId}.webp`);
 }
 
 function normalizeNumericId(value) {

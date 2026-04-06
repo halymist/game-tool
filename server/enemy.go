@@ -181,8 +181,7 @@ func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 	// Generate icons for enemies
 	for i := range enemies {
 		if enemies[i].AssetID > 0 {
-			enemies[i].Icon = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/images/enemies/%d.webp",
-				S3_BUCKET_NAME, S3_REGION, enemies[i].AssetID)
+			enemies[i].Icon = GeneratePublicURL("enemies", enemies[i].AssetID)
 		}
 	}
 

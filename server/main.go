@@ -28,6 +28,9 @@ var (
 	COGNITO_CLIENT_ID     string
 	S3_BUCKET_NAME        string
 	S3_REGION             string
+	S3_ENDPOINT           string
+	S3_FORCE_PATH_STYLE   bool
+	ASSET_PUBLIC_BASE_URL string
 	AWS_ACCESS_KEY_ID     string
 	AWS_SECRET_ACCESS_KEY string
 	OPENAI_API_KEY        string
@@ -54,6 +57,9 @@ func init() {
 	COGNITO_CLIENT_ID = os.Getenv("COGNITO_CLIENT_ID")
 	S3_BUCKET_NAME = os.Getenv("S3_BUCKET_NAME")
 	S3_REGION = os.Getenv("S3_REGION")
+	S3_ENDPOINT = os.Getenv("S3_ENDPOINT")
+	ASSET_PUBLIC_BASE_URL = os.Getenv("ASSET_PUBLIC_BASE_URL")
+	S3_FORCE_PATH_STYLE = strings.EqualFold(os.Getenv("S3_FORCE_PATH_STYLE"), "true")
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
 	AWS_SECRET_ACCESS_KEY = os.Getenv("AWS_SECRET_ACCESS_KEY")
 	OPENAI_API_KEY = os.Getenv("OPENAI_API_KEY")
@@ -75,6 +81,9 @@ func init() {
 	}
 	if DB_USER == "" {
 		DB_USER = "postgres"
+	}
+	if ASSET_PUBLIC_BASE_URL == "" {
+		ASSET_PUBLIC_BASE_URL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", S3_BUCKET_NAME, S3_REGION)
 	}
 
 	// Validate required environment variables
@@ -118,8 +127,17 @@ func init() {
 		log.Printf("Check your AWS environment variables")
 		s3Client = nil
 	} else {
-		s3Client = s3.NewFromConfig(cfg)
+		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+			if S3_ENDPOINT != "" {
+				o.BaseEndpoint = aws.String(S3_ENDPOINT)
+			}
+			o.UsePathStyle = S3_FORCE_PATH_STYLE
+		})
 		log.Printf("SUCCESS: S3 client initialized for region: %s", S3_REGION)
+		if S3_ENDPOINT != "" {
+			log.Printf("S3-compatible endpoint configured: %s (path-style=%v)", S3_ENDPOINT, S3_FORCE_PATH_STYLE)
+		}
+		log.Printf("Asset public base URL: %s", ASSET_PUBLIC_BASE_URL)
 
 		// Test the credentials by attempting to list buckets (this will fail gracefully if no permission)
 		log.Printf("Testing AWS credentials...")
