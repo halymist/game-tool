@@ -239,7 +239,7 @@ async function loadTalentAssetsFallback() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getTalentAssets', {
+        const response = await fetch('/api/getTalentAssets', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -319,7 +319,7 @@ async function uploadTalentAsset(file) {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/uploadTalentAsset', {
+        const response = await fetch('/api/uploadTalentAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -483,7 +483,7 @@ async function saveTalentChanges() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/updateTalentInfo', {
+        const response = await fetch('/api/updateTalentInfo', {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`,

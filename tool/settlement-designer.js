@@ -299,7 +299,7 @@ async function loadBlessingsData() {
             const token = await getCurrentAccessToken();
             if (!token) return;
 
-            const response = await fetch('http://localhost:8080/api/getPerks', {
+            const response = await fetch('/api/getPerks', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -342,7 +342,7 @@ async function loadSettlementItemsData() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getItems', {
+        const response = await fetch('/api/getItems', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -384,7 +384,7 @@ async function loadSettlementEffectsData() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getEffects', {
+        const response = await fetch('/api/getEffects', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1290,7 +1290,7 @@ async function uploadSettlementAsset(file) {
         // Convert to base64
         const base64Data = await blobToBase64(webpBlob);
 
-        const response = await fetch('http://localhost:8080/api/uploadSettlementAsset', {
+        const response = await fetch('/api/uploadSettlementAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1345,7 +1345,7 @@ async function uploadLocationTexture(file) {
         // Convert to base64
         const base64Data = await blobToBase64(webpBlob);
 
-        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+        const response = await fetch('/api/uploadQuestAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1528,7 +1528,7 @@ async function saveSettlement() {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/saveSettlement', {
+        const response = await fetch('/api/saveSettlement', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1597,7 +1597,7 @@ async function deleteSettlement() {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/deleteSettlement', {
+        const response = await fetch('/api/deleteSettlement', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

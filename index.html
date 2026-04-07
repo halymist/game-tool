@@ -4,18 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <link rel="stylesheet" href="http://localhost:8080/static/shared-styles.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/enemy-designer-new.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/item-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/perk-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/expedition-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/settlement-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/quest-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/talent-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/npc-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/server-designer.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/chat-moderation.css">
-    <link rel="stylesheet" href="http://localhost:8080/static/concept-designer.css">
+    <link rel="stylesheet" href="/static/shared-styles.css">
+    <link rel="stylesheet" href="/static/enemy-designer-new.css">
+    <link rel="stylesheet" href="/static/item-designer.css">
+    <link rel="stylesheet" href="/static/perk-designer.css">
+    <link rel="stylesheet" href="/static/expedition-designer.css">
+    <link rel="stylesheet" href="/static/settlement-designer.css">
+    <link rel="stylesheet" href="/static/quest-designer.css">
+    <link rel="stylesheet" href="/static/talent-designer.css">
+    <link rel="stylesheet" href="/static/npc-designer.css">
+    <link rel="stylesheet" href="/static/server-designer.css">
+    <link rel="stylesheet" href="/static/chat-moderation.css">
+    <link rel="stylesheet" href="/static/concept-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -2035,7 +2035,7 @@
             });
             
             console.log('Logout successful - redirecting to login');
-            window.location.href = 'http://localhost:8080/login';
+            window.location.href = '/login';
         }
         
         // Page navigation system
@@ -2202,7 +2202,7 @@
             }
         });
     </script>
-    <script src="http://localhost:8080/static/global-data.js"></script>
+    <script src="/static/global-data.js"></script>
     <script>
         (async function bootDashboard() {
             if (window.__dashboardBooted) return;
@@ -2246,7 +2246,7 @@
                 if (document.querySelector(`script[src$="${file}"]`)) continue;
                 await new Promise((resolve, reject) => {
                     const s = document.createElement('script');
-                    s.src = 'http://localhost:8080/static/' + file;
+                    s.src = '/static/' + file;
                     s.onload = resolve;
                     s.onerror = () => { console.error('Failed to load ' + file); resolve(); };
                     document.body.appendChild(s);

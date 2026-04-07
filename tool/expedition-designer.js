@@ -2655,7 +2655,7 @@ async function loadExpeditionGenerateNpcs() {
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
-        const response = await fetch('http://localhost:8080/api/getNpcs', {
+        const response = await fetch('/api/getNpcs', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -2897,7 +2897,7 @@ async function generateExpeditionClusterPreview() {
     try {
         const token = await getCurrentAccessToken();
         if (token) {
-            const response = await fetch('http://localhost:8080/api/getConcept', {
+            const response = await fetch('/api/getConcept', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -3087,7 +3087,7 @@ async function generateExpeditionClusterPreview() {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/generateExpeditionCluster', {
+        const response = await fetch('/api/generateExpeditionCluster', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -3354,7 +3354,7 @@ async function uploadExpeditionAsset(file) {
         if (uploadStatus) uploadStatus.textContent = 'Uploading...';
 
         // Use quest asset endpoint for shared folder
-        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+        const response = await fetch('/api/uploadQuestAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -3886,7 +3886,7 @@ async function saveExpedition() {
         }
 
         // Send to API
-        const response = await fetch('http://localhost:8080/api/saveExpedition', {
+        const response = await fetch('/api/saveExpedition', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4096,7 +4096,7 @@ async function mergeExpedition() {
             throw new Error('Not authenticated');
         }
 
-        const response = await fetch('http://localhost:8080/api/mergeExpeditions', {
+        const response = await fetch('/api/mergeExpeditions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -4148,7 +4148,7 @@ async function loadExpedition() {
             throw new Error('Not authenticated');
         }
 
-        const response = await fetch('http://localhost:8080/api/getExpedition', {
+        const response = await fetch('/api/getExpedition', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -4410,7 +4410,7 @@ async function loadExpeditionForSettlement(settlementId) {
         }
 
         // Build URL with optional settlement filter
-        let url = 'http://localhost:8080/api/getExpedition';
+        let url = '/api/getExpedition';
         if (settlementId) {
             url += `?settlementId=${settlementId}`;
         }

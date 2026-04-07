@@ -300,7 +300,7 @@ async function loadEffectsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getEffects', {
+            const response = await fetch('/api/getEffects', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -333,7 +333,7 @@ async function loadEnemiesData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getEnemies', {
+            const response = await fetch('/api/getEnemies', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -377,7 +377,7 @@ async function loadPerksData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getPerks', {
+            const response = await fetch('/api/getPerks', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -414,7 +414,7 @@ async function loadItemsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getItems', {
+            const response = await fetch('/api/getItems', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -459,7 +459,7 @@ async function loadPerkAssets(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getPerkAssets', {
+            const response = await fetch('/api/getPerkAssets', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -507,7 +507,7 @@ async function loadItemAssets(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getItemAssets', {
+            const response = await fetch('/api/getItemAssets', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -555,7 +555,7 @@ async function loadSettlementsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getSettlements', {
+            const response = await fetch('/api/getSettlements', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -599,7 +599,7 @@ async function loadSettlementAssetsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getSettlementAssets', {
+            const response = await fetch('/api/getSettlementAssets', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -653,7 +653,7 @@ async function loadQuestAssetsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getQuestAssets', {
+            const response = await fetch('/api/getQuestAssets', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -706,7 +706,7 @@ async function loadEnemyAssets(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getEnemyAssets', {
+            const response = await fetch('/api/getEnemyAssets', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });
@@ -762,7 +762,7 @@ async function loadNpcsData(options = {}) {
         try {
             const token = await getCurrentAccessToken();
             if (!token) throw new Error('Authentication required');
-            const response = await fetch('http://localhost:8080/api/getNpcs', {
+            const response = await fetch('/api/getNpcs', {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
             });

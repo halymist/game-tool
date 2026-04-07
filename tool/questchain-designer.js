@@ -250,7 +250,7 @@ async function uploadQuestchainAsset(file) {
         reader.readAsDataURL(webpBlob);
         const base64Data = await base64Promise;
         
-        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+        const response = await fetch('/api/uploadQuestAsset', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -782,7 +782,7 @@ async function deleteQuestSlide(id) {
             if (!token) throw new Error('Not authenticated');
             
             const serverId = questchainState.serverQuestSlides.get(id);
-            const response = await fetch('http://localhost:8080/api/deleteQuest', {
+            const response = await fetch('/api/deleteQuest', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -852,7 +852,7 @@ async function deleteQuestOption(id) {
             if (!token) throw new Error('Not authenticated');
             
             const serverId = questchainState.serverOptions.get(id);
-            const response = await fetch('http://localhost:8080/api/deleteQuestOption', {
+            const response = await fetch('/api/deleteQuestOption', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1654,7 +1654,7 @@ async function loadQuestchainsForSettlement(settlementId) {
         const token = await getCurrentAccessToken();
         if (!token) throw new Error('Not authenticated');
         
-        let url = 'http://localhost:8080/api/getQuestchains';
+        let url = '/api/getQuestchains';
         if (settlementId) {
             url += `?settlementId=${settlementId}`;
         }
@@ -1728,7 +1728,7 @@ async function loadQuestchainData(questchainId) {
         const token = await getCurrentAccessToken();
         if (!token) throw new Error('Not authenticated');
         
-        const response = await fetch(`http://localhost:8080/api/getQuestchainData?questchainId=${questchainId}`, {
+        const response = await fetch(`/api/getQuestchainData?questchainId=${questchainId}`, {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -1996,7 +1996,7 @@ async function createNewQuestchain() {
         const token = await getCurrentAccessToken();
         if (!token) throw new Error('Not authenticated');
         
-        const response = await fetch('http://localhost:8080/api/createQuestchain', {
+        const response = await fetch('/api/createQuestchain', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2185,7 +2185,7 @@ async function saveQuestchain() {
         
         console.log('Save payload:', JSON.stringify(payload, null, 2));
         
-        const response = await fetch('http://localhost:8080/api/saveQuestchain', {
+        const response = await fetch('/api/saveQuestchain', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

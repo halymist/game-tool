@@ -382,7 +382,7 @@ async function toggleApproval(toolingId, approved) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/toggleApproveItem', {
+        const response = await fetch('/api/toggleApproveItem', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -432,7 +432,7 @@ async function removePendingItem(toolingId) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/removePendingItem', {
+        const response = await fetch('/api/removePendingItem', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -487,7 +487,7 @@ async function mergeApprovedItems() {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/mergeItems', {
+        const response = await fetch('/api/mergeItems', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1008,7 +1008,7 @@ async function saveItem(e) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/createItem', {
+        const response = await fetch('/api/createItem', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1273,7 +1273,7 @@ async function handleItemIconUpload(file) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/uploadItemAsset', {
+        const response = await fetch('/api/uploadItemAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

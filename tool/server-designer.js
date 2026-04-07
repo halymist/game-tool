@@ -35,7 +35,7 @@ async function loadServerData() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getServers', {
+        const response = await fetch('/api/getServers', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -219,7 +219,7 @@ async function createServer() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/createServer', {
+        const response = await fetch('/api/createServer', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

@@ -891,7 +891,7 @@ async function saveEnemy(e) {
     
     try {
         const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/createEnemy', {
+        const response = await fetch('/api/createEnemy', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -962,7 +962,7 @@ async function saveEnemy(e) {
 async function toggleEnemyApproval(toolingId, approved) {
     try {
         const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/toggleApproveEnemy', {
+        const response = await fetch('/api/toggleApproveEnemy', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -998,7 +998,7 @@ async function mergeApprovedEnemies() {
     
     try {
         const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/mergeEnemies', {
+        const response = await fetch('/api/mergeEnemies', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1025,7 +1025,7 @@ async function removePendingEnemy(toolingId) {
     
     try {
         const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/removePendingEnemy', {
+        const response = await fetch('/api/removePendingEnemy', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1173,7 +1173,7 @@ async function handleEnemyIconUpload(file) {
         const newAssetId = maxId + 1;
         
         const token = await getCurrentAccessToken();
-        const response = await fetch('http://localhost:8080/api/uploadEnemyAsset', {
+        const response = await fetch('/api/uploadEnemyAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

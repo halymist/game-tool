@@ -339,7 +339,7 @@ const DesignerBase = {
             options.body = JSON.stringify(body);
         }
         
-        const response = await fetch(`http://localhost:8080${endpoint}`, options);
+        const response = await fetch(`${endpoint}`, options);
         return response.json();
     },
     

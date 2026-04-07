@@ -1735,7 +1735,7 @@ async function loadQuestChains() {
         const token = await getCurrentAccessToken();
         if (!token) return;
         
-        const response = await fetch(`http://localhost:8080/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
+        const response = await fetch(`/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1836,7 +1836,7 @@ async function loadQuestChainData(chainId) {
         const token = await getCurrentAccessToken();
         if (!token) return;
         
-        const response = await fetch(`http://localhost:8080/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
+        const response = await fetch(`/api/getQuests?settlementId=${questState.selectedSettlementId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -2132,7 +2132,7 @@ async function uploadQuestAsset(file) {
         reader.readAsDataURL(webpBlob);
         const base64Data = await base64Promise;
 
-        const response = await fetch('http://localhost:8080/api/uploadQuestAsset', {
+        const response = await fetch('/api/uploadQuestAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -2911,7 +2911,7 @@ async function saveQuest() {
         
         console.log('Save data:', saveData);
         
-        const response = await fetch('http://localhost:8080/api/saveQuest', {
+        const response = await fetch('/api/saveQuest', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -3419,7 +3419,7 @@ async function loadQuestGenerateNpcs() {
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
-        const response = await fetch('http://localhost:8080/api/getNpcs', {
+        const response = await fetch('/api/getNpcs', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -3436,7 +3436,7 @@ async function loadQuestGenerateAllQuests() {
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
-        const response = await fetch('http://localhost:8080/api/getQuests', {
+        const response = await fetch('/api/getQuests', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -3811,7 +3811,7 @@ async function generateQuestPreview() {
     try {
         const token = await getCurrentAccessToken();
         if (token) {
-            const response = await fetch('http://localhost:8080/api/getConcept', {
+            const response = await fetch('/api/getConcept', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -3900,7 +3900,7 @@ async function generateQuestPreview() {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/generateQuestAi', {
+        const response = await fetch('/api/generateQuestAi', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -4115,7 +4115,7 @@ async function updateQuestWithAi() {
     let conceptPayload = {};
     try {
         const token = await getCurrentAccessToken();
-        const conceptResp = await fetch('http://localhost:8080/api/getConcept', {
+        const conceptResp = await fetch('/api/getConcept', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const conceptData = await conceptResp.json();
@@ -4170,7 +4170,7 @@ async function updateQuestWithAi() {
             return;
         }
 
-        const response = await fetch('http://localhost:8080/api/generateQuestAi', {
+        const response = await fetch('/api/generateQuestAi', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

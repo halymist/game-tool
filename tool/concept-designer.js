@@ -49,7 +49,7 @@ async function loadConceptData() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getConcept', {
+        const response = await fetch('/api/getConcept', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -132,7 +132,7 @@ async function saveConcept() {
         const schemaPayload = parsed;
         const promptPayload = buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson);
 
-        const response = await fetch('http://localhost:8080/api/saveConcept', {
+        const response = await fetch('/api/saveConcept', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

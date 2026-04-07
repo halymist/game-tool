@@ -643,7 +643,7 @@ async function savePerk(e) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/createPerk', {
+        const response = await fetch('/api/createPerk', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -719,7 +719,7 @@ async function togglePerkApproval(toolingId, approved) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/toggleApprovePerk', {
+        const response = await fetch('/api/toggleApprovePerk', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -766,7 +766,7 @@ async function removePendingPerk(toolingId) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/removePendingPerk', {
+        const response = await fetch('/api/removePendingPerk', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -811,7 +811,7 @@ async function mergeApprovedPerks() {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/mergePerks', {
+        const response = await fetch('/api/mergePerks', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -960,7 +960,7 @@ async function handlePerkIconUpload(file) {
             return;
         }
         
-        const response = await fetch('http://localhost:8080/api/uploadPerkAsset', {
+        const response = await fetch('/api/uploadPerkAsset', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

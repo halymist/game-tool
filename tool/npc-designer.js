@@ -243,7 +243,7 @@ async function saveNpc(e) {
         if (!token) return;
 
         const endpoint = payload.npcId ? 'updateNpc' : 'createNpc';
-        const response = await fetch(`http://localhost:8080/api/${endpoint}`, {
+        const response = await fetch(`/api/${endpoint}`, {
             method: payload.npcId ? 'PUT' : 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -288,7 +288,7 @@ async function deleteNpc() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch(`http://localhost:8080/api/deleteNpc?npcId=${npcState.selectedId}`, {
+        const response = await fetch(`/api/deleteNpc?npcId=${npcState.selectedId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${token}` }
         });

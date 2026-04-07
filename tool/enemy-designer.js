@@ -548,7 +548,7 @@ async function sendToServer(enemy, operation) {
         saveBtn.textContent = 'Saving...';
 
         // Both create and update use the same endpoint - the server determines based on enemy.id
-        const endpoint = 'http://localhost:8080/api/createEnemy';
+        const endpoint = '/api/createEnemy';
 
         console.log('=== SENDING ENEMY STRUCT TO SERVER ===');
         console.log('Enemy struct being sent:', enemy);
@@ -679,7 +679,7 @@ async function loadEnemiesAndEffects() {
 
         console.log('Loading enemies and effects...');
 
-        const response = await fetch('http://localhost:8080/api/getEnemies', {
+        const response = await fetch('/api/getEnemies', {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -741,7 +741,7 @@ async function getSignedUrl(key) {
             return null;
         }
 
-        const response = await fetch('http://localhost:8080/api/getSignedUrl', {
+        const response = await fetch('/api/getSignedUrl', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,

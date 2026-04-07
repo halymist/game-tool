@@ -38,7 +38,7 @@ async function loadModerationData() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getBannedWords', {
+        const response = await fetch('/api/getBannedWords', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -85,7 +85,7 @@ async function loadActiveServers() {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/getServers', {
+        const response = await fetch('/api/getServers', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
@@ -162,7 +162,7 @@ async function addBannedWord(e) {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/addBannedWord', {
+        const response = await fetch('/api/addBannedWord', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -195,7 +195,7 @@ async function deleteBannedWord(id) {
         const token = await getCurrentAccessToken();
         if (!token) return;
 
-        const response = await fetch('http://localhost:8080/api/deleteBannedWord', {
+        const response = await fetch('/api/deleteBannedWord', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
