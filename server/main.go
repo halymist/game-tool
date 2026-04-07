@@ -45,53 +45,42 @@ var jwksSet jwk.Set
 var s3Client *s3.Client
 var db *sql.DB
 
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
 func init() {
-	// Load environment variables from .env file in parent directory
+	// Load environment variables from .env file in parent directory (secrets only)
 	if err := godotenv.Load("../.env"); err != nil {
 		log.Printf("Warning: .env file not found, using environment variables")
 	}
 
-	// Load configuration from environment
-	COGNITO_REGION = os.Getenv("COGNITO_REGION")
-	COGNITO_USER_POOL = os.Getenv("COGNITO_USER_POOL")
-	COGNITO_CLIENT_ID = os.Getenv("COGNITO_CLIENT_ID")
-	S3_BUCKET_NAME = os.Getenv("S3_BUCKET_NAME")
-	S3_REGION = os.Getenv("S3_REGION")
-	S3_ENDPOINT = os.Getenv("S3_ENDPOINT")
-	ASSET_PUBLIC_BASE_URL = os.Getenv("ASSET_PUBLIC_BASE_URL")
-	S3_FORCE_PATH_STYLE = strings.EqualFold(os.Getenv("S3_FORCE_PATH_STYLE"), "true")
+	// Non-secret configuration defaults
+	COGNITO_REGION = envOrDefault("COGNITO_REGION", "eu-north-1")
+	COGNITO_USER_POOL = envOrDefault("COGNITO_USER_POOL", "eu-north-1_il4Ww30RF")
+	COGNITO_CLIENT_ID = envOrDefault("COGNITO_CLIENT_ID", "g7sjca510dnqgs2tldhgvbihj")
+	S3_BUCKET_NAME = envOrDefault("S3_BUCKET_NAME", "wilds")
+	S3_REGION = envOrDefault("S3_REGION", "auto")
+	S3_ENDPOINT = envOrDefault("S3_ENDPOINT", "https://dd347d877a52595a55ba14508c8f0003.eu.r2.cloudflarestorage.com")
+	ASSET_PUBLIC_BASE_URL = envOrDefault("ASSET_PUBLIC_BASE_URL", "https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev")
+	S3_FORCE_PATH_STYLE = strings.EqualFold(envOrDefault("S3_FORCE_PATH_STYLE", "true"), "true")
+	DB_HOST = envOrDefault("DB_HOST", "game.cjeko20kq7as.eu-north-1.rds.amazonaws.com")
+	DB_PORT = envOrDefault("DB_PORT", "5432")
+	DB_NAME = envOrDefault("DB_NAME", "Game")
+	DB_USER = envOrDefault("DB_USER", "postgres")
+
+	// Secrets — must come from .env or environment
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
 	AWS_SECRET_ACCESS_KEY = os.Getenv("AWS_SECRET_ACCESS_KEY")
 	OPENAI_API_KEY = os.Getenv("OPENAI_API_KEY")
-	DB_HOST = os.Getenv("DB_HOST")
-	DB_PORT = os.Getenv("DB_PORT")
-	DB_NAME = os.Getenv("DB_NAME")
-	DB_USER = os.Getenv("DB_USER")
 	DB_PASSWORD = os.Getenv("DB_PASSWORD")
 
-	// Set defaults for database if not provided
-	if DB_HOST == "" {
-		DB_HOST = "game.cjeko20kq7as.eu-north-1.rds.amazonaws.com"
-	}
-	if DB_PORT == "" {
-		DB_PORT = "5432"
-	}
-	if DB_NAME == "" {
-		DB_NAME = "Game"
-	}
-	if DB_USER == "" {
-		DB_USER = "postgres"
-	}
-	if ASSET_PUBLIC_BASE_URL == "" {
-		ASSET_PUBLIC_BASE_URL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com", S3_BUCKET_NAME, S3_REGION)
-	}
-
-	// Validate required environment variables
-	if COGNITO_REGION == "" || COGNITO_USER_POOL == "" || COGNITO_CLIENT_ID == "" {
-		log.Fatal("Missing required Cognito environment variables")
-	}
-	if S3_BUCKET_NAME == "" || S3_REGION == "" || AWS_ACCESS_KEY_ID == "" || AWS_SECRET_ACCESS_KEY == "" {
-		log.Fatal("Missing required S3 environment variables")
+	// Validate required secrets
+	if AWS_ACCESS_KEY_ID == "" || AWS_SECRET_ACCESS_KEY == "" {
+		log.Fatal("Missing required S3 secret environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)")
 	}
 	if DB_PASSWORD == "" {
 		log.Fatal("Missing required DB_PASSWORD environment variable")
@@ -314,7 +303,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
-	serveFile(w, "../tool/login.html")
+	serveFile(w, "../login.html")
 }
 
 func handleDashboard(w http.ResponseWriter, r *http.Request) {
@@ -329,7 +318,7 @@ func handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("SERVING DASHBOARD")
-	serveFile(w, "../tool/index.html")
+	serveFile(w, "../index.html")
 }
 
 func handleStatic(w http.ResponseWriter, r *http.Request) {

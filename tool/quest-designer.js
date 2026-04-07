@@ -4256,7 +4256,7 @@ function applyUpdatedQuest(questId, parsed) {
         questState.options.delete(optId);
         questState.serverOptions.delete(opt?.serverId);
         // Remove DOM element
-        const el = document.querySelector(`[data-option-id="${optId}"]`);
+        const el = document.getElementById(`option-${optId}`);
         if (el) el.remove();
     });
 
