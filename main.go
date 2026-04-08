@@ -256,7 +256,8 @@ func main() {
 	http.HandleFunc("/api/getConcept", corsHandler(handleGetConcept))
 	http.HandleFunc("/api/saveConcept", corsHandler(handleSaveConcept))
 
-	fmt.Println("Server starting on :8080")
+	port := envOrDefault("PORT", "3030")
+	fmt.Printf("Server starting on :%s\n", port)
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
 	fmt.Println("  GET /dashboard - Dashboard")
@@ -269,7 +270,7 @@ func main() {
 	fmt.Println("  GET /api/getEnemies - Get enemies (temporarily read-only)")
 	fmt.Println("  NOTE: createEnemy endpoint disabled during refactor")
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func corsHandler(next http.HandlerFunc) http.HandlerFunc {
