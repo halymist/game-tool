@@ -143,7 +143,7 @@ func init() {
 
 	// Initialize PostgreSQL database connection
 	log.Printf("Attempting to connect to PostgreSQL database...")
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
 
 	var errDatabase error

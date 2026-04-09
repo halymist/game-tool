@@ -206,9 +206,13 @@ function setGlobalArray(key, values) {
         GlobalData[key] = [];
     }
     const target = GlobalData[key];
-    target.length = 0;
-    if (Array.isArray(values)) {
-        target.push(...values);
+    // If the source array is the same reference as the target, just notify
+    // (clearing target first would destroy the source data)
+    if (target !== values) {
+        target.length = 0;
+        if (Array.isArray(values)) {
+            target.push(...values);
+        }
     }
     notifyGlobalDataChange(key, target);
     return target;

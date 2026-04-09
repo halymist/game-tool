@@ -400,8 +400,9 @@ async function toggleApproval(toolingId, approved) {
             if (item) {
                 item.approved = !item.approved;
             }
-            // Re-sync filtered array and re-render
+            // Re-sync filtered array, GlobalData, and re-render
             filteredPendingItems = [...allPendingItems];
+            setGlobalArray('pendingItems', allPendingItems);
             renderPendingItemList();
         } else {
             alert('Error toggling approval: ' + (result.message || 'Unknown error'));

@@ -737,6 +737,7 @@ async function togglePerkApproval(toolingId, approved) {
                 perk.approved = !perk.approved;
             }
             filteredPendingPerks = [...allPendingPerks];
+            setGlobalArray('pendingPerks', allPendingPerks);
             renderPendingPerkList();
         } else {
             alert('Error toggling approval: ' + (result.message || 'Unknown error'));
