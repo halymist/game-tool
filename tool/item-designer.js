@@ -475,7 +475,7 @@ async function mergeApprovedItems() {
     
     if (approvedCount === 0) return;
     
-    if (!await showConfirm(`Merge ${approvedCount} approved item(s) into the game?`)) return;
+    if (!await showConfirm(`Merge ${approvedCount} approved ${approvedCount === 1 ? 'item' : 'items'} into the game?`)) return;
     
     console.log('Merging approved items...');
     
@@ -1018,7 +1018,6 @@ async function saveItem(e) {
         const result = await response.json();
         
         if (result.success) {
-            alert(isUpdate ? 'Item updated successfully!' : 'Item created successfully!');
             
             // Build a local pending object instead of full reload
             const pendingItem = {

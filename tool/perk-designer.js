@@ -659,7 +659,6 @@ async function savePerk(e) {
         const result = await response.json();
         
         if (result.success) {
-            alert(isUpdate ? 'Perk updated successfully!' : 'Perk created successfully!');
             
             // Build a local pending object instead of full reload
             const pendingPerk = {
@@ -809,7 +808,7 @@ async function mergeApprovedPerks() {
     
     if (approvedCount === 0) return;
     
-    if (!await showConfirm(`Merge ${approvedCount} approved perk(s) into the game?`)) return;
+    if (!await showConfirm(`Merge ${approvedCount} approved ${approvedCount === 1 ? 'perk' : 'perks'} into the game?`)) return;
     
     try {
         const token = await getCurrentAccessToken();

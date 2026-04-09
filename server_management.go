@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 )
@@ -162,6 +163,24 @@ func handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate world content (plan, vendor, enchanter)
+	if err := generateServerContent(s.ID); err != nil {
+		log.Printf("Warning: content generation failed for server %d: %v", s.ID, err)
+		// Server was created, but content generation failed — report partial success
+		json.NewEncoder(w).Encode(ServerResponse{
+			Success: true,
+			Server:  &s,
+			Message: fmt.Sprintf("Server created but content generation failed: %v", err),
+		})
+		return
+	}
+
+	// Reload plan into the response
+	plan, err := getWorldPlanForServer(s.ID)
+	if err == nil {
+		s.Plan = plan
+	}
+
 	// Notify listeners
 	_, _ = db.Exec("NOTIFY management_servers, 'created'")
 
@@ -214,4 +233,281 @@ func getWorldPlanForServer(serverID int) ([]WorldPlan, error) {
 		plan = append(plan, p)
 	}
 	return plan, nil
+}
+
+// settlementInfo holds the data needed for world generation from game.world_info
+type settlementInfo struct {
+	SettlementID int
+	Faction      *int
+	Blacksmith   bool
+	Alchemist    bool
+	Enchanter    bool
+	Trainer      bool
+	Church       bool
+	Blessing1    *int
+	Blessing2    *int
+	Blessing3    *int
+	VendorItems  []int
+	EnchanterFX  []int // effect_id list
+}
+
+// generateServerContent creates the 70-day world plan plus vendor/enchanter stock.
+func generateServerContent(serverID int) error {
+	// 1. Load all settlements
+	settlements, err := loadSettlementsForGeneration()
+	if err != nil {
+		return fmt.Errorf("load settlements: %w", err)
+	}
+	if len(settlements) == 0 {
+		return fmt.Errorf("no settlements found in game.world_info")
+	}
+
+	// Split into neutral and per-faction pools
+	var neutral []settlementInfo
+	factionPools := map[int][]settlementInfo{} // faction -> settlements
+	for _, s := range settlements {
+		if s.Faction == nil || *s.Faction == 0 {
+			neutral = append(neutral, s)
+		} else {
+			factionPools[*s.Faction] = append(factionPools[*s.Faction], s)
+		}
+	}
+
+	// 2. Build the day-by-day plan
+	const totalDays = 70
+	const neutralBeforeFaction = 5 // after 5 neutral settlements, insert a faction one
+	factions := []int{1, 2, 3}
+	factionIdx := 0
+	neutralCount := 0
+
+	type dayEntry struct {
+		day        int
+		settlement settlementInfo
+	}
+	var plan []dayEntry
+
+	day := 1
+	for day <= totalDays {
+		var pick settlementInfo
+		isFactionDay := false
+
+		// After every neutralBeforeFaction neutral settlements, place a faction one
+		if neutralCount >= neutralBeforeFaction && len(factions) > 0 {
+			f := factions[factionIdx%len(factions)]
+			pool := factionPools[f]
+			if len(pool) > 0 {
+				pick = pool[rand.Intn(len(pool))]
+				isFactionDay = true
+				factionIdx++
+				neutralCount = 0
+			}
+		}
+
+		if !isFactionDay {
+			if len(neutral) > 0 {
+				pick = neutral[rand.Intn(len(neutral))]
+			} else {
+				// Fallback: pick any settlement
+				pick = settlements[rand.Intn(len(settlements))]
+			}
+			neutralCount++
+		}
+
+		// Determine how many days this settlement stays
+		var duration int
+		if day <= 2 {
+			duration = 1
+		} else {
+			duration = 1 + rand.Intn(3) // 1-3
+		}
+		// Don't exceed 70 days
+		if day+duration-1 > totalDays {
+			duration = totalDays - day + 1
+		}
+
+		for d := 0; d < duration; d++ {
+			plan = append(plan, dayEntry{day: day + d, settlement: pick})
+		}
+		day += duration
+	}
+
+	// 3. Write everything in a transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Insert world plan rows
+	worldStmt, err := tx.Prepare(`
+		INSERT INTO public.world
+			(server_id, server_day, faction, settlement_id,
+			 blacksmith, alchemist, enchanter, trainer, church,
+			 blessing1, blessing2, blessing3)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare world: %w", err)
+	}
+	defer worldStmt.Close()
+
+	vendorStmt, err := tx.Prepare(`
+		INSERT INTO public.vendor (server_id, server_day, settlement_id, item_id)
+		VALUES ($1,$2,$3,$4)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare vendor: %w", err)
+	}
+	defer vendorStmt.Close()
+
+	enchanterStmt, err := tx.Prepare(`
+		INSERT INTO public.enchanter (server_id, server_day, settlement_id, effect_id, factor)
+		VALUES ($1,$2,$3,$4,$5)
+	`)
+	if err != nil {
+		return fmt.Errorf("prepare enchanter: %w", err)
+	}
+	defer enchanterStmt.Close()
+
+	// Load effect factors for enchanter lookups
+	effectFactors, err := loadEffectFactors()
+	if err != nil {
+		return fmt.Errorf("load effect factors: %w", err)
+	}
+
+	for _, entry := range plan {
+		s := entry.settlement
+		faction := 0
+		if s.Faction != nil {
+			faction = *s.Faction
+		}
+
+		if _, err := worldStmt.Exec(
+			serverID, entry.day, faction, s.SettlementID,
+			s.Blacksmith, s.Alchemist, s.Enchanter, s.Trainer, s.Church,
+			s.Blessing1, s.Blessing2, s.Blessing3,
+		); err != nil {
+			return fmt.Errorf("insert world day %d: %w", entry.day, err)
+		}
+
+		// Vendor: 8 random items from the settlement's vendor inventory
+		if len(s.VendorItems) > 0 {
+			picked := pickRandom(s.VendorItems, 8)
+			for _, itemID := range picked {
+				if _, err := vendorStmt.Exec(serverID, entry.day, s.SettlementID, itemID); err != nil {
+					return fmt.Errorf("insert vendor day %d item %d: %w", entry.day, itemID, err)
+				}
+			}
+		}
+
+		// Enchanter: 4 random effects (only if settlement has enchanter)
+		if s.Enchanter && len(s.EnchanterFX) > 0 {
+			picked := pickRandom(s.EnchanterFX, 4)
+			for _, effectID := range picked {
+				factor := effectFactors[effectID]
+				if _, err := enchanterStmt.Exec(serverID, entry.day, s.SettlementID, effectID, factor); err != nil {
+					return fmt.Errorf("insert enchanter day %d effect %d: %w", entry.day, effectID, err)
+				}
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+
+	log.Printf("Generated content for server %d: %d day entries", serverID, len(plan))
+	return nil
+}
+
+// loadSettlementsForGeneration loads all settlements with their vendor/enchanter inventories.
+func loadSettlementsForGeneration() ([]settlementInfo, error) {
+	rows, err := db.Query(`
+		SELECT settlement_id, faction,
+		       COALESCE(blacksmith, false), COALESCE(alchemist, false),
+		       COALESCE(enchanter, false), COALESCE(trainer, false), COALESCE(church, false),
+		       blessing1, blessing2, blessing3
+		FROM game.world_info
+		ORDER BY settlement_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var settlements []settlementInfo
+	for rows.Next() {
+		var s settlementInfo
+		if err := rows.Scan(
+			&s.SettlementID, &s.Faction,
+			&s.Blacksmith, &s.Alchemist, &s.Enchanter, &s.Trainer, &s.Church,
+			&s.Blessing1, &s.Blessing2, &s.Blessing3,
+		); err != nil {
+			return nil, err
+		}
+		settlements = append(settlements, s)
+	}
+
+	// Load vendor items per settlement
+	for i := range settlements {
+		vRows, err := db.Query(`SELECT item_id FROM game.vendor_inventory WHERE settlement_id = $1`, settlements[i].SettlementID)
+		if err != nil {
+			continue
+		}
+		for vRows.Next() {
+			var id int
+			if vRows.Scan(&id) == nil {
+				settlements[i].VendorItems = append(settlements[i].VendorItems, id)
+			}
+		}
+		vRows.Close()
+	}
+
+	// Load enchanter effects per settlement
+	for i := range settlements {
+		eRows, err := db.Query(`SELECT effect_id FROM game.enchanter_inventory WHERE settlement_id = $1`, settlements[i].SettlementID)
+		if err != nil {
+			continue
+		}
+		for eRows.Next() {
+			var id int
+			if eRows.Scan(&id) == nil {
+				settlements[i].EnchanterFX = append(settlements[i].EnchanterFX, id)
+			}
+		}
+		eRows.Close()
+	}
+
+	return settlements, nil
+}
+
+// loadEffectFactors returns a map of effect_id -> factor from game.effects.
+func loadEffectFactors() (map[int]int, error) {
+	rows, err := db.Query(`SELECT effect_id, factor FROM game.effects`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	m := make(map[int]int)
+	for rows.Next() {
+		var id, factor int
+		if err := rows.Scan(&id, &factor); err != nil {
+			return nil, err
+		}
+		m[id] = factor
+	}
+	return m, nil
+}
+
+// pickRandom picks up to n random items from a slice (with replacement).
+func pickRandom(pool []int, n int) []int {
+	if len(pool) == 0 {
+		return nil
+	}
+	result := make([]int, n)
+	for i := 0; i < n; i++ {
+		result[i] = pool[rand.Intn(len(pool))]
+	}
+	return result
 }

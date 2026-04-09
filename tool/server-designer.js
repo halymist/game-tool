@@ -240,8 +240,10 @@ async function createServer() {
         serverState.servers.unshift(data.server);
         serverState.selectedServerId = data.server?.id ?? serverState.selectedServerId;
         renderServerTable();
+        renderServerPlanDetails(data.server);
         closeCreateServerModal();
-        setServerStatus('Server created', false);
+        const statusMsg = data.message ? `Server created (${data.message})` : 'Server created';
+        setServerStatus(statusMsg, !!data.message);
     } catch (error) {
         console.error('Error creating server:', error);
         setServerStatus('Create failed', true);

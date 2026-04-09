@@ -908,7 +908,6 @@ async function saveEnemy(e) {
         
         if (result.success) {
             console.log('✅ Enemy saved, tooling_id:', result.toolingId);
-            alert('Enemy saved to pending! It needs approval before merging.');
             
             // Determine the asset icon URL for the pending enemy
             let assetIcon = enemySelectedAssetIcon || null;
@@ -996,7 +995,7 @@ async function mergeApprovedEnemies() {
     
     if (approvedCount === 0) return;
     
-    if (!await showConfirm(`Merge ${approvedCount} approved enemy(ies) into the game?`)) return;
+    if (!await showConfirm(`Merge ${approvedCount} approved ${approvedCount === 1 ? 'enemy' : 'enemies'} into the game?`)) return;
     
     try {
         const token = await getCurrentAccessToken();
