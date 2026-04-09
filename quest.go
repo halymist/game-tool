@@ -750,6 +750,14 @@ func bulkDeleteQuests(tx *sql.Tx, questIDs []int) error {
 		ids[i] = int64(id)
 	}
 	idArr := pq.Array(ids)
+	// Clean up requirements referencing options in these quests
+	if _, err := tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id IN (SELECT option_id FROM game.quest_options WHERE quest_id = ANY($1)) OR required_option_id IN (SELECT option_id FROM game.quest_options WHERE quest_id = ANY($1))`, idArr, idArr); err != nil {
+		return err
+	}
+	// Null out requisite_option_id on quests pointing to options in deleted quests
+	if _, err := tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE requisite_option_id IN (SELECT option_id FROM game.quest_options WHERE quest_id = ANY($1))`, idArr); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM game.quest_options WHERE quest_id = ANY($1)`, idArr); err != nil {
 		return err
 	}
@@ -1068,6 +1076,12 @@ func handleDeleteQuestOption(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id = $1 OR required_option_id = $1`, req.OptionID)
 	if err != nil {
 		log.Printf("Error deleting requirements: %v", err)
+	}
+
+	// Null out any quest that references this option as a requisite
+	_, err = tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE requisite_option_id = $1`, req.OptionID)
+	if err != nil {
+		log.Printf("Error clearing requisite_option_id: %v", err)
 	}
 
 	// Delete the option

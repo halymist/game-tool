@@ -287,6 +287,10 @@ function renderPendingPerkList() {
     const pendingList = document.getElementById('pendingPerkList');
     if (!pendingList) return;
     
+    // Update merge button enabled state
+    const mergeBtn = document.getElementById('mergePerksBtn');
+    if (mergeBtn) mergeBtn.disabled = !allPendingPerks.some(p => p.approved);
+    
     if (filteredPendingPerks.length === 0) {
         pendingList.innerHTML = '<p class="loading-text">No pending perks</p>';
         return;
@@ -801,9 +805,11 @@ async function removePendingPerk(toolingId) {
 }
 
 async function mergeApprovedPerks() {
-    if (!confirm('Merge all approved pending perks into the game database?')) {
-        return;
-    }
+    const approvedCount = allPendingPerks.filter(p => p.approved).length;
+    
+    if (approvedCount === 0) return;
+    
+    if (!await showConfirm(`Merge ${approvedCount} approved perk(s) into the game?`)) return;
     
     try {
         const token = await getCurrentAccessToken();
@@ -823,8 +829,8 @@ async function mergeApprovedPerks() {
         const result = await response.json();
         
         if (result.success) {
-            alert('Perks merged successfully!');
             await loadPerksAndEffects({ forceReload: true });
+            switchPerkTab('game');
         } else {
             alert('Error merging perks: ' + (result.message || 'Unknown error'));
         }

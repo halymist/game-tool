@@ -278,6 +278,10 @@ function renderPendingEnemyList() {
     const list = document.getElementById('pendingEnemyList');
     if (!list) return;
     
+    // Update merge button enabled state
+    const mergeBtn = document.getElementById('mergeEnemiesBtn');
+    if (mergeBtn) mergeBtn.disabled = !allPendingEnemies.some(e => e.approved);
+    
     if (filteredPendingEnemies.length === 0) {
         list.innerHTML = '<p class="loading-text">No pending enemies</p>';
         return;
@@ -990,12 +994,9 @@ async function toggleEnemyApproval(toolingId, approved) {
 async function mergeApprovedEnemies() {
     const approvedCount = allPendingEnemies.filter(e => e.approved).length;
     
-    if (approvedCount === 0) {
-        alert('No approved enemies to merge');
-        return;
-    }
+    if (approvedCount === 0) return;
     
-    if (!confirm(`Merge ${approvedCount} approved enemy(ies)?`)) return;
+    if (!await showConfirm(`Merge ${approvedCount} approved enemy(ies) into the game?`)) return;
     
     try {
         const token = await getCurrentAccessToken();
@@ -1010,8 +1011,8 @@ async function mergeApprovedEnemies() {
         const result = await response.json();
         
         if (result.success) {
-            alert('Enemies merged successfully!');
             await loadEnemyDesignerData({ forceReload: true });
+            switchEnemyTab('game');
         } else {
             alert('Error: ' + result.message);
         }

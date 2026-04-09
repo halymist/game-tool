@@ -594,7 +594,7 @@
                     <div id="pendingEnemyList" class="enemy-list" style="display: none;"></div>
                     <div class="enemy-list-buttons">
                         <button type="button" id="newEnemyBtn" class="btn-new">+ New Enemy</button>
-                        <button type="button" id="mergeEnemiesBtn" class="btn-merge" style="display: none;">Merge Approved</button>
+                        <button type="button" id="mergeEnemiesBtn" class="btn-merge" style="display: none;" disabled>Merge</button>
                     </div>
                 </div>
 
@@ -814,7 +814,7 @@
                     
                     <div class="item-list-buttons">
                         <button type="button" id="newItemBtn">+ New Item</button>
-                        <button type="button" id="mergeItemsBtn" class="btn-merge" style="display: none;">Merge Approved</button>
+                        <button type="button" id="mergeItemsBtn" class="btn-merge" style="display: none;" disabled>Merge</button>
                     </div>
                 </div>
 
@@ -945,7 +945,7 @@
                     
                     <div class="perk-list-buttons">
                         <button type="button" id="newPerkBtn">+ New Perk</button>
-                        <button type="button" id="mergePerksBtn" class="btn-merge" style="display: none;">Merge Approved</button>
+                        <button type="button" id="mergePerksBtn" class="btn-merge" style="display: none;" disabled>Merge</button>
                     </div>
                 </div>
 
@@ -2262,5 +2262,16 @@
             if (typeof showPage === 'function') showPage(initialPage);
         })();
     </script>
+
+    <!-- Confirm Dialog -->
+    <div id="confirmDialog" class="confirm-overlay" style="display:none">
+        <div class="confirm-box">
+            <p id="confirmDialogMessage"></p>
+            <div class="confirm-actions">
+                <button id="confirmDialogNo" class="confirm-btn confirm-btn-no">No</button>
+                <button id="confirmDialogYes" class="confirm-btn confirm-btn-yes">Yes</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

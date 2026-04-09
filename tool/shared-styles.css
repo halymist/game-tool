@@ -346,6 +346,33 @@ body {
     flex-shrink: 0;
 }
 
+/* ── Confirm Dialog ─────────────────────────────────── */
+.confirm-overlay {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+}
+.confirm-box {
+    background: var(--bg-surface); border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg); padding: 1.25rem 1.5rem;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45); min-width: 260px; max-width: 380px; text-align: center;
+}
+.confirm-box p { color: var(--text-primary); margin: 0 0 1rem; font-size: 0.9rem; line-height: 1.45; }
+.confirm-actions { display: flex; gap: 0.5rem; justify-content: center; }
+.confirm-btn {
+    flex: 1; padding: 0.45rem 1rem; border-radius: var(--radius-sm);
+    font-weight: 600; font-size: 0.8125rem; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease;
+}
+.confirm-btn-no { background: var(--bg-inset); color: var(--text-secondary); border-color: var(--border-default); }
+.confirm-btn-no:hover { background: var(--bg-surface); color: var(--text-primary); }
+.confirm-btn-yes { background: var(--accent); color: #fff; }
+.confirm-btn-yes:hover { filter: brightness(1.1); }
+
+/* ── Disabled merge button ──────────────────────────── */
+.btn-merge:disabled {
+    opacity: 0.4; cursor: default; pointer-events: none;
+}
+
 /* Dashboard specific styles */
 
 .section-title {

@@ -1,6 +1,31 @@
 // Designer Base Module
 // Shared functionality for Item, Perk, and Enemy designers
 
+/**
+ * Show a small confirm popup. Returns a Promise<boolean>.
+ */
+function showConfirm(message) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('confirmDialog');
+        const msgEl = document.getElementById('confirmDialogMessage');
+        const yesBtn = document.getElementById('confirmDialogYes');
+        const noBtn = document.getElementById('confirmDialogNo');
+        if (!overlay || !msgEl) { resolve(confirm(message)); return; }
+        msgEl.textContent = message;
+        overlay.style.display = '';
+        function cleanup(result) {
+            overlay.style.display = 'none';
+            yesBtn.removeEventListener('click', onYes);
+            noBtn.removeEventListener('click', onNo);
+            resolve(result);
+        }
+        function onYes() { cleanup(true); }
+        function onNo() { cleanup(false); }
+        yesBtn.addEventListener('click', onYes);
+        noBtn.addEventListener('click', onNo);
+    });
+}
+
 const DesignerBase = {
     
     // ==================== TAB MANAGEMENT ====================

@@ -321,6 +321,10 @@ function renderPendingItemList() {
     const pendingList = document.getElementById('pendingItemList');
     if (!pendingList) return;
     
+    // Update merge button enabled state
+    const mergeBtn = document.getElementById('mergeItemsBtn');
+    if (mergeBtn) mergeBtn.disabled = !allPendingItems.some(i => i.approved);
+    
     if (filteredPendingItems.length === 0) {
         pendingList.innerHTML = '<p class="loading-text">No pending items</p>';
         return;
@@ -467,17 +471,11 @@ async function removePendingItem(toolingId) {
 }
 
 async function mergeApprovedItems() {
-    // Check if there are any approved items
     const approvedCount = allPendingItems.filter(i => i.approved).length;
     
-    if (approvedCount === 0) {
-        alert('No approved items to merge. Please approve items first.');
-        return;
-    }
+    if (approvedCount === 0) return;
     
-    if (!confirm(`Merge ${approvedCount} approved item(s) into the game database?`)) {
-        return;
-    }
+    if (!await showConfirm(`Merge ${approvedCount} approved item(s) into the game?`)) return;
     
     console.log('Merging approved items...');
     
@@ -499,9 +497,8 @@ async function mergeApprovedItems() {
         const result = await response.json();
         
         if (result.success) {
-            alert('✅ Items merged successfully!');
-            // Reload data to reflect changes
             await loadItemsAndEffects({ forceReload: true });
+            switchTab('game');
         } else {
             alert('Error merging items: ' + (result.message || 'Unknown error'));
         }
