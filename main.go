@@ -72,7 +72,7 @@ func init() {
 	DB_PORT = envOrDefault("DB_PORT", "5432")
 	DB_NAME = envOrDefault("DB_NAME", "Game")
 	DB_USER = envOrDefault("DB_USER", "postgres")
-	DB_SSLMODE = envOrDefault("DB_SSLMODE", "require")
+	DB_SSLMODE = envOrDefault("DB_SSLMODE", "disable")
 
 	// Secrets — must come from .env or environment
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
