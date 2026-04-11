@@ -256,6 +256,14 @@ func main() {
 	http.HandleFunc("/api/getConcept", corsHandler(handleGetConcept))
 	http.HandleFunc("/api/saveConcept", corsHandler(handleSaveConcept))
 
+	// Cosmetics endpoints
+	http.HandleFunc("/api/getCosmetics", corsHandler(handleGetCosmetics))
+	http.HandleFunc("/api/getCosmeticsVersioned", corsHandler(handleGetCosmeticsVersioned))
+	http.HandleFunc("/api/saveCosmetic", corsHandler(handleSaveCosmetic))
+	http.HandleFunc("/api/deleteCosmetic", corsHandler(handleDeleteCosmetic))
+	http.HandleFunc("/api/uploadCosmetic", corsHandler(handleUploadCosmetic))
+	http.HandleFunc("/api/getCosmeticAssets", corsHandler(CreateGetAssetsHandler("cosmetics")))
+
 	port := envOrDefault("PORT", "3030")
 	fmt.Printf("Server starting on :%s\n", port)
 	fmt.Println("Available endpoints:")

@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="/static/server-designer.css">
     <link rel="stylesheet" href="/static/chat-moderation.css">
     <link rel="stylesheet" href="/static/concept-designer.css">
+    <link rel="stylesheet" href="/static/cosmetic-designer.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -76,6 +77,10 @@
                     <a href="#" onclick="showPage('dungeons'); return false;" class="tool-card">
                         <span class="tool-card-icon">🗺️</span>
                         <span class="tool-card-title">Expeditions</span>
+                    </a>
+                    <a href="#" onclick="showPage('cosmetics'); return false;" class="tool-card">
+                        <span class="tool-card-icon">🎭</span>
+                        <span class="tool-card-title">Cosmetics</span>
                     </a>
                 </div>
             </div>
@@ -1869,6 +1874,21 @@
             </div>
         </div>
 
+        <!-- Cosmetics Editor Section -->
+        <div id="cosmetics-content" class="page-content" style="display: none;">
+            <div class="cosmetic-designer-container">
+                <div class="cosmetic-workspace">
+                    <div class="cosmetic-left-panel">
+                        <div id="cosmeticPreviewCanvas" class="cosmetic-preview-canvas"></div>
+                        <div id="cosmeticCategorySelectors" class="cosmetic-category-selectors"></div>
+                    </div>
+                    <div class="cosmetic-right-panel">
+                        <div id="cosmeticGallery" class="cosmetic-gallery-panel"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Server Management Section -->
         <div id="servers-content" class="page-content" style="display: none;">
             <div class="server-manager-container">
@@ -2053,7 +2073,8 @@
             'concept': { title: 'Concept', element: 'concept-content' },
             'servers': { title: 'Servers', element: 'servers-content' },
             'moderation': { title: 'Chat', element: 'moderation-content' },
-            'analytics': { title: 'Analytics', element: 'analytics-content' }
+            'analytics': { title: 'Analytics', element: 'analytics-content' },
+            'cosmetics': { title: 'Cosmetics', element: 'cosmetics-content' }
         };
 
         let currentPage = 'dashboard';
@@ -2105,6 +2126,15 @@
                     }
                     if (window.loadServerData) {
                         window.loadServerData();
+                    }
+                }
+
+                // If showing cosmetics editor, initialize once
+                if (pageName === 'cosmetics') {
+                    if (window.initCosmeticDesigner && !window.cosmeticDesignerInitialized) {
+                        console.log('Initializing cosmetic editor...');
+                        window.initCosmeticDesigner();
+                        window.cosmeticDesignerInitialized = true;
                     }
                 }
 
@@ -2240,7 +2270,8 @@
                 'expedition-designer.js',
                 'settlement-designer.js',
                 'quest-designer.js',
-                'concept-designer.js'
+                'concept-designer.js',
+                'cosmetic-designer.js'
             ];
             for (const file of scripts) {
                 if (document.querySelector(`script[src$="${file}"]`)) continue;

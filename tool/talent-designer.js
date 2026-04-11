@@ -379,7 +379,7 @@ function updateEffectDescription(effectId) {
     const factorVal = document.getElementById('talentFactor')?.value || '';
     let text = effect?.description || '';
     if (text && factorVal) {
-        text = text + ' ' + factorVal + '%';
+        text = text.includes('*') ? text.replace('*', factorVal) : text + ' ' + factorVal;
     }
     descEl.textContent = text;
 }

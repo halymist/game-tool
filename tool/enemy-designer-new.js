@@ -537,8 +537,12 @@ function buildTalentTreeGrid() {
 
         const iconUrl = getTalentIconUrl(talent.assetId);
         let descText = talent.description || '';
-        if (talent.factor) descText = `${descText} ${talent.factor}%`;
-        cell.title = `${talent.talentName}${descText ? '\n' + descText : ''}`;
+        if (talent.factor && descText.includes('*')) {
+            descText = descText.replace('*', String(talent.factor));
+        } else if (talent.factor) {
+            descText = `${descText} ${talent.factor}`;
+        }
+        cell.title = descText || talent.talentName;
         cell.innerHTML = `
             <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
             <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
@@ -634,8 +638,14 @@ function refreshTalentUpgradeModal(talent) {
     const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
     const currentPerkName = current.perkId ? (enemyPerks.find(p => p.id === current.perkId)?.name || `Perk #${current.perkId}`) : null;
     
-    let descText = talent.description || 'No description';
-    if (talent.factor) descText = `${descText} ${talent.factor}%`;
+    const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
+    let descText = effect?.description || talent.description || 'No description';
+    const invested = current.points * (talent.factor || 0);
+    if (descText.includes('*')) {
+        descText = descText.replace('*', String(invested));
+    } else if (invested) {
+        descText = `${descText} ${invested}`;
+    }
     
     // Update description
     modal.querySelector('.talent-upgrade-desc').textContent = descText;
