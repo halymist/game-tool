@@ -39,6 +39,7 @@ var (
 	DB_NAME               string
 	DB_USER               string
 	DB_PASSWORD           string
+	DB_SSLMODE            string
 )
 
 var jwksSet jwk.Set
@@ -71,6 +72,7 @@ func init() {
 	DB_PORT = envOrDefault("DB_PORT", "5432")
 	DB_NAME = envOrDefault("DB_NAME", "Game")
 	DB_USER = envOrDefault("DB_USER", "postgres")
+	DB_SSLMODE = envOrDefault("DB_SSLMODE", "require")
 
 	// Secrets — must come from .env or environment
 	AWS_ACCESS_KEY_ID = os.Getenv("AWS_ACCESS_KEY_ID")
@@ -143,8 +145,8 @@ func init() {
 
 	// Initialize PostgreSQL database connection
 	log.Printf("Attempting to connect to PostgreSQL database...")
-	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME)
+	psqlInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DB_SSLMODE)
 
 	var errDatabase error
 	db, errDatabase = sql.Open("postgres", psqlInfo)
