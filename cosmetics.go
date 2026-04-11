@@ -41,7 +41,7 @@ func handleGetCosmetics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Query(`SELECT id, type, COALESCE(name, ''), COALESCE(price, 0), COALESCE(offset_x, 0), COALESCE(offset_y, 0), COALESCE(scale, 100), COALESCE(version, 0) FROM game.cosmetics ORDER BY type, id`)
+	rows, err := db.Query(`SELECT id, type, COALESCE(name, ''), COALESCE(price, 0), COALESCE(offset_x, 0), COALESCE(offset_y, 0), COALESCE(scale, 100) FROM game.cosmetics ORDER BY type, id`)
 	if err != nil {
 		log.Printf("Error querying cosmetics: %v", err)
 		json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: err.Error()})
@@ -52,7 +52,7 @@ func handleGetCosmetics(w http.ResponseWriter, r *http.Request) {
 	var cosmetics []Cosmetic
 	for rows.Next() {
 		var c Cosmetic
-		if err := rows.Scan(&c.ID, &c.Type, &c.Name, &c.Price, &c.OffsetX, &c.OffsetY, &c.Scale, &c.Version); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.Name, &c.Price, &c.OffsetX, &c.OffsetY, &c.Scale); err != nil {
 			log.Printf("Error scanning cosmetic: %v", err)
 			continue
 		}
@@ -88,14 +88,14 @@ func handleSaveCosmetic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.ID > 0 {
-		_, err := db.Exec(`UPDATE game.cosmetics SET type = $1, name = $2, price = $3, offset_x = $4, offset_y = $5, scale = $6, version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.cosmetics) WHERE id = $7`,
+		_, err := db.Exec(`UPDATE game.cosmetics SET type = $1, name = $2, price = $3, offset_x = $4, offset_y = $5, scale = $6 WHERE id = $7`,
 			req.Type, req.Name, req.Price, req.OffsetX, req.OffsetY, req.Scale, req.ID)
 		if err != nil {
 			json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: fmt.Sprintf("Update failed: %v", err)})
 			return
 		}
 	} else {
-		err := db.QueryRow(`INSERT INTO game.cosmetics (type, name, price, offset_x, offset_y, scale, version) VALUES ($1, $2, $3, $4, $5, $6, (SELECT COALESCE(MAX(version), 0) + 1 FROM game.cosmetics)) RETURNING id`,
+		err := db.QueryRow(`INSERT INTO game.cosmetics (type, name, price, offset_x, offset_y, scale) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
 			req.Type, req.Name, req.Price, req.OffsetX, req.OffsetY, req.Scale).Scan(&req.ID)
 		if err != nil {
 			json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: fmt.Sprintf("Insert failed: %v", err)})

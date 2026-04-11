@@ -17,7 +17,9 @@ const GlobalData = {
     npcs: [],              // Array of all NPCs from game.npcs
     settlements: [],       // Array of all settlements from game.world_info
     settlementAssets: [],  // Array of available settlement assets from S3
-    questAssets: []        // Array of available quest assets from S3 (images/quests)
+    questAssets: [],       // Array of available quest assets from S3 (images/quests)
+    cosmetics: [],         // Array of all cosmetics from game.cosmetics
+    cosmeticAssets: []     // Array of available cosmetic assets from S3
 };
 
 const DEFAULT_ASSET_PUBLIC_BASE_URL = 'https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev';
@@ -291,6 +293,8 @@ let questAssetsLoadingPromise = null;
 let settlementAssetsLoadingPromise = null;
 let enemyAssetsLoadingPromise = null;
 let npcsLoadingPromise = null;
+let cosmeticsLoadingPromise = null;
+let cosmeticAssetsLoadingPromise = null;
 
 // --- Effects ---
 async function loadEffectsData(options = {}) {
@@ -793,6 +797,82 @@ function getNpcs() {
     return GlobalData.npcs;
 }
 
+// --- Cosmetics ---
+async function loadCosmeticsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.cosmetics.length > 0) {
+        return GlobalData.cosmetics;
+    }
+    if (cosmeticsLoadingPromise) return cosmeticsLoadingPromise;
+
+    cosmeticsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('/api/getCosmetics', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.cosmetics) {
+                    setGlobalArray('cosmetics', data.cosmetics);
+                }
+                return GlobalData.cosmetics;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading cosmetics:', error);
+            throw error;
+        } finally {
+            cosmeticsLoadingPromise = null;
+        }
+    })();
+    return cosmeticsLoadingPromise;
+}
+
+function getCosmetics() {
+    return GlobalData.cosmetics;
+}
+
+async function loadCosmeticAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.cosmeticAssets.length > 0) {
+        return GlobalData.cosmeticAssets;
+    }
+    if (cosmeticAssetsLoadingPromise) return cosmeticAssetsLoadingPromise;
+
+    cosmeticAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('/api/getCosmeticAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = data.success ? (data.assets || []) : [];
+                setGlobalArray('cosmeticAssets', rawAssets);
+                return GlobalData.cosmeticAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading cosmetic assets:', error);
+            throw error;
+        } finally {
+            cosmeticAssetsLoadingPromise = null;
+        }
+    })();
+    return cosmeticAssetsLoadingPromise;
+}
+
+function getCosmeticAssets() {
+    return GlobalData.cosmeticAssets;
+}
+
 // === PRELOAD REGISTRY ===
 
 const GLOBAL_DATA_LOADERS = {
@@ -806,7 +886,9 @@ const GLOBAL_DATA_LOADERS = {
     enemyAssets:      () => loadEnemyAssets(),
     settlements:      () => loadSettlementsData(),
     settlementAssets: () => loadSettlementAssetsData(),
-    questAssets:      () => loadQuestAssetsData()
+    questAssets:      () => loadQuestAssetsData(),
+    cosmetics:        () => loadCosmeticsData(),
+    cosmeticAssets:   () => loadCosmeticAssets()
 };
 
 async function preloadGlobalData(keys = []) {
@@ -830,14 +912,16 @@ async function preloadGlobalData(keys = []) {
             `${GlobalData.items.length} items`,
             `${GlobalData.talents.length} talents`,
             `${GlobalData.npcs.length} npcs`,
-            `${GlobalData.settlements.length} settlements`
+            `${GlobalData.settlements.length} settlements`,
+            `${GlobalData.cosmetics.length} cosmetics`
         ];
         const assetEntries = [
             `${GlobalData.questAssets.length} quest`,
             `${GlobalData.settlementAssets.length} settlement`,
             `${GlobalData.perkAssets.length} perk`,
             `${GlobalData.itemAssets.length} item`,
-            `${GlobalData.enemyAssets.length} enemy`
+            `${GlobalData.enemyAssets.length} enemy`,
+            `${GlobalData.cosmeticAssets.length} cosmetic`
         ];
         console.log(`🌍 GlobalData ready — ${dataEntries.join(', ')}`);
         console.log(`🖼️ Asset galleries — ${assetEntries.join(', ')}`);

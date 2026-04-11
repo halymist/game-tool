@@ -31,16 +31,26 @@ async function initCosmeticDesigner() {
 
 async function loadCosmeticData() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
+        cosmeticState.cosmetics = (window.GlobalData && GlobalData.cosmetics) || [];
+        cosmeticState.assets = (window.GlobalData && GlobalData.cosmeticAssets) || [];
 
-        const [cosRes, assetRes] = await Promise.all([
-            fetch('/api/getCosmetics', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
-            fetch('/api/getCosmeticAssets', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json()),
-        ]);
+        // If not preloaded yet, fetch directly
+        if (cosmeticState.cosmetics.length === 0 || cosmeticState.assets.length === 0) {
+            const token = await getCurrentAccessToken();
+            if (!token) return;
 
-        cosmeticState.cosmetics = cosRes.success ? (cosRes.cosmetics || []) : [];
-        cosmeticState.assets = assetRes.success ? (assetRes.assets || []) : [];
+            const [cosRes, assetRes] = await Promise.all([
+                cosmeticState.cosmetics.length === 0
+                    ? fetch('/api/getCosmetics', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json())
+                    : Promise.resolve(null),
+                cosmeticState.assets.length === 0
+                    ? fetch('/api/getCosmeticAssets', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => r.json())
+                    : Promise.resolve(null),
+            ]);
+
+            if (cosRes) cosmeticState.cosmetics = cosRes.success ? (cosRes.cosmetics || []) : [];
+            if (assetRes) cosmeticState.assets = assetRes.success ? (assetRes.assets || []) : [];
+        }
 
         buildTypeIndex();
         autoEquipDefaults();
