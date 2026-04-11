@@ -68,7 +68,7 @@ func init() {
 	S3_ENDPOINT = envOrDefault("S3_ENDPOINT", "https://dd347d877a52595a55ba14508c8f0003.eu.r2.cloudflarestorage.com")
 	ASSET_PUBLIC_BASE_URL = envOrDefault("ASSET_PUBLIC_BASE_URL", "https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev")
 	S3_FORCE_PATH_STYLE = strings.EqualFold(envOrDefault("S3_FORCE_PATH_STYLE", "true"), "true")
-	DB_HOST = envOrDefault("DB_HOST", "game.cjeko20kq7as.eu-north-1.rds.amazonaws.com")
+	DB_HOST = envOrDefault("DB_HOST", "localhost")
 	DB_PORT = envOrDefault("DB_PORT", "5432")
 	DB_NAME = envOrDefault("DB_NAME", "Game")
 	DB_USER = envOrDefault("DB_USER", "postgres")
