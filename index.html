@@ -134,6 +134,12 @@
                             <label>Name:</label>
                             <input type="text" id="questChainNameInput" placeholder="Chain name..." oninput="window.updateChainName && window.updateChainName(this.value)">
                         </div>
+                        <div class="quest-event-select">
+                            <label>Event:</label>
+                            <select id="questEventSelect" onchange="window.onQuestEventChange && window.onQuestEventChange()">
+                                <option value="">Default (All Events)</option>
+                            </select>
+                        </div>
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <button class="quest-zoom-btn" title="Zoom Out" onclick="window.changeQuestZoom(-0.1)">−</button>
                             <span id="questZoomIndicator" class="quest-zoom-indicator">100%</span>
@@ -1686,16 +1692,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div>
-                            <label for="settlementRecentEvents">Recent Events</label>
-                            <div class="list-builder" id="settlementRecentEventsBuilder">
-                                <div class="list-builder-items" id="settlementRecentEventsItems"></div>
-                                <div class="list-builder-input-row">
-                                    <input type="text" id="settlementRecentEventsInput" placeholder="Add recent event..." class="list-builder-input">
-                                    <button type="button" class="list-builder-add" onclick="addListBuilderItem('settlementRecentEvents')">+</button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -1869,6 +1865,17 @@
                     <div class="concept-section concept-section-half">
                         <label for="conceptExpeditionJson">Expedition JSON</label>
                         <textarea id="conceptExpeditionJson" placeholder="Enter expedition JSON schema..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Recent Events (global) -->
+                <div class="concept-section concept-events-section">
+                    <label>Recent Events</label>
+                    <div class="concept-events-list" id="conceptEventsList"></div>
+                    <div class="concept-events-add">
+                        <input type="text" id="conceptEventNameInput" placeholder="Event name..." class="concept-event-input">
+                        <input type="text" id="conceptEventDescInput" placeholder="Description (optional)..." class="concept-event-input concept-event-input-wide">
+                        <button type="button" id="conceptAddEventBtn" class="concept-event-add-btn">+ Add Event</button>
                     </div>
                 </div>
             </div>

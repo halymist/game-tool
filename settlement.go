@@ -40,7 +40,6 @@ type Settlement struct {
 	ChurchAssetID         *int             `json:"church_asset_id"`
 	Description           *string          `json:"description"`
 	KeyIssues             []string         `json:"key_issues"`
-	RecentEvents          []string         `json:"recent_events"`
 	Context               *string          `json:"context"`
 	Version               int              `json:"version"`
 	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
@@ -107,7 +106,6 @@ type SaveSettlementRequest struct {
 	ChurchAssetID         *int             `json:"church_asset_id"`
 	Description           *string          `json:"description"`
 	KeyIssues             []string         `json:"key_issues"`
-	RecentEvents          []string         `json:"recent_events"`
 	Context               *string          `json:"context"`
 	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
 	ExpeditionDescription *string          `json:"expedition_description"`
@@ -172,7 +170,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		       blessing1, blessing2, blessing3,
 		       settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
 		       enchanter_asset_id, trainer_asset_id, church_asset_id,
-		       description, key_issues, recent_events, context, COALESCE(version, 1),
+		       description, key_issues, context, COALESCE(version, 1),
 		       expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 		       vendor_on_entered, vendor_on_sold, vendor_on_bought,
 		       utility_on_entered, utility_on_placed, utility_on_action,
@@ -196,7 +194,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.Blessing1, &s.Blessing2, &s.Blessing3,
 			&s.SettlementAssetID, &s.VendorAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
 			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID,
-			&s.Description, pq.Array(&s.KeyIssues), pq.Array(&s.RecentEvents), &s.Context, &s.Version,
+			&s.Description, pq.Array(&s.KeyIssues), &s.Context, &s.Version,
 			&s.ExpeditionAssetID, &s.ExpeditionDescription, &s.ExpeditionContext, &s.ArenaAssetID,
 			&s.VendorOnEntered, &s.VendorOnSold, &s.VendorOnBought,
 			&s.UtilityOnEntered, &s.UtilityOnPlaced, &s.UtilityOnAction,
@@ -521,19 +519,19 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				blessing1 = $8, blessing2 = $9, blessing3 = $10,
 				settlement_asset_id = $11, vendor_asset_id = $12, blacksmith_asset_id = $13, alchemist_asset_id = $14,
 				enchanter_asset_id = $15, trainer_asset_id = $16, church_asset_id = $17,
-				description = $18, key_issues = $19, recent_events = $20, context = $21,
-				expedition_asset_id = $22, expedition_description = $23, expedition_context = $24, arena_asset_id = $25,
-				vendor_on_entered = $26, vendor_on_sold = $27, vendor_on_bought = $28,
-				utility_on_entered = $29, utility_on_placed = $30, utility_on_action = $31,
-				failure_texts = $32,
+				description = $18, key_issues = $19, context = $20,
+				expedition_asset_id = $21, expedition_description = $22, expedition_context = $23, arena_asset_id = $24,
+				vendor_on_entered = $25, vendor_on_sold = $26, vendor_on_bought = $27,
+				utility_on_entered = $28, utility_on_placed = $29, utility_on_action = $30,
+				failure_texts = $31,
 				version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
-			WHERE settlement_id = $33
+			WHERE settlement_id = $32
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
-			req.Description, pq.Array(req.KeyIssues), pq.Array(req.RecentEvents), req.Context,
+			req.Description, pq.Array(req.KeyIssues), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
@@ -556,7 +554,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				blessing1, blessing2, blessing3,
 				settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
 				enchanter_asset_id, trainer_asset_id, church_asset_id,
-				description, key_issues, recent_events, context,
+				description, key_issues, context,
 				expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 				vendor_on_entered, vendor_on_sold, vendor_on_bought,
 				utility_on_entered, utility_on_placed, utility_on_action,
@@ -564,7 +562,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				version
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
 				(SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
@@ -572,7 +570,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
-			req.Description, pq.Array(req.KeyIssues), pq.Array(req.RecentEvents), req.Context,
+			req.Description, pq.Array(req.KeyIssues), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,

@@ -41,6 +41,8 @@ const questState = {
     chainName: '',
     chainContext: '',
     selectedSettlementId: null,
+    selectedEventId: null,
+    recentEvents: [],
     
     editingQuestAsset: null,
     
@@ -223,6 +225,7 @@ function initQuestDesigner() {
     // Load data subscriptions + initial populate
     setupQuestDataSubscriptions();
     populateQuestSettlementSelect();
+    loadRecentEvents();
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -261,6 +264,45 @@ function setupQuestDataSubscriptions() {
         }
     }));
 }
+
+// ==================== RECENT EVENTS ====================
+async function loadRecentEvents() {
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('/api/getRecentEvents', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch recent events');
+        const data = await response.json();
+        questState.recentEvents = data.events || [];
+        populateQuestEventDropdown();
+    } catch (error) {
+        console.error('Failed to load recent events:', error);
+    }
+}
+
+function populateQuestEventDropdown() {
+    const select = document.getElementById('questEventSelect');
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">Default (All Events)</option>';
+    questState.recentEvents.forEach(event => {
+        const opt = document.createElement('option');
+        opt.value = event.event_id;
+        opt.textContent = event.event_name;
+        select.appendChild(opt);
+    });
+    // Restore previous selection if still valid
+    if (currentValue) select.value = currentValue;
+}
+
+function onQuestEventChange() {
+    const select = document.getElementById('questEventSelect');
+    questState.selectedEventId = select?.value ? parseInt(select.value) : null;
+    checkQuestSaveConditions();
+}
+window.onQuestEventChange = onQuestEventChange;
 
 // ==================== ADD QUEST SLIDE ====================
 function addQuest() {
@@ -1780,6 +1822,10 @@ async function onQuestChange() {
         }
         const contextInput = document.getElementById('questChainContextInput');
         if (contextInput) contextInput.value = '';
+        // Reset event to default
+        questState.selectedEventId = null;
+        const eventSelect = document.getElementById('questEventSelect');
+        if (eventSelect) eventSelect.value = '';
         return;
     }
     
@@ -1800,6 +1846,11 @@ async function onQuestChange() {
         contextInput.value = chain.context || '';
     }
     questState.chainContext = chain?.context || '';
+
+    // Set event dropdown
+    questState.selectedEventId = chain?.event_id || null;
+    const eventSelect = document.getElementById('questEventSelect');
+    if (eventSelect) eventSelect.value = chain?.event_id || '';
     
     // Load quests, options, and requirements for this chain
     await loadQuestChainData(chainId);
@@ -2771,6 +2822,7 @@ async function saveQuest() {
             chainContext: chainContext,
             isNewChain: isNewChain,
             settlementId: questState.selectedSettlementId,
+            eventId: questState.selectedEventId || null,
             newQuests: [],
             questUpdates: [],
             deletedQuestIds: questState.deletedQuestIds,

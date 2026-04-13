@@ -236,8 +236,7 @@ function setupSettlementEventListeners() {
     // Init list builder key handlers + wire up change events for dirty checking
     if (typeof initListBuilderKeyHandler === 'function') {
         initListBuilderKeyHandler('settlementKeyIssues');
-        initListBuilderKeyHandler('settlementRecentEvents');
-        ['settlementKeyIssuesBuilder', 'settlementRecentEventsBuilder'].forEach(id => {
+        ['settlementKeyIssuesBuilder'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.addEventListener('change', checkSettlementSaveConditions);
@@ -486,7 +485,6 @@ function populateSettlementForm(settlement) {
 
     if (typeof setListBuilderItems === 'function') {
         setListBuilderItems('settlementKeyIssues', settlement.key_issues);
-        setListBuilderItems('settlementRecentEvents', settlement.recent_events);
     }
 
     const contextInput = document.getElementById('settlementContext');
@@ -1071,7 +1069,6 @@ function createNewSettlement() {
     document.getElementById('settlementDescription').value = '';
     if (typeof setListBuilderItems === 'function') {
         setListBuilderItems('settlementKeyIssues', []);
-        setListBuilderItems('settlementRecentEvents', []);
     }
     document.getElementById('settlementContext').value = '';
     document.getElementById('factionSelect').value = '';
@@ -1437,9 +1434,6 @@ async function saveSettlement() {
     const keyIssues = typeof getListBuilderItems === 'function'
         ? getListBuilderItems('settlementKeyIssues')
         : parseListInput(document.getElementById('settlementKeyIssues')?.value || '');
-    const recentEvents = typeof getListBuilderItems === 'function'
-        ? getListBuilderItems('settlementRecentEvents')
-        : parseListInput(document.getElementById('settlementRecentEvents')?.value || '');
     const context = document.getElementById('settlementContext')?.value.trim() || null;
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
     const expeditionContext = document.getElementById('expeditionContext')?.value.trim() || null;
@@ -1474,7 +1468,6 @@ async function saveSettlement() {
         settlement_name: name,
         description: description,
         key_issues: keyIssues,
-        recent_events: recentEvents,
         context: context,
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
@@ -1643,9 +1636,6 @@ function getSettlementFormSnapshot() {
         keyIssues: typeof getListBuilderItems === 'function'
             ? getListBuilderItems('settlementKeyIssues').join(',')
             : (document.getElementById('settlementKeyIssues')?.value || ''),
-        recentEvents: typeof getListBuilderItems === 'function'
-            ? getListBuilderItems('settlementRecentEvents').join(',')
-            : (document.getElementById('settlementRecentEvents')?.value || ''),
         context: document.getElementById('settlementContext')?.value || '',
         expeditionContext: document.getElementById('expeditionContext')?.value || '',
         expeditionDescription: document.getElementById('expeditionDescription')?.value || '',

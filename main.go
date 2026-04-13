@@ -258,6 +258,11 @@ func main() {
 	http.HandleFunc("/api/getConcept", corsHandler(handleGetConcept))
 	http.HandleFunc("/api/saveConcept", corsHandler(handleSaveConcept))
 
+	// Recent events endpoints (global)
+	http.HandleFunc("/api/getRecentEvents", corsHandler(handleGetRecentEvents))
+	http.HandleFunc("/api/saveRecentEvent", corsHandler(handleSaveRecentEvent))
+	http.HandleFunc("/api/deleteRecentEvent", corsHandler(handleDeleteRecentEvent))
+
 	// Cosmetics endpoints
 	http.HandleFunc("/api/getCosmetics", corsHandler(handleGetCosmetics))
 	http.HandleFunc("/api/getCosmeticsVersioned", corsHandler(handleGetCosmeticsVersioned))

@@ -38,7 +38,8 @@
 .quest-settlement-select,
 .quest-select,
 .quest-chain-name,
-.quest-chain-context {
+.quest-chain-context,
+.quest-event-select {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -47,14 +48,16 @@
 .quest-settlement-select label,
 .quest-select label,
 .quest-chain-name label,
-.quest-chain-context label {
+.quest-chain-context label,
+.quest-event-select label {
     color: var(--text-muted);
     font-size: 0.85rem;
 }
 
 .quest-settlement-select select,
 .quest-select select,
-.quest-chain-name input {
+.quest-chain-name input,
+.quest-event-select select {
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm);

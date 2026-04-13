@@ -556,7 +556,7 @@ function setListBuilderItems(key, items) {
     const container = document.getElementById(`${key}Items`);
     if (!container) return;
     container.innerHTML = '';
-    const arr = Array.isArray(items) ? items : (items ? String(items).split(/[\n,]/).map(s => s.trim()).filter(Boolean) : []);
+    const arr = Array.isArray(items) ? items : (items ? String(items).split(/\n/).map(s => s.trim()).filter(Boolean) : []);
     arr.forEach(item => appendListBuilderChip(key, item));
 }
 
@@ -578,10 +578,7 @@ function addListBuilderItem(key) {
     if (!input) return;
     const val = input.value.trim();
     if (!val) return;
-    // Support comma-separated batch add
-    val.split(',').map(s => s.trim()).filter(Boolean).forEach(item => {
-        appendListBuilderChip(key, item);
-    });
+    appendListBuilderChip(key, val);
     input.value = '';
     fireListBuilderChange(key);
 }

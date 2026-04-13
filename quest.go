@@ -24,6 +24,7 @@ type QuestChain struct {
 	Name         string `json:"name"`
 	Context      string `json:"context"`
 	SettlementID int    `json:"settlement_id"`
+	EventID      *int   `json:"event_id"`
 }
 
 // Quest represents a quest
@@ -108,11 +109,11 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	var chainQuery string
 	var chainArgs []interface{}
 	if settlementID != nil {
-		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id 
+		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id, event_id 
 			FROM game.questchain WHERE settlement_id = $1 ORDER BY questchain_id`
 		chainArgs = []interface{}{*settlementID}
 	} else {
-		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id 
+		chainQuery = `SELECT questchain_id, COALESCE(name, ''), COALESCE(context, ''), settlement_id, event_id 
 			FROM game.questchain ORDER BY questchain_id`
 	}
 
@@ -130,7 +131,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	chainIDs := []int{}
 	for chainRows.Next() {
 		var c QuestChain
-		err := chainRows.Scan(&c.QuestchainID, &c.Name, &c.Context, &c.SettlementID)
+		err := chainRows.Scan(&c.QuestchainID, &c.Name, &c.Context, &c.SettlementID, &c.EventID)
 		if err != nil {
 			log.Printf("Error scanning quest chain: %v", err)
 			continue
@@ -309,6 +310,7 @@ type SaveQuestRequest struct {
 	ChainContext string `json:"chainContext"`
 	IsNewChain   bool   `json:"isNewChain"`
 	SettlementID *int   `json:"settlementId"`
+	EventID      *int   `json:"eventId"`
 	// Quest-level fields (for new quests within the chain)
 	NewQuests    []NewQuestData    `json:"newQuests"`
 	QuestUpdates []QuestUpdateData `json:"questUpdates"`
@@ -467,17 +469,17 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 
 	// ---- Create or update chain ----
 	if req.IsNewChain {
-		if err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id)
-			VALUES ($1, $2, $3) RETURNING questchain_id`,
-			req.ChainName, req.ChainContext, req.SettlementID).Scan(&questchainID); err != nil {
+		if err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id, event_id)
+			VALUES ($1, $2, $3, $4) RETURNING questchain_id`,
+			req.ChainName, req.ChainContext, req.SettlementID, req.EventID).Scan(&questchainID); err != nil {
 			log.Printf("Error creating chain: %v", err)
 			http.Error(w, "Database error", http.StatusInternalServerError)
 			return
 		}
 		log.Printf("Created new chain: %d", questchainID)
 	} else if questchainID > 0 && req.ChainName != "" {
-		if _, err := tx.Exec(`UPDATE game.questchain SET name = $1, context = $2 WHERE questchain_id = $3`,
-			req.ChainName, req.ChainContext, questchainID); err != nil {
+		if _, err := tx.Exec(`UPDATE game.questchain SET name = $1, context = $2, event_id = $3 WHERE questchain_id = $4`,
+			req.ChainName, req.ChainContext, req.EventID, questchainID); err != nil {
 			log.Printf("Error updating chain: %v", err)
 		}
 	}

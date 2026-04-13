@@ -33,10 +33,20 @@ if (document.readyState === 'loading') {
 async function initConceptManager() {
     setupConceptListeners();
     await loadConceptData();
+    await loadConceptRecentEvents();
 }
 
 function setupConceptListeners() {
     document.getElementById('conceptSaveBtn')?.addEventListener('click', saveConcept);
+    document.getElementById('conceptAddEventBtn')?.addEventListener('click', addConceptEvent);
+
+    // Allow Enter key to add event
+    document.getElementById('conceptEventNameInput')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') addConceptEvent();
+    });
+    document.getElementById('conceptEventDescInput')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') addConceptEvent();
+    });
 
     const fieldIds = ['conceptSystemPrompt', 'conceptWildsPrompt', 'conceptJson', 'conceptExpeditionJson', 'conceptExpeditionClusterPrompt', 'conceptQuestUpdatePrompt'];
     fieldIds.forEach(id => {
@@ -270,4 +280,110 @@ function setConceptStatus(message, isError) {
             status.className = 'concept-status';
         }, 2000);
     }
+}
+
+// ==================== RECENT EVENTS CRUD ====================
+
+let conceptRecentEvents = [];
+
+async function loadConceptRecentEvents() {
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('/api/getRecentEvents', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        conceptRecentEvents = data.events || [];
+        renderConceptEvents();
+    } catch (error) {
+        console.error('Failed to load recent events:', error);
+    }
+}
+
+function renderConceptEvents() {
+    const list = document.getElementById('conceptEventsList');
+    if (!list) return;
+
+    if (conceptRecentEvents.length === 0) {
+        list.innerHTML = '<div class="concept-events-empty">No events yet. Add one below.</div>';
+        return;
+    }
+
+    list.innerHTML = conceptRecentEvents.map(event => `
+        <div class="concept-event-row" data-event-id="${event.event_id}">
+            <span class="concept-event-name">${escapeConceptHtml(event.event_name)}</span>
+            <span class="concept-event-desc">${escapeConceptHtml(event.description || '')}</span>
+            <button class="concept-event-delete" title="Delete event" onclick="deleteConceptEvent(${event.event_id})">✕</button>
+        </div>
+    `).join('');
+}
+
+async function addConceptEvent() {
+    const nameInput = document.getElementById('conceptEventNameInput');
+    const descInput = document.getElementById('conceptEventDescInput');
+    const name = nameInput?.value.trim();
+    if (!name) {
+        nameInput?.focus();
+        return;
+    }
+    const description = descInput?.value.trim() || null;
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('/api/saveRecentEvent', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ event_name: name, description: description })
+        });
+        if (!response.ok) throw new Error('Failed to save');
+        const data = await response.json();
+        if (data.success) {
+            if (nameInput) nameInput.value = '';
+            if (descInput) descInput.value = '';
+            await loadConceptRecentEvents();
+            setConceptStatus('Event added', false);
+        }
+    } catch (error) {
+        console.error('Failed to add event:', error);
+        setConceptStatus('Failed to add event', true);
+    }
+}
+
+async function deleteConceptEvent(eventId) {
+    if (!confirm('Delete this event? Quest chains linked to it will become "Default".')) return;
+
+    try {
+        const token = await getCurrentAccessToken();
+        if (!token) return;
+        const response = await fetch('/api/deleteRecentEvent', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ event_id: eventId })
+        });
+        if (!response.ok) throw new Error('Failed to delete');
+        const data = await response.json();
+        if (data.success) {
+            await loadConceptRecentEvents();
+            setConceptStatus('Event deleted', false);
+        }
+    } catch (error) {
+        console.error('Failed to delete event:', error);
+        setConceptStatus('Failed to delete event', true);
+    }
+}
+window.deleteConceptEvent = deleteConceptEvent;
+
+function escapeConceptHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
