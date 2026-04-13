@@ -1546,7 +1546,19 @@ async function saveSettlement() {
                 selectSettlement(result.settlementId);
             }
 
-            alert('Settlement saved successfully!');
+            // Show save success animation
+            const saveBtn = document.getElementById('saveSettlementBtn');
+            if (saveBtn) {
+                const indicator = document.createElement('span');
+                indicator.className = 'save-success-indicator';
+                indicator.textContent = '✓ Saved';
+                saveBtn.insertAdjacentElement('afterend', indicator);
+                requestAnimationFrame(() => indicator.classList.add('visible'));
+                setTimeout(() => {
+                    indicator.classList.remove('visible');
+                    setTimeout(() => indicator.remove(), 300);
+                }, 1500);
+            }
         } else {
             const error = await response.text();
             alert('Failed to save settlement: ' + error);

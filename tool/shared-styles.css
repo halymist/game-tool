@@ -738,7 +738,7 @@ input[list]:focus {
 
 .list-builder-items {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 6px;
     margin-bottom: 0;
 }
@@ -748,8 +748,8 @@ input[list]:focus {
 }
 
 .list-builder-chip {
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    align-items: flex-start;
     gap: 4px;
     padding: 4px 8px;
     background: var(--accent-subtle);
@@ -758,13 +758,14 @@ input[list]:focus {
     font-size: 0.8rem;
     color: var(--text-primary);
     line-height: 1.2;
-    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .list-builder-chip span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 0;
 }
 
 .list-builder-chip button {
@@ -786,6 +787,12 @@ input[list]:focus {
 .list-builder-input-row {
     display: flex;
     gap: 4px;
+    align-items: flex-start;
+}
+
+.list-builder-textarea {
+    resize: vertical;
+    min-height: 36px;
 }
 
 .list-builder-input {

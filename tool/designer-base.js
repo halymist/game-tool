@@ -595,8 +595,11 @@ function fireListBuilderChange(key) {
 function initListBuilderKeyHandler(key) {
     const input = document.getElementById(`${key}Input`);
     if (!input) return;
+    // For textareas, only Ctrl+Enter adds the item (Enter adds newlines)
+    // For regular inputs, Enter adds the item
+    const isTextarea = input.tagName === 'TEXTAREA';
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        if (isTextarea ? (e.key === 'Enter' && e.ctrlKey) : (e.key === 'Enter')) {
             e.preventDefault();
             addListBuilderItem(key);
         }
