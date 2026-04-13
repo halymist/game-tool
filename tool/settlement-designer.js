@@ -1521,6 +1521,13 @@ async function saveSettlement() {
             return;
         }
 
+        const saveBtn = document.getElementById('saveSettlementBtn');
+        const origHTML = saveBtn?.innerHTML;
+        if (saveBtn) {
+            saveBtn.classList.add('saving');
+            saveBtn.innerHTML = '<span class="btn-spinner"></span> Saving';
+        }
+
         const response = await fetch('/api/saveSettlement', {
             method: 'POST',
             headers: {
@@ -1546,25 +1553,25 @@ async function saveSettlement() {
                 selectSettlement(result.settlementId);
             }
 
-            // Show save success animation
-            const saveBtn = document.getElementById('saveSettlementBtn');
+            // Show save success animation inside button
             if (saveBtn) {
-                const indicator = document.createElement('span');
-                indicator.className = 'save-success-indicator';
-                indicator.textContent = '✓ Saved';
-                saveBtn.insertAdjacentElement('afterend', indicator);
-                requestAnimationFrame(() => indicator.classList.add('visible'));
+                saveBtn.classList.remove('saving');
+                saveBtn.classList.add('saved');
+                saveBtn.innerHTML = '<span class="btn-check">✓</span> Saved';
                 setTimeout(() => {
-                    indicator.classList.remove('visible');
-                    setTimeout(() => indicator.remove(), 300);
+                    saveBtn.classList.remove('saved');
+                    saveBtn.innerHTML = origHTML;
                 }, 1500);
             }
         } else {
+            if (saveBtn) { saveBtn.classList.remove('saving'); saveBtn.innerHTML = origHTML; }
             const error = await response.text();
             alert('Failed to save settlement: ' + error);
         }
 
     } catch (error) {
+        const saveBtn2 = document.getElementById('saveSettlementBtn');
+        if (saveBtn2) { saveBtn2.classList.remove('saving', 'saved'); }
         console.error('Error saving settlement:', error);
         alert('Error saving settlement: ' + error.message);
     }

@@ -537,7 +537,9 @@ function updatePerkEffectDescription(effectNum) {
     const effect = effects.find(e => e.id === effectId);
     let text = effect?.description || 'No description available';
     const factorVal = document.getElementById(`perkFactor${effectNum}`)?.value || '';
-    if (text && factorVal) {
+    if (text && factorVal && text.includes('*')) {
+        text = text.replace('*', factorVal);
+    } else if (text && factorVal) {
         text = text + ' ' + factorVal + '%';
     }
     descSpan.textContent = text;

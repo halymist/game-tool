@@ -196,6 +196,16 @@ function setupEventListeners() {
     if (itemTypeSelect) {
         itemTypeSelect.addEventListener('change', toggleWeaponStats);
     }
+
+    // Effect description updates
+    const itemEffectSelect = document.getElementById('itemEffect');
+    if (itemEffectSelect) {
+        itemEffectSelect.addEventListener('change', updateItemEffectDescription);
+    }
+    const itemFactorInput = document.getElementById('itemEffectFactor');
+    if (itemFactorInput) {
+        itemFactorInput.addEventListener('input', updateItemEffectDescription);
+    }
 }
 
 function normalizeIntegerInputValue(input) {
@@ -597,6 +607,7 @@ function populateFormFromPending(item) {
     // Effect
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
+    updateItemEffectDescription();
     
     // Description
     document.getElementById('itemNotes').value = item.description || '';
@@ -650,6 +661,7 @@ function populateForm(item) {
     // Effect
     document.getElementById('itemEffect').value = item.effectID || '';
     document.getElementById('itemEffectFactor').value = item.effectFactor || '';
+    updateItemEffectDescription();
     
     // Description
     document.getElementById('itemNotes').value = item.description || '';
@@ -706,6 +718,7 @@ function clearForm() {
     // Effect
     document.getElementById('itemEffect').value = '';
     document.getElementById('itemEffectFactor').value = '';
+    updateItemEffectDescription();
     
     // Description
     document.getElementById('itemNotes').value = '';
@@ -794,6 +807,28 @@ function populateItemEffectDropdown() {
         effectSelect.value = currentValue;
         console.log('populateItemEffectDropdown: restored value', effectSelect.value);
     }
+}
+
+function updateItemEffectDescription() {
+    const descSpan = document.getElementById('itemEffectDesc');
+    if (!descSpan) return;
+
+    const effectId = parseInt(document.getElementById('itemEffect')?.value);
+    if (!effectId) {
+        descSpan.textContent = '';
+        return;
+    }
+
+    const effects = typeof getEffects === 'function' ? getEffects() : (GlobalData?.effects || []);
+    const effect = effects.find(e => e.id === effectId);
+    let text = effect?.description || '';
+    const factorVal = document.getElementById('itemEffectFactor')?.value || '';
+    if (text && factorVal && text.includes('*')) {
+        text = text.replace('*', factorVal);
+    } else if (text && factorVal) {
+        text = text + ' ' + factorVal + '%';
+    }
+    descSpan.textContent = text;
 }
 
 function applyItemTypeRules() {
