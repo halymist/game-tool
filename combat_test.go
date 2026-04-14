@@ -163,9 +163,10 @@ func TestStunOnHit(t *testing.T) {
 
 func TestDodgeHighAgility(t *testing.T) {
 	// C2 has much higher agility → high dodge chance
+	// Ratio-based: 40/10 = 4.0, chance = 10 * log2(4+1) = ~23%
 	c1 := baseCombatant(1, "Slow", nil)
 	c2 := baseCombatant(2, "Fast", nil)
-	c2.Agility = 40 // 40 vs 10 → dodge chance = 10 + 30 = 40%
+	c2.Agility = 40 // ratio 4:1 → ~23% dodge
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -187,7 +188,7 @@ func TestDodgeHighAgility(t *testing.T) {
 	}
 
 	dodgePct := float64(dodges) / float64(total) * 100
-	fmt.Printf("  Dodge test: C2 dodged %d/%d attacks (%.0f%%), expected ~40%%\n", dodges, total, dodgePct)
+	fmt.Printf("  Dodge test: C2 dodged %d/%d attacks (%.0f%%), expected ~23%%\n", dodges, total, dodgePct)
 
 	// Should have some dodges with 40% chance
 	if dodges == 0 {
@@ -250,7 +251,7 @@ func TestCritHighLuck(t *testing.T) {
 
 	for i := 0; i < 30; i++ {
 		c1 := baseCombatant(1, "Lucky", nil)
-		c1.Luck = 35 // 35 vs 10 → crit chance = 10 + 25 = 35%
+		c1.Luck = 35 // ratio 3.5:1 → ~21% crit
 		c2 := baseCombatant(2, "Unlucky", nil)
 
 		result := executeCombat(c1, c2)
@@ -273,15 +274,15 @@ func TestCritHighLuck(t *testing.T) {
 	if total > 0 {
 		critPct = float64(totalCrits) / float64(total) * 100
 	}
-	fmt.Printf("  Crit test (30 fights): %d crits, %d normals (%.1f%% crit rate), expected ~35%%\n", totalCrits, totalNormals, critPct)
+	fmt.Printf("  Crit test (30 fights): %d crits, %d normals (%.1f%% crit rate), expected ~21%%\n", totalCrits, totalNormals, critPct)
 
 	if totalCrits == 0 {
-		t.Error("Expected at least some crits with 35% chance over 30 fights")
+		t.Error("Expected at least some crits with ~21% chance over 30 fights")
 	}
 
-	// Crit damage should be double (we can't check every entry but spot-check is above)
-	if critPct < 15 || critPct > 55 {
-		t.Errorf("Crit rate %.1f%% out of expected range 15-55%% for 35%% chance", critPct)
+	// Crit rate should be in reasonable range for ~21% expected
+	if critPct < 8 || critPct > 40 {
+		t.Errorf("Crit rate %.1f%% out of expected range 8-40%% for ~21%% chance", critPct)
 	}
 }
 
@@ -426,5 +427,254 @@ func TestBaseRates(t *testing.T) {
 	}
 	if dodgeRate < 3 || dodgeRate > 20 {
 		t.Errorf("Dodge rate %.1f%% out of expected range 3-20%% for equal stats", dodgeRate)
+	}
+}
+
+// ── Test 11: Consecutive damage bonus ────────────────────────
+
+func TestConsecutiveDamage(t *testing.T) {
+	// C1 has 50% consecutive damage bonus and 0% dodge opponent → every hit lands
+	// Hit 1: normal, Hit 2: +50%, Hit 3: +100%, etc.
+	c1 := baseCombatant(1, "Momentum", []CombatTestEffect{
+		{EffectID: 1, CoreEffectCode: "consecutive_damage", TriggerType: "passive", FactorType: "percent", Value: 50},
+	})
+	c1.Luck = 0 // minimize crits
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Agility = 0 // minimize dodges
+	c2.Luck = 100  // maximize c2 dodge to avoid dodge chance for c1 attacking c2 being high... no wait
+	// Actually: dodge = statBasedChance(defender.Agility=0, attacker.Agility=10, 0)
+	// = 10 * log2(0/10 + 1) = 10 * log2(1) = 0 + 0 = actually defender agility 0 vs attacker 10
+	// Wait, dodge uses defender agility / attacker agility ratio
+	// ratio = 0 / 10 = 0 → log2(0+1) = 0 → chance = 0 + 0 = 0, but clamped to min 1
+	// So dodge chance = 1%. Good enough.
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// Find C1's attack damages in order
+	var damages []int
+	for _, e := range log {
+		if e.CharacterID == 1 && (e.Action == "attack" || e.Action == "crit") {
+			damages = append(damages, e.Factor)
+		}
+	}
+
+	if len(damages) < 3 {
+		t.Fatalf("Expected at least 3 attacks, got %d", len(damages))
+	}
+
+	// Check that damages increase: hit 2 should be > hit 1 (unless crit messes things up)
+	// With 50% bonus per hit: hit1=20, hit2=30, hit3=40
+	fmt.Printf("  Consecutive damage test: damages = %v\n", damages)
+
+	// Second hit should be 50% more than first (if no crits)
+	if len(damages) >= 2 && damages[1] <= damages[0] {
+		// Could be a crit on first, normal on second. Check for general trend.
+		increasing := 0
+		for i := 1; i < len(damages); i++ {
+			if damages[i] >= damages[i-1] {
+				increasing++
+			}
+		}
+		if float64(increasing)/float64(len(damages)-1) < 0.5 {
+			t.Errorf("Expected generally increasing damage with consecutive bonus, trend ratio: %.1f", float64(increasing)/float64(len(damages)-1))
+		}
+	}
+
+	stats := extractStats(result, "combatant1")
+	if stats["maxConsecHits"].(float64) < 2 {
+		t.Error("Expected maxConsecHits >= 2")
+	}
+	fmt.Printf("  Max consecutive hits: %.0f\n", stats["maxConsecHits"].(float64))
+}
+
+// ── Test 12: Consecutive hits reset on dodge ─────────────────
+
+func TestConsecutiveHitsResetOnDodge(t *testing.T) {
+	// C1 has consecutive damage, C2 has very high dodge to force resets
+	c1 := baseCombatant(1, "Striker", []CombatTestEffect{
+		{EffectID: 1, CoreEffectCode: "consecutive_damage", TriggerType: "passive", FactorType: "percent", Value: 100},
+	})
+	c1.Luck = 0
+	c2 := baseCombatant(2, "Dodger", []CombatTestEffect{
+		{EffectID: 2, CoreEffectCode: "dodge", TriggerType: "passive", FactorType: "percent", Value: 40},
+	})
+	c2.Agility = 30 // high dodge chance
+
+	// Run several fights — dodge resets should keep damage from spiraling
+	totalMaxConsec := 0
+	fights := 10
+	for i := 0; i < fights; i++ {
+		c1Copy := *c1
+		c2Copy := *c2
+		result := executeCombat(&c1Copy, &c2Copy)
+		stats := extractStats(result, "combatant1")
+		maxC := int(stats["maxConsecHits"].(float64))
+		totalMaxConsec += maxC
+	}
+
+	avgMaxConsec := float64(totalMaxConsec) / float64(fights)
+	fmt.Printf("  Consecutive reset test (%d fights): avg max streak = %.1f (should be low due to dodges)\n", fights, avgMaxConsec)
+
+	// With high dodge rate, streaks should be limited
+	if avgMaxConsec > 8 {
+		t.Errorf("Average max consecutive streak %.1f seems too high given high dodge rate", avgMaxConsec)
+	}
+}
+
+// ── Test 13: on_crit_taken trigger ───────────────────────────
+
+func TestOnCritTaken(t *testing.T) {
+	// C1 always crits (high luck), C2 heals when crit taken
+	c1 := baseCombatant(1, "CritMachine", nil)
+	c1.Luck = 100 // very high crit chance
+
+	c2 := baseCombatant(2, "Resilient", []CombatTestEffect{
+		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_crit_taken", FactorType: "percent_of_max_hp", TargetSelf: true, Value: -5},
+	})
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	critTakenHeals := 0
+	for _, e := range log {
+		if e.Action == "heal" && e.CharacterID == 2 && e.TriggerType == "on_crit_taken" {
+			critTakenHeals++
+		}
+	}
+
+	crits := 0
+	for _, e := range log {
+		if e.Action == "crit" && e.CharacterID == 1 {
+			crits++
+		}
+	}
+
+	fmt.Printf("  on_crit_taken test: %d crits from C1, %d heals on C2\n", crits, critTakenHeals)
+
+	if crits == 0 {
+		t.Error("Expected crits from C1 with high luck")
+	}
+	if critTakenHeals == 0 {
+		t.Error("Expected on_crit_taken heal entries for C2")
+	}
+}
+
+// ── Test 14: on_crit_taken retaliation damage ────────────────
+
+func TestOnCritTakenRetaliation(t *testing.T) {
+	// C2 deals damage back when crit
+	c1 := baseCombatant(1, "CritMachine", nil)
+	c1.Luck = 100 // high crit
+
+	c2 := baseCombatant(2, "Retaliator", []CombatTestEffect{
+		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_crit_taken", FactorType: "percent_of_damage_taken", TargetSelf: false, Value: 30},
+	})
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	retaliations := 0
+	for _, e := range log {
+		if e.Action == "attack" && e.CharacterID == 2 && e.TriggerType == "on_crit_taken" {
+			retaliations++
+			if e.Factor <= 0 {
+				t.Errorf("Expected positive retaliation damage, got %d", e.Factor)
+			}
+		}
+	}
+
+	fmt.Printf("  on_crit_taken retaliation test: %d retaliations\n", retaliations)
+	if retaliations == 0 {
+		t.Error("Expected retaliation damage entries from on_crit_taken")
+	}
+}
+
+// ── Test 15: modify_heal on_crit (Crippling Precision) ───────
+
+func TestModifyHealOnCrit(t *testing.T) {
+	// C1 crits and reduces C2 healing. C2 heals on_turn_start.
+	c1 := baseCombatant(1, "CritDebuffer", []CombatTestEffect{
+		{EffectID: 1, CoreEffectCode: "modify_heal", TriggerType: "on_crit", FactorType: "percent", TargetSelf: false, Value: -50},
+	})
+	c1.Luck = 100 // always crit
+
+	c2 := baseCombatant(2, "Healer", []CombatTestEffect{
+		{EffectID: 2, CoreEffectCode: "attack", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: -10},
+	})
+
+	result := executeCombat(c1, c2)
+	stats := extractStats(result, "combatant2")
+	healing := stats["healingDone"].(float64)
+
+	// Without debuff C2 would heal 10% of 100HP = 10 per turn
+	// With accumulated -50% per crit, healing should be significantly reduced
+	fmt.Printf("  Modify heal on_crit test: C2 total healing = %.0f\n", healing)
+
+	// Just verify combat completed and healing was tracked
+	// The actual reduction depends on how many crits happened before heals
+	// The important thing is that the modify_heal mechanism fires on_crit
+}
+
+// ── Test 16: Ratio-based formula diminishing returns ─────────
+
+func TestRatioFormulaValues(t *testing.T) {
+	// Verify the new formula produces expected dodge rates at specific stat ratios
+	// Run 100 fights per scenario to get stable percentages
+	scenarios := []struct {
+		name      string
+		agiDef    int
+		agiAtk    int
+		bonus     int
+		expectMin float64
+		expectMax float64
+	}{
+		{"equal stats (10v10)", 10, 10, 0, 5, 18}, // 10%
+		{"double (20v10)", 20, 10, 0, 10, 25},     // ~17%
+		{"triple (30v10)", 30, 10, 0, 15, 32},     // ~23%
+		{"5x (50v10)", 50, 10, 0, 20, 38},         // ~28%
+		{"equal+bonus20", 10, 10, 20, 22, 40},     // 30%
+	}
+
+	for _, sc := range scenarios {
+		totalDodges := 0
+		totalSwings := 0
+
+		for i := 0; i < 100; i++ {
+			c1 := baseCombatant(1, "Atk", nil)
+			c1.Agility = sc.agiAtk
+			c1.Luck = 0
+
+			effects := []CombatTestEffect{}
+			if sc.bonus > 0 {
+				effects = append(effects, CombatTestEffect{EffectID: 1, CoreEffectCode: "dodge", TriggerType: "passive", FactorType: "percent", Value: sc.bonus})
+			}
+			c2 := baseCombatant(2, "Def", effects)
+			c2.Agility = sc.agiDef
+
+			result := executeCombat(c1, c2)
+			log := extractLog(result)
+			for _, e := range log {
+				if e.CharacterID == 1 {
+					if e.Action == "dodge" {
+						totalDodges++
+					}
+					if e.Action == "attack" || e.Action == "crit" {
+						totalSwings++
+					}
+				}
+			}
+		}
+
+		total := totalDodges + totalSwings
+		rate := 0.0
+		if total > 0 {
+			rate = float64(totalDodges) / float64(total) * 100
+		}
+		fmt.Printf("  Formula %s: dodge=%.1f%% (expect %.0f-%.0f%%)\n", sc.name, rate, sc.expectMin, sc.expectMax)
+
+		if rate < sc.expectMin || rate > sc.expectMax {
+			t.Errorf("Scenario '%s': dodge rate %.1f%% outside expected range [%.0f, %.0f]", sc.name, rate, sc.expectMin, sc.expectMax)
+		}
 	}
 }

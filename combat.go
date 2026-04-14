@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 )
@@ -31,8 +32,8 @@ type CombatTestCombatant struct {
 // CombatTestEffect is a simplified effect sent from the UI
 type CombatTestEffect struct {
 	EffectID       int     `json:"effectId"`
-	CoreEffectCode string  `json:"coreEffectCode"` // attack, stun, bleed, dodge, crit, counterattack, double_attack, modify_damage, modify_dodge, modify_crit, modify_armor, modify_heal
-	TriggerType    string  `json:"triggerType"`    // passive, on_start, on_attack, on_hit, on_crit, on_hit_taken, on_turn_start, on_turn_end, on_every_other_turn
+	CoreEffectCode string  `json:"coreEffectCode"` // attack, stun, bleed, dodge, crit, counterattack, double_attack, modify_damage, modify_dodge, modify_crit, modify_armor, modify_heal, consecutive_damage
+	TriggerType    string  `json:"triggerType"`    // passive, on_start, on_attack, on_hit, on_crit, on_crit_taken, on_hit_taken, on_turn_start, on_turn_end, on_every_other_turn
 	FactorType     string  `json:"factorType"`     // percent, percent_of_max_hp, percent_of_missing_hp, percent_of_damage_dealt, percent_of_damage_taken
 	TargetSelf     bool    `json:"targetSelf"`
 	ConditionType  *string `json:"conditionType,omitempty"`
@@ -58,14 +59,15 @@ type CombatCharacter struct {
 
 // CombatModifiers holds pre-resolved passive modifiers for a combatant
 type CombatModifiers struct {
-	DodgeChance        int
-	CritChance         int
-	DamageModifier     int
-	DamageTakenMod     int
-	ArmorModifier      int
-	HealModifier       int
-	CounterChance      int
-	DoubleAttackChance int
+	DodgeChance            int
+	CritChance             int
+	DamageModifier         int
+	DamageTakenMod         int
+	ArmorModifier          int
+	HealModifier           int
+	CounterChance          int
+	DoubleAttackChance     int
+	ConsecutiveDamageBonus int // % damage increase per consecutive hit
 }
 
 // CombatLogEntry represents a single event in the combat log
@@ -75,7 +77,7 @@ type CombatLogEntry struct {
 	Action      string `json:"action"` // attack, crit, dodge, stun, stunned, bleed, counterattack, double_attack, heal
 	Factor      int    `json:"factor"`
 	EffectID    *int   `json:"effectId,omitempty"`
-	TriggerType string `json:"triggerType,omitempty"` // on_start, on_hit, on_crit, on_hit_taken, on_turn_start, on_turn_end, on_every_other_turn
+	TriggerType string `json:"triggerType,omitempty"` // on_start, on_hit, on_crit, on_crit_taken, on_hit_taken, on_turn_start, on_turn_end, on_every_other_turn
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -153,6 +155,8 @@ func resolveCombatModifiers(char *CombatCharacter) CombatModifiers {
 			mods.CounterChance += eff.Value
 		case "double_attack":
 			mods.DoubleAttackChance += eff.Value
+		case "consecutive_damage":
+			mods.ConsecutiveDamageBonus += eff.Value
 		}
 	}
 	return mods
@@ -225,11 +229,15 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		return char.Stamina * 10
 	}
 
-	// Stat-comparison-based chance: base 10% at equal stat, ±1% per point difference, clamped 1-50%
+	// Ratio-based chance with diminishing returns:
+	// Equal stats → 10%, double the stat → ~20%, triple → ~27%, clamped [1, 50]
 	statBasedChance := func(myStat int, theirStat int, bonusMod int) int {
-		diff := myStat - theirStat
-		chance := 10 + diff
-		chance += bonusMod
+		denom := theirStat
+		if denom < 1 {
+			denom = 1
+		}
+		ratio := float64(myStat) / float64(denom)
+		chance := int(10.0*math.Log2(ratio+1)) + bonusMod
 		if chance < 1 {
 			chance = 1
 		}
@@ -262,6 +270,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	enemyStunned := false
 	playerBleedStacks := 0
 	enemyBleedStacks := 0
+	playerConsecutiveHits := 0
+	enemyConsecutiveHits := 0
 
 	// ── Statistics tracking ──────────────────────────
 	type combatStats struct {
@@ -277,6 +287,7 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		BleedApplied  int `json:"bleedApplied"`
 		CounterHits   int `json:"counterHits"`
 		DoubleAttacks int `json:"doubleAttacks"`
+		MaxConsecHits int `json:"maxConsecHits"`
 	}
 	stats1 := &combatStats{}
 	stats2 := &combatStats{}
@@ -341,8 +352,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	}
 
 	executeTurn := func(turn int,
-		attacker *CombatCharacter, attackerMods *CombatModifiers, attackerHP *int, attackerMaxHP int, attackerStunned *bool, attackerBleed *int,
-		defender *CombatCharacter, defenderMods *CombatModifiers, defenderHP *int, defenderMaxHP int, defenderStunned *bool, defenderBleed *int,
+		attacker *CombatCharacter, attackerMods *CombatModifiers, attackerHP *int, attackerMaxHP int, attackerStunned *bool, attackerBleed *int, attackerConsecHits *int,
+		defender *CombatCharacter, defenderMods *CombatModifiers, defenderHP *int, defenderMaxHP int, defenderStunned *bool, defenderBleed *int, defenderConsecHits *int,
 	) {
 		aStats := getStats(attacker.CharacterID)
 
@@ -407,6 +418,7 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		// Stun check — character IS stunned, skips turn
 		if *attackerStunned {
 			*attackerStunned = false
+			*attackerConsecHits = 0 // stun breaks consecutive hits
 			aStats.TimesStunned++
 			combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stunned", Factor: 0})
 			goto turnEnd
@@ -414,19 +426,32 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 
 		// ── Perform attack (and potentially double attack) ──
 		{
-			// Helper: perform one full attack sequence (dodge check → damage → crit → armor → on_hit → on_crit → on_hit_taken → counter)
+			// Helper: perform one full attack sequence (dodge check → damage → crit → armor → on_hit → on_crit → on_crit_taken → on_hit_taken → counter)
 			performAttack := func(isDoubleAttack bool) {
 				// Dodge check — based on defender agility vs attacker agility
 				dodgeChance := statBasedChance(defender.Agility, attacker.Agility, defenderMods.DodgeChance)
 				if rand.Intn(100) < dodgeChance {
+					*attackerConsecHits = 0 // dodge breaks consecutive hits
 					aStats.AttacksDodged++
 					getStats(defender.CharacterID).DodgedAttacks++
 					combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "dodge", Factor: 0})
 					return
 				}
 
+				// Consecutive hit tracking
+				*attackerConsecHits++
+				if *attackerConsecHits > aStats.MaxConsecHits {
+					aStats.MaxConsecHits = *attackerConsecHits
+				}
+
 				// Calculate base damage
 				damage := calculateDamage(attacker, attackerMods)
+
+				// Apply consecutive damage bonus (% increase per hit in streak)
+				if attackerMods.ConsecutiveDamageBonus > 0 && *attackerConsecHits > 1 {
+					bonus := attackerMods.ConsecutiveDamageBonus * (*attackerConsecHits - 1)
+					damage = damage + (damage * bonus / 100)
+				}
 
 				// Crit check — based on attacker luck vs defender luck
 				isCrit := false
@@ -524,6 +549,14 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							aStats.BleedApplied += bleedAmount
 							eid := eff.EffectID
 							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit"})
+						case "modify_heal":
+							// Apply heal modification to defender (e.g., Crippling Precision: reduce enemy healing)
+							val := eff.Value
+							if eff.TargetSelf {
+								attackerMods.HealModifier += val
+							} else {
+								defenderMods.HealModifier += val
+							}
 						}
 					}
 				}
@@ -549,6 +582,32 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							}
 						}
 						combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+					}
+				}
+
+				// on_crit_taken effects (defender reacts to being crit)
+				if isCrit {
+					for _, eff := range collectTriggeredEffects(defender, "on_crit_taken") {
+						if !checkCondition(&eff, *defenderHP, defenderMaxHP) {
+							continue
+						}
+						switch eff.CoreEffectCode {
+						case "attack":
+							val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
+							if eff.TargetSelf {
+								*defenderHP -= val
+								if val < 0 {
+									getStats(defender.CharacterID).HealingDone += -val
+								}
+							} else {
+								*attackerHP -= val
+								if val > 0 {
+									getStats(defender.CharacterID).DamageDealt += val
+									aStats.DamageTaken += val
+								}
+							}
+							combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_crit_taken"))
+						}
 					}
 				}
 
@@ -611,8 +670,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	// Combat loop
 	for turn := 1; turn <= maxTurns; turn++ {
 		executeTurn(turn,
-			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks,
-			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks,
+			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits,
+			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits,
 		)
 		if enemyCurrentHP <= 0 {
 			winnerID = player.CharacterID
@@ -624,8 +683,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		}
 
 		executeTurn(turn,
-			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks,
-			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks,
+			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits,
+			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits,
 		)
 		if playerCurrentHP <= 0 {
 			winnerID = enemy.CharacterID

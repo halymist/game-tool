@@ -654,7 +654,7 @@ class CombatAnimator {
             await this.processEntry(this.log[this.index]);
             this.index++;
             if (this.index < this.log.length && this.playing && !this._cancel) {
-                await sleep(Math.max(80, 400 / this.speed));
+                await sleep(Math.max(80, 700 / this.speed));
             }
         }
 
