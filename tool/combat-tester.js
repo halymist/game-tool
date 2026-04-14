@@ -499,6 +499,10 @@ function closeCombatOverlay() {
 function showOverlayEndButtons() {
     document.getElementById('combatReplayBtn').style.display = '';
     document.getElementById('combatDoneBtn').style.display = '';
+    // Hide play/skip/speed controls since combat is over
+    document.getElementById('arenaPlayBtn').style.display = 'none';
+    document.getElementById('arenaSkipBtn').style.display = 'none';
+    document.getElementById('arenaSpeed').style.display = 'none';
 }
 
 function replayCombat() {
@@ -633,6 +637,10 @@ class CombatAnimator {
         this._cancel = false;
         this.speed = parseFloat(document.getElementById('arenaSpeed').value) || 1;
         document.getElementById('arenaPlayBtn').textContent = '▶ Play';
+        // Restore play/skip/speed controls
+        document.getElementById('arenaPlayBtn').style.display = '';
+        document.getElementById('arenaSkipBtn').style.display = '';
+        document.getElementById('arenaSpeed').style.display = '';
     }
 
     async play() {
@@ -653,7 +661,6 @@ class CombatAnimator {
         this.playing = false;
         if (this.index >= this.log.length && !this._cancel) {
             this.showResult();
-            document.getElementById('arenaPlayBtn').textContent = '✓ Done';
         } else {
             document.getElementById('arenaPlayBtn').textContent = '▶ Play';
         }
@@ -676,7 +683,6 @@ class CombatAnimator {
         this.hp2 = Math.max(0, this.c2.hpEnd);
         this.updateHpBars();
         this.showResult();
-        document.getElementById('arenaPlayBtn').textContent = '✓ Done';
     }
 
     // ── Per-entry processing ─────────────────────────

@@ -655,7 +655,7 @@
 
 /* ── Arena Live Log ───────────────────────────────────── */
 .arena-live-log {
-    max-height: 120px;
+    height: 110px;
     overflow-y: auto;
     margin-top: 0.5rem;
     padding: 0.35rem 0.5rem;
@@ -664,6 +664,9 @@
     border-radius: var(--radius-sm, 6px);
     font-size: 0.72rem;
     scrollbar-width: thin;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
 }
 .live-log-row {
     display: flex;
