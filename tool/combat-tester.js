@@ -149,7 +149,7 @@ function buildCombatTalentTree(panel) {
         cell.innerHTML = `
             <div class="ct-points"><span class="ct-current">0</span>/${talent.maxPoints}</div>
             <img class="ct-icon" src="${iconUrl}" alt="" onerror="this.style.display='none'">
-            ${hasPerkSlot ? '<div class="ct-perk-indicator">⭐</div>' : ''}
+            ${hasPerkSlot ? '<div class="ct-perk-indicator">P</div>' : ''}
             <button type="button" class="ct-detail-btn" title="View details">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
@@ -192,18 +192,34 @@ function showCombatTalentTooltip(e, panel, talent) {
     const invested = current.points * (talent.factor || 0);
 
     const effect = (GlobalData.effects || []).find(ef => ef.id === talent.effectId);
-    let descText = effect?.description || talent.description || 'No description';
+    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
+    let descText = effect?.description || talent.description || '';
     if (descText.includes('*')) {
         descText = descText.replace('*', String(invested || talent.factor || 0));
-    } else if (talent.factor) {
+    } else if (talent.factor && descText) {
         descText = `${descText} (${talent.factor})`;
+    }
+    if (!descText && hasPerkSlot) {
+        descText = 'Perk slot';
+    } else if (!descText) {
+        descText = talent.talentName;
+    }
+
+    // Add perk info to tooltip
+    const cellAssigned = map.get(talent.talentId);
+    if (cellAssigned?.perkId) {
+        const cellPerk = combatPerks.find(p => p.id === cellAssigned.perkId);
+        if (cellPerk) {
+            const perkEffText = getCTPerkEffectText(cellPerk);
+            if (perkEffText) descText += `\nPerk: ${cellPerk.name}\n${perkEffText}`;
+        }
     }
 
     const tip = document.createElement('div');
     tip.className = 'ct-tooltip';
     tip.innerHTML = `
         <div class="ct-tooltip-name">${_ctEsc(talent.talentName)}</div>
-        <div class="ct-tooltip-desc">${_ctEsc(descText)}</div>
+        <div class="ct-tooltip-desc">${_ctEsc(descText).replace(/\n/g, '<br>')}</div>
         ${talent.factor ? `<div class="ct-tooltip-factor">Factor: ${talent.factor} per point${current.points > 0 ? ` (invested: ${invested})` : ''}</div>` : ''}
         <div class="ct-tooltip-points">${current.points} / ${talent.maxPoints} points</div>
     `;
@@ -223,6 +239,29 @@ function hideCombatTalentTooltip() {
 function _ctEsc(text) {
     if (typeof escapeHtml === 'function') return escapeHtml(text);
     const d = document.createElement('div'); d.textContent = text; return d.innerHTML;
+}
+
+function getCTPerkEffectText(perk) {
+    if (!perk) return '';
+    const effects = GlobalData.effects || [];
+    const lines = [];
+    if (perk.effect1_id) {
+        const eff = effects.find(e => e.id === perk.effect1_id);
+        if (eff) {
+            let desc = eff.description || eff.name;
+            if (desc.includes('*') && perk.factor1 != null) desc = desc.replace('*', String(perk.factor1));
+            lines.push(`${eff.name}: ${desc}`);
+        }
+    }
+    if (perk.effect2_id) {
+        const eff = effects.find(e => e.id === perk.effect2_id);
+        if (eff) {
+            let desc = eff.description || eff.name;
+            if (desc.includes('*') && perk.factor2 != null) desc = desc.replace('*', String(perk.factor2));
+            lines.push(`${eff.name}: ${desc}`);
+        }
+    }
+    return lines.join('\n');
 }
 
 // ── Talent Upgrade Modal ─────────────────────────────
@@ -247,7 +286,7 @@ function showCombatTalentModal(panel, talent) {
             </div>
             <div class="ct-modal-actions">
                 <button type="button" class="btn-upgrade" data-panel="${panel}" data-talent="${talent.talentId}"></button>
-                <button type="button" class="btn-downgrade" data-panel="${panel}" data-talent="${talent.talentId}">⬇️ Remove Point</button>
+                <button type="button" class="btn-downgrade" data-panel="${panel}" data-talent="${talent.talentId}">Remove Point</button>
             </div>
         </div>
     `;
@@ -288,15 +327,26 @@ function refreshCombatTalentModal(panel, talent) {
         descText = `${descText} ${invested}`;
     }
 
-    modal.querySelector('.ct-modal-desc').textContent = descText;
+    if (!descText && hasPerkSlot) {
+        descText = 'Perk slot';
+    } else if (!descText) {
+        descText = talent.talentName;
+    }
 
+    // Include perk info in description
+    let fullDesc = descText;
+    if (isMaxed && hasPerkSlot && currentPerkName) {
+        const currentPerk = combatPerks.find(p => p.id === current.perkId);
+        const perkEffText = getCTPerkEffectText(currentPerk);
+        fullDesc += `\n\nPerk: ${currentPerkName}`;
+        if (perkEffText) fullDesc += `\n${perkEffText}`;
+    }
+    modal.querySelector('.ct-modal-desc').innerHTML = _ctEsc(fullDesc).replace(/\n/g, '<br>');
+
+    // Show change perk button if maxed with perk slot
     const perkEl = modal.querySelector('.ct-modal-perk');
     if (isMaxed && hasPerkSlot) {
-        if (currentPerkName) {
-            perkEl.innerHTML = `⭐ ${_ctEsc(currentPerkName)} <button type="button" class="btn-change-perk">Change</button>`;
-        } else {
-            perkEl.innerHTML = `<button type="button" class="btn-change-perk">⭐ Assign Perk</button>`;
-        }
+        perkEl.innerHTML = `<button type="button" class="btn-change-perk">${current.perkId ? 'Change Perk' : 'Assign Perk'}</button>`;
         perkEl.querySelector('.btn-change-perk').addEventListener('click', () => {
             closeCombatTalentModal();
             showCombatPerkModal(panel, talent);
@@ -308,10 +358,10 @@ function refreshCombatTalentModal(panel, talent) {
 
     const upgradeBtn = modal.querySelector('.btn-upgrade');
     if (canUpgrade) {
-        upgradeBtn.innerHTML = `⬆️ Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.innerHTML = `Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
         upgradeBtn.disabled = false;
     } else {
-        upgradeBtn.innerHTML = `✅ MAXED <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.innerHTML = `MAXED <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
         upgradeBtn.disabled = true;
     }
 
@@ -344,6 +394,7 @@ function showCombatPerkModal(panel, talent) {
                     <option value="">-- No Perk --</option>
                     ${combatPerks.map(p => `<option value="${p.id}" ${p.id === current.perkId ? 'selected' : ''}>${_ctEsc(p.name)}</option>`).join('')}
                 </select>
+                <div class="ct-perk-preview"></div>
             </div>
             <div class="ct-modal-actions">
                 <button type="button" class="btn-confirm">Confirm</button>
@@ -364,6 +415,18 @@ function showCombatPerkModal(panel, talent) {
     });
     modal.querySelectorAll('.ct-perk-cancel').forEach(btn => btn.addEventListener('click', () => modal.remove()));
     modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+    // Perk effect preview
+    const select = modal.querySelector('.ct-perk-select');
+    const preview = modal.querySelector('.ct-perk-preview');
+    function updatePreview() {
+        const id = select.value ? parseInt(select.value) : null;
+        const perk = id ? combatPerks.find(p => p.id === id) : null;
+        const text = getCTPerkEffectText(perk);
+        preview.innerHTML = text ? _ctEsc(text).replace(/\n/g, '<br>') : '';
+    }
+    select.addEventListener('change', updatePreview);
+    updatePreview();
 
     document.body.appendChild(modal);
 }

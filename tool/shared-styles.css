@@ -525,6 +525,18 @@ body {
     padding: 12px !important;
 }
 
+/* Enemy designer - full width for busy combat editor */
+#enemies-content {
+    max-width: none !important;
+    padding: 12px !important;
+}
+
+/* Combat tester - full width */
+#combat-content {
+    max-width: none !important;
+    padding: 12px !important;
+}
+
 .page-header {
     margin-bottom: 2rem;
 }

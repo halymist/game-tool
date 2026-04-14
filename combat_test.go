@@ -1305,3 +1305,129 @@ func TestAdrenalineSurgeDodgeBuff(t *testing.T) {
 	}
 	fmt.Printf("  Adrenaline Surge (85): %d crits, %d buffs, %d expired, %d dodges\n", critsOnC2, buffCount, expireCount, dodges)
 }
+
+// ── Test 32: On-start damage buff (War Preparation pattern, effect 86) ──
+
+func TestOnStartDamageBuff(t *testing.T) {
+	dur := 3
+	c1 := baseCombatant(1, "WarPrepper", []CombatTestEffect{
+		{EffectID: 86, CoreEffectCode: "modify_damage", TriggerType: "on_start", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// The buff should be applied at turn 0 (before combat turns)
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			buffCount++
+			if e.Turn != 0 {
+				t.Errorf("on_start buff expected at turn 0, got turn %d", e.Turn)
+			}
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+	}
+	if buffCount != 1 {
+		t.Errorf("Expected exactly 1 on_start damage buff, got %d", buffCount)
+	}
+	if expireCount != 1 {
+		t.Errorf("Expected exactly 1 buff_expire for on_start damage buff, got %d", expireCount)
+	}
+	fmt.Printf("  War Preparation (on_start modify_damage): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 33: On-start armor buff on self (Guardian's Shield pattern, effect 87) ──
+
+func TestOnStartArmorBuff(t *testing.T) {
+	dur := 3
+	c1 := baseCombatant(1, "Guardian", []CombatTestEffect{
+		{EffectID: 87, CoreEffectCode: "modify_armor", TriggerType: "on_start", FactorType: "percent", Value: 30, TargetSelf: true, Duration: &dur},
+	})
+	c1.Armor = 10
+	c2 := baseCombatant(2, "Attacker", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+		}
+	}
+	if buffCount != 1 {
+		t.Errorf("Expected 1 on_start armor buff, got %d", buffCount)
+	}
+	fmt.Printf("  Guardian's Shield (on_start modify_armor): %d buffs\n", buffCount)
+}
+
+// ── Test 34: Every-other-turn damage buff (Tidal Force pattern, effect 88) ──
+
+func TestEveryOtherTurnDamageBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "TidalForce", []CombatTestEffect{
+		{EffectID: 88, CoreEffectCode: "modify_damage", TriggerType: "on_every_other_turn", FactorType: "percent", Value: 15, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50 // more HP so combat lasts longer
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	buffTurns := []int{}
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			buffCount++
+			buffTurns = append(buffTurns, e.Turn)
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+	}
+	// Should fire on odd turns only (1, 3, 5, ...)
+	for _, turn := range buffTurns {
+		if turn%2 != 1 {
+			t.Errorf("on_every_other_turn buff fired on even turn %d", turn)
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected at least 1 every-other-turn damage buff")
+	}
+	fmt.Printf("  Tidal Force (on_every_other_turn modify_damage): %d buffs on turns %v, %d expired\n", buffCount, buffTurns, expireCount)
+}
+
+// ── Test 35: Every-other-turn armor buff (Pulsing Ward pattern, effect 89) ──
+
+func TestEveryOtherTurnArmorBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "PulsingWard", []CombatTestEffect{
+		{EffectID: 89, CoreEffectCode: "modify_armor", TriggerType: "on_every_other_turn", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c1.Armor = 10
+	c2 := baseCombatant(2, "Attacker", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+			if e.Turn%2 != 1 {
+				t.Errorf("on_every_other_turn armor buff fired on even turn %d", e.Turn)
+			}
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected at least 1 every-other-turn armor buff")
+	}
+	fmt.Printf("  Pulsing Ward (on_every_other_turn modify_armor): %d buffs\n", buffCount)
+}

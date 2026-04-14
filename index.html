@@ -2000,17 +2000,6 @@
         <!-- Combat Tester Section -->
         <div id="combat-content" class="page-content" style="display: none;">
             <div class="combat-tester-container">
-                <!-- Toolbar -->
-                <div class="combat-toolbar">
-                    <h2 class="combat-title">⚔️ Combat Tester</h2>
-                    <div class="combat-toolbar-actions">
-                        <button type="button" id="combatFightBtn" class="btn-fight" disabled>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21a2 2 0 002-2"/></svg>
-                            Fight!
-                        </button>
-                    </div>
-                </div>
-
                 <!-- Combatant Panels -->
                 <div class="combat-panels">
                     <!-- Combatant 1 -->
@@ -2019,13 +2008,14 @@
                             <input type="text" id="combatName1" class="combat-name-input" value="Combatant 1" placeholder="Name...">
                         </div>
                         <div class="combat-stats-grid">
-                            <div class="combat-stat"><label>STR</label><input type="number" id="combatStr1" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>STA</label><input type="number" id="combatSta1" value="10" min="1" max="999"></div>
-                            <div class="combat-stat"><label>AGI</label><input type="number" id="combatAgi1" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>LCK</label><input type="number" id="combatLck1" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>ARM</label><input type="number" id="combatArm1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Strength</label><input type="number" id="combatStr1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Stamina</label><input type="number" id="combatSta1" value="10" min="1" max="999"></div>
+                            <div class="combat-stat combat-stat-hp"><label>HP</label><span id="combatHpCalc1">100</span></div>
+                            <div class="combat-stat"><label>Agility</label><input type="number" id="combatAgi1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Luck</label><input type="number" id="combatLck1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Armor</label><input type="number" id="combatArm1" value="10" min="0" max="999"></div>
                             <div class="combat-stat combat-stat-damage">
-                                <label>DMG</label>
+                                <label>Damage</label>
                                 <div class="combat-damage-inputs">
                                     <input type="number" id="combatMinDmg1" value="5" min="0" max="999" placeholder="Min">
                                     <span>-</span>
@@ -2033,15 +2023,19 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="combat-hp-display">HP: <span id="combatHpCalc1">100</span></div>
                         <div class="combat-talent-section">
                             <h4 class="combat-talent-heading">Talents</h4>
                             <div class="combat-talent-tree" id="combatTalentTree1"></div>
                         </div>
                     </div>
 
-                    <!-- VS Divider -->
-                    <div class="combat-vs">VS</div>
+                    <!-- VS Divider with Fight Button -->
+                    <div class="combat-vs">
+                        <button type="button" id="combatFightBtn" class="btn-fight" disabled>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21a2 2 0 002-2"/></svg>
+                            Fight!
+                        </button>
+                    </div>
 
                     <!-- Combatant 2 -->
                     <div class="combat-panel" id="combatPanel2">
@@ -2049,13 +2043,14 @@
                             <input type="text" id="combatName2" class="combat-name-input" value="Combatant 2" placeholder="Name...">
                         </div>
                         <div class="combat-stats-grid">
-                            <div class="combat-stat"><label>STR</label><input type="number" id="combatStr2" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>STA</label><input type="number" id="combatSta2" value="10" min="1" max="999"></div>
-                            <div class="combat-stat"><label>AGI</label><input type="number" id="combatAgi2" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>LCK</label><input type="number" id="combatLck2" value="10" min="0" max="999"></div>
-                            <div class="combat-stat"><label>ARM</label><input type="number" id="combatArm2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Strength</label><input type="number" id="combatStr2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Stamina</label><input type="number" id="combatSta2" value="10" min="1" max="999"></div>
+                            <div class="combat-stat combat-stat-hp"><label>HP</label><span id="combatHpCalc2">100</span></div>
+                            <div class="combat-stat"><label>Agility</label><input type="number" id="combatAgi2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Luck</label><input type="number" id="combatLck2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>Armor</label><input type="number" id="combatArm2" value="10" min="0" max="999"></div>
                             <div class="combat-stat combat-stat-damage">
-                                <label>DMG</label>
+                                <label>Damage</label>
                                 <div class="combat-damage-inputs">
                                     <input type="number" id="combatMinDmg2" value="5" min="0" max="999" placeholder="Min">
                                     <span>-</span>
@@ -2063,7 +2058,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="combat-hp-display">HP: <span id="combatHpCalc2">100</span></div>
                         <div class="combat-talent-section">
                             <h4 class="combat-talent-heading">Talents</h4>
                             <div class="combat-talent-tree" id="combatTalentTree2"></div>

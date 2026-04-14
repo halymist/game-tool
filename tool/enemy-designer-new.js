@@ -513,6 +513,48 @@ function cancelEnemyEdit() {
 
 // ==================== TALENT TREE ====================
 
+function getPerkEffectText(perk) {
+    if (!perk) return '';
+    const effects = GlobalData.effects || [];
+    const lines = [];
+    if (perk.effect1_id) {
+        const eff = effects.find(e => e.id === perk.effect1_id);
+        if (eff) {
+            let desc = eff.description || eff.name;
+            if (desc.includes('*') && perk.factor1 != null) desc = desc.replace('*', String(perk.factor1));
+            lines.push(`${eff.name}: ${desc}`);
+        }
+    }
+    if (perk.effect2_id) {
+        const eff = effects.find(e => e.id === perk.effect2_id);
+        if (eff) {
+            let desc = eff.description || eff.name;
+            if (desc.includes('*') && perk.factor2 != null) desc = desc.replace('*', String(perk.factor2));
+            lines.push(`${eff.name}: ${desc}`);
+        }
+    }
+    return lines.join('\n');
+}
+
+function getTalentTooltip(talent) {
+    const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
+    let descText = effect?.description || talent.description || '';
+    if (talent.factor && descText.includes('*')) {
+        descText = descText.replace('*', String(talent.factor));
+    } else if (talent.factor && descText) {
+        descText = `${descText} ${talent.factor}`;
+    }
+    const cellAssigned = assignedTalents.get(talent.talentId);
+    if (cellAssigned?.perkId) {
+        const cellPerk = enemyPerks.find(p => p.id === cellAssigned.perkId);
+        if (cellPerk) {
+            const perkEffText = getPerkEffectText(cellPerk);
+            if (perkEffText) descText += `\nPerk: ${cellPerk.name}\n${perkEffText}`;
+        }
+    }
+    return descText || talent.talentName;
+}
+
 function buildTalentTreeGrid() {
     const grid = document.getElementById('talentTreeGrid');
     if (!grid) return;
@@ -536,17 +578,11 @@ function buildTalentTreeGrid() {
         cell.dataset.talentId = talent.talentId;
 
         const iconUrl = getTalentIconUrl(talent.assetId);
-        let descText = talent.description || '';
-        if (talent.factor && descText.includes('*')) {
-            descText = descText.replace('*', String(talent.factor));
-        } else if (talent.factor) {
-            descText = `${descText} ${talent.factor}`;
-        }
-        cell.title = descText || talent.talentName;
+        cell.title = getTalentTooltip(talent);
         cell.innerHTML = `
             <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
             <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
-            ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">⭐</div>' : ''}
+            ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">P</div>' : ''}
             <button type="button" class="talent-detail-btn" title="View details">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
@@ -611,11 +647,10 @@ function showTalentUpgradeModal(talent) {
             </div>
             <div class="talent-upgrade-body">
                 <p class="talent-upgrade-desc"></p>
-                <div class="talent-perk-assigned" style="display:none;"></div>
             </div>
             <div class="talent-upgrade-actions">
                 <button type="button" class="btn-upgrade" onclick="upgradeTalent(${talent.talentId})"></button>
-                <button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">⬇️ Remove Point</button>
+                <button type="button" class="btn-downgrade" onclick="downgradeTalent(${talent.talentId})">Remove Point</button>
             </div>
         </div>
     `;
@@ -639,33 +674,49 @@ function refreshTalentUpgradeModal(talent) {
     const currentPerkName = current.perkId ? (enemyPerks.find(p => p.id === current.perkId)?.name || `Perk #${current.perkId}`) : null;
     
     const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
-    let descText = effect?.description || talent.description || 'No description';
+    let descText = effect?.description || talent.description || '';
     const invested = current.points * (talent.factor || 0);
     if (descText.includes('*')) {
         descText = descText.replace('*', String(invested));
-    } else if (invested) {
+    } else if (invested && descText) {
         descText = `${descText} ${invested}`;
     }
+    if (!descText && hasPerkSlot) {
+        descText = 'Perk slot';
+    } else if (!descText) {
+        descText = talent.talentName;
+    }
     
-    // Update description
-    modal.querySelector('.talent-upgrade-desc').textContent = descText;
-    
-    // Update perk assigned
-    const perkEl = modal.querySelector('.talent-perk-assigned');
+    // Update description (includes perk info if assigned)
+    let fullDesc = descText;
     if (isMaxed && hasPerkSlot && currentPerkName) {
-        perkEl.innerHTML = `⭐ ${escapeHtml(currentPerkName)} <button type="button" class="btn-change-perk" onclick="changeTalentPerk(${talent.talentId})">Change</button>`;
-        perkEl.style.display = '';
-    } else {
-        perkEl.style.display = 'none';
+        const currentPerk = enemyPerks.find(p => p.id === current.perkId);
+        const perkEffText = getPerkEffectText(currentPerk);
+        fullDesc += `\n\nPerk: ${currentPerkName}`;
+        if (perkEffText) fullDesc += `\n${perkEffText}`;
+    }
+    const descEl = modal.querySelector('.talent-upgrade-desc');
+    descEl.innerHTML = escapeHtml(fullDesc).replace(/\n/g, '<br>');
+    
+    // Show change perk button if maxed with perk slot
+    let existingChangeBtn = modal.querySelector('.btn-change-perk');
+    if (existingChangeBtn) existingChangeBtn.remove();
+    if (isMaxed && hasPerkSlot) {
+        const changeBtn = document.createElement('button');
+        changeBtn.type = 'button';
+        changeBtn.className = 'btn-change-perk';
+        changeBtn.textContent = current.perkId ? 'Change Perk' : 'Assign Perk';
+        changeBtn.onclick = () => changeTalentPerk(talent.talentId);
+        descEl.parentNode.insertBefore(changeBtn, descEl.nextSibling);
     }
     
     // Update upgrade button — always present, just disabled when maxed
     const upgradeBtn = modal.querySelector('.btn-upgrade');
     if (canUpgrade) {
-        upgradeBtn.innerHTML = `⬆️ Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.innerHTML = `Add Point <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
         upgradeBtn.disabled = false;
     } else {
-        upgradeBtn.innerHTML = `✅ MAXED <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
+        upgradeBtn.innerHTML = `MAXED <span class="point-count">(${current.points}/${talent.maxPoints})</span>`;
         upgradeBtn.disabled = true;
     }
     
@@ -777,6 +828,9 @@ function updateTalentCellDisplay(talentId) {
         const perkIndicator = cell.querySelector('.perk-indicator');
         if (perkIndicator) perkIndicator.classList.add('assigned');
     }
+
+    // Update tooltip with perk info
+    if (talent) cell.title = getTalentTooltip(talent);
 }
 
 function loadTalentsIntoTree(talents) {
@@ -827,6 +881,7 @@ function showPerkSelectionModal(talent) {
     modal.innerHTML = `
         <div class="perk-selection-content">
             <h3>Select Perk for ${escapeHtml(talent.talentName)}</h3>
+            <div id="perkEffectPreview" class="perk-effect-preview"></div>
             <select id="perkSelect">
                 <option value="">-- No Perk --</option>
                 ${enemyPerks.map(p => `<option value="${p.id}" ${p.id === current.perkId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('')}
@@ -839,6 +894,19 @@ function showPerkSelectionModal(talent) {
     `;
     
     document.body.appendChild(modal);
+
+    // Update effect preview on perk change
+    const perkSelect = document.getElementById('perkSelect');
+    function updatePerkPreview() {
+        const preview = document.getElementById('perkEffectPreview');
+        const selectedId = perkSelect.value ? parseInt(perkSelect.value) : null;
+        if (!selectedId) { preview.innerHTML = ''; return; }
+        const perk = enemyPerks.find(p => p.id === selectedId);
+        const text = getPerkEffectText(perk);
+        preview.innerHTML = text ? escapeHtml(text).replace(/\n/g, '<br>') : '<em>No effects</em>';
+    }
+    perkSelect.addEventListener('change', updatePerkPreview);
+    updatePerkPreview(); // show current selection
 }
 
 function confirmPerkSelection(talentId) {

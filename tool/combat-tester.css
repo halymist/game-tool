@@ -13,57 +13,15 @@
 .combat-tester-container {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-    max-width: 1400px;
-    margin: 0 auto;
+    gap: 0.5rem;
+    padding: 0.5rem;
 }
-
-/* ── Toolbar ──────────────────────────────────────────── */
-.combat-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md, 8px);
-}
-
-.combat-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.combat-toolbar-actions { display: flex; gap: 0.5rem; align-items: center; }
-
-.btn-fight {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 18px;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: var(--radius-sm, 6px);
-    font-size: 0.8rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    font-family: inherit;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.btn-fight:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.03); }
-.btn-fight:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Panels ───────────────────────────────────────────── */
 .combat-panels {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    gap: 1rem;
+    gap: 2rem;
     align-items: start;
 }
 
@@ -94,28 +52,49 @@
 
 .combat-vs {
     align-self: center;
-    font-size: 1.5rem;
-    font-weight: 900;
-    color: var(--text-muted);
-    user-select: none;
-    padding-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 1rem;
 }
+
+.btn-fight {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.btn-fight:hover:not(:disabled) { background: var(--accent-hover); transform: scale(1.03); }
+.btn-fight:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ── Stats Grid ───────────────────────────────────────── */
 .combat-stats-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem 0.75rem;
 }
 
-.combat-stat { display: flex; flex-direction: column; gap: 2px; }
+.combat-stat { display: flex; flex-direction: row; align-items: center; gap: 6px; }
 
 .combat-stat label {
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    min-width: 52px;
+    white-space: nowrap;
 }
 
 .combat-stat input {
@@ -123,16 +102,28 @@
     border: 1px solid var(--border-default);
     border-radius: var(--radius-sm, 6px);
     color: var(--text-primary);
-    padding: 0.4rem 0.5rem;
-    font-size: 0.85rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.82rem;
     text-align: center;
     font-family: inherit;
-    width: 100%;
+    width: 60px;
     box-sizing: border-box;
 }
 .combat-stat input:focus { outline: none; border-color: var(--accent); }
 
-.combat-stat-damage { grid-column: 1 / -1; }
+.combat-stat-hp {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+.combat-stat-hp span {
+    color: var(--success, #22c55e);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.combat-stat-damage { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 6px; }
 
 .combat-damage-inputs { display: flex; align-items: center; gap: 4px; }
 
@@ -149,17 +140,6 @@
 }
 .combat-damage-inputs input:focus { outline: none; border-color: var(--accent); }
 .combat-damage-inputs span { color: var(--text-muted); font-size: 0.8rem; }
-
-.combat-hp-display {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-align: center;
-    padding: 0.3rem;
-    background: var(--bg-elevated);
-    border-radius: var(--radius-sm, 6px);
-}
-.combat-hp-display span { color: var(--success, #22c55e); font-weight: 700; }
 
 /* ── Compact Talent Tree ──────────────────────────────── */
 .combat-talent-section {
@@ -180,11 +160,11 @@
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     grid-template-rows: repeat(8, auto);
-    gap: 3px;
+    gap: 4px;
     background: var(--bg-base);
     border: 1px solid var(--border-default);
     border-radius: 6px;
-    padding: 0.4rem;
+    padding: 0.5rem;
     justify-items: center;
 }
 
@@ -192,12 +172,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1px;
+    gap: 2px;
 }
 
 .ct-cell {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: 4px;
@@ -213,7 +193,7 @@
 .ct-cell.maxed { border-color: var(--accent); background: rgba(59,130,246,0.14); box-shadow: 0 0 6px rgba(59,130,246,0.2); }
 .ct-cell:active { transform: scale(0.9); }
 
-.ct-icon { width: 30px; height: 30px; object-fit: contain; pointer-events: none; }
+.ct-icon { width: 36px; height: 36px; object-fit: contain; pointer-events: none; }
 
 .ct-points {
     position: absolute;
@@ -221,7 +201,7 @@
     right: 1px;
     background: rgba(0,0,0,0.65);
     color: var(--text-secondary);
-    font-size: 0.48rem;
+    font-size: 0.55rem;
     padding: 0 3px;
     border-radius: 3px;
     pointer-events: none;
@@ -230,10 +210,10 @@
 .ct-current { font-weight: 700; }
 
 .ct-label {
-    font-size: 0.48rem;
+    font-size: 0.52rem;
     color: var(--text-muted);
     text-align: center;
-    max-width: 44px;
+    max-width: 56px;
     line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -458,6 +438,12 @@
     font-size: 0.82rem;
     font-family: inherit;
     margin-bottom: 0.75rem;
+}
+.ct-perk-preview {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    min-height: 1.2em;
 }
 
 /* ── Combat Overlay ───────────────────────────────────── */

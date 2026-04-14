@@ -350,7 +350,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	}
 
 	// Fire on_start effects
-	fireStartEffects := func(char *CombatCharacter, charHP *int, charMaxHP int, opponentHP *int, opponentMaxHP int) {
+	fireStartEffects := func(char *CombatCharacter, charHP *int, charMaxHP int, charMods *CombatModifiers, charBuffs *[]TempBuff,
+		opponentHP *int, opponentMaxHP int, opponentMods *CombatModifiers, opponentBuffs *[]TempBuff) {
 		for _, eff := range collectTriggeredEffects(char, "on_start") {
 			if !checkCondition(&eff, *charHP, charMaxHP) {
 				continue
@@ -364,11 +365,19 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					*opponentHP -= val
 				}
 				combatLog = append(combatLog, logAttackEntry(0, char.CharacterID, &eff, val, "on_start"))
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+				if eff.TargetSelf {
+					applyModifier(0, char.CharacterID, charMods, charBuffs, &eff, "on_start")
+				} else {
+					applyModifier(0, char.CharacterID, opponentMods, opponentBuffs, &eff, "on_start")
+				}
 			}
 		}
 	}
-	fireStartEffects(player, &playerCurrentHP, playerMaxHP, &enemyCurrentHP, enemyMaxHP)
-	fireStartEffects(enemy, &enemyCurrentHP, enemyMaxHP, &playerCurrentHP, playerMaxHP)
+	fireStartEffects(player, &playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs,
+		&enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs)
+	fireStartEffects(enemy, &enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs,
+		&playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs)
 
 	calculateDamage := func(attacker *CombatCharacter, attackerMods *CombatModifiers) int {
 		damageRange := attacker.MaxDamage - attacker.MinDamage
@@ -428,6 +437,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					}
 				}
 				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+				if eff.TargetSelf {
+					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_start")
+				} else {
+					applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_turn_start")
+				}
 			}
 		}
 
@@ -453,6 +468,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						}
 					}
 					combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
+				case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+					if eff.TargetSelf {
+						applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_every_other_turn")
+					} else {
+						applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_every_other_turn")
+					}
 				}
 			}
 		}
@@ -721,6 +742,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					}
 				}
 				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_end"))
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+				if eff.TargetSelf {
+					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_end")
+				} else {
+					applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_turn_end")
+				}
 			}
 		}
 

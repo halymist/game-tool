@@ -390,6 +390,14 @@
 }
 .perk-selection-content select:focus { outline: none; border-color: var(--accent); }
 
+.perk-effect-preview {
+    color: var(--text-secondary); font-size: 0.75rem; line-height: 1.5;
+    margin-bottom: 0.625rem; padding: 0.5rem;
+    background: rgba(251, 191, 36, 0.06); border-radius: var(--radius-sm);
+    border: 1px solid rgba(251, 191, 36, 0.15); min-height: 1.25rem;
+}
+.perk-effect-preview:empty { display: none; }
+
 .perk-selection-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
 .perk-selection-buttons .btn-confirm {
     padding: 0.45rem 1rem; background: var(--accent); border: none;
@@ -492,16 +500,9 @@
     border: 1px solid var(--border-subtle);
 }
 
-.talent-perk-assigned {
-    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
-    color: #fbbf24; text-align: center; font-size: 0.8125rem;
-    margin-top: 0.5rem; padding: 0.4rem 0.625rem;
-    background: rgba(251, 191, 36, 0.08); border-radius: var(--radius-sm);
-    border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
 .btn-change-perk {
-    padding: 0.2rem 0.5rem; background: rgba(251, 191, 36, 0.15);
+    display: block; margin: 0.5rem auto 0; padding: 0.25rem 0.75rem;
+    background: rgba(251, 191, 36, 0.15);
     border: 1px solid rgba(251, 191, 36, 0.3); border-radius: var(--radius-sm);
     color: #fbbf24; cursor: pointer; font-size: 0.75rem; font-weight: 600;
     transition: all 0.15s;
