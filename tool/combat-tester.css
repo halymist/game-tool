@@ -903,3 +903,53 @@
     vertical-align: middle;
 }
 @keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ── Combat Statistics ────────────────────────────────── */
+.combat-stats-section {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md, 8px);
+}
+.combat-stats-header h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+.combat-stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+.combat-stats-table th {
+    padding: 4px 8px;
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.combat-stats-table th:first-child { text-align: right; color: var(--accent); }
+.combat-stats-table th:last-child  { text-align: left; color: #e67e22; }
+.combat-stats-table th:nth-child(2) { text-align: center; }
+.combat-stats-table td {
+    padding: 3px 8px;
+}
+.combat-stats-table td.stat-val {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+.combat-stats-table td.stat-val.c1 { text-align: right; }
+.combat-stats-table td.stat-val.c2 { text-align: left; }
+.combat-stats-table td.stat-label {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+}
+.combat-stats-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}

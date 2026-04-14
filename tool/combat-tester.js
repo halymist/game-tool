@@ -492,6 +492,8 @@ function closeCombatOverlay() {
     document.getElementById('combatLogEntries').innerHTML = '';
     const liveLog = document.getElementById('arenaLiveLog');
     if (liveLog) { liveLog.innerHTML = ''; liveLog.style.display = 'none'; }
+    const statsSection = document.getElementById('combatStatsSection');
+    if (statsSection) { statsSection.innerHTML = ''; statsSection.style.display = 'none'; }
 }
 
 function showOverlayEndButtons() {
@@ -509,6 +511,8 @@ function replayCombat() {
     document.getElementById('combatLogSection').style.display = 'none';
     const liveLog = document.getElementById('arenaLiveLog');
     if (liveLog) { liveLog.innerHTML = ''; liveLog.style.display = 'none'; }
+    const statsSection = document.getElementById('combatStatsSection');
+    if (statsSection) { statsSection.innerHTML = ''; statsSection.style.display = 'none'; }
     combatAnimator.play();
 }
 
@@ -876,6 +880,7 @@ class CombatAnimator {
         document.getElementById('arenaFighter2').classList.add(isC1Win ? 'defeated' : 'winner');
 
         renderCombatLog();
+        renderCombatStats();
         showOverlayEndButtons();
     }
 }
@@ -917,6 +922,60 @@ function renderCombatLog() {
         el.innerHTML = `<span class="combat-log-icon">${icon}</span><span class="combat-log-actor">${_esc(actor)}</span><span class="combat-log-desc">${desc}</span>`;
         container.appendChild(el);
     }
+}
+
+function renderCombatStats() {
+    if (!combatResult || !combatResult.stats) return;
+    const section = document.getElementById('combatStatsSection');
+    if (!section) return;
+    section.style.display = '';
+
+    const c1 = combatResult.header.combatant1;
+    const c2 = combatResult.header.combatant2;
+    const s1 = combatResult.stats.combatant1;
+    const s2 = combatResult.stats.combatant2;
+
+    const pct = (num, den) => den > 0 ? Math.round(num / den * 100) : 0;
+    const _esc = (t) => { const d = document.createElement('span'); d.textContent = t; return d.innerHTML; };
+
+    const rows = [
+        { label: 'Damage Dealt',    v1: s1.damageDealt,   v2: s2.damageDealt },
+        { label: 'Damage Taken',    v1: s1.damageTaken,   v2: s2.damageTaken },
+        { label: 'Attacks Landed',  v1: s1.attacks,       v2: s2.attacks },
+        { label: 'Crit Hits',       v1: s1.critHits,      v2: s2.critHits },
+        { label: 'Crit Rate',       v1: pct(s1.critHits, s1.attacks) + '%', v2: pct(s2.critHits, s2.attacks) + '%' },
+        { label: 'Dodged Attacks',  v1: s1.dodgedAttacks, v2: s2.dodgedAttacks },
+        { label: 'Dodge Rate',      v1: pct(s1.dodgedAttacks, s1.dodgedAttacks + s2.attacks) + '%',
+                                     v2: pct(s2.dodgedAttacks, s2.dodgedAttacks + s1.attacks) + '%' },
+        { label: 'Healing Done',    v1: s1.healingDone,   v2: s2.healingDone },
+        { label: '% Max HP Healed', v1: pct(s1.healingDone, c1.maxHp) + '%', v2: pct(s2.healingDone, c2.maxHp) + '%' },
+        { label: 'Stuns Applied',   v1: s1.stunApplied,   v2: s2.stunApplied },
+        { label: 'Times Stunned',   v1: s1.timesStunned,  v2: s2.timesStunned },
+        { label: 'Bleed Applied',   v1: s1.bleedApplied,  v2: s2.bleedApplied },
+        { label: 'Counter Hits',    v1: s1.counterHits,   v2: s2.counterHits },
+        { label: 'Double Attacks',  v1: s1.doubleAttacks, v2: s2.doubleAttacks },
+    ];
+
+    section.innerHTML = `
+        <div class="combat-stats-header">
+            <h3>Combat Statistics</h3>
+        </div>
+        <table class="combat-stats-table">
+            <thead>
+                <tr>
+                    <th>${_esc(c1.name)}</th>
+                    <th>Stat</th>
+                    <th>${_esc(c2.name)}</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(r => `<tr>
+                    <td class="stat-val c1">${r.v1}</td>
+                    <td class="stat-label">${_esc(r.label)}</td>
+                    <td class="stat-val c2">${r.v2}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>`;
 }
 
 function formatAction(action, factor, actor, opponent, esc) {

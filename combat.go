@@ -225,6 +225,20 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		return char.Stamina * 10
 	}
 
+	// Stat-comparison-based chance: base 10% at equal stat, ±1% per point difference, clamped 1-50%
+	statBasedChance := func(myStat int, theirStat int, bonusMod int) int {
+		diff := myStat - theirStat
+		chance := 10 + diff
+		chance += bonusMod
+		if chance < 1 {
+			chance = 1
+		}
+		if chance > 50 {
+			chance = 50
+		}
+		return chance
+	}
+
 	playerMaxHP := calculateMaxHP(player)
 	enemyMaxHP := calculateMaxHP(enemy)
 	playerCurrentHP := playerMaxHP - player.DepletedHealth
@@ -236,9 +250,9 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		enemyCurrentHP = 1
 	}
 
-	log.Printf("⚔️ Combat Test: %s (%d HP, dodge=%d%% crit=%d%%) vs %s (%d HP, dodge=%d%% crit=%d%%)",
-		player.CharacterName, playerCurrentHP, playerMods.DodgeChance, playerMods.CritChance,
-		enemy.CharacterName, enemyCurrentHP, enemyMods.DodgeChance, enemyMods.CritChance)
+	log.Printf("⚔️ Combat Test: %s (%d HP) vs %s (%d HP)",
+		player.CharacterName, playerCurrentHP,
+		enemy.CharacterName, enemyCurrentHP)
 
 	combatLog := []CombatLogEntry{}
 	maxTurns := 30
@@ -248,6 +262,31 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	enemyStunned := false
 	playerBleedStacks := 0
 	enemyBleedStacks := 0
+
+	// ── Statistics tracking ──────────────────────────
+	type combatStats struct {
+		DamageDealt   int `json:"damageDealt"`
+		DamageTaken   int `json:"damageTaken"`
+		HealingDone   int `json:"healingDone"`
+		Attacks       int `json:"attacks"`
+		CritHits      int `json:"critHits"`
+		DodgedAttacks int `json:"dodgedAttacks"`
+		AttacksDodged int `json:"attacksDodged"` // times this char's attack was dodged
+		StunApplied   int `json:"stunApplied"`
+		TimesStunned  int `json:"timesStunned"`
+		BleedApplied  int `json:"bleedApplied"`
+		CounterHits   int `json:"counterHits"`
+		DoubleAttacks int `json:"doubleAttacks"`
+	}
+	stats1 := &combatStats{}
+	stats2 := &combatStats{}
+
+	getStats := func(charID int) *combatStats {
+		if charID == player.CharacterID {
+			return stats1
+		}
+		return stats2
+	}
 
 	// Fire on_start effects
 	fireStartEffects := func(char *CombatCharacter, charHP *int, charMaxHP int, opponentHP *int, opponentMaxHP int) {
@@ -305,6 +344,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		attacker *CombatCharacter, attackerMods *CombatModifiers, attackerHP *int, attackerMaxHP int, attackerStunned *bool, attackerBleed *int,
 		defender *CombatCharacter, defenderMods *CombatModifiers, defenderHP *int, defenderMaxHP int, defenderStunned *bool, defenderBleed *int,
 	) {
+		aStats := getStats(attacker.CharacterID)
+
 		// on_turn_start effects
 		for _, eff := range collectTriggeredEffects(attacker, "on_turn_start") {
 			if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
@@ -315,8 +356,15 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 				if eff.TargetSelf {
 					*attackerHP -= val
+					if val < 0 {
+						aStats.HealingDone += -val
+					}
 				} else {
 					*defenderHP -= val
+					if val > 0 {
+						aStats.DamageDealt += val
+						getStats(defender.CharacterID).DamageTaken += val
+					}
 				}
 				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
 			}
@@ -333,8 +381,15 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 					if eff.TargetSelf {
 						*attackerHP -= val
+						if val < 0 {
+							aStats.HealingDone += -val
+						}
 					} else {
 						*defenderHP -= val
+						if val > 0 {
+							aStats.DamageDealt += val
+							getStats(defender.CharacterID).DamageTaken += val
+						}
 					}
 					combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
 				}
@@ -345,75 +400,60 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		if *attackerBleed > 0 {
 			bleedDmg := *attackerBleed
 			*attackerHP -= bleedDmg
+			aStats.DamageTaken += bleedDmg
 			combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedDmg})
 		}
 
 		// Stun check — character IS stunned, skips turn
 		if *attackerStunned {
 			*attackerStunned = false
+			aStats.TimesStunned++
 			combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stunned", Factor: 0})
 			goto turnEnd
 		}
 
+		// ── Perform attack (and potentially double attack) ──
 		{
-			// Dodge check
-			if defenderMods.DodgeChance > 0 && rand.Intn(100) < defenderMods.DodgeChance {
-				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "dodge", Factor: 0})
-				goto turnEnd
-			}
-
-			// Calculate base damage
-			damage := calculateDamage(attacker, attackerMods)
-
-			// Crit check
-			isCrit := false
-			if attackerMods.CritChance > 0 && rand.Intn(100) < attackerMods.CritChance {
-				isCrit = true
-				damage = damage * 2
-			}
-
-			// Apply armor
-			damage = applyArmor(damage, defender, defenderMods)
-
-			// Apply damage
-			*defenderHP -= damage
-			action := "attack"
-			if isCrit {
-				action = "crit"
-			}
-			combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: action, Factor: damage})
-
-			// on_hit effects
-			for _, eff := range collectTriggeredEffects(attacker, "on_hit") {
-				if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
-					continue
+			// Helper: perform one full attack sequence (dodge check → damage → crit → armor → on_hit → on_crit → on_hit_taken → counter)
+			performAttack := func(isDoubleAttack bool) {
+				// Dodge check — based on defender agility vs attacker agility
+				dodgeChance := statBasedChance(defender.Agility, attacker.Agility, defenderMods.DodgeChance)
+				if rand.Intn(100) < dodgeChance {
+					aStats.AttacksDodged++
+					getStats(defender.CharacterID).DodgedAttacks++
+					combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "dodge", Factor: 0})
+					return
 				}
-				switch eff.CoreEffectCode {
-				case "attack":
-					val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
-					if eff.TargetSelf {
-						*attackerHP -= val
-					} else {
-						*defenderHP -= val
-					}
-					combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_hit"))
-				case "stun":
-					if rand.Intn(100) < eff.Value {
-						*defenderStunned = true
-						eid := eff.EffectID
-						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_hit"})
-					}
-				case "bleed":
-					bleedAmount := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
-					*defenderBleed += bleedAmount
-					eid := eff.EffectID
-					combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_hit"})
-				}
-			}
 
-			// on_crit effects
-			if isCrit {
-				for _, eff := range collectTriggeredEffects(attacker, "on_crit") {
+				// Calculate base damage
+				damage := calculateDamage(attacker, attackerMods)
+
+				// Crit check — based on attacker luck vs defender luck
+				isCrit := false
+				critChance := statBasedChance(attacker.Luck, defender.Luck, attackerMods.CritChance)
+				if rand.Intn(100) < critChance {
+					isCrit = true
+					damage = damage * 2
+					aStats.CritHits++
+				}
+
+				// Apply armor
+				damage = applyArmor(damage, defender, defenderMods)
+
+				// Apply damage
+				*defenderHP -= damage
+				aStats.DamageDealt += damage
+				aStats.Attacks++
+				getStats(defender.CharacterID).DamageTaken += damage
+
+				action := "attack"
+				if isCrit {
+					action = "crit"
+				}
+				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: action, Factor: damage})
+
+				// on_hit effects
+				for _, eff := range collectTriggeredEffects(attacker, "on_hit") {
 					if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
 						continue
 					}
@@ -422,56 +462,115 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
 						if eff.TargetSelf {
 							*attackerHP -= val
+							if val < 0 {
+								aStats.HealingDone += -val
+							}
 						} else {
 							*defenderHP -= val
+							if val > 0 {
+								aStats.DamageDealt += val
+								getStats(defender.CharacterID).DamageTaken += val
+							}
 						}
-						combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_crit"))
+						combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_hit"))
 					case "stun":
 						if rand.Intn(100) < eff.Value {
 							*defenderStunned = true
+							aStats.StunApplied++
 							eid := eff.EffectID
-							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_crit"})
+							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_hit"})
 						}
 					case "bleed":
 						bleedAmount := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
 						*defenderBleed += bleedAmount
+						aStats.BleedApplied += bleedAmount
 						eid := eff.EffectID
-						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit"})
+						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_hit"})
 					}
 				}
-			}
 
-			// on_hit_taken effects (defender reacts)
-			for _, eff := range collectTriggeredEffects(defender, "on_hit_taken") {
-				if !checkCondition(&eff, *defenderHP, defenderMaxHP) {
-					continue
-				}
-				switch eff.CoreEffectCode {
-				case "attack":
-					val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
-					if eff.TargetSelf {
-						*defenderHP -= val
-					} else {
-						*attackerHP -= val
+				// on_crit effects
+				if isCrit {
+					for _, eff := range collectTriggeredEffects(attacker, "on_crit") {
+						if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
+							continue
+						}
+						switch eff.CoreEffectCode {
+						case "attack":
+							val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
+							if eff.TargetSelf {
+								*attackerHP -= val
+								if val < 0 {
+									aStats.HealingDone += -val
+								}
+							} else {
+								*defenderHP -= val
+								if val > 0 {
+									aStats.DamageDealt += val
+									getStats(defender.CharacterID).DamageTaken += val
+								}
+							}
+							combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_crit"))
+						case "stun":
+							if rand.Intn(100) < eff.Value {
+								*defenderStunned = true
+								aStats.StunApplied++
+								eid := eff.EffectID
+								combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_crit"})
+							}
+						case "bleed":
+							bleedAmount := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
+							*defenderBleed += bleedAmount
+							aStats.BleedApplied += bleedAmount
+							eid := eff.EffectID
+							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit"})
+						}
 					}
-					combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+				}
+
+				// on_hit_taken effects (defender reacts)
+				for _, eff := range collectTriggeredEffects(defender, "on_hit_taken") {
+					if !checkCondition(&eff, *defenderHP, defenderMaxHP) {
+						continue
+					}
+					switch eff.CoreEffectCode {
+					case "attack":
+						val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
+						if eff.TargetSelf {
+							*defenderHP -= val
+							if val < 0 {
+								getStats(defender.CharacterID).HealingDone += -val
+							}
+						} else {
+							*attackerHP -= val
+							if val > 0 {
+								getStats(defender.CharacterID).DamageDealt += val
+								aStats.DamageTaken += val
+							}
+						}
+						combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+					}
+				}
+
+				// Counterattack check (only on first/main attack, not double)
+				if !isDoubleAttack && defenderMods.CounterChance > 0 && rand.Intn(100) < defenderMods.CounterChance {
+					counterDmg := calculateDamage(defender, defenderMods)
+					counterDmg = applyArmor(counterDmg, attacker, attackerMods)
+					*attackerHP -= counterDmg
+					getStats(defender.CharacterID).DamageDealt += counterDmg
+					getStats(defender.CharacterID).CounterHits++
+					aStats.DamageTaken += counterDmg
+					combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "counterattack", Factor: counterDmg})
 				}
 			}
 
-			// Counterattack check
-			if defenderMods.CounterChance > 0 && rand.Intn(100) < defenderMods.CounterChance {
-				counterDmg := calculateDamage(defender, defenderMods)
-				counterDmg = applyArmor(counterDmg, attacker, attackerMods)
-				*attackerHP -= counterDmg
-				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "counterattack", Factor: counterDmg})
-			}
+			// Primary attack
+			performAttack(false)
 
-			// Double attack check
+			// Double attack check — if triggered, perform a full second attack
 			if attackerMods.DoubleAttackChance > 0 && rand.Intn(100) < attackerMods.DoubleAttackChance {
-				extraDmg := calculateDamage(attacker, attackerMods)
-				extraDmg = applyArmor(extraDmg, defender, defenderMods)
-				*defenderHP -= extraDmg
-				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "double_attack", Factor: extraDmg})
+				aStats.DoubleAttacks++
+				performAttack(true)
 			}
 		}
 
@@ -486,8 +585,15 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 				if eff.TargetSelf {
 					*attackerHP -= val
+					if val < 0 {
+						aStats.HealingDone += -val
+					}
 				} else {
 					*defenderHP -= val
+					if val > 0 {
+						aStats.DamageDealt += val
+						getStats(defender.CharacterID).DamageTaken += val
+					}
 				}
 				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_end"))
 			}
@@ -566,5 +672,9 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 			},
 		},
 		"log": combatLog,
+		"stats": map[string]interface{}{
+			"combatant1": stats1,
+			"combatant2": stats2,
+		},
 	}
 }
