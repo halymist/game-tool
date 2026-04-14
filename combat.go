@@ -74,10 +74,21 @@ type CombatModifiers struct {
 type CombatLogEntry struct {
 	Turn        int    `json:"turn"`
 	CharacterID int    `json:"characterId"`
-	Action      string `json:"action"` // attack, crit, dodge, stun, stunned, bleed, counterattack, double_attack, heal
+	Action      string `json:"action"` // attack, crit, dodge, stun, stunned, bleed, counterattack, double_attack, heal, buff, buff_expire
 	Factor      int    `json:"factor"`
 	EffectID    *int   `json:"effectId,omitempty"`
 	TriggerType string `json:"triggerType,omitempty"` // on_start, on_hit, on_crit, on_crit_taken, on_hit_taken, on_turn_start, on_turn_end, on_every_other_turn
+	Duration    *int   `json:"duration,omitempty"`    // how many turns a buff lasts (for buff/buff_expire actions)
+	BuffType    string `json:"buffType,omitempty"`    // which modifier: modify_damage, modify_dodge, modify_crit, modify_armor, modify_heal
+}
+
+// TempBuff represents a temporary modifier active for a limited number of turns
+type TempBuff struct {
+	ModifierType string // modify_damage, modify_dodge, modify_crit, modify_armor, modify_heal
+	Value        int
+	Remaining    int // turns remaining (decremented at end of owner's turn)
+	EffectID     int
+	TriggerType  string // what triggered it
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -272,6 +283,45 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	enemyBleedStacks := 0
 	playerConsecutiveHits := 0
 	enemyConsecutiveHits := 0
+	playerTempBuffs := []TempBuff{}
+	enemyTempBuffs := []TempBuff{}
+
+	// Helper: apply a modifier effect — if it has a duration, create a temp buff; otherwise apply permanently
+	applyModifier := func(turn int, charID int, mods *CombatModifiers, tempBuffs *[]TempBuff, eff *CombatTestEffect, trigger string) {
+		val := eff.Value
+		hasDuration := eff.Duration != nil && *eff.Duration > 0
+
+		if hasDuration {
+			// Create temporary buff (+1 so the application turn doesn't consume a duration tick)
+			*tempBuffs = append(*tempBuffs, TempBuff{
+				ModifierType: eff.CoreEffectCode,
+				Value:        val,
+				Remaining:    *eff.Duration + 1,
+				EffectID:     eff.EffectID,
+				TriggerType:  trigger,
+			})
+			eid := eff.EffectID
+			dur := *eff.Duration
+			combatLog = append(combatLog, CombatLogEntry{
+				Turn: turn, CharacterID: charID, Action: "buff", Factor: val,
+				EffectID: &eid, TriggerType: trigger, Duration: &dur, BuffType: eff.CoreEffectCode,
+			})
+		}
+
+		// Apply to mods immediately (temp buffs also apply right away)
+		switch eff.CoreEffectCode {
+		case "modify_damage":
+			mods.DamageModifier += val
+		case "modify_dodge":
+			mods.DodgeChance += val
+		case "modify_crit":
+			mods.CritChance += val
+		case "modify_armor":
+			mods.ArmorModifier += val
+		case "modify_heal":
+			mods.HealModifier += val
+		}
+	}
 
 	// ── Statistics tracking ──────────────────────────
 	type combatStats struct {
@@ -352,8 +402,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	}
 
 	executeTurn := func(turn int,
-		attacker *CombatCharacter, attackerMods *CombatModifiers, attackerHP *int, attackerMaxHP int, attackerStunned *bool, attackerBleed *int, attackerConsecHits *int,
-		defender *CombatCharacter, defenderMods *CombatModifiers, defenderHP *int, defenderMaxHP int, defenderStunned *bool, defenderBleed *int, defenderConsecHits *int,
+		attacker *CombatCharacter, attackerMods *CombatModifiers, attackerHP *int, attackerMaxHP int, attackerStunned *bool, attackerBleed *int, attackerConsecHits *int, attackerBuffs *[]TempBuff,
+		defender *CombatCharacter, defenderMods *CombatModifiers, defenderHP *int, defenderMaxHP int, defenderStunned *bool, defenderBleed *int, defenderConsecHits *int, defenderBuffs *[]TempBuff,
 	) {
 		aStats := getStats(attacker.CharacterID)
 
@@ -511,6 +561,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						aStats.BleedApplied += bleedAmount
 						eid := eff.EffectID
 						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_hit"})
+					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+						if eff.TargetSelf {
+							applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_hit")
+						} else {
+							applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_hit")
+						}
 					}
 				}
 
@@ -549,13 +605,11 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							aStats.BleedApplied += bleedAmount
 							eid := eff.EffectID
 							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit"})
-						case "modify_heal":
-							// Apply heal modification to defender (e.g., Crippling Precision: reduce enemy healing)
-							val := eff.Value
+						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 							if eff.TargetSelf {
-								attackerMods.HealModifier += val
+								applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_crit")
 							} else {
-								defenderMods.HealModifier += val
+								applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_crit")
 							}
 						}
 					}
@@ -582,6 +636,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							}
 						}
 						combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+						if eff.TargetSelf {
+							applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_hit_taken")
+						} else {
+							applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_hit_taken")
+						}
 					}
 				}
 
@@ -607,6 +667,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 								}
 							}
 							combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_crit_taken"))
+						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+							if eff.TargetSelf {
+								applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_crit_taken")
+							} else {
+								applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_crit_taken")
+							}
 						}
 					}
 				}
@@ -658,6 +724,37 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 			}
 		}
 
+		// Tick down temp buffs on attacker and remove expired ones
+		{
+			remaining := (*attackerBuffs)[:0]
+			for _, b := range *attackerBuffs {
+				b.Remaining--
+				if b.Remaining <= 0 {
+					// Remove the modifier
+					switch b.ModifierType {
+					case "modify_damage":
+						attackerMods.DamageModifier -= b.Value
+					case "modify_dodge":
+						attackerMods.DodgeChance -= b.Value
+					case "modify_crit":
+						attackerMods.CritChance -= b.Value
+					case "modify_armor":
+						attackerMods.ArmorModifier -= b.Value
+					case "modify_heal":
+						attackerMods.HealModifier -= b.Value
+					}
+					eid := b.EffectID
+					combatLog = append(combatLog, CombatLogEntry{
+						Turn: turn, CharacterID: attacker.CharacterID, Action: "buff_expire",
+						Factor: b.Value, EffectID: &eid, BuffType: b.ModifierType,
+					})
+				} else {
+					remaining = append(remaining, b)
+				}
+			}
+			*attackerBuffs = remaining
+		}
+
 		// Clamp HP
 		if *attackerHP > attackerMaxHP {
 			*attackerHP = attackerMaxHP
@@ -670,8 +767,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	// Combat loop
 	for turn := 1; turn <= maxTurns; turn++ {
 		executeTurn(turn,
-			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits,
-			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits,
+			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits, &playerTempBuffs,
+			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits, &enemyTempBuffs,
 		)
 		if enemyCurrentHP <= 0 {
 			winnerID = player.CharacterID
@@ -683,8 +780,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		}
 
 		executeTurn(turn,
-			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits,
-			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits,
+			enemy, &enemyMods, &enemyCurrentHP, enemyMaxHP, &enemyStunned, &enemyBleedStacks, &enemyConsecutiveHits, &enemyTempBuffs,
+			player, &playerMods, &playerCurrentHP, playerMaxHP, &playerStunned, &playerBleedStacks, &playerConsecutiveHits, &playerTempBuffs,
 		)
 		if playerCurrentHP <= 0 {
 			winnerID = enemy.CharacterID

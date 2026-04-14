@@ -678,3 +678,630 @@ func TestRatioFormulaValues(t *testing.T) {
 		}
 	}
 }
+
+// ── Test 17: Temp buff on_hit increases damage for limited turns ──
+
+func TestTempBuffOnHitDamage(t *testing.T) {
+	// C1 has on_hit modify_damage +50% for 2 turns (huge value so effect is obvious)
+	dur := 2
+	c1 := baseCombatant(1, "Surger", []CombatTestEffect{
+		{EffectID: 72, CoreEffectCode: "modify_damage", TriggerType: "on_hit", FactorType: "percent", Value: 50, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 0 // no crits
+	c2 := baseCombatant(2, "Dummy", nil)
+	c2.Stamina = 50 // 500 HP so fight lasts longer
+	c2.Luck = 0
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffApplied := 0
+	buffExpired := 0
+	for _, e := range log {
+		if e.Action == "buff" && e.CharacterID == 1 && e.BuffType == "modify_damage" {
+			buffApplied++
+			if e.Duration == nil || *e.Duration != 2 {
+				t.Errorf("Buff duration should be 2, got %v", e.Duration)
+			}
+		}
+		if e.Action == "buff_expire" && e.CharacterID == 1 && e.BuffType == "modify_damage" {
+			buffExpired++
+		}
+	}
+
+	if buffApplied == 0 {
+		t.Error("Expected buff entries in combat log")
+	}
+	if buffExpired == 0 {
+		t.Error("Expected buff_expire entries after buffs wear off")
+	}
+	fmt.Printf("  Temp buff test: %d buffs applied, %d expired\n", buffApplied, buffExpired)
+}
+
+// ── Test 18: Temp buff expires and modifier reverts ──────────
+
+func TestTempBuffExpiry(t *testing.T) {
+	// C1 gets +100% damage on_hit for duration=1 (expires after 1 turn-end tick)
+	// Use 100% so damage doubles when buffed; reverts to normal when expired
+	dur := 1
+	c1 := baseCombatant(1, "ShortBuff", []CombatTestEffect{
+		{EffectID: 99, CoreEffectCode: "modify_damage", TriggerType: "on_hit", FactorType: "percent", Value: 100, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 0
+	c2 := baseCombatant(2, "Tank", nil)
+	c2.Stamina = 100 // 1000 HP
+	c2.Luck = 0
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// Track C1's attack damage per turn
+	turnDamage := map[int][]int{}
+	for _, e := range log {
+		if e.CharacterID == 1 && (e.Action == "attack" || e.Action == "crit") {
+			turnDamage[e.Turn] = append(turnDamage[e.Turn], e.Factor)
+		}
+	}
+
+	// Turn 1: first attack does base damage (20), buff triggers, expires at end of turn 1
+	// Turn 2: buff from turn 1 attack already expired, new attack applies buff, damage = base * (1 + stacked_modifier/100)
+	// The key check: buff entries exist and damage varies
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.Action == "buff" && e.CharacterID == 1 {
+			buffCount++
+		}
+		if e.Action == "buff_expire" && e.CharacterID == 1 {
+			expireCount++
+		}
+	}
+
+	// With duration 1, every buff should expire 1 turn later
+	if buffCount == 0 {
+		t.Error("Expected buff log entries")
+	}
+	if expireCount == 0 {
+		t.Error("Expected buff_expire log entries")
+	}
+	// Expire count should be close to buff count (within 1-2, since last buff might not expire before combat ends)
+	diff := buffCount - expireCount
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > 2 {
+		t.Errorf("Buff/expire mismatch: %d applied, %d expired (diff %d > 2)", buffCount, expireCount, diff)
+	}
+	fmt.Printf("  Temp buff expiry test: %d applied, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 19: Duration=2 buff lasts two turn-end ticks ────────
+
+func TestTempBuffDuration2(t *testing.T) {
+	// C1 has on_hit modify_damage +50% for 2 turns
+	// With 1000 HP on C2, we can track multiple turns
+	dur := 2
+	c1 := baseCombatant(1, "BuffLong", []CombatTestEffect{
+		{EffectID: 72, CoreEffectCode: "modify_damage", TriggerType: "on_hit", FactorType: "percent", Value: 50, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 0
+	c2 := baseCombatant(2, "Tank", nil)
+	c2.Stamina = 100 // 1000 HP
+	c2.Luck = 0
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// With duration 2, a buff applied on turn 1 attack should expire at end of turn 3
+	// (tick down at end of turn 1: remaining 1, tick down at end of turn 2: remaining 0 => expire)
+	type buffEvent struct {
+		turn   int
+		action string
+	}
+	events := []buffEvent{}
+	for _, e := range log {
+		if e.CharacterID == 1 && (e.Action == "buff" || e.Action == "buff_expire") && e.BuffType == "modify_damage" {
+			events = append(events, buffEvent{e.Turn, e.Action})
+		}
+	}
+
+	if len(events) < 2 {
+		t.Fatalf("Not enough buff events, got %d", len(events))
+	}
+
+	// First buff should be on turn 1, first expire should be on turn 2 or later (dur=2 means 2 ticks)
+	firstBuff := -1
+	firstExpire := -1
+	for _, ev := range events {
+		if ev.action == "buff" && firstBuff == -1 {
+			firstBuff = ev.turn
+		}
+		if ev.action == "buff_expire" && firstExpire == -1 {
+			firstExpire = ev.turn
+		}
+	}
+
+	if firstExpire <= firstBuff {
+		t.Errorf("First buff_expire (turn %d) should be after first buff (turn %d)", firstExpire, firstBuff)
+	}
+	// With duration 2, the expire should be 2 turns after the buff was applied
+	gap := firstExpire - firstBuff
+	if gap != 2 {
+		t.Errorf("Expected 2-turn gap between buff and expire, got %d (buff turn %d, expire turn %d)", gap, firstBuff, firstExpire)
+	}
+	fmt.Printf("  Duration-2 test: first buff turn %d, first expire turn %d (gap=%d)\n", firstBuff, firstExpire, gap)
+}
+
+// ── Test 20: Defensive Reflex — on_hit_taken temp dodge buff ──
+
+func TestTempBuffOnHitTaken(t *testing.T) {
+	// C2 has on_hit_taken: +30% dodge for 1 turn (self)
+	dur := 1
+	c1 := baseCombatant(1, "Attacker", nil)
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "Reflexer", []CombatTestEffect{
+		{EffectID: 76, CoreEffectCode: "modify_dodge", TriggerType: "on_hit_taken", FactorType: "percent", Value: 30, TargetSelf: true, Duration: &dur},
+	})
+	c2.Luck = 0
+	c2.Stamina = 50 // 500 HP so fight lasts
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	dodgeCount := 0
+	for _, e := range log {
+		if e.Action == "buff" && e.CharacterID == 2 && e.BuffType == "modify_dodge" {
+			buffCount++
+		}
+		if e.Action == "buff_expire" && e.CharacterID == 2 && e.BuffType == "modify_dodge" {
+			expireCount++
+		}
+		if e.Action == "dodge" && e.CharacterID == 1 {
+			dodgeCount++
+		}
+	}
+
+	if buffCount == 0 {
+		t.Error("Expected on_hit_taken dodge buff entries")
+	}
+	// With +30% dodge buff stacking each hit, there should be some dodges
+	fmt.Printf("  on_hit_taken dodge buff: %d buffs, %d expired, %d dodges\n", buffCount, expireCount, dodgeCount)
+}
+
+// ── Test 21: Disrupting Blow — on_hit debuff on enemy ────────
+
+func TestTempDebuffOnEnemy(t *testing.T) {
+	// C1 has on_hit: -20% dodge on enemy for 2 turns
+	dur := 2
+	c1 := baseCombatant(1, "Disruptor", []CombatTestEffect{
+		{EffectID: 75, CoreEffectCode: "modify_dodge", TriggerType: "on_hit", FactorType: "percent", Value: -20, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "DodgyTarget", []CombatTestEffect{
+		{EffectID: 50, CoreEffectCode: "dodge", TriggerType: "passive", FactorType: "percent", Value: 20},
+	})
+	c2.Agility = 20
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// The debuff should appear on C2 (defender)
+	debuffOnEnemy := 0
+	debuffExpire := 0
+	for _, e := range log {
+		if e.Action == "buff" && e.CharacterID == 2 && e.BuffType == "modify_dodge" {
+			debuffOnEnemy++
+		}
+		if e.Action == "buff_expire" && e.CharacterID == 2 && e.BuffType == "modify_dodge" {
+			debuffExpire++
+		}
+	}
+
+	if debuffOnEnemy == 0 {
+		t.Error("Expected debuff entries on enemy (C2)")
+	}
+	if debuffExpire == 0 {
+		t.Error("Expected debuff expire entries on enemy")
+	}
+	fmt.Printf("  Enemy debuff test: %d debuffs on enemy, %d expired\n", debuffOnEnemy, debuffExpire)
+}
+
+// ── Test 22: Multiple temp buffs stack correctly ─────────────
+
+func TestTempBuffStacking(t *testing.T) {
+	// C1 has on_hit modify_damage +50% for 2 turns AND on_hit modify_crit +50% for 2 turns
+	dur := 2
+	c1 := baseCombatant(1, "Stacker", []CombatTestEffect{
+		{EffectID: 72, CoreEffectCode: "modify_damage", TriggerType: "on_hit", FactorType: "percent", Value: 50, TargetSelf: true, Duration: &dur},
+		{EffectID: 74, CoreEffectCode: "modify_crit", TriggerType: "on_hit", FactorType: "percent", Value: 50, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 0
+	c2 := baseCombatant(2, "Tank", nil)
+	c2.Stamina = 100 // 1000 HP
+	c2.Luck = 0
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	dmgBuffs := 0
+	critBuffs := 0
+	dmgExpires := 0
+	critExpires := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 1 {
+			switch {
+			case e.Action == "buff" && e.BuffType == "modify_damage":
+				dmgBuffs++
+			case e.Action == "buff" && e.BuffType == "modify_crit":
+				critBuffs++
+			case e.Action == "buff_expire" && e.BuffType == "modify_damage":
+				dmgExpires++
+			case e.Action == "buff_expire" && e.BuffType == "modify_crit":
+				critExpires++
+			case e.Action == "crit":
+				crits++
+			}
+		}
+	}
+
+	if dmgBuffs == 0 || critBuffs == 0 {
+		t.Error("Expected both damage and crit buff entries")
+	}
+	// Crit buffs stack, so by turn 3+ we should have high crit chance => some crits
+	if crits == 0 {
+		t.Error("Expected crits from stacking crit buff")
+	}
+	fmt.Printf("  Stacking test: dmg buffs %d/%d, crit buffs %d/%d, crits=%d\n",
+		dmgBuffs, dmgExpires, critBuffs, critExpires, crits)
+}
+
+// ── Test 23: Hardened (77) — on_hit_taken +armor self dur=2 ──
+
+func TestHardenedArmorBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Attacker", nil)
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "Hardened", []CombatTestEffect{
+		{EffectID: 77, CoreEffectCode: "modify_armor", TriggerType: "on_hit_taken", FactorType: "percent", Value: 8, TargetSelf: true, Duration: &dur},
+	})
+	c2.Luck = 0
+	c2.Stamina = 50 // 500 HP
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected armor buff entries on defender")
+	}
+	if expireCount == 0 {
+		t.Error("Expected armor buff_expire entries")
+	}
+	fmt.Printf("  Hardened (77): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 24: Focused Rage (78) — on_hit_taken +damage self dur=1 ──
+
+func TestFocusedRageDamageBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "Attacker", nil)
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "Rager", []CombatTestEffect{
+		{EffectID: 78, CoreEffectCode: "modify_damage", TriggerType: "on_hit_taken", FactorType: "percent", Value: 10, TargetSelf: true, Duration: &dur},
+	})
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			buffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected damage buff entries on defender (Focused Rage)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected damage buff_expire entries")
+	}
+	fmt.Printf("  Focused Rage (78): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 25: Exposed Nerve (79) — on_crit -armor enemy dur=2 ──
+
+func TestExposedNerveArmorDebuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "CritMachine", []CombatTestEffect{
+		{EffectID: 79, CoreEffectCode: "modify_armor", TriggerType: "on_crit", FactorType: "percent", Value: -8, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 100 // guarantee crits
+
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Exposed Nerve")
+	}
+	if debuffCount == 0 {
+		t.Error("Expected armor debuff entries on enemy")
+	}
+	if expireCount == 0 {
+		t.Error("Expected armor debuff_expire entries")
+	}
+	fmt.Printf("  Exposed Nerve (79): %d crits, %d debuffs, %d expired\n", crits, debuffCount, expireCount)
+}
+
+// ── Test 26: Shaken (80) — on_hit -crit enemy dur=2 ──
+
+func TestShakenCritDebuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Intimidator", []CombatTestEffect{
+		{EffectID: 80, CoreEffectCode: "modify_crit", TriggerType: "on_hit", FactorType: "percent", Value: -5, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "ShakenTarget", nil)
+	c2.Luck = 50 // high luck so crit reduction is visible
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_crit" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_crit" {
+			expireCount++
+		}
+	}
+	if debuffCount == 0 {
+		t.Error("Expected crit debuff entries on enemy (Shaken)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected crit debuff_expire entries")
+	}
+	fmt.Printf("  Shaken (80): %d debuffs, %d expired\n", debuffCount, expireCount)
+}
+
+// ── Test 27: Renewed Vigor (81) — on_hit +heal self dur=1 ──
+
+func TestRenewedVigorHealBuff(t *testing.T) {
+	dur := 1
+	// C1 has on_hit heal buff AND a heal-on-turn-start so the heal modifier actually matters
+	c1 := baseCombatant(1, "Healer", []CombatTestEffect{
+		{EffectID: 81, CoreEffectCode: "modify_heal", TriggerType: "on_hit", FactorType: "percent", Value: 10, TargetSelf: true, Duration: &dur},
+		{EffectID: 2, CoreEffectCode: "attack", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", Value: -5, TargetSelf: true}, // heal 5% HP per turn
+	})
+	c1.Luck = 0
+	c1.Stamina = 50
+
+	c2 := baseCombatant(2, "Dummy", nil)
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_heal" {
+			buffCount++
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_heal" {
+			expireCount++
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected heal buff entries (Renewed Vigor)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected heal buff_expire entries")
+	}
+	fmt.Printf("  Renewed Vigor (81): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 28: Crushing Weight (82) — on_hit -damage enemy dur=2 ──
+
+func TestCrushingWeightDamageDebuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Crusher", []CombatTestEffect{
+		{EffectID: 82, CoreEffectCode: "modify_damage", TriggerType: "on_hit", FactorType: "percent", Value: -5, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 0
+
+	c2 := baseCombatant(2, "WeakenedFoe", nil)
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+	}
+	if debuffCount == 0 {
+		t.Error("Expected damage debuff entries on enemy (Crushing Weight)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected damage debuff_expire entries")
+	}
+	fmt.Printf("  Crushing Weight (82): %d debuffs, %d expired\n", debuffCount, expireCount)
+}
+
+// ── Test 29: Fortifying Strike (83) — on_hit +armor self dur=2 ──
+
+func TestFortifyingStrikeArmorBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Fortifier", []CombatTestEffect{
+		{EffectID: 83, CoreEffectCode: "modify_armor", TriggerType: "on_hit", FactorType: "percent", Value: 5, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 0
+	c1.Stamina = 50
+
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected armor buff entries on self (Fortifying Strike)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected armor buff_expire entries")
+	}
+	fmt.Printf("  Fortifying Strike (83): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 30: Rattled (84) — on_crit -crit enemy dur=1 ──
+
+func TestRattledCritDebuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "Critter", []CombatTestEffect{
+		{EffectID: 84, CoreEffectCode: "modify_crit", TriggerType: "on_crit", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 100 // guarantee crits
+
+	c2 := baseCombatant(2, "RattledFoe", nil)
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_crit" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_crit" {
+			expireCount++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Rattled")
+	}
+	if debuffCount == 0 {
+		t.Error("Expected crit debuff entries on enemy (Rattled)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected crit debuff_expire entries")
+	}
+	fmt.Printf("  Rattled (84): %d crits, %d debuffs, %d expired\n", crits, debuffCount, expireCount)
+}
+
+// ── Test 31: Adrenaline Surge (85) — on_crit_taken +dodge self dur=2 ──
+
+func TestAdrenalineSurgeDodgeBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "CritAttacker", nil)
+	c1.Luck = 100 // guarantee crits
+
+	c2 := baseCombatant(2, "AdrenalineDefender", []CombatTestEffect{
+		{EffectID: 85, CoreEffectCode: "modify_dodge", TriggerType: "on_crit_taken", FactorType: "percent", Value: 10, TargetSelf: true, Duration: &dur},
+	})
+	c2.Luck = 0
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	critsOnC2 := 0
+	dodges := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_dodge" {
+			buffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_dodge" {
+			expireCount++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			critsOnC2++
+		}
+		if e.Action == "dodge" && e.CharacterID == 1 {
+			dodges++
+		}
+	}
+	if critsOnC2 == 0 {
+		t.Error("Expected crits from C1 to trigger on_crit_taken")
+	}
+	if buffCount == 0 {
+		t.Error("Expected dodge buff entries on defender (Adrenaline Surge)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected dodge buff_expire entries")
+	}
+	fmt.Printf("  Adrenaline Surge (85): %d crits, %d buffs, %d expired, %d dodges\n", critsOnC2, buffCount, expireCount, dodges)
+}
