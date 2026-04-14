@@ -531,10 +531,13 @@ body {
     padding: 12px !important;
 }
 
-/* Combat tester - full width */
+/* Combat tester - full width, full height */
 #combat-content {
     max-width: none !important;
     padding: 12px !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden !important;
 }
 
 .page-header {

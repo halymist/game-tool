@@ -2024,7 +2024,6 @@
                             </div>
                         </div>
                         <div class="combat-talent-section">
-                            <h4 class="combat-talent-heading">Talents</h4>
                             <div class="combat-talent-tree" id="combatTalentTree1"></div>
                         </div>
                     </div>
@@ -2059,7 +2058,6 @@
                             </div>
                         </div>
                         <div class="combat-talent-section">
-                            <h4 class="combat-talent-heading">Talents</h4>
                             <div class="combat-talent-tree" id="combatTalentTree2"></div>
                         </div>
                     </div>
@@ -2253,7 +2251,7 @@
             // Show selected page content
             const targetElement = document.getElementById(page.element);
             if (targetElement) {
-                targetElement.style.display = 'block';
+                targetElement.style.display = '';
                 
                 // If showing the talent editor, initialize once (init calls loadTalentEditorData internally)
                 if (pageName === 'talents') {
