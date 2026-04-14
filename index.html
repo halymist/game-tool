@@ -1999,7 +1999,17 @@
 
         <!-- Combat Tester Section -->
         <div id="combat-content" class="page-content" style="display: none;">
-            <div class="combat-tester-container">
+            <div class="combat-layout">
+                <!-- Left Sidebar -->
+                <div class="combat-sidebar">
+                    <button type="button" class="combat-sidebar-btn active" data-combat-tab="test">Test</button>
+                    <button type="button" class="combat-sidebar-btn" data-combat-tab="test2">Test2</button>
+                    <button type="button" class="combat-sidebar-btn" data-combat-tab="bulk">Bulk</button>
+                </div>
+
+                <!-- Tab: Test (default) -->
+                <div class="combat-tab-content active" id="combatTabTest" data-combat-tab="test">
+                    <div class="combat-tester-container">
                 <!-- Combatant Panels -->
                 <div class="combat-panels">
                     <!-- Combatant 1 -->
@@ -2134,7 +2144,20 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div><!-- /combat-tester-container -->
+        </div><!-- /combatTabTest -->
+
+        <!-- Tab: Test2 -->
+        <div class="combat-tab-content" id="combatTabTest2" data-combat-tab="test2">
+            <div class="combat-tab-placeholder">Test2 — coming soon</div>
+        </div>
+
+        <!-- Tab: Bulk -->
+        <div class="combat-tab-content" id="combatTabBulk" data-combat-tab="bulk">
+            <div class="combat-tab-placeholder">Bulk — coming soon</div>
+        </div>
+
+            </div><!-- /combat-layout -->
         </div>
 
         <!-- Asset Gallery Overlay -->

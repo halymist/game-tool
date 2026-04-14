@@ -1431,3 +1431,537 @@ func TestEveryOtherTurnArmorBuff(t *testing.T) {
 	}
 	fmt.Printf("  Pulsing Ward (on_every_other_turn modify_armor): %d buffs\n", buffCount)
 }
+
+// ── Test 36: Warding Fury (98) — on_crit +armor self dur=2 ──
+
+func TestWardingFuryArmorBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "WardingFury", []CombatTestEffect{
+		{EffectID: 98, CoreEffectCode: "modify_armor", TriggerType: "on_crit", FactorType: "percent", Value: 15, TargetSelf: true, Duration: &dur},
+	})
+	c1.Luck = 100 // guarantee crits
+	c1.Armor = 5
+	c1.Stamina = 50 // long fight so buff can expire
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Warding Fury")
+	}
+	if buffCount == 0 {
+		t.Error("Expected armor buff entries on self (Warding Fury)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected armor buff_expire entries")
+	}
+	fmt.Printf("  Warding Fury (98): %d crits, %d buffs, %d expired\n", crits, buffCount, expireCount)
+}
+
+// ── Test 37: Bloodlust Debuff (99) — on_crit -damage enemy dur=2 ──
+
+func TestBloodlustDebuffOnCrit(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Bloodlust", []CombatTestEffect{
+		{EffectID: 99, CoreEffectCode: "modify_damage", TriggerType: "on_crit", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur},
+	})
+	c1.Luck = 100 // guarantee crits
+	c2 := baseCombatant(2, "DebuffedFoe", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Bloodlust Debuff")
+	}
+	if debuffCount == 0 {
+		t.Error("Expected damage debuff entries on enemy (Bloodlust Debuff)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected damage debuff_expire entries")
+	}
+	fmt.Printf("  Bloodlust Debuff (99): %d crits, %d debuffs, %d expired\n", crits, debuffCount, expireCount)
+}
+
+// ── Test 38: Recovery Instinct (100) — on_hit_taken +heal self dur=2 ──
+
+func TestRecoveryInstinctHealBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Attacker", nil)
+	c2 := baseCombatant(2, "Resilient", []CombatTestEffect{
+		{EffectID: 100, CoreEffectCode: "modify_heal", TriggerType: "on_hit_taken", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_heal" {
+			buffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_heal" {
+			expireCount++
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected heal buff entries on self (Recovery Instinct)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected heal buff_expire entries")
+	}
+	fmt.Printf("  Recovery Instinct (100): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 39: Feinting Dodge (101) — on_every_other_turn +dodge self dur=1 ──
+
+func TestFeintingDodgeBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "FeintDodge", []CombatTestEffect{
+		{EffectID: 101, CoreEffectCode: "modify_dodge", TriggerType: "on_every_other_turn", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	buffTurns := []int{}
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_dodge" {
+			buffCount++
+			buffTurns = append(buffTurns, e.Turn)
+		}
+	}
+	for _, turn := range buffTurns {
+		if turn%2 != 1 {
+			t.Errorf("on_every_other_turn dodge buff fired on even turn %d", turn)
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected at least 1 every-other-turn dodge buff")
+	}
+	fmt.Printf("  Feinting Dodge (101): %d buffs on turns %v\n", buffCount, buffTurns)
+}
+
+// ── Test 40: Precision Pulse (102) — on_every_other_turn +crit self dur=1 ──
+
+func TestPrecisionPulseCritBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "PrecPulse", []CombatTestEffect{
+		{EffectID: 102, CoreEffectCode: "modify_crit", TriggerType: "on_every_other_turn", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	buffTurns := []int{}
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_crit" {
+			buffCount++
+			buffTurns = append(buffTurns, e.Turn)
+		}
+	}
+	for _, turn := range buffTurns {
+		if turn%2 != 1 {
+			t.Errorf("on_every_other_turn crit buff fired on even turn %d", turn)
+		}
+	}
+	if buffCount == 0 {
+		t.Error("Expected at least 1 every-other-turn crit buff")
+	}
+	fmt.Printf("  Precision Pulse (102): %d buffs on turns %v\n", buffCount, buffTurns)
+}
+
+// ── Test 41: Opening Dodge (103) — on_start +dodge self dur=2 ──
+
+func TestOpeningDodgeBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "OpenDodge", []CombatTestEffect{
+		{EffectID: 103, CoreEffectCode: "modify_dodge", TriggerType: "on_start", FactorType: "percent", Value: 15, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_dodge" {
+			buffCount++
+			if e.Turn != 0 {
+				t.Errorf("on_start dodge buff expected at turn 0, got turn %d", e.Turn)
+			}
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_dodge" {
+			expireCount++
+		}
+	}
+	if buffCount != 1 {
+		t.Errorf("Expected exactly 1 on_start dodge buff, got %d", buffCount)
+	}
+	if expireCount != 1 {
+		t.Errorf("Expected exactly 1 dodge buff_expire, got %d", expireCount)
+	}
+	fmt.Printf("  Opening Dodge (103): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 42: Opening Crit (104) — on_start +crit self dur=2 ──
+
+func TestOpeningCritBuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "OpenCrit", []CombatTestEffect{
+		{EffectID: 104, CoreEffectCode: "modify_crit", TriggerType: "on_start", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_crit" {
+			buffCount++
+			if e.Turn != 0 {
+				t.Errorf("on_start crit buff expected at turn 0, got turn %d", e.Turn)
+			}
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_crit" {
+			expireCount++
+		}
+	}
+	if buffCount != 1 {
+		t.Errorf("Expected exactly 1 on_start crit buff, got %d", buffCount)
+	}
+	if expireCount != 1 {
+		t.Errorf("Expected exactly 1 crit buff_expire, got %d", expireCount)
+	}
+	fmt.Printf("  Opening Crit (104): %d buffs, %d expired\n", buffCount, expireCount)
+}
+
+// ── Test 43: Weakening Aura (105) — on_start -damage enemy dur=2 ──
+
+func TestWeakeningAuraDebuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Weakener", []CombatTestEffect{
+		{EffectID: 105, CoreEffectCode: "modify_damage", TriggerType: "on_start", FactorType: "percent", Value: -15, TargetSelf: false, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "WeakenedFoe", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		// Engine logs on_start debuff with caster's (C1) CharacterID even though it targets enemy mods
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_damage" && e.TriggerType == "on_start" {
+			debuffCount++
+			if e.Turn != 0 {
+				t.Errorf("on_start damage debuff expected at turn 0, got turn %d", e.Turn)
+			}
+		}
+		if e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+	}
+	if debuffCount != 1 {
+		t.Errorf("Expected exactly 1 on_start damage debuff, got %d", debuffCount)
+	}
+	if expireCount != 1 {
+		t.Errorf("Expected exactly 1 damage debuff_expire, got %d", expireCount)
+	}
+	fmt.Printf("  Weakening Aura (105): %d debuffs, %d expired\n", debuffCount, expireCount)
+}
+
+// ── Test 44: Shattering Start (106) — on_start -armor enemy dur=2 ──
+
+func TestShatteringStartDebuff(t *testing.T) {
+	dur := 2
+	c1 := baseCombatant(1, "Shatterer", []CombatTestEffect{
+		{EffectID: 106, CoreEffectCode: "modify_armor", TriggerType: "on_start", FactorType: "percent", Value: -20, TargetSelf: false, Duration: &dur},
+	})
+	c2 := baseCombatant(2, "ArmoredFoe", nil)
+	c2.Armor = 10
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	for _, e := range log {
+		// Engine logs on_start debuff with caster's (C1) CharacterID even though it targets enemy mods
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" && e.TriggerType == "on_start" {
+			debuffCount++
+			if e.Turn != 0 {
+				t.Errorf("on_start armor debuff expected at turn 0, got turn %d", e.Turn)
+			}
+		}
+		if e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+	}
+	if debuffCount != 1 {
+		t.Errorf("Expected exactly 1 on_start armor debuff, got %d", debuffCount)
+	}
+	if expireCount != 1 {
+		t.Errorf("Expected exactly 1 armor debuff_expire, got %d", expireCount)
+	}
+	fmt.Printf("  Shattering Start (106): %d debuffs, %d expired\n", debuffCount, expireCount)
+}
+
+// ── Test 45: Dulling Retaliation (107) — on_crit_taken -damage enemy dur=2 ──
+
+func TestDullingRetaliationDebuff(t *testing.T) {
+	dur := 2
+	// C1 has the effect, C2 always crits → triggers on_crit_taken on C1
+	c1 := baseCombatant(1, "DullRetaliator", []CombatTestEffect{
+		{EffectID: 107, CoreEffectCode: "modify_damage", TriggerType: "on_crit_taken", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "CritAttacker", nil)
+	c2.Luck = 100 // guarantee crits
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffCount := 0
+	expireCount := 0
+	critsOnC1 := 0
+	for _, e := range log {
+		// Debuff applied on C2 (the critter = "enemy" from C1's perspective)
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_damage" {
+			debuffCount++
+		}
+		if e.CharacterID == 2 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expireCount++
+		}
+		if e.CharacterID == 2 && e.Action == "crit" {
+			critsOnC1++
+		}
+	}
+	if critsOnC1 == 0 {
+		t.Error("Expected crits from C2 to trigger on_crit_taken")
+	}
+	if debuffCount == 0 {
+		t.Error("Expected damage debuff entries on C2 (Dulling Retaliation)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected damage debuff_expire entries")
+	}
+	fmt.Printf("  Dulling Retaliation (107): %d crits on C1, %d debuffs on C2, %d expired\n", critsOnC1, debuffCount, expireCount)
+}
+
+// ── Test 46: Crit Armor (108) — on_crit_taken +armor self dur=2 ──
+
+func TestCritArmorBuff(t *testing.T) {
+	dur := 2
+	// C1 has the effect, C2 always crits → triggers on_crit_taken on C1
+	c1 := baseCombatant(1, "CritArmored", []CombatTestEffect{
+		{EffectID: 108, CoreEffectCode: "modify_armor", TriggerType: "on_crit_taken", FactorType: "percent", Value: 15, TargetSelf: true, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c1.Armor = 5
+	c2 := baseCombatant(2, "CritAttacker", nil)
+	c2.Luck = 100 // guarantee crits
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffCount := 0
+	expireCount := 0
+	critsOnC1 := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" {
+			buffCount++
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_armor" {
+			expireCount++
+		}
+		if e.CharacterID == 2 && e.Action == "crit" {
+			critsOnC1++
+		}
+	}
+	if critsOnC1 == 0 {
+		t.Error("Expected crits from C2 to trigger on_crit_taken")
+	}
+	if buffCount == 0 {
+		t.Error("Expected armor buff entries on C1 (Crit Armor)")
+	}
+	if expireCount == 0 {
+		t.Error("Expected armor buff_expire entries")
+	}
+	fmt.Printf("  Crit Armor (108): %d crits on C1, %d buffs, %d expired\n", critsOnC1, buffCount, expireCount)
+}
+
+// ── Test 47: Finishing Blow (109) — on_turn_end attack enemy %maxhp ──
+
+func TestFinishingBlowTurnEndDamage(t *testing.T) {
+	// C1 deals 5% of own maxHP to enemy every turn end
+	c1 := baseCombatant(1, "Finisher", []CombatTestEffect{
+		{EffectID: 109, CoreEffectCode: "attack", TriggerType: "on_turn_end", FactorType: "percent_of_max_hp", Value: 5, TargetSelf: false},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// 5% of 100 maxHP = 5 damage per turn end
+	turnEndDmg := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "attack" && e.TriggerType == "on_turn_end" {
+			turnEndDmg++
+			if e.Factor != 5 {
+				t.Errorf("Finishing Blow damage: got %d, want 5 (5%% of 100 HP)", e.Factor)
+			}
+		}
+	}
+	if turnEndDmg == 0 {
+		t.Error("Expected on_turn_end attack entries (Finishing Blow)")
+	}
+	stats := extractStats(result, "combatant1")
+	fmt.Printf("  Finishing Blow (109): %d turn-end attacks, total damage: %.0f\n", turnEndDmg, stats["damageDealt"].(float64))
+}
+
+// ── Test 48: Draining Presence (110) — on_turn_end heal self %missinghp ──
+
+func TestDrainingPresenceTurnEndHeal(t *testing.T) {
+	// C1 heals 15% of missing HP at turn end
+	c1 := baseCombatant(1, "Drainer", []CombatTestEffect{
+		{EffectID: 110, CoreEffectCode: "attack", TriggerType: "on_turn_end", FactorType: "percent_of_missing_hp", TargetSelf: true, Value: -15},
+	})
+	c1.DepletedHealth = 50 // Start at 50/100 HP so there's missing HP to heal from
+	c2 := baseCombatant(2, "Attacker", nil)
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	heals := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "heal" && e.TriggerType == "on_turn_end" {
+			heals++
+		}
+	}
+	if heals == 0 {
+		t.Error("Expected on_turn_end heal entries (Draining Presence)")
+	}
+	stats := extractStats(result, "combatant1")
+	fmt.Printf("  Draining Presence (110): %d heals, total healing: %.0f\n", heals, stats["healingDone"].(float64))
+}
+
+// ── Test 49: Attrition (111) — on_every_other_turn attack enemy %maxhp ──
+
+func TestAttritionEveryOtherTurnDamage(t *testing.T) {
+	// C1 deals 8% of own maxHP to enemy on odd turns
+	c1 := baseCombatant(1, "Attrition", []CombatTestEffect{
+		{EffectID: 111, CoreEffectCode: "attack", TriggerType: "on_every_other_turn", FactorType: "percent_of_max_hp", Value: 8, TargetSelf: false},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// 8% of 100 maxHP = 8 damage per odd turn
+	eotDmg := 0
+	eotTurns := []int{}
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "attack" && e.TriggerType == "on_every_other_turn" {
+			eotDmg++
+			eotTurns = append(eotTurns, e.Turn)
+			if e.Factor != 8 {
+				t.Errorf("Attrition damage: got %d, want 8 (8%% of 100 HP)", e.Factor)
+			}
+		}
+	}
+	for _, turn := range eotTurns {
+		if turn%2 != 1 {
+			t.Errorf("Attrition attack fired on even turn %d", turn)
+		}
+	}
+	if eotDmg == 0 {
+		t.Error("Expected on_every_other_turn attack entries (Attrition)")
+	}
+	fmt.Printf("  Attrition (111): %d attacks on turns %v\n", eotDmg, eotTurns)
+}
+
+// ── Test 50: Crit Leech (112) — on_crit heal self %dmg_dealt ──
+
+func TestCritLeechHeal(t *testing.T) {
+	// C1 heals 20% of damage dealt on crit
+	c1 := baseCombatant(1, "CritLeech", []CombatTestEffect{
+		{EffectID: 112, CoreEffectCode: "attack", TriggerType: "on_crit", FactorType: "percent_of_damage_dealt", TargetSelf: true, Value: -20},
+	})
+	c1.Luck = 100          // guarantee crits
+	c1.Stamina = 50        // long fight so multiple crits land
+	c1.DepletedHealth = 30 // start with missing HP so heals are visible
+
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	critHeals := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "heal" && e.TriggerType == "on_crit" {
+			critHeals++
+			// 20% of ~30 crit damage = ~6 heal
+			if e.Factor <= 0 {
+				t.Errorf("Expected positive heal factor, got %d", e.Factor)
+			}
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits from C1 with high luck")
+	}
+	if critHeals == 0 {
+		t.Error("Expected on_crit heal entries (Crit Leech)")
+	}
+	stats := extractStats(result, "combatant1")
+	fmt.Printf("  Crit Leech (112): %d crits, %d heals, total healing: %.0f\n", crits, critHeals, stats["healingDone"].(float64))
+}

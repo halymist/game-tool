@@ -42,6 +42,18 @@ if (document.readyState === 'loading') {
 function initCombatTester() {
     console.log('⚔️ Initializing Combat Tester...');
 
+    // Sidebar tab switching
+    document.querySelectorAll('.combat-sidebar-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.combatTab;
+            document.querySelectorAll('.combat-sidebar-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.combat-tab-content').forEach(el => el.classList.remove('active'));
+            const target = document.querySelector(`.combat-tab-content[data-combat-tab="${tab}"]`);
+            if (target) target.classList.add('active');
+        });
+    });
+
     document.getElementById('combatFightBtn').addEventListener('click', runCombat);
 
     // HP calc on stamina change

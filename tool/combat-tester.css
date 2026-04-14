@@ -10,6 +10,65 @@
     max-width: 95%;
 }
 
+/* ── Layout: sidebar + content ────────────────────────── */
+.combat-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+}
+
+.combat-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.5rem 0.4rem;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-subtle);
+    min-width: 56px;
+}
+
+.combat-sidebar-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 6px);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.12s ease;
+    white-space: nowrap;
+}
+.combat-sidebar-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+.combat-sidebar-btn.active {
+    color: var(--accent);
+    background: rgba(59,130,246,0.08);
+    border-color: var(--accent);
+}
+
+.combat-tab-content {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+}
+.combat-tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.combat-tab-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
 .combat-tester-container {
     display: flex;
     flex-direction: column;
