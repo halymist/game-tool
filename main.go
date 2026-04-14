@@ -271,6 +271,9 @@ func main() {
 	http.HandleFunc("/api/uploadCosmetic", corsHandler(handleUploadCosmetic))
 	http.HandleFunc("/api/getCosmeticAssets", corsHandler(CreateGetAssetsHandler("cosmetics")))
 
+	// Combat tester endpoint
+	http.HandleFunc("/api/testCombat", corsHandler(handleTestCombat))
+
 	port := envOrDefault("PORT", "3030")
 	fmt.Printf("Server starting on :%s\n", port)
 	fmt.Println("Available endpoints:")

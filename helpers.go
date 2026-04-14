@@ -14,11 +14,18 @@ import (
 
 // Effect represents the database structure for effects (game.effects)
 type Effect struct {
-	ID          int     `json:"id" db:"effect_id"`
-	Name        string  `json:"name" db:"name"`
-	Slot        *string `json:"slot" db:"slot"`
-	Factor      int     `json:"factor" db:"factor"`
-	Description string  `json:"description" db:"description"`
+	ID             int     `json:"id" db:"effect_id"`
+	Name           string  `json:"name" db:"name"`
+	Slot           *string `json:"slot" db:"slot"`
+	Factor         int     `json:"factor" db:"factor"`
+	Description    string  `json:"description" db:"description"`
+	CoreEffectCode *string `json:"coreEffectCode,omitempty"`
+	TriggerType    *string `json:"triggerType,omitempty"`
+	FactorType     *string `json:"factorType,omitempty"`
+	TargetSelf     *bool   `json:"targetSelf,omitempty"`
+	ConditionType  *string `json:"conditionType,omitempty"`
+	ConditionValue *int    `json:"conditionValue,omitempty"`
+	Duration       *int    `json:"duration,omitempty"`
 }
 
 // getNextAssetID returns the next available assetID from the database
@@ -87,7 +94,12 @@ func getAllEffects() ([]Effect, error) {
 		return nil, fmt.Errorf("database not available")
 	}
 
-	query := `SELECT effect_id, name, slot, factor, description FROM game.effects ORDER BY effect_id`
+	query := `SELECT e.effect_id, e.name, e.slot, e.factor, e.description,
+		ce.code, e.trigger_type, e.factor_type, e.target_self,
+		e.condition_type, e.condition_value, e.duration
+		FROM game.effects e
+		LEFT JOIN game.core_effects ce ON e.core_effect_id = ce.core_effect_id
+		ORDER BY e.effect_id`
 	rows, err := db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying effects: %v", err)
@@ -99,7 +111,9 @@ func getAllEffects() ([]Effect, error) {
 		var effect Effect
 		var slot *string
 
-		err := rows.Scan(&effect.ID, &effect.Name, &slot, &effect.Factor, &effect.Description)
+		err := rows.Scan(&effect.ID, &effect.Name, &slot, &effect.Factor, &effect.Description,
+			&effect.CoreEffectCode, &effect.TriggerType, &effect.FactorType, &effect.TargetSelf,
+			&effect.ConditionType, &effect.ConditionValue, &effect.Duration)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning effect row: %v", err)
 		}

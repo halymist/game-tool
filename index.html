@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="/static/chat-moderation.css">
     <link rel="stylesheet" href="/static/concept-designer.css">
     <link rel="stylesheet" href="/static/cosmetic-designer.css">
+    <link rel="stylesheet" href="/static/combat-tester.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -81,6 +82,10 @@
                     <a href="#" onclick="showPage('cosmetics'); return false;" class="tool-card">
                         <span class="tool-card-icon">🎭</span>
                         <span class="tool-card-title">Cosmetics</span>
+                    </a>
+                    <a href="#" onclick="showPage('combat'); return false;" class="tool-card">
+                        <span class="tool-card-icon">⚔️</span>
+                        <span class="tool-card-title">Combat</span>
                     </a>
                 </div>
             </div>
@@ -1992,6 +1997,152 @@
             </div>
         </div>
 
+        <!-- Combat Tester Section -->
+        <div id="combat-content" class="page-content" style="display: none;">
+            <div class="combat-tester-container">
+                <!-- Toolbar -->
+                <div class="combat-toolbar">
+                    <h2 class="combat-title">⚔️ Combat Tester</h2>
+                    <div class="combat-toolbar-actions">
+                        <button type="button" id="combatFightBtn" class="btn-fight" disabled>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21a2 2 0 002-2"/></svg>
+                            Fight!
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Combatant Panels -->
+                <div class="combat-panels">
+                    <!-- Combatant 1 -->
+                    <div class="combat-panel" id="combatPanel1">
+                        <div class="combat-panel-header">
+                            <input type="text" id="combatName1" class="combat-name-input" value="Combatant 1" placeholder="Name...">
+                        </div>
+                        <div class="combat-stats-grid">
+                            <div class="combat-stat"><label>STR</label><input type="number" id="combatStr1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>STA</label><input type="number" id="combatSta1" value="10" min="1" max="999"></div>
+                            <div class="combat-stat"><label>AGI</label><input type="number" id="combatAgi1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>LCK</label><input type="number" id="combatLck1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>ARM</label><input type="number" id="combatArm1" value="10" min="0" max="999"></div>
+                            <div class="combat-stat combat-stat-damage">
+                                <label>DMG</label>
+                                <div class="combat-damage-inputs">
+                                    <input type="number" id="combatMinDmg1" value="5" min="0" max="999" placeholder="Min">
+                                    <span>-</span>
+                                    <input type="number" id="combatMaxDmg1" value="10" min="0" max="999" placeholder="Max">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="combat-hp-display">HP: <span id="combatHpCalc1">100</span></div>
+                        <div class="combat-talent-section">
+                            <h4 class="combat-talent-heading">Talents</h4>
+                            <div class="combat-talent-tree" id="combatTalentTree1"></div>
+                        </div>
+                    </div>
+
+                    <!-- VS Divider -->
+                    <div class="combat-vs">VS</div>
+
+                    <!-- Combatant 2 -->
+                    <div class="combat-panel" id="combatPanel2">
+                        <div class="combat-panel-header">
+                            <input type="text" id="combatName2" class="combat-name-input" value="Combatant 2" placeholder="Name...">
+                        </div>
+                        <div class="combat-stats-grid">
+                            <div class="combat-stat"><label>STR</label><input type="number" id="combatStr2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>STA</label><input type="number" id="combatSta2" value="10" min="1" max="999"></div>
+                            <div class="combat-stat"><label>AGI</label><input type="number" id="combatAgi2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>LCK</label><input type="number" id="combatLck2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat"><label>ARM</label><input type="number" id="combatArm2" value="10" min="0" max="999"></div>
+                            <div class="combat-stat combat-stat-damage">
+                                <label>DMG</label>
+                                <div class="combat-damage-inputs">
+                                    <input type="number" id="combatMinDmg2" value="5" min="0" max="999" placeholder="Min">
+                                    <span>-</span>
+                                    <input type="number" id="combatMaxDmg2" value="10" min="0" max="999" placeholder="Max">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="combat-hp-display">HP: <span id="combatHpCalc2">100</span></div>
+                        <div class="combat-talent-section">
+                            <h4 class="combat-talent-heading">Talents</h4>
+                            <div class="combat-talent-tree" id="combatTalentTree2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combat Overlay (appears on Fight) -->
+                <div class="combat-overlay" id="combatOverlay" style="display:none;">
+                    <div class="combat-overlay-content">
+                        <div class="combat-arena" id="combatArena">
+                            <div class="arena-header">
+                                <span class="arena-turn" id="arenaTurn">Pre-combat</span>
+                                <span class="arena-result" id="arenaResult"></span>
+                            </div>
+                            <div class="arena-stage">
+                                <div class="arena-fighter arena-fighter-left" id="arenaFighter1">
+                                    <div class="fighter-effects" id="fighterEffects1"></div>
+                                    <div class="fighter-avatar" id="fighterAvatar1">
+                                        <span class="fighter-initial" id="fighterInitial1">C</span>
+                                    </div>
+                                    <div class="fighter-info">
+                                        <span class="fighter-name" id="fighterName1">Combatant 1</span>
+                                        <div class="fighter-hp-bar">
+                                            <div class="fighter-hp-fill fighter-hp-fill-1" id="fighterHpFill1" style="width:100%"></div>
+                                        </div>
+                                        <span class="fighter-hp-text" id="fighterHpText1">100 / 100</span>
+                                    </div>
+                                </div>
+
+                                <div class="arena-center">
+                                    <div class="arena-action" id="arenaAction"></div>
+                                </div>
+
+                                <div class="arena-fighter arena-fighter-right" id="arenaFighter2">
+                                    <div class="fighter-effects" id="fighterEffects2"></div>
+                                    <div class="fighter-avatar" id="fighterAvatar2">
+                                        <span class="fighter-initial" id="fighterInitial2">C</span>
+                                    </div>
+                                    <div class="fighter-info">
+                                        <span class="fighter-name" id="fighterName2">Combatant 2</span>
+                                        <div class="fighter-hp-bar">
+                                            <div class="fighter-hp-fill fighter-hp-fill-2" id="fighterHpFill2" style="width:100%"></div>
+                                        </div>
+                                        <span class="fighter-hp-text" id="fighterHpText2">100 / 100</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="arena-live-log" id="arenaLiveLog" style="display:none;"></div>
+                            <div class="arena-controls">
+                                <button type="button" id="arenaPlayBtn" class="btn-arena-play">▶ Play</button>
+                                <button type="button" id="arenaSkipBtn" class="btn-arena-skip">⏭ Skip</button>
+                                <select id="arenaSpeed" class="arena-speed-select">
+                                    <option value="0.5">0.5×</option>
+                                    <option value="1" selected>1×</option>
+                                    <option value="2">2×</option>
+                                    <option value="4">4×</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Combat Log inside overlay -->
+                        <div class="combat-log-section" id="combatLogSection" style="display:none;">
+                            <div class="combat-log-header">
+                                <h3>Combat Log</h3>
+                            </div>
+                            <div class="combat-log-entries" id="combatLogEntries"></div>
+                        </div>
+
+                        <!-- Overlay footer actions -->
+                        <div class="combat-overlay-actions">
+                            <button type="button" id="combatReplayBtn" class="btn-arena-play">🔄 Replay</button>
+                            <button type="button" id="combatDoneBtn" class="btn-fight">✓ Done</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Asset Gallery Overlay -->
         <div id="assetGalleryOverlay" class="asset-gallery-overlay hidden">
             <div class="asset-gallery">
@@ -2082,7 +2233,8 @@
             'servers': { title: 'Servers', element: 'servers-content' },
             'moderation': { title: 'Chat', element: 'moderation-content' },
             'analytics': { title: 'Analytics', element: 'analytics-content' },
-            'cosmetics': { title: 'Cosmetics', element: 'cosmetics-content' }
+            'cosmetics': { title: 'Cosmetics', element: 'cosmetics-content' },
+            'combat': { title: 'Combat', element: 'combat-content' }
         };
 
         let currentPage = 'dashboard';
@@ -2280,7 +2432,8 @@
                 'settlement-designer.js',
                 'quest-designer.js',
                 'concept-designer.js',
-                'cosmetic-designer.js'
+                'cosmetic-designer.js',
+                'combat-tester.js'
             ];
             for (const file of scripts) {
                 if (document.querySelector(`script[src$="${file}"]`)) continue;
