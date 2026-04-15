@@ -319,6 +319,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 			mods.ArmorModifier += val
 		case "modify_heal":
 			mods.HealModifier += val
+		case "counterattack":
+			mods.CounterChance += val
+		case "double_attack":
+			mods.DoubleAttackChance += val
+		case "consecutive_damage":
+			mods.ConsecutiveDamageBonus += val
 		}
 	}
 
@@ -389,7 +395,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					eid := eff.EffectID
 					combatLog = append(combatLog, CombatLogEntry{Turn: 0, CharacterID: char.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_start"})
 				}
-			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+				"counterattack", "double_attack", "consecutive_damage":
 				if eff.TargetSelf {
 					applyModifier(0, char.CharacterID, charMods, charBuffs, &eff, "on_start")
 				} else {
@@ -469,7 +476,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					*defenderHP += val
 				}
 				combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
-			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+				"counterattack", "double_attack", "consecutive_damage":
 				if eff.TargetSelf {
 					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_start")
 				} else {
@@ -508,7 +516,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						*defenderHP += val
 					}
 					combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
-				case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+				case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+					"counterattack", "double_attack", "consecutive_damage":
 					if eff.TargetSelf {
 						applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_every_other_turn")
 					} else {
@@ -590,7 +599,11 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 
 				// on_hit effects
 				for _, eff := range collectTriggeredEffects(attacker, "on_hit") {
-					if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
+					condHP, condMaxHP := *attackerHP, attackerMaxHP
+					if !eff.TargetSelf {
+						condHP, condMaxHP = *defenderHP, defenderMaxHP
+					}
+					if !checkCondition(&eff, condHP, condMaxHP) {
 						continue
 					}
 					switch eff.CoreEffectCode {
@@ -630,7 +643,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						aStats.BleedApplied += bleedAmount
 						eid := eff.EffectID
 						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_hit"})
-					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+						"counterattack", "double_attack", "consecutive_damage":
 						if eff.TargetSelf {
 							applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_hit")
 						} else {
@@ -642,7 +656,11 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				// on_crit effects
 				if isCrit {
 					for _, eff := range collectTriggeredEffects(attacker, "on_crit") {
-						if !checkCondition(&eff, *attackerHP, attackerMaxHP) {
+						condHP, condMaxHP := *attackerHP, attackerMaxHP
+						if !eff.TargetSelf {
+							condHP, condMaxHP = *defenderHP, defenderMaxHP
+						}
+						if !checkCondition(&eff, condHP, condMaxHP) {
 							continue
 						}
 						switch eff.CoreEffectCode {
@@ -682,7 +700,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							aStats.BleedApplied += bleedAmount
 							eid := eff.EffectID
 							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit"})
-						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+							"counterattack", "double_attack", "consecutive_damage":
 							if eff.TargetSelf {
 								applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_crit")
 							} else {
@@ -721,7 +740,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							*attackerHP += val
 						}
 						combatLog = append(combatLog, logHealEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
-					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+						"counterattack", "double_attack", "consecutive_damage":
 						if eff.TargetSelf {
 							applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_hit_taken")
 						} else {
@@ -779,7 +799,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 								eid := eff.EffectID
 								combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_crit_taken"})
 							}
-						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+							"counterattack", "double_attack", "consecutive_damage":
 							if eff.TargetSelf {
 								applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_crit_taken")
 							} else {
@@ -847,7 +868,8 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				aStats.BleedApplied += bleedAmount
 				eid := eff.EffectID
 				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_turn_end"})
-			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
+			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal",
+				"counterattack", "double_attack", "consecutive_damage":
 				if eff.TargetSelf {
 					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_end")
 				} else {
@@ -874,6 +896,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						attackerMods.ArmorModifier -= b.Value
 					case "modify_heal":
 						attackerMods.HealModifier -= b.Value
+					case "counterattack":
+						attackerMods.CounterChance -= b.Value
+					case "double_attack":
+						attackerMods.DoubleAttackChance -= b.Value
+					case "consecutive_damage":
+						attackerMods.ConsecutiveDamageBonus -= b.Value
 					}
 					eid := b.EffectID
 					combatLog = append(combatLog, CombatLogEntry{
