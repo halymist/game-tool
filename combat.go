@@ -221,15 +221,14 @@ func collectTriggeredEffects(char *CombatCharacter, trigger string) []CombatTest
 	return result
 }
 
-// logAttackEntry creates a combat log entry for an "attack" core effect.
-// When value is negative and targetSelf is true, it is actually a heal.
-func logAttackEntry(turn int, charID int, eff *CombatTestEffect, val int, trigger string) CombatLogEntry {
+func logDamageEntry(turn int, charID int, eff *CombatTestEffect, val int, trigger string) CombatLogEntry {
 	eid := eff.EffectID
-	if eff.TargetSelf && val < 0 {
-		// Negative self-damage = heal
-		return CombatLogEntry{Turn: turn, CharacterID: charID, Action: "heal", Factor: -val, EffectID: &eid, TriggerType: trigger}
-	}
-	return CombatLogEntry{Turn: turn, CharacterID: charID, Action: "attack", Factor: val, EffectID: &eid, TriggerType: trigger}
+	return CombatLogEntry{Turn: turn, CharacterID: charID, Action: "damage", Factor: val, EffectID: &eid, TriggerType: trigger}
+}
+
+func logHealEntry(turn int, charID int, eff *CombatTestEffect, val int, trigger string) CombatLogEntry {
+	eid := eff.EffectID
+	return CombatLogEntry{Turn: turn, CharacterID: charID, Action: "heal", Factor: val, EffectID: &eid, TriggerType: trigger}
 }
 
 func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]interface{} {
@@ -351,20 +350,45 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 
 	// Fire on_start effects
 	fireStartEffects := func(char *CombatCharacter, charHP *int, charMaxHP int, charMods *CombatModifiers, charBuffs *[]TempBuff,
-		opponentHP *int, opponentMaxHP int, opponentMods *CombatModifiers, opponentBuffs *[]TempBuff) {
+		opponentHP *int, opponentMaxHP int, opponentMods *CombatModifiers, opponentBuffs *[]TempBuff,
+		opponentBleed *int, opponentStunned *bool) {
 		for _, eff := range collectTriggeredEffects(char, "on_start") {
 			if !checkCondition(&eff, *charHP, charMaxHP) {
 				continue
 			}
 			switch eff.CoreEffectCode {
-			case "attack":
+			case "damage":
 				val := resolveFactorValue(&eff, charMaxHP, *charHP, 0)
 				if eff.TargetSelf {
 					*charHP -= val
 				} else {
 					*opponentHP -= val
 				}
-				combatLog = append(combatLog, logAttackEntry(0, char.CharacterID, &eff, val, "on_start"))
+				combatLog = append(combatLog, logDamageEntry(0, char.CharacterID, &eff, val, "on_start"))
+			case "heal":
+				val := resolveFactorValue(&eff, charMaxHP, *charHP, 0)
+				if eff.TargetSelf {
+					*charHP += val
+					if val > 0 {
+						getStats(char.CharacterID).HealingDone += val
+					}
+				} else {
+					*opponentHP += val
+				}
+				combatLog = append(combatLog, logHealEntry(0, char.CharacterID, &eff, val, "on_start"))
+			case "bleed":
+				bleedAmount := resolveFactorValue(&eff, opponentMaxHP, *opponentHP, 0)
+				*opponentBleed += bleedAmount
+				getStats(char.CharacterID).BleedApplied += bleedAmount
+				eid := eff.EffectID
+				combatLog = append(combatLog, CombatLogEntry{Turn: 0, CharacterID: char.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_start"})
+			case "stun":
+				if rand.Intn(100) < eff.Value {
+					*opponentStunned = true
+					getStats(char.CharacterID).StunApplied++
+					eid := eff.EffectID
+					combatLog = append(combatLog, CombatLogEntry{Turn: 0, CharacterID: char.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_start"})
+				}
 			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 				if eff.TargetSelf {
 					applyModifier(0, char.CharacterID, charMods, charBuffs, &eff, "on_start")
@@ -375,9 +399,9 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		}
 	}
 	fireStartEffects(player, &playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs,
-		&enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs)
+		&enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs, &enemyBleedStacks, &enemyStunned)
 	fireStartEffects(enemy, &enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs,
-		&playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs)
+		&playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs, &playerBleedStacks, &playerStunned)
 
 	calculateDamage := func(attacker *CombatCharacter, attackerMods *CombatModifiers) int {
 		damageRange := attacker.MaxDamage - attacker.MinDamage
@@ -422,13 +446,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				continue
 			}
 			switch eff.CoreEffectCode {
-			case "attack":
+			case "damage":
 				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 				if eff.TargetSelf {
 					*attackerHP -= val
-					if val < 0 {
-						aStats.HealingDone += -val
-					}
 				} else {
 					*defenderHP -= val
 					if val > 0 {
@@ -436,7 +457,18 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						getStats(defender.CharacterID).DamageTaken += val
 					}
 				}
-				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
+				combatLog = append(combatLog, logDamageEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
+			case "heal":
+				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
+				if eff.TargetSelf {
+					*attackerHP += val
+					if val > 0 {
+						aStats.HealingDone += val
+					}
+				} else {
+					*defenderHP += val
+				}
+				combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_turn_start"))
 			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 				if eff.TargetSelf {
 					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_start")
@@ -453,13 +485,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					continue
 				}
 				switch eff.CoreEffectCode {
-				case "attack":
+				case "damage":
 					val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 					if eff.TargetSelf {
 						*attackerHP -= val
-						if val < 0 {
-							aStats.HealingDone += -val
-						}
 					} else {
 						*defenderHP -= val
 						if val > 0 {
@@ -467,7 +496,18 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							getStats(defender.CharacterID).DamageTaken += val
 						}
 					}
-					combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
+					combatLog = append(combatLog, logDamageEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
+				case "heal":
+					val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
+					if eff.TargetSelf {
+						*attackerHP += val
+						if val > 0 {
+							aStats.HealingDone += val
+						}
+					} else {
+						*defenderHP += val
+					}
+					combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_every_other_turn"))
 				case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 					if eff.TargetSelf {
 						applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_every_other_turn")
@@ -554,13 +594,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						continue
 					}
 					switch eff.CoreEffectCode {
-					case "attack":
+					case "damage":
 						val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
 						if eff.TargetSelf {
 							*attackerHP -= val
-							if val < 0 {
-								aStats.HealingDone += -val
-							}
 						} else {
 							*defenderHP -= val
 							if val > 0 {
@@ -568,7 +605,18 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 								getStats(defender.CharacterID).DamageTaken += val
 							}
 						}
-						combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_hit"))
+						combatLog = append(combatLog, logDamageEntry(turn, attacker.CharacterID, &eff, val, "on_hit"))
+					case "heal":
+						val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
+						if eff.TargetSelf {
+							*attackerHP += val
+							if val > 0 {
+								aStats.HealingDone += val
+							}
+						} else {
+							*defenderHP += val
+						}
+						combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_hit"))
 					case "stun":
 						if rand.Intn(100) < eff.Value {
 							*defenderStunned = true
@@ -598,13 +646,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							continue
 						}
 						switch eff.CoreEffectCode {
-						case "attack":
+						case "damage":
 							val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
 							if eff.TargetSelf {
 								*attackerHP -= val
-								if val < 0 {
-									aStats.HealingDone += -val
-								}
 							} else {
 								*defenderHP -= val
 								if val > 0 {
@@ -612,7 +657,18 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 									getStats(defender.CharacterID).DamageTaken += val
 								}
 							}
-							combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_crit"))
+							combatLog = append(combatLog, logDamageEntry(turn, attacker.CharacterID, &eff, val, "on_crit"))
+						case "heal":
+							val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
+							if eff.TargetSelf {
+								*attackerHP += val
+								if val > 0 {
+									aStats.HealingDone += val
+								}
+							} else {
+								*defenderHP += val
+							}
+							combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_crit"))
 						case "stun":
 							if rand.Intn(100) < eff.Value {
 								*defenderStunned = true
@@ -642,13 +698,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						continue
 					}
 					switch eff.CoreEffectCode {
-					case "attack":
+					case "damage":
 						val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
 						if eff.TargetSelf {
 							*defenderHP -= val
-							if val < 0 {
-								getStats(defender.CharacterID).HealingDone += -val
-							}
 						} else {
 							*attackerHP -= val
 							if val > 0 {
@@ -656,7 +709,18 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 								aStats.DamageTaken += val
 							}
 						}
-						combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+						combatLog = append(combatLog, logDamageEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
+					case "heal":
+						val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
+						if eff.TargetSelf {
+							*defenderHP += val
+							if val > 0 {
+								getStats(defender.CharacterID).HealingDone += val
+							}
+						} else {
+							*attackerHP += val
+						}
+						combatLog = append(combatLog, logHealEntry(turn, defender.CharacterID, &eff, val, "on_hit_taken"))
 					case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 						if eff.TargetSelf {
 							applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_hit_taken")
@@ -673,13 +737,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 							continue
 						}
 						switch eff.CoreEffectCode {
-						case "attack":
+						case "damage":
 							val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
 							if eff.TargetSelf {
 								*defenderHP -= val
-								if val < 0 {
-									getStats(defender.CharacterID).HealingDone += -val
-								}
 							} else {
 								*attackerHP -= val
 								if val > 0 {
@@ -687,7 +748,31 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 									aStats.DamageTaken += val
 								}
 							}
-							combatLog = append(combatLog, logAttackEntry(turn, defender.CharacterID, &eff, val, "on_crit_taken"))
+							combatLog = append(combatLog, logDamageEntry(turn, defender.CharacterID, &eff, val, "on_crit_taken"))
+						case "heal":
+							val := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, damage)
+							if eff.TargetSelf {
+								*defenderHP += val
+								if val > 0 {
+									getStats(defender.CharacterID).HealingDone += val
+								}
+							} else {
+								*attackerHP += val
+							}
+							combatLog = append(combatLog, logHealEntry(turn, defender.CharacterID, &eff, val, "on_crit_taken"))
+						case "bleed":
+							bleedAmount := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
+							*attackerBleed += bleedAmount
+							getStats(defender.CharacterID).BleedApplied += bleedAmount
+							eid := eff.EffectID
+							combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_crit_taken"})
+						case "stun":
+							if rand.Intn(100) < eff.Value {
+								*attackerStunned = true
+								getStats(defender.CharacterID).StunApplied++
+								eid := eff.EffectID
+								combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "stun", Factor: 0, EffectID: &eid, TriggerType: "on_crit_taken"})
+							}
 						case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 							if eff.TargetSelf {
 								applyModifier(turn, defender.CharacterID, defenderMods, defenderBuffs, &eff, "on_crit_taken")
@@ -727,13 +812,10 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 				continue
 			}
 			switch eff.CoreEffectCode {
-			case "attack":
+			case "damage":
 				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
 				if eff.TargetSelf {
 					*attackerHP -= val
-					if val < 0 {
-						aStats.HealingDone += -val
-					}
 				} else {
 					*defenderHP -= val
 					if val > 0 {
@@ -741,7 +823,24 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						getStats(defender.CharacterID).DamageTaken += val
 					}
 				}
-				combatLog = append(combatLog, logAttackEntry(turn, attacker.CharacterID, &eff, val, "on_turn_end"))
+				combatLog = append(combatLog, logDamageEntry(turn, attacker.CharacterID, &eff, val, "on_turn_end"))
+			case "heal":
+				val := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, 0)
+				if eff.TargetSelf {
+					*attackerHP += val
+					if val > 0 {
+						aStats.HealingDone += val
+					}
+				} else {
+					*defenderHP += val
+				}
+				combatLog = append(combatLog, logHealEntry(turn, attacker.CharacterID, &eff, val, "on_turn_end"))
+			case "bleed":
+				bleedAmount := resolveFactorValue(&eff, defenderMaxHP, *defenderHP, 0)
+				*defenderBleed += bleedAmount
+				aStats.BleedApplied += bleedAmount
+				eid := eff.EffectID
+				combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: attacker.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_turn_end"})
 			case "modify_damage", "modify_dodge", "modify_crit", "modify_armor", "modify_heal":
 				if eff.TargetSelf {
 					applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_turn_end")

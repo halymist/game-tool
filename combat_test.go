@@ -83,7 +83,7 @@ func TestHealOnTurnStart(t *testing.T) {
 	// C1 has attack with negative factor + targetSelf + on_turn_start = heal
 	// -3 percent_of_max_hp means heal 3% of maxHP (100) = 3 HP per turn
 	c1 := baseCombatant(1, "Healer", []CombatTestEffect{
-		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: -3},
+		{EffectID: 1, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 3},
 	})
 	c2 := baseCombatant(2, "Attacker", nil)
 
@@ -361,7 +361,7 @@ func TestOnHitTakenHeal(t *testing.T) {
 	// C2 heals 10% of damage taken when hit
 	c1 := baseCombatant(1, "Attacker", nil)
 	c2 := baseCombatant(2, "Vampire", []CombatTestEffect{
-		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", TargetSelf: true, Value: -50},
+		{EffectID: 1, CoreEffectCode: "heal", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", TargetSelf: true, Value: 50},
 	})
 
 	result := executeCombat(c1, c2)
@@ -530,7 +530,7 @@ func TestOnCritTaken(t *testing.T) {
 	c1.Luck = 100 // very high crit chance
 
 	c2 := baseCombatant(2, "Resilient", []CombatTestEffect{
-		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_crit_taken", FactorType: "percent_of_max_hp", TargetSelf: true, Value: -5},
+		{EffectID: 1, CoreEffectCode: "heal", TriggerType: "on_crit_taken", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 5},
 	})
 
 	result := executeCombat(c1, c2)
@@ -568,7 +568,7 @@ func TestOnCritTakenRetaliation(t *testing.T) {
 	c1.Luck = 100 // high crit
 
 	c2 := baseCombatant(2, "Retaliator", []CombatTestEffect{
-		{EffectID: 1, CoreEffectCode: "attack", TriggerType: "on_crit_taken", FactorType: "percent_of_damage_taken", TargetSelf: false, Value: 30},
+		{EffectID: 1, CoreEffectCode: "damage", TriggerType: "on_crit_taken", FactorType: "percent_of_damage_taken", TargetSelf: false, Value: 30},
 	})
 
 	result := executeCombat(c1, c2)
@@ -576,7 +576,7 @@ func TestOnCritTakenRetaliation(t *testing.T) {
 
 	retaliations := 0
 	for _, e := range log {
-		if e.Action == "attack" && e.CharacterID == 2 && e.TriggerType == "on_crit_taken" {
+		if e.Action == "damage" && e.CharacterID == 2 && e.TriggerType == "on_crit_taken" {
 			retaliations++
 			if e.Factor <= 0 {
 				t.Errorf("Expected positive retaliation damage, got %d", e.Factor)
@@ -600,7 +600,7 @@ func TestModifyHealOnCrit(t *testing.T) {
 	c1.Luck = 100 // always crit
 
 	c2 := baseCombatant(2, "Healer", []CombatTestEffect{
-		{EffectID: 2, CoreEffectCode: "attack", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: -10},
+		{EffectID: 2, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 10},
 	})
 
 	result := executeCombat(c1, c2)
@@ -1116,7 +1116,7 @@ func TestRenewedVigorHealBuff(t *testing.T) {
 	// C1 has on_hit heal buff AND a heal-on-turn-start so the heal modifier actually matters
 	c1 := baseCombatant(1, "Healer", []CombatTestEffect{
 		{EffectID: 81, CoreEffectCode: "modify_heal", TriggerType: "on_hit", FactorType: "percent", Value: 10, TargetSelf: true, Duration: &dur},
-		{EffectID: 2, CoreEffectCode: "attack", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", Value: -5, TargetSelf: true}, // heal 5% HP per turn
+		{EffectID: 2, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", Value: 5, TargetSelf: true}, // heal 5% HP per turn
 	})
 	c1.Luck = 0
 	c1.Stamina = 50
@@ -1266,6 +1266,7 @@ func TestAdrenalineSurgeDodgeBuff(t *testing.T) {
 	dur := 2
 	c1 := baseCombatant(1, "CritAttacker", nil)
 	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
 
 	c2 := baseCombatant(2, "AdrenalineDefender", []CombatTestEffect{
 		{EffectID: 85, CoreEffectCode: "modify_dodge", TriggerType: "on_crit_taken", FactorType: "percent", Value: 10, TargetSelf: true, Duration: &dur},
@@ -1760,6 +1761,7 @@ func TestDullingRetaliationDebuff(t *testing.T) {
 	c1.Stamina = 50
 	c2 := baseCombatant(2, "CritAttacker", nil)
 	c2.Luck = 100 // guarantee crits
+	c2.Stamina = 50
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -1803,6 +1805,7 @@ func TestCritArmorBuff(t *testing.T) {
 	c1.Armor = 5
 	c2 := baseCombatant(2, "CritAttacker", nil)
 	c2.Luck = 100 // guarantee crits
+	c2.Stamina = 50
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -1838,7 +1841,7 @@ func TestCritArmorBuff(t *testing.T) {
 func TestFinishingBlowTurnEndDamage(t *testing.T) {
 	// C1 deals 5% of own maxHP to enemy every turn end
 	c1 := baseCombatant(1, "Finisher", []CombatTestEffect{
-		{EffectID: 109, CoreEffectCode: "attack", TriggerType: "on_turn_end", FactorType: "percent_of_max_hp", Value: 5, TargetSelf: false},
+		{EffectID: 109, CoreEffectCode: "damage", TriggerType: "on_turn_end", FactorType: "percent_of_max_hp", Value: 5, TargetSelf: false},
 	})
 	c2 := baseCombatant(2, "Target", nil)
 	c2.Stamina = 50
@@ -1849,7 +1852,7 @@ func TestFinishingBlowTurnEndDamage(t *testing.T) {
 	// 5% of 100 maxHP = 5 damage per turn end
 	turnEndDmg := 0
 	for _, e := range log {
-		if e.CharacterID == 1 && e.Action == "attack" && e.TriggerType == "on_turn_end" {
+		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_turn_end" {
 			turnEndDmg++
 			if e.Factor != 5 {
 				t.Errorf("Finishing Blow damage: got %d, want 5 (5%% of 100 HP)", e.Factor)
@@ -1868,7 +1871,7 @@ func TestFinishingBlowTurnEndDamage(t *testing.T) {
 func TestDrainingPresenceTurnEndHeal(t *testing.T) {
 	// C1 heals 15% of missing HP at turn end
 	c1 := baseCombatant(1, "Drainer", []CombatTestEffect{
-		{EffectID: 110, CoreEffectCode: "attack", TriggerType: "on_turn_end", FactorType: "percent_of_missing_hp", TargetSelf: true, Value: -15},
+		{EffectID: 110, CoreEffectCode: "heal", TriggerType: "on_turn_end", FactorType: "percent_of_missing_hp", TargetSelf: true, Value: 15},
 	})
 	c1.DepletedHealth = 50 // Start at 50/100 HP so there's missing HP to heal from
 	c2 := baseCombatant(2, "Attacker", nil)
@@ -1894,7 +1897,7 @@ func TestDrainingPresenceTurnEndHeal(t *testing.T) {
 func TestAttritionEveryOtherTurnDamage(t *testing.T) {
 	// C1 deals 8% of own maxHP to enemy on odd turns
 	c1 := baseCombatant(1, "Attrition", []CombatTestEffect{
-		{EffectID: 111, CoreEffectCode: "attack", TriggerType: "on_every_other_turn", FactorType: "percent_of_max_hp", Value: 8, TargetSelf: false},
+		{EffectID: 111, CoreEffectCode: "damage", TriggerType: "on_every_other_turn", FactorType: "percent_of_max_hp", Value: 8, TargetSelf: false},
 	})
 	c2 := baseCombatant(2, "Target", nil)
 	c2.Stamina = 50
@@ -1906,7 +1909,7 @@ func TestAttritionEveryOtherTurnDamage(t *testing.T) {
 	eotDmg := 0
 	eotTurns := []int{}
 	for _, e := range log {
-		if e.CharacterID == 1 && e.Action == "attack" && e.TriggerType == "on_every_other_turn" {
+		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_every_other_turn" {
 			eotDmg++
 			eotTurns = append(eotTurns, e.Turn)
 			if e.Factor != 8 {
@@ -1930,7 +1933,7 @@ func TestAttritionEveryOtherTurnDamage(t *testing.T) {
 func TestCritLeechHeal(t *testing.T) {
 	// C1 heals 20% of damage dealt on crit
 	c1 := baseCombatant(1, "CritLeech", []CombatTestEffect{
-		{EffectID: 112, CoreEffectCode: "attack", TriggerType: "on_crit", FactorType: "percent_of_damage_dealt", TargetSelf: true, Value: -20},
+		{EffectID: 112, CoreEffectCode: "heal", TriggerType: "on_crit", FactorType: "percent_of_damage_dealt", TargetSelf: true, Value: 20},
 	})
 	c1.Luck = 100          // guarantee crits
 	c1.Stamina = 50        // long fight so multiple crits land
@@ -1964,4 +1967,303 @@ func TestCritLeechHeal(t *testing.T) {
 	}
 	stats := extractStats(result, "combatant1")
 	fmt.Printf("  Crit Leech (112): %d crits, %d heals, total healing: %.0f\n", crits, critHeals, stats["healingDone"].(float64))
+}
+
+// ── Test 51: Hemorrhage (113) — bleed on_crit ──
+
+func TestHemorrhageBleedOnCrit(t *testing.T) {
+	c1 := baseCombatant(1, "Hemorrhage", []CombatTestEffect{
+		{EffectID: 113, CoreEffectCode: "bleed", TriggerType: "on_crit", FactorType: "percent", Value: 8},
+	})
+	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 100
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bleedApps := 0
+	bleedTicks := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_crit" {
+			bleedApps++
+			if e.Factor != 8 {
+				t.Errorf("Hemorrhage bleed: got %d, want 8", e.Factor)
+			}
+		}
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicks++
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Hemorrhage")
+	}
+	if bleedApps == 0 {
+		t.Error("Expected bleed applications from on_crit")
+	}
+	fmt.Printf("  Hemorrhage (113): %d crits, %d bleed apps, %d bleed ticks\n", crits, bleedApps, bleedTicks)
+}
+
+// ── Test 52: Blood Sacrifice (114) — bleed on_crit_taken (bleed the attacker) ──
+
+func TestBloodSacrificeBleedOnCritTaken(t *testing.T) {
+	c1 := baseCombatant(1, "CritAttacker", nil)
+	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
+
+	c2 := baseCombatant(2, "BloodSac", []CombatTestEffect{
+		{EffectID: 114, CoreEffectCode: "bleed", TriggerType: "on_crit_taken", FactorType: "percent", Value: 6},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bleedApps := 0
+	bleedTicksOnAttacker := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "on_crit_taken" {
+			bleedApps++
+			if e.Factor != 6 {
+				t.Errorf("Blood Sacrifice bleed: got %d, want 6", e.Factor)
+			}
+		}
+		// Bleed ticks on attacker (C1) — no triggerType
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicksOnAttacker++
+		}
+	}
+	if bleedApps == 0 {
+		t.Error("Expected bleed applications from on_crit_taken")
+	}
+	if bleedTicksOnAttacker == 0 {
+		t.Error("Expected bleed tick damage on attacker (C1)")
+	}
+	fmt.Printf("  Blood Sacrifice (114): %d bleed apps, %d ticks on attacker\n", bleedApps, bleedTicksOnAttacker)
+}
+
+// ── Test 53: Festering Wound (115) — bleed on_turn_end ──
+
+func TestFesteringWoundBleedOnTurnEnd(t *testing.T) {
+	c1 := baseCombatant(1, "Festering", []CombatTestEffect{
+		{EffectID: 115, CoreEffectCode: "bleed", TriggerType: "on_turn_end", FactorType: "percent", Value: 4},
+	})
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bleedApps := 0
+	bleedTicks := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_turn_end" {
+			bleedApps++
+			if e.Factor != 4 {
+				t.Errorf("Festering Wound bleed: got %d, want 4", e.Factor)
+			}
+		}
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicks++
+		}
+	}
+	if bleedApps == 0 {
+		t.Error("Expected bleed applications from on_turn_end")
+	}
+	if bleedTicks == 0 {
+		t.Error("Expected bleed tick damage on target")
+	}
+	stats := extractStats(result, "combatant1")
+	fmt.Printf("  Festering Wound (115): %d bleed apps, %d ticks, total bleed applied: %.0f\n", bleedApps, bleedTicks, stats["bleedApplied"].(float64))
+}
+
+// ── Test 54: Concussive Blow (116) — stun on_crit ──
+
+func TestConcussiveBlowStunOnCrit(t *testing.T) {
+	c1 := baseCombatant(1, "Concussive", []CombatTestEffect{
+		{EffectID: 116, CoreEffectCode: "stun", TriggerType: "on_crit", FactorType: "percent", Value: 100},
+	})
+	c1.Luck = 100 // guarantee crits
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	stunApps := 0
+	stunnedSkips := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "stun" && e.TriggerType == "on_crit" {
+			stunApps++
+		}
+		if e.CharacterID == 2 && e.Action == "stunned" {
+			stunnedSkips++
+		}
+	}
+	if stunApps == 0 {
+		t.Error("Expected stun applications from on_crit")
+	}
+	if stunnedSkips == 0 {
+		t.Error("Expected stunned entries on target")
+	}
+	fmt.Printf("  Concussive Blow (116): %d stun apps, %d stunned skips\n", stunApps, stunnedSkips)
+}
+
+// ── Test 55: Dazed Counter (117) — stun on_crit_taken ──
+
+func TestDazedCounterStunOnCritTaken(t *testing.T) {
+	c1 := baseCombatant(1, "CritAttacker", nil)
+	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
+
+	c2 := baseCombatant(2, "DazedCounter", []CombatTestEffect{
+		{EffectID: 117, CoreEffectCode: "stun", TriggerType: "on_crit_taken", FactorType: "percent", Value: 100},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	stunApps := 0
+	stunnedAttacker := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "stun" && e.TriggerType == "on_crit_taken" {
+			stunApps++
+		}
+		if e.CharacterID == 1 && e.Action == "stunned" {
+			stunnedAttacker++
+		}
+	}
+	if stunApps == 0 {
+		t.Error("Expected stun applications from on_crit_taken")
+	}
+	if stunnedAttacker == 0 {
+		t.Error("Expected attacker (C1) stunned entries")
+	}
+	fmt.Printf("  Dazed Counter (117): %d stun apps, %d attacker stunned\n", stunApps, stunnedAttacker)
+}
+
+// ── Test 56: Ambush (118) — stun on_start ──
+
+func TestAmbushStunOnStart(t *testing.T) {
+	// Run multiple fights since stun is probabilistic
+	stunCount := 0
+	fights := 20
+
+	for i := 0; i < fights; i++ {
+		c1 := baseCombatant(1, "Ambusher", []CombatTestEffect{
+			{EffectID: 118, CoreEffectCode: "stun", TriggerType: "on_start", FactorType: "percent", Value: 100},
+		})
+		c2 := baseCombatant(2, "Target", nil)
+		c2.Stamina = 50
+
+		result := executeCombat(c1, c2)
+		log := extractLog(result)
+
+		for _, e := range log {
+			if e.CharacterID == 1 && e.Action == "stun" && e.TriggerType == "on_start" {
+				stunCount++
+			}
+		}
+	}
+	if stunCount == 0 {
+		t.Error("Expected at least some on_start stun applications over 20 fights")
+	}
+	fmt.Printf("  Ambush (118): %d stuns in %d fights\n", stunCount, fights)
+}
+
+// ── Test 57: Absorb (119) — heal on_hit_taken %dmg_taken ──
+
+func TestAbsorbHealOnHitTaken(t *testing.T) {
+	c1 := baseCombatant(1, "Attacker", nil)
+	c2 := baseCombatant(2, "Absorber", []CombatTestEffect{
+		{EffectID: 119, CoreEffectCode: "heal", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", TargetSelf: true, Value: 30},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	heals := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "heal" && e.TriggerType == "on_hit_taken" {
+			heals++
+			if e.Factor <= 0 {
+				t.Errorf("Expected positive heal factor, got %d", e.Factor)
+			}
+		}
+	}
+	if heals == 0 {
+		t.Error("Expected heal entries from on_hit_taken (Absorb)")
+	}
+	stats := extractStats(result, "combatant2")
+	fmt.Printf("  Absorb (119): %d heals, total healing: %.0f\n", heals, stats["healingDone"].(float64))
+}
+
+// ── Test 58: Desperate Strike (120) — damage on_hit %missing_hp ──
+
+func TestDesperateStrikeDamageOnHit(t *testing.T) {
+	c1 := baseCombatant(1, "Desperate", []CombatTestEffect{
+		{EffectID: 120, CoreEffectCode: "damage", TriggerType: "on_hit", FactorType: "percent_of_missing_hp", TargetSelf: false, Value: 50},
+	})
+	c1.Luck = 0            // minimize crits for cleaner test
+	c1.DepletedHealth = 50 // start at 50/100 HP → 50 missing HP → 25 bonus damage
+
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Agility = 0 // minimize dodges
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	dmgEntries := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_hit" {
+			dmgEntries++
+			if e.Factor <= 0 {
+				t.Errorf("Expected positive bonus damage, got %d", e.Factor)
+			}
+		}
+	}
+	if dmgEntries == 0 {
+		t.Error("Expected on_hit damage entries (Desperate Strike)")
+	}
+	stats := extractStats(result, "combatant1")
+	fmt.Printf("  Desperate Strike (120): %d bonus damage hits, total damage: %.0f\n", dmgEntries, stats["damageDealt"].(float64))
+}
+
+// ── Test 59: Spite (121) — damage on_crit_taken %max_hp ──
+
+func TestSpiteDamageOnCritTaken(t *testing.T) {
+	c1 := baseCombatant(1, "CritAttacker", nil)
+	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
+
+	c2 := baseCombatant(2, "Spiteful", []CombatTestEffect{
+		{EffectID: 121, CoreEffectCode: "damage", TriggerType: "on_crit_taken", FactorType: "percent_of_max_hp", TargetSelf: false, Value: 10},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	spiteDmg := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "damage" && e.TriggerType == "on_crit_taken" {
+			spiteDmg++
+			// 10% of C2 maxHP (500) = 50
+			if e.Factor != 50 {
+				t.Errorf("Spite damage: got %d, want 50 (10%% of 500 HP)", e.Factor)
+			}
+		}
+	}
+	if spiteDmg == 0 {
+		t.Error("Expected on_crit_taken damage entries (Spite)")
+	}
+	fmt.Printf("  Spite (121): %d spite damage hits\n", spiteDmg)
 }
