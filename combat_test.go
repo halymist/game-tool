@@ -922,6 +922,7 @@ func TestTempBuffStacking(t *testing.T) {
 		{EffectID: 74, CoreEffectCode: "modify_crit", TriggerType: "on_hit", FactorType: "percent", Value: 50, TargetSelf: true, Duration: &dur},
 	})
 	c1.Luck = 0
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "Tank", nil)
 	c2.Stamina = 100 // 1000 HP
 	c2.Luck = 0
@@ -1226,6 +1227,7 @@ func TestRattledCritDebuff(t *testing.T) {
 		{EffectID: 84, CoreEffectCode: "modify_crit", TriggerType: "on_crit", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur},
 	})
 	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
 
 	c2 := baseCombatant(2, "RattledFoe", nil)
 	c2.Luck = 0
@@ -1483,6 +1485,7 @@ func TestBloodlustDebuffOnCrit(t *testing.T) {
 		{EffectID: 99, CoreEffectCode: "modify_damage", TriggerType: "on_crit", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur},
 	})
 	c1.Luck = 100 // guarantee crits
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "DebuffedFoe", nil)
 	c2.Stamina = 50
 
@@ -2266,4 +2269,444 @@ func TestSpiteDamageOnCritTaken(t *testing.T) {
 		t.Error("Expected on_crit_taken damage entries (Spite)")
 	}
 	fmt.Printf("  Spite (121): %d spite damage hits\n", spiteDmg)
+}
+
+// ── Test 60: Savage Crit (122) — bonus damage on crit ──
+
+func TestSavageCritDamageOnCrit(t *testing.T) {
+	c1 := baseCombatant(1, "SavageCritter", []CombatTestEffect{
+		{EffectID: 122, CoreEffectCode: "damage", TriggerType: "on_crit", FactorType: "percent_of_max_hp", Value: 3},
+	})
+	c1.Luck = 100
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bonusDmg := 0
+	crits := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_crit" {
+			bonusDmg++
+			if e.Factor <= 0 {
+				t.Errorf("Expected positive bonus damage, got %d", e.Factor)
+			}
+		}
+		if e.CharacterID == 1 && e.Action == "crit" {
+			crits++
+		}
+	}
+	if crits == 0 {
+		t.Error("Expected crits to trigger Savage Crit")
+	}
+	if bonusDmg == 0 {
+		t.Error("Expected bonus damage entries from on_crit")
+	}
+	fmt.Printf("  Savage Crit (122): %d crits, %d bonus damage hits\n", crits, bonusDmg)
+}
+
+// ── Test 61: Rising Fury (123) — damage buff on_turn_start ──
+
+func TestRisingFuryDamageBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "RisingFury", []CombatTestEffect{
+		{EffectID: 123, CoreEffectCode: "modify_damage", TriggerType: "on_turn_start", FactorType: "percent", Value: 3, TargetSelf: true, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffs := 0
+	expires := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_damage" && e.TriggerType == "on_turn_start" {
+			buffs++
+		}
+		if e.CharacterID == 1 && e.Action == "buff_expire" && e.BuffType == "modify_damage" {
+			expires++
+		}
+	}
+	if buffs == 0 {
+		t.Error("Expected modify_damage buff entries on_turn_start (Rising Fury)")
+	}
+	if expires == 0 {
+		t.Error("Expected buff_expire entries for Rising Fury")
+	}
+	fmt.Printf("  Rising Fury (123): %d buffs, %d expired\n", buffs, expires)
+}
+
+// ── Test 62: Crumbling Defense (124) — armor debuff on enemy on_turn_start ──
+
+func TestCrumblingDefenseArmorDebuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "ArmorBreaker", []CombatTestEffect{
+		{EffectID: 124, CoreEffectCode: "modify_armor", TriggerType: "on_turn_start", FactorType: "percent", Value: -3, TargetSelf: false, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Armor = 20
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffs := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_armor" && e.TriggerType == "on_turn_start" {
+			debuffs++
+		}
+	}
+	if debuffs == 0 {
+		t.Error("Expected modify_armor debuff on enemy from on_turn_start (Crumbling Defense)")
+	}
+	fmt.Printf("  Crumbling Defense (124): %d debuffs on enemy\n", debuffs)
+}
+
+// ── Test 63: Sharpening Focus (125) — crit buff on_turn_start ──
+
+func TestSharpeningFocusCritBuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "FocusedFighter", []CombatTestEffect{
+		{EffectID: 125, CoreEffectCode: "modify_crit", TriggerType: "on_turn_start", FactorType: "percent", Value: 2, TargetSelf: true, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	buffs := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_crit" && e.TriggerType == "on_turn_start" {
+			buffs++
+		}
+	}
+	if buffs == 0 {
+		t.Error("Expected modify_crit buff entries on_turn_start (Sharpening Focus)")
+	}
+	fmt.Printf("  Sharpening Focus (125): %d crit buffs\n", buffs)
+}
+
+// ── Test 64: Eroding Will (126) — dodge debuff on enemy on_turn_start ──
+
+func TestErodingWillDodgeDebuff(t *testing.T) {
+	dur := 1
+	c1 := baseCombatant(1, "WillBreaker", []CombatTestEffect{
+		{EffectID: 126, CoreEffectCode: "modify_dodge", TriggerType: "on_turn_start", FactorType: "percent", Value: -2, TargetSelf: false, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Agility = 20
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffs := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_dodge" && e.TriggerType == "on_turn_start" {
+			debuffs++
+		}
+	}
+	if debuffs == 0 {
+		t.Error("Expected modify_dodge debuff on enemy from on_turn_start (Eroding Will)")
+	}
+	fmt.Printf("  Eroding Will (126): %d dodge debuffs on enemy\n", debuffs)
+}
+
+// ── Test 65: Healing Curse (127) — anti-heal opening debuff on enemy ──
+
+func TestHealingCurseOnStart(t *testing.T) {
+	dur := 3
+	c1 := baseCombatant(1, "Curser", []CombatTestEffect{
+		{EffectID: 127, CoreEffectCode: "modify_heal", TriggerType: "on_start", FactorType: "percent", Value: -5, TargetSelf: false, Duration: &dur},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Healer", []CombatTestEffect{
+		{EffectID: 23, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 3},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	debuffs := 0
+	for _, e := range log {
+		// Engine logs on_start debuffs with caster's CharacterID
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_heal" && e.TriggerType == "on_start" {
+			debuffs++
+		}
+	}
+	if debuffs == 0 {
+		t.Error("Expected modify_heal debuff on enemy from on_start (Healing Curse)")
+	}
+	fmt.Printf("  Healing Curse (127): %d debuffs applied\n", debuffs)
+}
+
+// ── Test 66: Cursed Blade (128) — enemy bleeds on_start ──
+
+func TestCursedBladeBleedOnStart(t *testing.T) {
+	c1 := baseCombatant(1, "CursedBlade", []CombatTestEffect{
+		{EffectID: 128, CoreEffectCode: "bleed", TriggerType: "on_start", FactorType: "percent", Value: 3},
+	})
+	c1.Stamina = 50
+	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bleedApps := 0
+	bleedTicks := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_start" {
+			bleedApps++
+		}
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicks++
+		}
+	}
+	if bleedApps == 0 {
+		t.Error("Expected bleed application from on_start (Cursed Blade)")
+	}
+	if bleedTicks == 0 {
+		t.Error("Expected bleed tick damage on target")
+	}
+	fmt.Printf("  Cursed Blade (128): %d bleed apps, %d bleed ticks\n", bleedApps, bleedTicks)
+}
+
+// ── Test 67: Thorny Blood (129) — attacker bleeds when hitting defender ──
+
+func TestThornyBloodBleedOnHitTaken(t *testing.T) {
+	c1 := baseCombatant(1, "Attacker", nil)
+	c1.Stamina = 50
+	c1.Strength = 15
+	c2 := baseCombatant(2, "ThornyDefender", []CombatTestEffect{
+		{EffectID: 129, CoreEffectCode: "bleed", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", Value: 10},
+	})
+	c2.Stamina = 50
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	bleedApps := 0
+	bleedTicks := 0
+	for _, e := range log {
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "on_hit_taken" {
+			bleedApps++
+		}
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicks++
+		}
+	}
+	if bleedApps == 0 {
+		t.Error("Expected bleed applied to attacker from on_hit_taken (Thorny Blood)")
+	}
+	if bleedTicks == 0 {
+		t.Error("Expected bleed tick damage on attacker")
+	}
+	stats := extractStats(result, "combatant2")
+	fmt.Printf("  Thorny Blood (129): %d bleed apps, %d bleed ticks, total bleed applied: %.0f\n", bleedApps, bleedTicks, stats["bleedApplied"].(float64))
+}
+
+// ── Test 68: Combined — Tank with Thorny Blood + Crumbling Defense + Hardened ──
+
+func TestCombinedTankBuild(t *testing.T) {
+	dur1 := 1
+	dur2 := 2
+	c1 := baseCombatant(1, "Tank", []CombatTestEffect{
+		{EffectID: 129, CoreEffectCode: "bleed", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", Value: 5},                              // Thorny Blood
+		{EffectID: 124, CoreEffectCode: "modify_armor", TriggerType: "on_turn_start", FactorType: "percent", Value: -5, TargetSelf: false, Duration: &dur1}, // Crumbling Defense
+		{EffectID: 77, CoreEffectCode: "modify_armor", TriggerType: "on_hit_taken", FactorType: "percent", Value: 8, TargetSelf: true, Duration: &dur2},     // Hardened
+	})
+	c1.Stamina = 100
+	c1.Armor = 20
+
+	c2 := baseCombatant(2, "Berserker", []CombatTestEffect{
+		{EffectID: 122, CoreEffectCode: "damage", TriggerType: "on_crit", FactorType: "percent_of_max_hp", Value: 5},                                       // Savage Crit
+		{EffectID: 123, CoreEffectCode: "modify_damage", TriggerType: "on_turn_start", FactorType: "percent", Value: 5, TargetSelf: true, Duration: &dur1}, // Rising Fury
+	})
+	c2.Stamina = 100
+	c2.Luck = 30
+	c2.Strength = 15
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	thornyBleeds := 0
+	armorDebuffs := 0
+	armorBuffs := 0
+	savageCritDmg := 0
+	risingFuryBuffs := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_hit_taken" {
+			thornyBleeds++
+		}
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_armor" && e.TriggerType == "on_turn_start" {
+			armorDebuffs++
+		}
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_armor" && e.TriggerType == "on_hit_taken" {
+			armorBuffs++
+		}
+		if e.CharacterID == 2 && e.Action == "damage" && e.TriggerType == "on_crit" {
+			savageCritDmg++
+		}
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_damage" && e.TriggerType == "on_turn_start" {
+			risingFuryBuffs++
+		}
+	}
+	if thornyBleeds == 0 {
+		t.Error("Expected Thorny Blood bleeds on attacker")
+	}
+	if armorDebuffs == 0 {
+		t.Error("Expected Crumbling Defense armor debuffs")
+	}
+	if armorBuffs == 0 {
+		t.Error("Expected Hardened armor buffs on Tank")
+	}
+	if risingFuryBuffs == 0 {
+		t.Error("Expected Rising Fury damage buffs on Berserker")
+	}
+	s1 := extractStats(result, "combatant1")
+	s2 := extractStats(result, "combatant2")
+	fmt.Printf("  Combined Tank: thorny=%d, armorDebuff=%d, armorBuff=%d, savageCrit=%d, risingFury=%d\n",
+		thornyBleeds, armorDebuffs, armorBuffs, savageCritDmg, risingFuryBuffs)
+	fmt.Printf("    Tank: dealt=%.0f taken=%.0f healed=%.0f bleedApplied=%.0f\n",
+		s1["damageDealt"].(float64), s1["damageTaken"].(float64), s1["healingDone"].(float64), s1["bleedApplied"].(float64))
+	fmt.Printf("    Berserker: dealt=%.0f taken=%.0f\n",
+		s2["damageDealt"].(float64), s2["damageTaken"].(float64))
+}
+
+// ── Test 69: Combined — Debuff Master with opening curses + turn-start pressure ──
+
+func TestCombinedDebuffMaster(t *testing.T) {
+	dur1 := 1
+	dur3 := 3
+	c1 := baseCombatant(1, "DebuffMaster", []CombatTestEffect{
+		{EffectID: 128, CoreEffectCode: "bleed", TriggerType: "on_start", FactorType: "percent", Value: 5},                                                  // Cursed Blade
+		{EffectID: 127, CoreEffectCode: "modify_heal", TriggerType: "on_start", FactorType: "percent", Value: -10, TargetSelf: false, Duration: &dur3},      // Healing Curse
+		{EffectID: 126, CoreEffectCode: "modify_dodge", TriggerType: "on_turn_start", FactorType: "percent", Value: -3, TargetSelf: false, Duration: &dur1}, // Eroding Will
+		{EffectID: 125, CoreEffectCode: "modify_crit", TriggerType: "on_turn_start", FactorType: "percent", Value: 3, TargetSelf: true, Duration: &dur1},    // Sharpening Focus
+	})
+	c1.Stamina = 100
+	c1.Luck = 15
+
+	c2 := baseCombatant(2, "Healer", []CombatTestEffect{
+		{EffectID: 23, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 3}, // Regeneration
+	})
+	c2.Stamina = 100
+	c2.Agility = 20
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	cursedBleedApps := 0
+	healCurseDebuffs := 0
+	erodingWillDebuffs := 0
+	sharpeningFocusBuffs := 0
+	enemyHeals := 0
+	bleedTicks := 0
+	for _, e := range log {
+		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_start" {
+			cursedBleedApps++
+		}
+		// Engine logs on_start debuffs with caster's CharacterID
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_heal" && e.TriggerType == "on_start" {
+			healCurseDebuffs++
+		}
+		if e.CharacterID == 2 && e.Action == "buff" && e.BuffType == "modify_dodge" && e.TriggerType == "on_turn_start" {
+			erodingWillDebuffs++
+		}
+		if e.CharacterID == 1 && e.Action == "buff" && e.BuffType == "modify_crit" && e.TriggerType == "on_turn_start" {
+			sharpeningFocusBuffs++
+		}
+		if e.CharacterID == 2 && e.Action == "heal" {
+			enemyHeals++
+		}
+		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
+			bleedTicks++
+		}
+	}
+	if cursedBleedApps == 0 {
+		t.Error("Expected Cursed Blade bleed at start")
+	}
+	if healCurseDebuffs == 0 {
+		t.Error("Expected Healing Curse debuff at start")
+	}
+	if erodingWillDebuffs == 0 {
+		t.Error("Expected Eroding Will dodge debuffs each turn")
+	}
+	if sharpeningFocusBuffs == 0 {
+		t.Error("Expected Sharpening Focus crit buffs each turn")
+	}
+	if bleedTicks == 0 {
+		t.Error("Expected bleed ticks on enemy from Cursed Blade")
+	}
+	s1 := extractStats(result, "combatant1")
+	s2 := extractStats(result, "combatant2")
+	fmt.Printf("  Combined Debuff: cursedBleed=%d, healCurse=%d, erodingWill=%d, sharpeningFocus=%d\n",
+		cursedBleedApps, healCurseDebuffs, erodingWillDebuffs, sharpeningFocusBuffs)
+	fmt.Printf("    DebuffMaster: dealt=%.0f crits=%.0f bleedApplied=%.0f\n",
+		s1["damageDealt"].(float64), s1["critHits"].(float64), s1["bleedApplied"].(float64))
+	fmt.Printf("    Healer: healed=%.0f taken=%.0f bleedTicks=%d\n",
+		s2["healingDone"].(float64), s2["damageTaken"].(float64), bleedTicks)
+}
+
+// ── Test 70: Combined — Full loadout mirror match ──
+
+func TestCombinedMirrorMatch(t *testing.T) {
+	dur1 := 1
+	dur2 := 2
+	// Both fighters have balanced loadouts with several new effects
+	effects := []CombatTestEffect{
+		{EffectID: 123, CoreEffectCode: "modify_damage", TriggerType: "on_turn_start", FactorType: "percent", Value: 3, TargetSelf: true, Duration: &dur1}, // Rising Fury
+		{EffectID: 125, CoreEffectCode: "modify_crit", TriggerType: "on_turn_start", FactorType: "percent", Value: 2, TargetSelf: true, Duration: &dur1},   // Sharpening Focus
+		{EffectID: 122, CoreEffectCode: "damage", TriggerType: "on_crit", FactorType: "percent_of_max_hp", Value: 3},                                       // Savage Crit
+		{EffectID: 77, CoreEffectCode: "modify_armor", TriggerType: "on_hit_taken", FactorType: "percent", Value: 5, TargetSelf: true, Duration: &dur2},    // Hardened
+		{EffectID: 129, CoreEffectCode: "bleed", TriggerType: "on_hit_taken", FactorType: "percent_of_damage_taken", Value: 3},                             // Thorny Blood
+	}
+
+	c1 := baseCombatant(1, "Fighter A", effects)
+	c1.Stamina = 150
+	c1.Luck = 15
+	c1.Armor = 12
+
+	c2 := baseCombatant(2, "Fighter B", effects)
+	c2.Stamina = 150
+	c2.Luck = 15
+	c2.Armor = 12
+
+	result := executeCombat(c1, c2)
+	log := extractLog(result)
+
+	// Just verify the fight produces a rich log with multiple effect types active
+	actionCounts := map[string]int{}
+	for _, e := range log {
+		key := e.Action
+		if e.TriggerType != "" {
+			key += "/" + e.TriggerType
+		}
+		actionCounts[key]++
+	}
+
+	requiredActions := []string{"damage/on_crit", "buff/on_turn_start", "bleed/on_hit_taken"}
+	for _, act := range requiredActions {
+		if actionCounts[act] == 0 {
+			t.Errorf("Expected action %q in mirror match log", act)
+		}
+	}
+
+	s1 := extractStats(result, "combatant1")
+	s2 := extractStats(result, "combatant2")
+	fmt.Printf("  Mirror Match: %d unique action types, %d total log entries\n", len(actionCounts), len(log))
+	fmt.Printf("    Fighter A: dealt=%.0f taken=%.0f healed=%.0f bleed=%.0f\n",
+		s1["damageDealt"].(float64), s1["damageTaken"].(float64), s1["healingDone"].(float64), s1["bleedApplied"].(float64))
+	fmt.Printf("    Fighter B: dealt=%.0f taken=%.0f healed=%.0f bleed=%.0f\n",
+		s2["damageDealt"].(float64), s2["damageTaken"].(float64), s2["healingDone"].(float64), s2["bleedApplied"].(float64))
 }

@@ -857,7 +857,10 @@ function showAddEffectDialog() {
     const effectsHtml = settlementState.effects.map(effect => {
         const id = effect.effect_id || effect.id;
         const name = effect.effect_name || effect.name || `Effect ${id}`;
-        const desc = effect.description || effect.effect_description || '';
+        let desc = effect.description || effect.effect_description || '';
+        if (desc && effect.factor != null) {
+            desc = desc.replace('*', Math.abs(effect.factor));
+        }
         const isSelected = settlementState.enchanterEffects.includes(id);
         
         return `

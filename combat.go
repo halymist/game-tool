@@ -727,6 +727,12 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 						} else {
 							applyModifier(turn, attacker.CharacterID, attackerMods, attackerBuffs, &eff, "on_hit_taken")
 						}
+					case "bleed":
+						bleedAmount := resolveFactorValue(&eff, attackerMaxHP, *attackerHP, damage)
+						*attackerBleed += bleedAmount
+						getStats(defender.CharacterID).BleedApplied += bleedAmount
+						eid := eff.EffectID
+						combatLog = append(combatLog, CombatLogEntry{Turn: turn, CharacterID: defender.CharacterID, Action: "bleed", Factor: bleedAmount, EffectID: &eid, TriggerType: "on_hit_taken"})
 					}
 				}
 
