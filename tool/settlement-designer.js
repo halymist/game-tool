@@ -1094,8 +1094,8 @@ function createNewSettlement() {
     settlementState.utilityResponses = [];
     settlementState.expeditionResponses = [];
     settlementState.locations = [];
-    settlementState.vendorMsgRect = null;
-    settlementState.utilityMsgRect = null;
+    settlementState.vendorMsgRect = {x1: 4.97, y1: 5.86, x2: 65.15, y2: 24.27};
+    settlementState.utilityMsgRect = {x1: 3.79, y1: 4.21, x2: 77.28, y2: 23.44};
 
     // Clear form
     document.getElementById('settlementName').value = '';
@@ -2052,23 +2052,24 @@ function getMsgRectFromElement(target) {
 }
 
 function toggleMsgRect(target) {
-    const stateKey = MSG_RECT_STATE_KEYS[target];
     const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
-    if (!stateKey || !el) return;
+    if (!el) return;
 
-    if (settlementState[stateKey]) {
-        // Hide the rect but remember its position
-        if (!settlementState._lastMsgRects) settlementState._lastMsgRects = {};
-        settlementState._lastMsgRects[target] = { ...settlementState[stateKey] };
-        settlementState[stateKey] = null;
+    if (el.style.display !== 'none') {
         el.style.display = 'none';
     } else {
-        // Restore last known position, or use default
-        const last = settlementState._lastMsgRects?.[target];
-        settlementState[stateKey] = last ? { ...last } : { x1: 10, y1: 60, x2: 90, y2: 90 };
-        applyMsgRect(target);
+        const stateKey = MSG_RECT_STATE_KEYS[target];
+        if (settlementState[stateKey]) {
+            applyMsgRect(target);
+        } else {
+            // No saved rect yet — show with default position without marking dirty
+            const defaultRect = target === 'vendor'
+                ? {x1: 4.97, y1: 5.86, x2: 65.15, y2: 24.27}
+                : {x1: 3.79, y1: 4.21, x2: 77.28, y2: 23.44};
+            settlementState[stateKey] = defaultRect;
+            applyMsgRect(target);
+        }
     }
-    checkSettlementSaveConditions();
 }
 
 function initMsgRects() {
@@ -2084,19 +2085,9 @@ function initMsgRects() {
 
         // Drag the rect body
         el.addEventListener('mousedown', (e) => {
-            if (e.target.closest('.msg-rect-handle')) return;
             e.preventDefault();
             e.stopPropagation();
             startMsgRectDrag(target, e);
-        });
-
-        // Resize via handles
-        el.querySelectorAll('.msg-rect-handle').forEach(handle => {
-            handle.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                startMsgRectResize(target, handle.dataset.dir, e);
-            });
         });
     });
 }
@@ -2138,61 +2129,58 @@ function startMsgRectDrag(target, startEvt) {
     document.addEventListener('mouseup', onUp);
 }
 
-function startMsgRectResize(target, dir, startEvt) {
-    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
-    const area = document.getElementById(MSG_RECT_AREA_IDS[target]);
-    if (!el || !area) return;
-
-    const aw = area.offsetWidth;
-    const ah = area.offsetHeight;
-    const startX = startEvt.clientX;
-    const startY = startEvt.clientY;
-    const origLeft = parseFloat(el.style.left) || 0;
-    const origTop = parseFloat(el.style.top) || 0;
-    const origW = parseFloat(el.style.width) || 0;
-    const origH = parseFloat(el.style.height) || 0;
-    const minPctW = (30 / aw) * 100;
-    const minPctH = (20 / ah) * 100;
-
-    function onMove(e) {
-        const dx = ((e.clientX - startX) / aw) * 100;
-        const dy = ((e.clientY - startY) / ah) * 100;
-
-        let left = origLeft, top = origTop, w = origW, h = origH;
-
-        if (dir.includes('e')) { w = Math.max(minPctW, Math.min(100 - left, origW + dx)); }
-        if (dir.includes('w')) {
-            const newLeft = Math.max(0, Math.min(origLeft + origW - minPctW, origLeft + dx));
-            w = origW + (origLeft - newLeft);
-            left = newLeft;
-        }
-        if (dir.includes('s')) { h = Math.max(minPctH, Math.min(100 - top, origH + dy)); }
-        if (dir.includes('n')) {
-            const newTop = Math.max(0, Math.min(origTop + origH - minPctH, origTop + dy));
-            h = origH + (origTop - newTop);
-            top = newTop;
-        }
-
-        el.style.left = left + '%';
-        el.style.top = top + '%';
-        el.style.width = w + '%';
-        el.style.height = h + '%';
-    }
-
-    function onUp() {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        settlementState[MSG_RECT_STATE_KEYS[target]] = getMsgRectFromElement(target);
-        checkSettlementSaveConditions();
-    }
-
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-}
-
-// Initialize rect drag/resize when DOM is ready
+// Initialize rect drag when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initMsgRects);
 } else {
     initMsgRects();
 }
+
+// ── Context Modal ─────────────────────────────────────────────
+let _contextModalSourceId = null;
+
+function openContextModal(textareaId, title) {
+    const src = document.getElementById(textareaId);
+    const overlay = document.getElementById('contextModalOverlay');
+    const modalTA = document.getElementById('contextModalTextarea');
+    const modalTitle = document.getElementById('contextModalTitle');
+    if (!src || !overlay || !modalTA) return;
+
+    _contextModalSourceId = textareaId;
+    modalTitle.textContent = title || 'Context';
+    modalTA.value = src.value;
+    overlay.style.display = 'flex';
+    modalTA.focus();
+}
+
+function closeContextModal() {
+    const overlay = document.getElementById('contextModalOverlay');
+    const modalTA = document.getElementById('contextModalTextarea');
+    if (!overlay) return;
+
+    if (_contextModalSourceId) {
+        const src = document.getElementById(_contextModalSourceId);
+        if (src && src.value !== modalTA.value) {
+            src.value = modalTA.value;
+            checkSettlementSaveConditions();
+        }
+    }
+    _contextModalSourceId = null;
+    overlay.style.display = 'none';
+}
+
+// Close on Escape or click outside
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('contextModalOverlay');
+        if (overlay && overlay.style.display === 'flex') {
+            closeContextModal();
+        }
+    }
+});
+document.addEventListener('click', (e) => {
+    const overlay = document.getElementById('contextModalOverlay');
+    if (overlay && e.target === overlay) {
+        closeContextModal();
+    }
+});

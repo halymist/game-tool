@@ -1611,12 +1611,7 @@
                                     </svg>
                                     <span>Click to select asset</span>
                                 </div>
-                                <div id="vendorMsgRect" class="msg-rect-overlay" style="display:none">
-                                    <div class="msg-rect-handle msg-rect-handle-nw" data-dir="nw"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-ne" data-dir="ne"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-sw" data-dir="sw"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-se" data-dir="se"></div>
-                                </div>
+                                <div id="vendorMsgRect" class="msg-rect-overlay" style="display:none"></div>
                             </div>
                             <div class="settlement-card-info vendor-stock-info">
                                 <div id="vendorItemsGrid" class="items-grid">
@@ -1652,12 +1647,7 @@
                                     </svg>
                                     <span>Click to select asset</span>
                                 </div>
-                                <div id="utilityMsgRect" class="msg-rect-overlay" style="display:none">
-                                    <div class="msg-rect-handle msg-rect-handle-nw" data-dir="nw"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-ne" data-dir="ne"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-sw" data-dir="sw"></div>
-                                    <div class="msg-rect-handle msg-rect-handle-se" data-dir="se"></div>
-                                </div>
+                                <div id="utilityMsgRect" class="msg-rect-overlay" style="display:none"></div>
                             </div>
                             <div class="settlement-card-info">
                                 <!-- Church: Blessings -->
@@ -1695,12 +1685,12 @@
                 <div class="settlement-context-section">
                     <div class="settlement-context-grid settlement-context-top">
                         <div>
-                            <label for="settlementContext">Context</label>
-                            <textarea id="settlementContext" placeholder="Long-form settlement context..."></textarea>
+                            <label for="settlementContext">Context <button class="responses-btn" onclick="openContextModal('settlementContext', 'Settlement Context')" title="Expand">⛶</button></label>
+                            <textarea id="settlementContext" placeholder="Long-form settlement context..." readonly onclick="openContextModal('settlementContext', 'Settlement Context')"></textarea>
                         </div>
                         <div>
-                            <label for="expeditionContext">Expedition Context</label>
-                            <textarea id="expeditionContext" placeholder="Expedition-specific context..."></textarea>
+                            <label for="expeditionContext">Expedition Context <button class="responses-btn" onclick="openContextModal('expeditionContext', 'Expedition Context')" title="Expand">⛶</button></label>
+                            <textarea id="expeditionContext" placeholder="Expedition-specific context..." readonly onclick="openContextModal('expeditionContext', 'Expedition Context')"></textarea>
                         </div>
                     </div>
                     <div class="settlement-context-grid settlement-context-bottom">
@@ -1781,6 +1771,19 @@
                         <div class="location-modal-footer">
                             <button class="btn-cancel-location" onclick="closeLocationModal()">Cancel</button>
                             <button class="btn-save-location" onclick="saveLocation()">Save Location</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Context Fullscreen Modal -->
+                <div id="contextModalOverlay" class="context-modal-overlay">
+                    <div class="context-modal">
+                        <div class="context-modal-header">
+                            <h3 id="contextModalTitle">Context</h3>
+                            <button class="context-modal-close" onclick="closeContextModal()">✕</button>
+                        </div>
+                        <div class="context-modal-body">
+                            <textarea id="contextModalTextarea"></textarea>
                         </div>
                     </div>
                 </div>

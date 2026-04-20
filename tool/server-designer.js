@@ -215,6 +215,14 @@ async function createServer() {
     const hourVal = document.getElementById('serverStartHour').value;
     const startsAt = dateVal ? `${dateVal}T${hourVal || '00'}:00` : null;
 
+    const createBtn = document.getElementById('serverModalCreateBtn');
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.dataset.origText = createBtn.textContent;
+        createBtn.textContent = 'Creating...';
+        createBtn.classList.add('btn-loading');
+    }
+
     try {
         const token = await getCurrentAccessToken();
         if (!token) return;
@@ -247,6 +255,12 @@ async function createServer() {
     } catch (error) {
         console.error('Error creating server:', error);
         setServerStatus('Create failed', true);
+    } finally {
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.textContent = createBtn.dataset.origText || 'Create';
+            createBtn.classList.remove('btn-loading');
+        }
     }
 }
 
@@ -295,22 +309,23 @@ function renderServerPlanDetails(server) {
 
     const currentLabel = server.current_day ? `<div class="server-plan-current">Current day: ${server.current_day}</div>` : '';
     const rows = plan.map(p => {
-        const flags = [
-            p.blacksmith ? 'B' : '',
-            p.alchemist ? 'A' : '',
-            p.enchanter ? 'E' : '',
-            p.trainer ? 'T' : '',
-            p.church ? 'C' : ''
-        ].filter(Boolean).join('');
+        const facilities = [
+            p.blacksmith ? 'Blacksmith' : '',
+            p.alchemist ? 'Alchemist' : '',
+            p.enchanter ? 'Enchanter' : '',
+            p.trainer ? 'Trainer' : '',
+            p.church ? 'Church' : ''
+        ].filter(Boolean).join(', ');
         const blessings = [p.blessing1, p.blessing2, p.blessing3].filter(v => v != null).join(',');
         const settlement = p.settlement_name || `#${p.settlement_id}`;
+        const factionLabel = p.faction === 0 ? 'Neutral' : `Faction ${p.faction}`;
         const isCurrent = server.current_day && p.server_day === server.current_day;
         return `
             <div class="server-plan-row ${isCurrent ? 'current' : ''}">
                 <span class="server-plan-day">Day ${p.server_day}</span>
-                <span class="server-plan-faction">F${p.faction}</span>
+                <span class="server-plan-faction">${factionLabel}</span>
                 <span class="server-plan-settlement">${settlement}</span>
-                ${flags ? `<span class="server-plan-flags">${flags}</span>` : ''}
+                ${facilities ? `<span class="server-plan-flags">${facilities}</span>` : ''}
                 ${blessings ? `<span class="server-plan-blessings">Blessings ${blessings}</span>` : ''}
             </div>
         `;

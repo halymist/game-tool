@@ -139,6 +139,15 @@ func handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prevent duplicate server names
+	if req.Name != nil && *req.Name != "" {
+		var exists bool
+		if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM management.servers WHERE name = $1)`, *req.Name).Scan(&exists); err == nil && exists {
+			json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: "A server with this name already exists"})
+			return
+		}
+	}
+
 	startAt := time.Now()
 	if req.StartsAt != nil && *req.StartsAt != "" {
 		parsed, err := time.Parse("2006-01-02T15:04", *req.StartsAt)
@@ -277,7 +286,6 @@ func generateServerContent(serverID int) error {
 	const totalDays = 70
 	const neutralBeforeFaction = 5 // after 5 neutral settlements, insert a faction one
 	factions := []int{1, 2, 3}
-	factionIdx := 0
 	neutralCount := 0
 
 	type dayEntry struct {
@@ -288,39 +296,61 @@ func generateServerContent(serverID int) error {
 
 	day := 1
 	for day <= totalDays {
-		var pick settlementInfo
-		isFactionDay := false
-
-		// After every neutralBeforeFaction neutral settlements, place a faction one
+		// After every neutralBeforeFaction neutral settlements, insert a faction block
 		if neutralCount >= neutralBeforeFaction && len(factions) > 0 {
-			f := factions[factionIdx%len(factions)]
-			pool := factionPools[f]
-			if len(pool) > 0 {
-				pick = pool[rand.Intn(len(pool))]
-				isFactionDay = true
-				factionIdx++
-				neutralCount = 0
-			}
-		}
+			// Faction block: one settlement per faction, each with independent duration
+			maxDuration := 0
+			for _, f := range factions {
+				pool := factionPools[f]
+				if len(pool) == 0 {
+					continue
+				}
+				pick := pool[rand.Intn(len(pool))]
 
-		if !isFactionDay {
-			if len(neutral) > 0 {
-				pick = neutral[rand.Intn(len(neutral))]
+				var duration int
+				if day <= 2 {
+					duration = 1
+				} else {
+					duration = 1 + rand.Intn(3) // 1-3
+				}
+				if day+duration-1 > totalDays {
+					duration = totalDays - day + 1
+				}
+				if duration <= 0 {
+					continue
+				}
+
+				for d := 0; d < duration; d++ {
+					plan = append(plan, dayEntry{day: day + d, settlement: pick})
+				}
+				if duration > maxDuration {
+					maxDuration = duration
+				}
+			}
+			if maxDuration > 0 {
+				day += maxDuration
 			} else {
-				// Fallback: pick any settlement
-				pick = settlements[rand.Intn(len(settlements))]
+				day++
 			}
-			neutralCount++
+			neutralCount = 0
+			continue
 		}
 
-		// Determine how many days this settlement stays
+		// Neutral settlement
+		var pick settlementInfo
+		if len(neutral) > 0 {
+			pick = neutral[rand.Intn(len(neutral))]
+		} else {
+			pick = settlements[rand.Intn(len(settlements))]
+		}
+		neutralCount++
+
 		var duration int
 		if day <= 2 {
 			duration = 1
 		} else {
 			duration = 1 + rand.Intn(3) // 1-3
 		}
-		// Don't exceed 70 days
 		if day+duration-1 > totalDays {
 			duration = totalDays - day + 1
 		}
@@ -505,9 +535,19 @@ func pickRandom(pool []int, n int) []int {
 	if len(pool) == 0 {
 		return nil
 	}
-	result := make([]int, n)
-	for i := 0; i < n; i++ {
-		result[i] = pool[rand.Intn(len(pool))]
+	if n >= len(pool) {
+		// Return a shuffled copy of the entire pool
+		result := make([]int, len(pool))
+		copy(result, pool)
+		rand.Shuffle(len(result), func(i, j int) { result[i], result[j] = result[j], result[i] })
+		return result
 	}
-	return result
+	// Fisher-Yates partial shuffle for n unique picks
+	tmp := make([]int, len(pool))
+	copy(tmp, pool)
+	for i := 0; i < n; i++ {
+		j := i + rand.Intn(len(tmp)-i)
+		tmp[i], tmp[j] = tmp[j], tmp[i]
+	}
+	return tmp[:n]
 }
