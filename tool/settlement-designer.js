@@ -17,7 +17,9 @@ let settlementState = {
     utilityResponses: [], // [{type: 'on_entered', text: '...'}, ...]
     expeditionResponses: [], // [{type: 'failure', text: '...'}, ...]
     locations: [], // [{id: 1, name: '...', description: '...', texture_id: ...}, ...]
-    editingLocationIndex: null // index of location being edited, null for new
+    editingLocationIndex: null, // index of location being edited, null for new
+    vendorMsgRect: null, // {x1, y1, x2, y2} percentages
+    utilityMsgRect: null
 };
 
 const SETTLEMENT_FALLBACK_ITEM_ICON = buildSettlementEmojiDataUri('🎒');
@@ -98,6 +100,11 @@ function setupSettlementEventListeners() {
     const saveSettlementBtn = document.getElementById('saveSettlementBtn');
     if (saveSettlementBtn) {
         saveSettlementBtn.addEventListener('click', saveSettlement);
+    }
+
+    const dismissSettlementBtn = document.getElementById('dismissSettlementBtn');
+    if (dismissSettlementBtn) {
+        dismissSettlementBtn.addEventListener('click', dismissSettlementChanges);
     }
 
     // Asset click handlers for cards
@@ -467,7 +474,16 @@ function selectSettlement(settlementId) {
         saveBtn.textContent = 'Update';
     }
 
+    // Hide dismiss button initially (no changes yet)
+    const dismissBtn = document.getElementById('dismissSettlementBtn');
+    if (dismissBtn) dismissBtn.style.display = 'none';
+
     checkSettlementSaveConditions();
+}
+
+function dismissSettlementChanges() {
+    if (settlementState.isNewSettlement || !settlementState.selectedSettlementId) return;
+    selectSettlement(settlementState.selectedSettlementId);
 }
 
 function populateSettlementForm(settlement) {
@@ -627,6 +643,12 @@ function populateSettlementForm(settlement) {
     // Locations from settlement data
     settlementState.locations = settlement.locations || [];
     renderLocations();
+
+    // Message rectangles
+    settlementState.vendorMsgRect = settlement.vendor_msg_rect || null;
+    settlementState.utilityMsgRect = settlement.utility_msg_rect || null;
+    applyMsgRect('vendor');
+    applyMsgRect('utility');
 }
 
 function updateUtilityContent() {
@@ -697,6 +719,9 @@ function updateAssetPreview(target, assetId) {
     const area = document.getElementById(areaId);
     if (!area) return;
 
+    // Preserve msg-rect overlay if present
+    const rectOverlay = area.querySelector('.msg-rect-overlay');
+
     if (assetId) {
         const asset = settlementState.settlementAssets.find(a => a.id === assetId);
         const src = asset ? asset.url : '';
@@ -715,6 +740,9 @@ function updateAssetPreview(target, assetId) {
         `;
         area.closest('.settlement-card')?.classList.remove('has-asset');
     }
+
+    // Re-append preserved rect overlay
+    if (rectOverlay) area.appendChild(rectOverlay);
 
     // Store asset ID in data attribute
     area.dataset.assetId = assetId || '';
@@ -1066,6 +1094,8 @@ function createNewSettlement() {
     settlementState.utilityResponses = [];
     settlementState.expeditionResponses = [];
     settlementState.locations = [];
+    settlementState.vendorMsgRect = null;
+    settlementState.utilityMsgRect = null;
 
     // Clear form
     document.getElementById('settlementName').value = '';
@@ -1098,6 +1128,10 @@ function createNewSettlement() {
 
     // Clear and render locations
     renderLocations();
+
+    // Clear message rects
+    applyMsgRect('vendor');
+    applyMsgRect('utility');
 
     // Update select
     const select = document.getElementById('settlementSelect');
@@ -1510,7 +1544,10 @@ async function saveSettlement() {
         vendor_items: settlementState.vendorItems,
         enchanter_effects: settlementState.enchanterEffects,
         // Locations
-        locations: settlementState.locations
+        locations: settlementState.locations,
+        // Message rectangles
+        vendor_msg_rect: settlementState.vendorMsgRect || null,
+        utility_msg_rect: settlementState.utilityMsgRect || null
     };
 
     if (!settlementState.isNewSettlement && settlementState.selectedSettlementId) {
@@ -1676,7 +1713,9 @@ function getSettlementFormSnapshot() {
         vendorResponses: JSON.stringify(settlementState.vendorResponses),
         utilityResponses: JSON.stringify(settlementState.utilityResponses),
         expeditionResponses: JSON.stringify(settlementState.expeditionResponses),
-        locations: JSON.stringify(settlementState.locations)
+        locations: JSON.stringify(settlementState.locations),
+        vendorMsgRect: JSON.stringify(settlementState.vendorMsgRect),
+        utilityMsgRect: JSON.stringify(settlementState.utilityMsgRect)
     });
 }
 
@@ -1710,6 +1749,18 @@ function checkSettlementSaveConditions() {
 
     btn.disabled = !canSave;
     btn.classList.toggle('btn-disabled', !canSave);
+
+    // Show/hide dismiss button for existing settlements with changes
+    const dismissBtn = document.getElementById('dismissSettlementBtn');
+    if (dismissBtn) {
+        if (!settlementState.isNewSettlement && settlementState._snapshot) {
+            const currentSnapshot = getSettlementFormSnapshot();
+            const isDirty = currentSnapshot !== settlementState._snapshot;
+            dismissBtn.style.display = isDirty ? '' : 'none';
+        } else {
+            dismissBtn.style.display = 'none';
+        }
+    }
 }
 
 // ==================== LOCATIONS MANAGEMENT ====================
@@ -1959,3 +2010,186 @@ window.openEditLocationModal = openEditLocationModal;
 window.closeLocationModal = closeLocationModal;
 window.saveLocation = saveLocation;
 window.deleteLocation = deleteLocation;
+
+// ==================== MESSAGE RECTANGLE DRAG / RESIZE ====================
+
+const MSG_RECT_TARGETS = ['vendor', 'utility'];
+const MSG_RECT_STATE_KEYS = { vendor: 'vendorMsgRect', utility: 'utilityMsgRect' };
+const MSG_RECT_ELEM_IDS = { vendor: 'vendorMsgRect', utility: 'utilityMsgRect' };
+const MSG_RECT_AREA_IDS = { vendor: 'vendorAssetArea', utility: 'utilityAssetArea' };
+
+function applyMsgRect(target) {
+    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+    if (!el) return;
+    const rect = settlementState[MSG_RECT_STATE_KEYS[target]];
+    if (!rect || rect.x1 == null) {
+        el.style.display = 'none';
+        return;
+    }
+    const left = Math.min(rect.x1, rect.x2);
+    const top = Math.min(rect.y1, rect.y2);
+    const width = Math.abs(rect.x2 - rect.x1);
+    const height = Math.abs(rect.y2 - rect.y1);
+    el.style.display = '';
+    el.style.left = left + '%';
+    el.style.top = top + '%';
+    el.style.width = width + '%';
+    el.style.height = height + '%';
+}
+
+function getMsgRectFromElement(target) {
+    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+    const area = document.getElementById(MSG_RECT_AREA_IDS[target]);
+    if (!el || !area || el.style.display === 'none') return null;
+    const aw = area.offsetWidth;
+    const ah = area.offsetHeight;
+    if (!aw || !ah) return null;
+    const x1 = (parseFloat(el.style.left) || 0);
+    const y1 = (parseFloat(el.style.top) || 0);
+    const w = (parseFloat(el.style.width) || 0);
+    const h = (parseFloat(el.style.height) || 0);
+    return { x1: +x1.toFixed(2), y1: +y1.toFixed(2), x2: +(x1 + w).toFixed(2), y2: +(y1 + h).toFixed(2) };
+}
+
+function toggleMsgRect(target) {
+    const stateKey = MSG_RECT_STATE_KEYS[target];
+    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+    if (!stateKey || !el) return;
+
+    if (settlementState[stateKey]) {
+        // Remove the rect
+        settlementState[stateKey] = null;
+        el.style.display = 'none';
+    } else {
+        // Create default rect at bottom portion of asset area
+        settlementState[stateKey] = { x1: 10, y1: 60, x2: 90, y2: 90 };
+        applyMsgRect(target);
+    }
+    checkSettlementSaveConditions();
+}
+
+function initMsgRects() {
+    MSG_RECT_TARGETS.forEach(target => {
+        const area = document.getElementById(MSG_RECT_AREA_IDS[target]);
+        const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+        if (!area || !el) return;
+
+        // Prevent single click on rect from opening asset gallery
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Drag the rect body
+        el.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.msg-rect-handle')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            startMsgRectDrag(target, e);
+        });
+
+        // Resize via handles
+        el.querySelectorAll('.msg-rect-handle').forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startMsgRectResize(target, handle.dataset.dir, e);
+            });
+        });
+    });
+}
+
+function startMsgRectDrag(target, startEvt) {
+    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+    const area = document.getElementById(MSG_RECT_AREA_IDS[target]);
+    if (!el || !area) return;
+
+    const aw = area.offsetWidth;
+    const ah = area.offsetHeight;
+    const startX = startEvt.clientX;
+    const startY = startEvt.clientY;
+    const origLeft = parseFloat(el.style.left) || 0;
+    const origTop = parseFloat(el.style.top) || 0;
+    const w = parseFloat(el.style.width) || 0;
+    const h = parseFloat(el.style.height) || 0;
+
+    function onMove(e) {
+        const dx = ((e.clientX - startX) / aw) * 100;
+        const dy = ((e.clientY - startY) / ah) * 100;
+        let newLeft = origLeft + dx;
+        let newTop = origTop + dy;
+        // Clamp
+        newLeft = Math.max(0, Math.min(100 - w, newLeft));
+        newTop = Math.max(0, Math.min(100 - h, newTop));
+        el.style.left = newLeft + '%';
+        el.style.top = newTop + '%';
+    }
+
+    function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        settlementState[MSG_RECT_STATE_KEYS[target]] = getMsgRectFromElement(target);
+        checkSettlementSaveConditions();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function startMsgRectResize(target, dir, startEvt) {
+    const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
+    const area = document.getElementById(MSG_RECT_AREA_IDS[target]);
+    if (!el || !area) return;
+
+    const aw = area.offsetWidth;
+    const ah = area.offsetHeight;
+    const startX = startEvt.clientX;
+    const startY = startEvt.clientY;
+    const origLeft = parseFloat(el.style.left) || 0;
+    const origTop = parseFloat(el.style.top) || 0;
+    const origW = parseFloat(el.style.width) || 0;
+    const origH = parseFloat(el.style.height) || 0;
+    const minPctW = (30 / aw) * 100;
+    const minPctH = (20 / ah) * 100;
+
+    function onMove(e) {
+        const dx = ((e.clientX - startX) / aw) * 100;
+        const dy = ((e.clientY - startY) / ah) * 100;
+
+        let left = origLeft, top = origTop, w = origW, h = origH;
+
+        if (dir.includes('e')) { w = Math.max(minPctW, Math.min(100 - left, origW + dx)); }
+        if (dir.includes('w')) {
+            const newLeft = Math.max(0, Math.min(origLeft + origW - minPctW, origLeft + dx));
+            w = origW + (origLeft - newLeft);
+            left = newLeft;
+        }
+        if (dir.includes('s')) { h = Math.max(minPctH, Math.min(100 - top, origH + dy)); }
+        if (dir.includes('n')) {
+            const newTop = Math.max(0, Math.min(origTop + origH - minPctH, origTop + dy));
+            h = origH + (origTop - newTop);
+            top = newTop;
+        }
+
+        el.style.left = left + '%';
+        el.style.top = top + '%';
+        el.style.width = w + '%';
+        el.style.height = h + '%';
+    }
+
+    function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        settlementState[MSG_RECT_STATE_KEYS[target]] = getMsgRectFromElement(target);
+        checkSettlementSaveConditions();
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+// Initialize rect drag/resize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMsgRects);
+} else {
+    initMsgRects();
+}

@@ -1510,6 +1510,9 @@
                         <button id="saveSettlementBtn" class="btn-save-settlement">
                             Save
                         </button>
+                        <button id="dismissSettlementBtn" class="btn-dismiss-settlement" style="display: none;">
+                            Dismiss Changes
+                        </button>
                         <button id="deleteSettlementBtn" class="btn-delete-settlement" style="display: none;">
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -1597,7 +1600,7 @@
 
                     <!-- Vendor Card -->
                     <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Vendor <button class="responses-btn" onclick="openResponsesModal('vendor')">💬</button></h3>
+                        <h3 class="settlement-card-title">Vendor <button class="responses-btn" onclick="openResponsesModal('vendor')">💬</button><button class="responses-btn" onclick="toggleMsgRect('vendor')" title="Toggle message rectangle">📐</button></h3>
                         <div class="settlement-card">
                             <div id="vendorAssetArea" class="settlement-card-asset" data-asset-id="">
                                 <div class="no-asset">
@@ -1607,6 +1610,13 @@
                                         <polyline points="21 15 16 10 5 21"/>
                                     </svg>
                                     <span>Click to select asset</span>
+                                </div>
+                                <div id="vendorMsgRect" class="msg-rect-overlay" style="display:none">
+                                    <div class="msg-rect-label">MSG</div>
+                                    <div class="msg-rect-handle msg-rect-handle-nw" data-dir="nw"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-ne" data-dir="ne"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-sw" data-dir="sw"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-se" data-dir="se"></div>
                                 </div>
                             </div>
                             <div class="settlement-card-info vendor-stock-info">
@@ -1630,6 +1640,7 @@
                                     <option value="church">Church</option>
                                 </select>
                                 <button class="responses-btn" onclick="openResponsesModal('utility')">💬</button>
+                                <button class="responses-btn" onclick="toggleMsgRect('utility')" title="Toggle message rectangle">📐</button>
                             </div>
                         </div>
                         <div class="settlement-card">
@@ -1641,6 +1652,13 @@
                                         <polyline points="21 15 16 10 5 21"/>
                                     </svg>
                                     <span>Click to select asset</span>
+                                </div>
+                                <div id="utilityMsgRect" class="msg-rect-overlay" style="display:none">
+                                    <div class="msg-rect-label">MSG</div>
+                                    <div class="msg-rect-handle msg-rect-handle-nw" data-dir="nw"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-ne" data-dir="ne"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-sw" data-dir="sw"></div>
+                                    <div class="msg-rect-handle msg-rect-handle-se" data-dir="se"></div>
                                 </div>
                             </div>
                             <div class="settlement-card-info">
