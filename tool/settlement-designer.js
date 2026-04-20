@@ -2057,12 +2057,15 @@ function toggleMsgRect(target) {
     if (!stateKey || !el) return;
 
     if (settlementState[stateKey]) {
-        // Remove the rect
+        // Hide the rect but remember its position
+        if (!settlementState._lastMsgRects) settlementState._lastMsgRects = {};
+        settlementState._lastMsgRects[target] = { ...settlementState[stateKey] };
         settlementState[stateKey] = null;
         el.style.display = 'none';
     } else {
-        // Create default rect at bottom portion of asset area
-        settlementState[stateKey] = { x1: 10, y1: 60, x2: 90, y2: 90 };
+        // Restore last known position, or use default
+        const last = settlementState._lastMsgRects?.[target];
+        settlementState[stateKey] = last ? { ...last } : { x1: 10, y1: 60, x2: 90, y2: 90 };
         applyMsgRect(target);
     }
     checkSettlementSaveConditions();
