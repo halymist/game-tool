@@ -1,0 +1,1457 @@
+WORLD QUEST COMPENDIUM
+=======================
+170 quests across 17 settlements. Each quest: title, Location (settlement-specific,
+named + ID), NPC(s), and a branching Scenario with multiple paths the quest
+generator can expand into full option trees.
+
+Factions: 1 = Order, 2 = Guild, 3 = Companions, — = unaligned.
+
+TABLE OF CONTENTS
+-----------------
+  1. Rookbridge Hollow (—)
+  2. Hollowmere Vault (—)
+  3. Grainfall Terrace (—)
+  4. Brackwater Reach (—)
+  5. Therm Vale (—)
+  6. Amberwake Abbey (Order)
+  7. Spanreach (Guild)
+  8. Redgrove Hold (Companions)
+  9. Greyfen Shore (—)
+ 10. Tread of Karth (Guild, moving)
+ 11. The Verdant Reliquary (Order)
+ 12. The Ashbound March (Companions, nomadic)
+ 13. The Cairnstep Reach (—)
+ 14. Gravewind Cairn (Order)
+ 15. Sunkreach (—)
+ 16. Tangle Spire (—)
+ 17. The Lantern Drain (—)
+
+
+================================================================================
+1. ROOKBRIDGE HOLLOW                                                  (unaligned)
+================================================================================
+
+1.1 The High Span Ledger
+  Location: The Bolt Works (94)
+  NPC: Maren Bolt (Blacksmith); secondary: Old Jeck (92)
+  Scenario: Maren has pulled three failed anchor pins from secondary crossings
+  on the Broken Road (101). The fracture patterns are deliberate. She wants the
+  pins walked to Old Jeck for a second opinion, then tagged replacement hardware
+  planted on the next targeted crossing so whoever tampers marks themselves.
+  Paths:
+    (a) Deliver pins to Jeck, plant the tagged hardware, stake out the next
+        sabotage and catch the saboteur on a swaying platform.
+    (b) Skip Jeck; take the pins directly to the Bridgemaster-equivalent at the
+        Drop Market and escalate publicly — faster, but Maren loses control of
+        the investigation.
+    (c) Sell the information to Doss Halver (quest 1.10); the saboteur goes
+        unpunished, Maren loses trust, reward doubled in coin.
+  Reward hooks: Maren's favor, Bolt Works forge discount, optional enemy:
+  a cornered saboteur on a Rootfall Tier platform.
+
+1.2 Still on the Rope
+  Location: The Rope Hall (95)
+  NPC: Pike Grenn (Descent Crew Foreman); optional: Vell Sutter (95)
+  Scenario: A descent worker went down three days ago on a line still clipped,
+  still swaying in the updraft. Pike will pay to recover a body or a reason.
+  Paths:
+    (a) Solo descent on the original line — shortest, but the Rope-Thing in the
+        Lower Mist can tether the harness without notice.
+    (b) Rig a parallel second line (requires Rope Hall crew cooperation and a
+        bribe or favor to Vell) — safer, but alerts Doss Halver's people who
+        watch the Rope Hall traffic.
+    (c) Refuse the descent; bring back only the clipped-off end of the line and
+        a fabricated story — Pike pays half, his grief closes off further work
+        in the Rope Hall for the rest of the act.
+  Hazards: Rope-Thing (new enemy, reels prey upward a handspan at a time until
+  the line goes slack), delayed echoes, voice-mimicry of the missing worker.
+
+1.3 Roots That Listen
+  Location: The Rootfall Tier (91)
+  NPC: Tessa Cane (Salvager)
+  Scenario: Tessa wants the Root Network behind the cracked Rope Hall wall
+  charted — which roots are load-bearing, which are opportunistic. Roots
+  respond to sustained vibration.
+  Paths:
+    (a) Slow and careful — tap-test with a tuning hammer, map over two days,
+        full pay, no collapse.
+    (b) Fast cut-and-mark — chainsaw-style severance, half the time, triggers a
+        localized Rootfall Tier shift that endangers three homes (Maren's shop
+        among them).
+    (c) Bring Barrek (from Grainfall concept, or a Hollow equivalent) as a
+        co-surveyor — shares the pay but produces a map detailed enough to sell
+        to Doss or to use in quest 1.10.
+  Hazards: root-tightening ambush if three wrong taps in a row; falling debris
+  from the Rope Hall wall above.
+
+1.4 The Quiet Below
+  Location: The Mist Basin (93)
+  NPC: Hask (Mist Basin Watch)
+  Scenario: Hask's seven-day log shows the ravine's ambient subsonic hum has
+  stopped. He wants a listener to carry a weighted bone cone (Hask's Cone —
+  new item) to three depths at three specific hours.
+  Paths:
+    (a) Complete all three readings honestly — the hum is not missing, it has
+        moved laterally and downward; Hask's subsequent quest line unlocks.
+    (b) Fake the deepest reading to avoid the longest descent — detectable by
+        Hask on examination of the cone's condensation pattern; he pays, but
+        will not hire again.
+    (c) Let a third party (e.g. Guild surveyor from Sigg's network in Brackwater
+        Reach, if narrative allows) ride along and split findings — faster, but
+        compromises Hollow secrecy.
+  Hazards: the "hour older than the ropes measured" time anomaly at the
+  deepest depth — minor stat debuff on return, clears after a full rest.
+
+1.5 Rented Ears
+  Location: The Sway Cells (97)
+  NPC: Sera Wight (Sway Cells Manager); secondary: Linn Bray (96), Doss Halver
+  Scenario: Sera's guest ledger at the Sway Cells names three people who paid
+  in Doss Halver's coin and stayed only as long as secondary crossings took to
+  fail. She will sell the ledger at the Drop Market at dusk.
+  Paths:
+    (a) Buy the ledger for Linn Bray — she uses it to move against Doss
+        publicly; violence on the walkways follows.
+    (b) Buy the ledger for Doss Halver — he destroys it quietly; Hollow
+        politics remain stable but three more crossings are sabotaged before
+        the act closes.
+    (c) Play both buyers — sell, deliver a forgery, keep the real ledger for
+        use in 1.8 or 1.10. High reward, high hostility from whichever side
+        catches on first.
+  Hazards: rooftop chase across swaying walkways; thrown weapons; one
+  scripted near-fall.
+
+1.6 The Old Quarry Mouth
+  Location: The Old Quarry Mouth (92)
+  NPC: Old Jeck (Retired Bridge Builder)
+  Scenario: Jeck buried a cache forty years ago — original bridge-builder
+  tools, a ledger of deliberate flex points, a sealed bottle he won't describe.
+  The tunnels have shifted. He'll trade the location for a promise the ledger
+  goes to Maren, not Doss.
+  Paths:
+    (a) Keep the promise — full cache to Maren; Jeck dies peaceful two acts
+        later and leaves a second cache coordinate in his will.
+    (b) Sell the ledger to Doss — Maren disowns the player publicly at the
+        Drop Market; Doss's coin is generous but the Bolt Works closes to you.
+    (c) Keep the ledger for yourself — opens personal crafting recipes for
+        anchor hardware; Jeck learns and refuses further contact.
+  Hazards: collapsed shafts, nesting cliff-things, a cave-in puzzle that
+  requires reading the flex-point ledger from the wrong side.
+
+1.7 The Fee That Wasn't
+  Location: The Drop Market (96)
+  NPC: Corvin Dale (Drop Market Vendor); antagonist: caravan master on the Rim
+  Scenario: Corvin owes an off-Hollow caravan master now waiting on the Ravine
+  Rim with an armed escort. The debt must be paid in Maren's reinforced hooks
+  (six). Maren will not sell him any at any price.
+  Paths:
+    (a) Convince Maren — requires favor from 1.1 or 1.3; she sells at cost.
+    (b) Forge substitutes using Jeck's old cache tools (requires 1.6 complete)
+        — the creditor doesn't test them until two days gone; Corvin stays in
+        business; the creditor becomes a recurring antagonist.
+    (c) Rob the Bolt Works — fast, generates a crime flag inside the Hollow;
+        Maren becomes hostile; Corvin pays top rate.
+    (d) Negotiate directly with the creditor on the Ravine Rim — a two-choice
+        dialogue (intimidate / offer alternative goods). Success skips the
+        theft entirely.
+  Hazards: Ravine Rim ambush if negotiation fails; Bolt Works caretaker if
+  option (c) is chosen.
+
+1.8 The Wrong Weight
+  Location: The Rope Hall (95)
+  NPC: Vell Sutter (Rope Hall Crew Chief)
+  Scenario: Vell condemned a rope last week. It is back in service. Someone in
+  her crew uncut the mark and re-hung it — a bribe signer. The condemned rope
+  is rated for the High Span's central sling. A loaded caravan crossing would
+  be catastrophic.
+  Paths:
+    (a) Work a single shift under cover — identify the signer by
+        handwriting/knot style; Vell fires and blacklists them.
+    (b) Cut the rope yourself overnight — stops the disaster, exposes nothing,
+        Vell grateful but suspicious.
+    (c) Let a caravan be intercepted on the approach instead — requires Linn
+        Bray's cooperation (from 1.5 or 1.9); the political fallout reshapes
+        Drop Market power; Vell never knows.
+  Hazards: nighttime Rope Hall patrol; one bribed crewmate may draw a knife
+  if cornered.
+
+1.9 The Broken Road Caravan
+  Location: The Broken Road (101)
+  NPC: Linn Bray (Caravan Liaison); caravan drivers (silent)
+  Scenario: A caravan on the Broken Road approach has stopped for two days.
+  No fires, no signals. Linn wants eyes on it before Doss sends his own and
+  rewrites the story. The drivers sit in a circle facing outward, eating
+  nothing. The Stillness (new passive condition) transfers by proximity past
+  a count of two hundred.
+  Paths:
+    (a) Observe from distance, return with report — safest, Linn acts
+        politically, caravan goods are lost.
+    (b) Enter the circle, retrieve the manifest book and one driver's
+        personal kit — exposure risk: a stat debuff that lingers until next
+        sleep cycle.
+    (c) Burn the caravan — Linn refuses payment; Doss pays double and the
+        event is never officially recorded.
+    (d) Bring Hask (from 1.4) to document the Stillness scientifically —
+        requires 1.4 (a) or (c) complete; generates a research reward and
+        unlocks deeper Mist research later.
+  Hazards: the Stillness itself; Doss's scouts arriving at dusk if the
+  player lingers.
+
+1.10 The Span Will Hold
+  Location: The High Span (90)
+  NPC: Doss Halver (High Span Controller); rival controller on Ravine Rim
+  Scenario: A rival controller on the eastern approach is bribing Maren's
+  crew into declaring the High Span unsafe, which would shift toll rights.
+  Doss wants the rival's intermediary identified and discouraged before the
+  next council at the Ravine Rim. Catch: the rival is right. The Span is
+  unsafe.
+  Paths:
+    (a) Full Doss loyalty — identify and beat the intermediary, testify at the
+        council, Span stays open; a caravan collapse occurs in act 3.
+    (b) Flip on Doss at the council — use evidence from 1.1/1.3/1.8 to prove
+        the Span is unsafe; Doss becomes a persistent enemy; the Hollow loses
+        a trade week but survives.
+    (c) Play both — accept Doss's coin, then leak the council testimony to
+        Linn Bray. Highest reward, highest hostility; all three major NPC
+        factions (Doss, Linn, Maren) will be pinned on a single reputation
+        track for the rest of the act.
+  Hazards: intermediary is a competent duelist; the council itself is a
+  social encounter with failure penalties.
+
+
+================================================================================
+2. HOLLOWMERE VAULT                                                   (unaligned)
+================================================================================
+
+2.1 The Shifting Wing Inventory
+  Location: The Unmapped Wing (105)
+  NPC: Adri Coss (Settlement Coordinator)
+  Scenario: Three residents' workshops in the Unmapped Wing no longer end
+  where they used to. Their most important items must be retrieved before the
+  wing is sealed — a sealed crate, a ledger, a child's memory-box.
+  Paths:
+    (a) Chalk-and-string mapping method — slow, reliable, all three retrieved.
+    (b) Ask Pell (Deep Vault Guide) for a shortcut route — fast, but Pell
+        names the player as his client afterward (triggers 2.4 early).
+    (c) Retrieve only two items, claim the third was already gone — the
+        resident eventually discovers the lie; Adri withdraws future hires.
+  Hazards: rooms re-sequencing mid-retrieval; one sealed corridor that opens
+  and closes on a ten-minute cycle.
+
+2.2 Water That Went Elsewhere
+  Location: Lower Water Channels (106)
+  NPC: Lura Denn (Water Systems Monitor)
+  Scenario: A new ankle-deep corridor must be traced to its terminus with
+  sound markers every fifty paces. The water is moving toward something.
+  Paths:
+    (a) Trace to the terminus and return — the destination is a chamber with
+        a warm, pulsing floor. Report accurately.
+    (b) Seal the corridor from the entry side — faster, stops the water,
+        Adri and Gavven both approve, Lura refuses further work.
+    (c) Let Gavven's Guild surveyors escort the trace — splits the pay,
+        surveys are formalized, unlocks Guild faction favor.
+  Hazards: sudden current shifts; a section of ceiling that drops silt on a
+  delayed timer.
+
+2.3 The Archive Rearrangement
+  Location: Archive Alcoves (107)
+  NPC: Gavven Harsk (Guild Expedition Coordinator)
+  Scenario: A full memory-sweep of the Archive Alcoves is required before
+  Gavven decides whether to seal them. Touch nothing. The sweep reveals a new
+  object mid-shelf — warm, pulses once when observed.
+  Paths:
+    (a) Sweep honestly, leave the object, report — Gavven seals the alcoves.
+    (b) Remove the object — triggers proximity effects in the Central Hall
+        (103) that last one game-day; Thessa Ring (2.9) will offer to buy it.
+    (c) Describe the object falsely — Gavven catches the lie by cross-
+        referencing with Drenn's journal (2.7); reputation loss with Guild.
+  Hazards: the object itself (no direct damage; subtle stat pulses on
+  proximity).
+
+2.4 The Guided Descent
+  Location: Threshold Chamber (109)
+  NPC: Pell (Deep Vault Guide)
+  Scenario: Pell names the player as his client for a single expedition past
+  the Threshold into the Deep Corridors, crossing three Sealed Sections (111)
+  without hesitation. Conditions: do not speak in the final chamber, do not
+  ask what Pell retrieves, do not look directly at him on the return.
+  Paths:
+    (a) Obey all three conditions — full pay, Pell offers a second expedition
+        later; a permanent non-hostile companion gesture in Hollowmere.
+    (b) Break one condition — Pell finishes the trip in silence, pays half,
+        never hires again.
+    (c) Ambush Pell in the final chamber and take whatever he retrieves — the
+        item is real and valuable; something in the Deep Corridors follows the
+        player for the rest of the act.
+  Hazards: whatever is in the final chamber; what follows if condition (c).
+
+2.5 Miri's Shortcut
+  Location: Echo Gallery (108)
+  NPC: Miri Cole (Independent Salvage Coordinator)
+  Scenario: Miri's new route bypasses every Guild-watched corridor, passing
+  through the Echo Gallery at an unmonitored hour. Miri's own voice answers
+  her from ahead; she ignores it.
+  Paths:
+    (a) Follow Miri silently, carry the load — standard salvage pay.
+    (b) Answer the Echo Gallery voice — Miri aborts the run; later she will
+        never take the player on salvage again.
+    (c) Report Miri's route to Gavven — Guild payoff; Miri becomes hostile
+        and starts intercepting the player's trades.
+  Hazards: the Echo Gallery itself (psychological, not lethal); a Guild
+  surveyor patrol if the timing is miscalculated.
+
+2.6 The Winch Line
+  Location: Sinkhole Entrance (102)
+  NPC: Jonn Half (Sinkhole Entrance Operator)
+  Scenario: The primary winch cable has wear patches in places rope shouldn't
+  wear — as if something rides it up at night. Inspect the shaft walls from
+  harness at three elevations between midnight and dawn.
+  Paths:
+    (a) Three elevations, three observations — confirms the Climbers (new
+        enemy: pale, thin, flat against the shaft wall, only move when you
+        blink).
+    (b) Set bait and trap on the cable — catches one Climber; Jonn rewards
+        heavily; the Climbers collectively respond the next night.
+    (c) Replace the entire cable secretly overnight — no data, no enemies
+        confirmed, Jonn suspects you are hiding something but cannot prove it.
+  Hazards: the Climbers; the harness rig itself if rushed.
+
+2.7 The Surveyor's Journal
+  Location: Threshold Chamber (109)
+  NPC: Drenn Vars (Boundary Surveyor)
+  Scenario: Drenn's eighth journal is missing. Last seen in the Unmapped Wing
+  four days ago. It records the figures' recent behavior. Thessa Ring wants
+  it too.
+  Paths:
+    (a) Retrieve and return to Drenn — he shares a single line from the
+        journal as thanks; unlocks a Guild sub-quest in act 3.
+    (b) Sell to Thessa — she uses it in 2.9; Drenn withdraws from his post
+        for a week, reducing Threshold safety.
+    (c) Copy the journal, return the original — highest reward, slowest
+        path, requires one day at the Record House equivalent and a bribe
+        to Adri for the materials.
+  Hazards: the Unmapped Wing re-sequencing; Thessa's hirelings if option (a).
+
+2.8 Old Kess Will Speak
+  Location: Central Hall (103)
+  NPC: Old Kess (Retired Vault Researcher)
+  Scenario: Kess will describe what she believes the Vault contains — after
+  three unremarkable objects (a chipped cup, a length of wire, a smooth stone)
+  are retrieved from three specific Mapped Corridors at the exact moments
+  their configurations match her memory. Timing is the whole quest.
+  Paths:
+    (a) Retrieve all three at correct timings — Kess tells the full story;
+        unlocks a late-game Deep Corridors encounter.
+    (b) Retrieve wrong-timing versions — Kess notices immediately; tells a
+        partial, misleading story; the late-game encounter changes character.
+    (c) Refuse the quest and buy Kess's account in coin — possible only
+        after completing 2.7 (a) and reading the relevant line.
+  Hazards: Mapped Corridor configuration shifts; a timing puzzle if option (a).
+
+2.9 The Resealed Chamber
+  Location: Sealed Sections (111)
+  NPC: Thessa Ring (Enchanter)
+  Scenario: A chamber Thessa drew material from for two years sealed itself
+  overnight. Her theory: the seal responds to quantity removed. Her fix:
+  return three items of equivalent mass — Thessa's Weighed Offering (new
+  item: three lead-core stones).
+  Paths:
+    (a) Place the stones; seal opens; Thessa enters alone and emerges with
+        new material (quest 2.3 object, if retrieved, counts as a fourth
+        stone and has unintended effects).
+    (b) Refuse to participate; Thessa hires a rival; the seal opens violently
+        in act 3 and a chamber creature is released.
+    (c) Swap one stone for a heavier/lighter object — sabotages Thessa's
+        experiment; the seal remains shut; Thessa pays partial and becomes
+        hostile.
+  Hazards: whatever is on the other side of the seal.
+
+2.10 The Permitted Hour
+  Location: Central Hall (103)
+  NPC: Osser Vale (General Goods Vendor); escort: Pell (optional)
+  Scenario: Osser hasn't been deeper than the Central Hall in nine years. He
+  will pay to visit one of the Mapped Corridors, once, at an hour of Pell's
+  choosing. He needs to confirm that something he thinks he imagined isn't
+  still there.
+  Paths:
+    (a) Escort alone — cheap for Osser, risky; what he remembers is waiting,
+        and escorting him back becomes a combat retreat.
+    (b) Bring Pell (requires 2.4 (a)) — the corridor rearranges around Pell's
+        presence; Osser sees nothing; he pays full but is unsatisfied.
+    (c) Lie to Osser — tell him the corridor is empty without going. He
+        believes you; in act 3 he returns alone and does not come back.
+  Hazards: what Osser remembers — a minor but unique encounter, nearly
+  unbeatable in direct combat; the quest rewards avoidance.
+
+
+================================================================================
+3. GRAINFALL TERRACE                                                  (unaligned)
+================================================================================
+
+3.1 The Seventh Wall
+  Location: The Lower Terraces (116)
+  NPC: Farr Jutte (Seventh Terrace Manager); antagonist: Old Parrek
+  Scenario: Farr needs the seventh wall reinforced for one more season without
+  a full rebuild. Old Parrek refuses to supply the right stones on principle.
+  Paths:
+    (a) Convince Parrek — requires 3.10 progress or a social check; legitimate
+        materials, full integrity.
+    (b) Steal from Parrek's private stock at the Stone Warrens (120) — fast,
+        triggers a Parrek hostility arc and a Trainer's Yard confrontation.
+    (c) Improvise with Cliff Base (122) rubble (requires Barrek's cooperation
+        from 3.4) — unorthodox but effective; Danna Sohr disapproves because
+        it changes the terrace's water flow profile.
+  Hazards: partial collapse during construction if path (c) is chosen poorly.
+
+3.2 The Upper Channel Climb
+  Location: The Spillway (118)
+  NPC: Danna Sohr (Lead Water Engineer)
+  Scenario: Sediment is building above the settlement faster than Danna's
+  crews can clear it. A climber must plant sediment baffles at three anchor
+  points on the cliff face above the main channel. One anchor is cracked and
+  will fail under a specific weight threshold; Danna does not know which.
+  Paths:
+    (a) Climb solo — one anchor fails; a reflex check catches the climber or
+        the quest ends in injury and partial pay.
+    (b) Bring a second climber (Corren Alsh can be hired) — shared pay, both
+        climbers at risk on the failing anchor; better overall survival odds.
+    (c) Test each anchor with a weighted dummy first (requires 3.10 Parrek
+        knowledge or a Trainer's Yard consultation) — safest, slowest, full
+        pay.
+  Hazards: cliff goats interfering with the ropes; wind shear.
+
+3.3 The Burrows Below
+  Location: The Stone Warrens (120)
+  NPC: Lenna Cade (Pest Control Specialist)
+  Scenario: A fresh burrow entrance in the Stone Warrens has ignored every
+  trap. Lenna suspects the pests — the Undertalkers (new enemy: small,
+  silent, collectively intelligent diggers) — communicate. She needs a
+  watcher with sharp hearing, and no kills until she says so.
+  Paths:
+    (a) Full patient watch — hear the Undertalker pattern, Lenna adapts her
+        traps; the burrow is sealed humanely; they relocate to a new terrace.
+    (b) Kill on sight — ends the immediate quest fast; the colony's sibling
+        colony emerges under the Trainer's Yard a week later.
+    (c) Attempt to parley (requires a specific item or a prior Undertalker
+        encounter) — unlocks a unique minor faction for later quests.
+  Hazards: the Undertalkers themselves if provoked; a warrens collapse if
+  they coordinate a dig at the wrong moment.
+
+3.4 Old Foundations
+  Location: The Cliff Base (122)
+  NPC: Barrek (Structural Surveyor)
+  Scenario: Barrek has found tool marks at the Cliff Base older than the
+  settlement's records. He wants a single witness for a descent to a specific
+  fissure. If the witness agrees, he shares his findings with the council. If
+  not, he burns his maps.
+  Paths:
+    (a) Witness honestly and agree — the findings go to the council;
+        unlocks a settlement-wide political event in act 3.
+    (b) Witness and disagree — Barrek burns his maps; the knowledge is lost,
+        but Silla Greave (3.5) rewards the player for the outcome.
+    (c) Take the maps covertly before Barrek decides — full knowledge, full
+        betrayal of Barrek; he becomes hostile after discovery.
+  Hazards: loose rock on the descent; one minor hostile creature in the
+  fissure.
+
+3.5 The Redirect Vote
+  Location: The Upper Terraces (114)
+  NPC: Silla Greave (Council Representative)
+  Scenario: Two families on the Upper Terraces must be flipped to Silla's
+  side on the channel-redirect vote. One message requires physically entering
+  a corner of the Stone Warrens Farr Jutte has told Silla's people to stay
+  out of.
+  Paths:
+    (a) Deliver all three messages correctly — the vote passes Silla's way;
+        Farr becomes hostile; the terraces gain water, the Warrens change.
+    (b) Sabotage one message — vote fails; Silla blames the player; Farr
+        quietly rewards.
+    (c) Take both bribes (Silla + Farr) — a two-way double-cross that
+        requires a specific dialogue sequence; max coin, max hostility.
+  Hazards: a Warrens patrol loyal to Farr if option (a).
+
+3.6 The Caravan That Didn't Arrive
+  Location: The High Ridge (123)
+  NPC: Wendt Hallis (Trade and Logistics Coordinator)
+  Scenario: A grain caravan due last week hasn't appeared. Find it. The
+  caravan is intact, the drivers unharmed, and they have decided they are
+  not coming to Grainfall. They have been persuaded of something.
+  Paths:
+    (a) Talk the drivers back — requires piecing together what persuaded
+        them (a dialogue tree with three key pivots); full caravan returns.
+    (b) Take the goods by force or stealth — the caravan returns without
+        drivers; Wendt pays, but the drivers' faction spreads a hostile
+        rumor across the High Ridge trade route.
+    (c) Leave them and accept the loss — honest report; Wendt loses
+        standing; a replacement caravan arrives with a surcharge.
+  Hazards: the drivers themselves if option (b); whatever persuaded them,
+  if the player probes too deeply.
+
+3.7 Metta's New Strain
+  Location: The Mid Terraces (115)
+  NPC: Metta Dorn (Supplemental Food Producer)
+  Scenario: Metta cultivates a fast-growing mushroom from Cliff Base rubble.
+  It doesn't behave like fungus when cut. She needs a batch tested on
+  someone outside the settlement before offering it as emergency food.
+  Paths:
+    (a) Eat it yourself — a stat-altering buff/debuff for one game-day;
+        Metta pays and documents.
+    (b) Find a test subject (a drifter at Clifftop Common (119), a caravan
+        worker) — moral weight; consequences if the subject is harmed.
+    (c) Destroy the strain; report it as dangerous to Silla or Farr — Metta
+        becomes hostile; the supplemental food supply drops for the next
+        season.
+  Hazards: the strain itself; Metta's discovery if option (c).
+
+3.8 The Trainer's Drill
+  Location: The Trainer's Yard (121)
+  NPC: Corren Alsh (Combat and Safety Trainer)
+  Scenario: Corren is running a fallback drill assuming the settlement is
+  attacked at Clifftop Common and must retreat through the Warrens. He needs
+  a competent outsider to play attacker — no pulled strikes, real pressure.
+  Item: Trainer's Blunted Spear (new item; heavy, leather-wrapped, still
+  breaks ribs).
+  Paths:
+    (a) Play the attacker honestly — rib-breaking combat, reputation gain,
+        unlocks Corren as a hireable escort for 3.2 or later quests.
+    (b) Pull strikes — Corren notices; pays half; declines future work.
+    (c) Defeat Corren outright — unlocks a secret training track and a
+        unique technique; Corren loses face publicly.
+  Hazards: Corren himself; the drill students if things escalate.
+
+3.9 The Overhang Sound
+  Location: The Overhang Caves (124)
+  NPC: Hesta Varn (General Goods Vendor)
+  Scenario: Hesta's shop is carved into the cliff behind the Mid Terraces.
+  For two weeks, a sound at night from the Overhang Caves — not wind, not
+  animal, not natural. She will pay for someone to sit inside for one night
+  with a lit candle and tell her what it is. She does not want the cave
+  sealed.
+  Paths:
+    (a) Sit the full night — identify the sound source (a resonance
+        phenomenon tied to the Undertalkers' colony in 3.3, or a wind
+        pattern, or a lone creature — generator should pick one).
+    (b) Leave early — Hesta pays for whatever report is produced; the sound
+        continues; a later quest hook.
+    (c) Seal the cave despite instructions — Hesta withdraws custom;
+        whatever was inside finds a new exit in the Stone Warrens.
+  Hazards: the sound source itself; candle discipline (a failed check
+  extinguishes early and aborts the observation).
+
+3.10 Parrek's Last Lesson
+  Location: The Broken Shelf (125)
+  NPC: Old Parrek (Retired Terrace Builder); observer: Danna Sohr
+  Scenario: Parrek will pass his mortar technique to one student. The test:
+  rebuild a section of the Broken Shelf using only his methods, while he
+  watches from above with a telescope. If it holds a measured weight at
+  sunset, the knowledge transfers.
+  Paths:
+    (a) Pure Parrek method — slow, correct, the wall holds; Parrek transfers
+        the technique (crafting unlock for high-quality terrace masonry).
+    (b) Hybrid method using Danna's water-resistant mix — the wall holds
+        the weight but Parrek declares failure on principle; Danna rewards;
+        Parrek never speaks to the player again.
+    (c) Fail outright — Parrek refuses the knowledge; a retry unavailable;
+        Danna loses face for backing the player.
+  Hazards: the wall itself if rushed; Danna Sohr's reputation stake.
+
+
+================================================================================
+4. BRACKWATER REACH                                                   (unaligned)
+================================================================================
+
+4.1 The Dead Zone Boundary
+  Location: The Deepwater Dock (133)
+  135)
+  NPC: Polder Griss (Fisheries Rotation Manager)
+  Scenario: The expanding dead zone must be charted. Drop weighted bait lines
+  on a grid pattern from a skiff; record silent squares. The boundary
+  elongates east as if pushed from the west. Something follows the skiff at
+  the edge of visibility and does not breach.
+  Paths:
+    (a) Full charting run — accurate map; Polder pays and acts on it;
+        unlocks a deeper investigation in act 3.
+    (b) Partial chart, fabricated western boundary — Polder's subsequent
+        response fails; fish stocks collapse further.
+    (c) Provoke whatever is following — attempt to draw it up with heavier
+        bait; high risk, potentially unique trophy item, otherwise lethal.
+  Hazards: the follower; sudden weather.
+
+4.2 Kella's Shortcut
+  Location: The Skiff Yard (131)
+  NPC: Kella Swift (Skiff Pilot)
+  Scenario: Kella's proposed route through the Reed Wilderness needs a
+  weighted test run. Passenger must be able to fight. New enemy: the Reed
+  Stalker (ambush predator; mimics reed movement; only attacks when the
+  skiff stops).
+  Paths:
+    (a) Keep the skiff moving, fend off the Stalker — route validated, Kella
+        can sell it to trade coordinators.
+    (b) Stop to fight the Stalker properly — trophy item, route partially
+        invalidated (the Stalker returns to the same pool).
+    (c) Refuse the test mid-route and force Kella to abort — she pays
+        nothing and refuses future work.
+  Hazards: Reed Stalker; capsizing.
+
+4.3 The Bloom Decision
+  Location: The Bloom Fields (137)
+  NPC: Brenn Dall (Reed Harvester); counter: Marsh Ollen
+  Scenario: Brenn pays for direct action against the bloom before the council
+  decides — burn a specific patch at low tide, untraceable.
+  Paths:
+    (a) Burn as instructed — Brenn's political position strengthens; Marsh
+        Ollen loses his sample source for 4.5.
+    (b) Report Brenn to Marsh Ollen — different payment, different rewards;
+        Brenn becomes hostile; the bloom spreads further.
+    (c) Burn a different, unsanctioned patch — both Brenn and Marsh lose
+        their plans; the council vote changes unpredictably.
+  Hazards: the fire itself; Brenn's rival harvesters if option (b).
+
+4.4 The Mist Navigator
+  Location: The Mist Flats (134)
+  NPC: Tove Renn (Head Channel Reader)
+  Scenario: An untrained walker tests Tove's theory that navigation anomalies
+  bind to trained pattern recognition. The route crosses a ford in the Deep
+  Channels that only exists some weeks.
+  Paths:
+    (a) Untrained player walks the route — survives; theory confirmed;
+        Tove's subsequent research unlocks.
+    (b) Player studies Tove's notes first — becomes "trained"; the
+        anomalies engage; quest fails but player learns a unique navigation
+        skill.
+    (c) Refuse; send someone else (a hireable local) — Tove pays partial;
+        theory confirmed at a moral cost.
+  Hazards: the Deep Channels ford; the anomalies themselves.
+
+4.5 The Alchemist's Reagent
+  Location: The Alchemist's Float (132)
+  NPC: Marsh Ollen (Alchemist)
+  Scenario: Fresh bloom root pulled at the moment of flowering, at night,
+  sealed within thirty seconds in Ollen's Sealed Flask (new item;
+  lead-lined glass, wax gasket).
+  Paths:
+    (a) Successful harvest — Marsh unlocks a reagent that feeds into 4.6 or
+        4.10.
+    (b) Timing failure — loud consequence, localized flare; player survives
+        but Marsh pays nothing.
+    (c) Bring back a second, unauthorized sample — Marsh suspicious; unlocks
+        a black-market potion track later.
+  Hazards: bloom flare; a Reed Stalker if the timing pulls attention.
+
+4.6 The Filtration Rebuild
+  Location: The Filtration Row (129)
+  NPC: Erren Moss (Filtration Crew Lead)
+  Scenario: Reed supply must come from a source the bloom hasn't reached —
+  deep Reed Wilderness, outside Brenn's rotation.
+  Paths:
+    (a) Harvest and deliver; water holds through the week — Erren vouches;
+        Brenn discovers a week later and treats the player as a rule-breaker
+        who succeeded.
+    (b) Harvest but the water fails — Erren retracts; the player is branded
+        a rule-breaker who failed; Brenn presses charges at the Walkway Ring
+        (127).
+    (c) Buy reeds secretly from another Reach trader — bypasses the rule;
+        expensive; nobody notices.
+  Hazards: the Reed Wilderness; a Reed Stalker if 4.2 was skipped.
+
+4.7 Nasha's Dive
+  Location: The Deep Channels (135)
+  NPC: Nasha Pel (Deep Channel Diver)
+  Scenario: Nasha takes a partner into the Deep Channels to retrieve
+  something she dropped last year. She won't describe it. She will describe
+  what she saw the second time she went back without it.
+  Paths:
+    (a) Partner honestly — Nasha retrieves the item; on the return surface,
+        she describes the second-trip encounter; unlocks a unique reagent
+        reward.
+    (b) Take the item before Nasha can grab it — triggers a fight
+        underwater; Nasha survives but severs ties.
+    (c) Bring Marsh Ollen along (requires 4.5) — Marsh wants the item;
+        three-way negotiation on the surface.
+  Hazards: whatever Nasha described; the dive itself (time-pressure).
+
+4.8 The Missing Flatboat
+  Location: The Reed Wilderness (136)
+  NPC: Dalla Fenn (General Goods Vendor); silent: the waiting driver
+  Scenario: A flatboat with Dalla's goods is tied to an unfamiliar stake in
+  unmapped Reed Wilderness. The driver sits beside it. He is not leaving,
+  not afraid, not well.
+  Paths:
+    (a) Retrieve the goods, leave the driver — Dalla pays; the driver is
+        still there in act 3.
+    (b) Bring the driver back by force — he resists without aggression;
+        on return to the Walkway Ring, he relapses within a day. Dalla
+        partially pays.
+    (c) Sit with the driver for a full game-day and try to understand —
+        unlocks unique dialogue; the driver names what kept him there.
+  Hazards: whatever kept the driver; the flatboat itself (sabotaged hull).
+
+4.9 Verden's Evidence
+  Location: The Mist Flats (134)
+  NPC: Old Verden (Retired Channel Reader)
+  Scenario: Row Verden to six points at dawn and let him sit silent at each
+  for a quarter hour. At the sixth he either says "as I thought" and asks
+  to go home, or he asks to stay.
+  Paths:
+    (a) Take him home — full pay; his written account informs a later act.
+    (b) He asks to stay and the player leaves — he is gone on return; his
+        account is discovered years later.
+    (c) He asks to stay and the player stays — triggers a rare dialogue;
+        Verden explains what he hears; a permanent lore reward.
+  Hazards: the Mist Flats anomalies; the sixth point itself.
+
+4.10 The Guild's Silence
+  Location: The Drying Racks (130)
+  NPC: Sigg (Mist Researcher)
+  Scenario: Sigg's sealed report is carried from the Drying Racks to the
+  nearest Guild outpost without reading it. The seal is witnessed.
+  Paths:
+    (a) Deliver sealed — Guild favor; Sigg continues her work; a later
+        quest chain unlocks.
+    (b) Break the seal, re-seal with forgery — high skill check; if caught,
+        Guild hostility; if succeeded, the player knows what Sigg hides.
+    (c) Sell the unopened report to a rival faction (Brenn, Marsh, or an
+        external buyer via Dalla) — Sigg severs ties; localized instrument
+        failures in the Reach for the rest of the act.
+  Hazards: a wetland predator on the route; the contents themselves if (b).
+
+
+================================================================================
+5. THERM VALE                                                         (unaligned)
+================================================================================
+
+5.1 The Silent Vent
+  Location: The Vent Watch (141)
+  NPC: Harl Fenwick (Chief Vent Watcher)
+  Scenario: Find where the Silent Vent's pressure redirected. Pressure is
+  building in a lateral pocket the instruments can't reach. Find the pocket,
+  mark it, leave.
+  Paths:
+    (a) Mark and retreat — Harl's team extracts the pressure safely over
+        three days; act 3 disaster averted.
+    (b) Attempt to vent the pocket manually — fast, dangerous, localized
+        eruption that changes the Deep Vent Field's topology.
+    (c) Sell the coordinates to Liss Carn (5.9) for Guild use — double pay,
+        Harl loses control of the response.
+  Hazards: pocket failure; thermal scalding.
+
+5.2 Bad Air
+  Location: The Outer Baths (138)
+  NPC: Venna Siir (Alchemist)
+  Scenario: Sample colorless gas at floor level of the southern baths in
+  three sealed jars at three low points. Repeated short exposures accumulate.
+  Paths:
+    (a) All three samples, full rotation — Venna develops a countermeasure;
+        unlocks an antitoxin item.
+    (b) Two samples, fake the third — Venna's countermeasure misses one
+        failure mode; a resident dies in act 3.
+    (c) Refuse and refer Venna to Tomas Greyhill's engineering approach —
+        Venna pays nothing; the Cooling Tier rebuild (5.7) shifts priority.
+  Hazards: accumulated exposure; a collapse if the sampler lingers.
+
+5.3 The Overgrowth
+  Location: The Warmhouses (139)
+  NPC: Maren Thresh (Head Warmhouse Keeper); counter: Venna Siir
+  Scenario: Cut back the overgrowing Warmhouses in one night, before Venna
+  can argue for preservation. Item: Warmhouse Shears (new; the only tool
+  that cuts the overgrowth cleanly).
+  Paths:
+    (a) Full cut, one night — Maren pays full; Venna hostile for two acts.
+    (b) Partial cut, preserve sample patches for Venna — split pay; both
+        parties partially satisfied.
+    (c) Side with Venna, refuse the job — Maren hostile; the overgrowth
+        spreads into the Sulfur Lanes (143).
+  Hazards: the overgrowth itself (mild stat drain during prolonged work).
+
+5.4 The Warm Creep Relocation
+  Location: The Sulfur Lanes (143)
+  NPC: Dressa Voll (Eastern Quarter Resident Leader)
+  Scenario: Two families in heated homes must be moved into sections that do
+  not want them. One resistant host is a vent watcher whose own home is safe.
+  Paths:
+    (a) Negotiate placements — requires three social checks; full pay.
+    (b) Force the placements politically (use 5.1 or 5.8 as leverage) —
+        resentment, future hostility from the displaced hosts.
+    (c) Build temporary shelter at the Caravan Shelter (145) instead —
+        cheaper, exposes families to weather; Dressa partially pays.
+  Hazards: social failure cascade.
+
+5.5 The Mineral Flat Survey
+  Location: The Mineral Flats (140)
+  NPC: Kipp Ashburn (Mineral Harvester)
+  Scenario: A run into the Mineral Flats near the Fissure Maze. Walk in
+  Kipp's footsteps exactly. One wrong meter and the crust cooks the
+  careless.
+  Paths:
+    (a) Follow exactly — full haul; unlocks the crust sound-test skill.
+    (b) Try a parallel track to harvest more — Kipp falls through on his
+        side; rescue or abandon.
+    (c) Push deeper into the Fissure Maze (not part of the original plan) —
+        unique mineral find, extreme risk, Kipp refuses future partnership.
+  Hazards: thin crust; the Fissure Maze itself.
+
+5.6 Sorrel's Tracks
+  Location: The Deep Vent Field (146)
+  NPC: Sorrel (Deep Vent Field Guide)
+  Scenario: Tracks in the Deep Vent Field match no known wildlife. Sorrel
+  provides coordinates, no identification.
+  Paths:
+    (a) Follow the tracks to their end — reveal the source (quest-generator
+        picks from: a new enemy, a hermit, or a geological illusion).
+    (b) Document from distance and retreat — Sorrel pays for honesty; the
+        source remains a mystery for a later expedition.
+    (c) Lay a trap along the trail — catch or kill the source; trophy
+        reward; Sorrel disapproves if it was sentient.
+  Hazards: whatever makes the tracks.
+
+5.7 The Cooling Tier Rebuild
+  Location: The Cooling Tiers (142)
+  NPC: Tomas Greyhill (Cooling Tier Engineer)
+  Scenario: Multi-trip supply run for mineral salt (Mineral Flats) and cold
+  stone (Cold Rim) while existing tiers degrade faster than he rebuilds.
+  Paths:
+    (a) Full supply run, both materials — rebuild completed on time; Warm
+        Creep stabilized.
+    (b) Salt only; substitute stone with Sulfur Lanes local rock — rebuild
+        weaker; one district still overheats.
+    (c) Bring Liss Carn's Guild resources to bear (requires 5.9) — fastest,
+        politically costly; Tomas becomes a Guild client.
+  Hazards: thermal exposure on the Cold Rim; bandits on the caravan route.
+
+5.8 Old Pell's Archive
+  Location: The Vent Watch (141)
+  NPC: Old Pell (Retired Vent Watcher)
+  Scenario: Read Pell's private thirty-year log aloud in full at the Vent
+  Watch in his presence. Four hundred pages; a full day. Halfway through,
+  current vent watchers try to stop the reading.
+  Paths:
+    (a) Hold the room and finish — the log's knowledge enters public record;
+        unlocks a predictive pattern for future vent anomalies.
+    (b) Negotiate a private reading with just Pell — partial knowledge;
+        Harl loses access.
+    (c) Refuse — Pell dies within the act; the log is lost.
+  Hazards: social confrontation with the vent watchers; physical if
+  escalated.
+
+5.9 The Surveyor's Findings
+  Location: The Caravan Shelter (145)
+  NPC: Liss Carn (Visiting Guild Surveyor)
+  Scenario: Escort Liss's sealed report from the Caravan Shelter to the
+  nearest Guild outpost, crossing the Cold Rim at dusk. New enemy: Thermal
+  Hounds (paired boundary predators, one warm-side, one cold-side).
+  Paths:
+    (a) Safe delivery — Guild favor; later quest chain unlocked.
+    (b) Open the report at a campfire — high skill check; knowledge of the
+        Vale's future Guild investment plans.
+    (c) Sell the report to Harl or Dressa — the Vale leadership pre-empts
+        the Guild; Liss becomes hostile, Guild reputation drops.
+  Hazards: Thermal Hounds; dusk navigation.
+
+5.10 The Dead Spring
+  Location: The Dead Springs (149)
+  NPC: Rellen Dask (General Goods Vendor)
+  Scenario: A Dead Spring west of the settlement produces steam again. The
+  first claimant earns a fortune. Rellen funds the trip and splits the
+  claim. Something lives in the basin. Item: Dead Spring Claim Marker (new;
+  engraved iron stake, legally binding).
+  Paths:
+    (a) Drive the stake, clear the basin — full claim; Rellen splits as
+        agreed; unlocks a new steam-harvest income line.
+    (b) Drive the stake, leave the creature alive — claim is technically
+        valid but the spring is unusable; Rellen pressures for a return.
+    (c) Skip the stake, kill the creature, sell the body — no legal claim;
+        black-market reward; Rellen furious.
+  Hazards: the basin creature (unique encounter); the Dead Spring itself
+  (steam burst if the stake is driven wrong).
+
+
+================================================================================
+6. AMBERWAKE ABBEY                                                        (Order)
+================================================================================
+
+6.1 The Silent Hives
+  Location: The Hive Rows (152)
+  NPC: Brother Voss (Beekeeper)
+  Scenario: Follow the next departing swarm from the Hive Rows toward the
+  Deep Canopy. The bees fly a straight line past every reasonable nesting
+  site. Mark direction, distance, destination.
+  Paths:
+    (a) Track to the terminus — the destination is reported; Voss changes
+        his theology; an Abbey faction schism begins in act 3.
+    (b) Track partially, return with approximation — Voss continues
+        speculation; no schism; no definitive answer.
+    (c) Capture a portion of the swarm to study — unlocks an alchemy reagent
+        but the remaining bees never return.
+  Hazards: the Deep Canopy itself; whatever the bees are flying to.
+
+6.2 The Northern Boundary
+  Location: The Boundary Walk (156)
+  NPC: Sister Maren (Boundary Watcher)
+  Scenario: Two days of clearing saplings while Maren maps which species
+  push forward. Cleared saplings regrow within six hours.
+  Paths:
+    (a) Clear the same patch three times to prove persistence shifts the
+        response rate — Maren's theory confirmed.
+    (b) Clear three different patches — broader survey, less definitive.
+    (c) Burn a section instead of cutting — faster, changes the Boundary
+        Walk's local ecology; Order disapproves.
+  Hazards: exhaustion; one encounter with whatever maintains the regrowth.
+
+6.3 The New Path
+  Location: The New Path (160)
+  NPC: Brother Fenn (Young Monk)
+  Scenario: Fenn walks the New Path once, midday, with a witness. Bell,
+  candle, written note. Conditions: do not read the note, do not ring the
+  bell until Fenn says, do not follow him off the path.
+  Paths:
+    (a) Obey all — return together; Fenn shares nothing but becomes a
+        quiet ally.
+    (b) Read the note at the end — the note reveals what Fenn expects to
+        find; the quest outcome changes retrospectively.
+    (c) Follow him off the path — both are lost for a game-day; the
+        consequences are severe and permanent.
+  Hazards: whatever is off the path.
+
+6.4 The Visitor's Hands
+  Location: The Herb Gardens (155)
+  NPC: Abbess Thorn; subject: the Visitor
+  Scenario: Observe the Visitor during three hours of herb garden labor.
+  Note what she touches, how, and whether any plants respond. Write
+  nothing. Report only to the Abbess.
+  Paths:
+    (a) Full observation, full report — the Abbess acts on it in act 3;
+        the Visitor is not told.
+    (b) Approach the Visitor mid-observation — breaks the Abbess's
+        instruction; the Visitor gives the player something; the Abbess is
+        not told what.
+    (c) Fabricate a benign report — the Abbess's later decisions are based
+        on false data; in act 3, consequences cascade.
+  Hazards: the Visitor herself if observation becomes intrusive.
+
+6.5 The Record Cross-Reference
+  Location: The Record House (157)
+  NPC: Brother Hadd (Record Keeper)
+  Scenario: Verify three historical entries describing forest behavior at
+  specific trees at specific distances from 40, 70, and 90 years ago.
+  Paths:
+    (a) All three verified — the entries match; the forest has not moved;
+        something else is advancing.
+    (b) All three mismatched — the forest has moved; a Record House
+        overhaul begins.
+    (c) Mixed results — Hadd demands a second survey; the quest reopens in
+        act 3.
+  Hazards: the Boundary Walk itself; a tree that is not where it should be.
+
+6.6 Sister Lenn's Foraging
+  Location: The Foraging Trails (159)
+  NPC: Sister Lenn (Herbalist)
+  Scenario: Forage plants growing in conditions they shouldn't tolerate.
+  Walk Lenn's route. Pick what she picks. Eat nothing she doesn't hand you.
+  Paths:
+    (a) Walk honestly, report findings — Lenn publishes; alchemy unlocks
+        at the Abbey.
+    (b) Eat something Lenn didn't sanction — stat change, positive or
+        negative; Lenn suspicious.
+    (c) Abandon the route mid-way — Lenn finishes alone, is fine; trust
+        lost with Lenn.
+  Hazards: the plants themselves; whatever watches the route.
+
+6.7 The Foraging Shift
+  Location: The Foraging Trails (159)
+  NPC: Sister Dael (Cook and Foraging Lead)
+  Scenario: One heavy forage into a suspended zone. A forager reported
+  feeling watched. Dael won't say by whom.
+  Paths:
+    (a) Full forage, full delivery — Hearth Hall stocks restored; the
+        watcher is confirmed (a unique encounter, non-lethal).
+    (b) Partial forage, retreat on first watch-feeling — Dael pays partial.
+    (c) Identify and confront the watcher — outcome depends on what it is;
+        a potential new minor faction.
+  Hazards: the watcher; a disoriented forage.
+
+6.8 Old Cutter's Record
+  Location: The Deep Canopy (161)
+  NPC: Old Cutter (Retired Boundary Walker)
+  Scenario: Cutter will describe the last boundary anomaly forty years ago
+  only after a specific stone is retrieved from a Deep Canopy place he can
+  describe only through landmarks that may no longer exist.
+  Paths:
+    (a) Navigate by Cutter's old landmarks — slow, risky, full account.
+    (b) Use the Record House maps (6.5) as cross-reference — faster, less
+        authentic, partial account.
+    (c) Give Cutter a stone that is not the right one — he cannot tell;
+        his account is sincere but wrong; consequences cascade.
+  Hazards: Deep Canopy; a landmark that has been relocated.
+
+6.9 The Silent Bell
+  Location: The Stream Basin (153)
+  NPC: Brother Sellan (Vendor and Supplies Keeper)
+  Scenario: Watch the warning bell for three nights running. The bell rings
+  when the wind doesn't match. The rope is moving; nothing is at the bell.
+  Paths:
+    (a) Full three nights — identify the rope-mover (the quest generator
+        picks: an animal, a root from the Boundary Walk, or a hand).
+    (b) Set a trap the first night — catches whatever it is, but the Abbey
+        response depends on the identity.
+    (c) Cut the rope — the bell never rings again; Sellan furious; the
+        Abbey's warning system disabled until rebuilt.
+  Hazards: the rope-mover if it resists.
+
+6.10 The Church Candles
+  Location: The Quiet Grove (158)
+  NPC: The Visitor
+  Scenario: The Visitor asks, for the first time, for a favor: walk with
+  her to the Quiet Grove and sit one hour in silence. She gives a small
+  wooden token carved in an unfamiliar pattern. The token is warm. It
+  remains warm. The Abbess will want to see it.
+  Paths:
+    (a) Keep the Visitor's confidence — the token stays; a later quest
+        line unlocks; the Abbess becomes cold to the player.
+    (b) Show the token to the Abbess — she interprets it; the Visitor
+        leaves the Abbey within the week.
+    (c) Destroy the token — the Visitor knows immediately; she leaves
+        silently; no reward but an unusual gravity in subsequent quests.
+  Hazards: none physical; all social and theological.
+
+
+================================================================================
+7. SPANREACH                                                              (Guild)
+================================================================================
+
+7.1 The Load Imbalance
+  Location: The Main Span (162)
+  NPC: Dessa Pell (Guild Surveyor)
+  Scenario: Independent verification of fracture measurements on the Main
+  Span at three load-test points during active caravan passage. Torrin's
+  people will interfere indirectly.
+  Paths:
+    (a) Full measurements honestly — Dessa files the report; Torrin
+        retaliates later.
+    (b) Fake readings to favor Torrin — Dessa catches the falsification
+        within a week; Guild reputation loss.
+    (c) Offer the readings to both Dessa and Torrin — Dessa partially pays;
+        Torrin pays full; long-term Guild hostility.
+  Hazards: harness work at height; an interference incident during the test.
+
+7.2 The Missing Crew
+  Location: The Anchor Towers (163)
+  (172)
+  NPC: Mira Clef (Descent Rig Operator)
+  Scenario: Mira lowers one person to where the six-person maintenance crew
+  vanished. Platform empty, tools present, signal line works. New enemy:
+  the Span-Breather (mist-dwelling, lung-shaped, tethers harness clips to
+  itself).
+  Paths:
+    (a) Descend, observe, return — the Span-Breather is identified; Mira's
+        safety protocols update.
+    (b) Attempt to recover a tool set — triggers Span-Breather engagement;
+        high reward, high risk.
+    (c) Descend without harness clips (use rope hitches instead) — bypasses
+        the Span-Breather's tether trick but extreme physical challenge.
+  Hazards: Span-Breather; harness integrity.
+
+7.3 Unauthorized Routing
+  Location: Caravan Rest (168)
+  NPC: Bridgemaster Vell
+  Scenario: Identify the off-book routing operation without Torrin's
+  involvement. Follow caravans, observe which skip the Toll House, trace
+  the money.
+  Paths:
+    (a) Expose the operation to Vell — the organizer (not Torrin) is
+        exposed; Vell acts.
+    (b) Blackmail the organizer — personal profit; Vell never knows;
+        the operation shifts.
+    (c) Report to Torrin first — Torrin shields the organizer; Vell hostile;
+        Guild reputation divided.
+  Hazards: surveillance detection; a bribed Toll House clerk.
+
+7.4 The Underbridge Sound
+  Location: The Lower Walks (170)
+  NPC: Senn (Maintenance Crew Lead)
+  Scenario: Senn guides the descent to the level where the rhythmic sound
+  is clearest. Tap three times, listen. Tap twice, listen. Do not answer
+  whatever answers.
+  Paths:
+    (a) Follow Senn's protocol exactly — the sound shifts pattern; Senn's
+        theory advances; no direct confrontation.
+    (b) Answer the response — high-risk encounter; unique item drop if
+        survived.
+    (c) Record the pattern for Dessa or Torrin — splits the intelligence
+        across Guild factions.
+  Hazards: whatever answers.
+
+7.5 Hask's Structural Work
+  Location: The Blacksmith Yard (165)
+  NPC: Hask Ironturn (Blacksmith)
+  Scenario: Forge and install three replacement beam anchors at height
+  before the next heavy caravan. Anchors must be seated to Hask's spec.
+  Paths:
+    (a) All three seated perfectly — full pay; Hask becomes a recurring
+        crafter ally.
+    (b) Two perfect, one slightly off — caravan survives; in act 3 the
+        off-spec anchor fails under shock load.
+    (c) Subcontract part of the work to an unknown apprentice — Hask
+        notices; partial pay; reputation damaged.
+  Hazards: cable failure during installation; hand cramps as a mechanical
+  penalty if rushed.
+
+7.6 The Relay Log
+  Location: The Relay Lofts (167)
+  NPC: Polder Vane (Signal Relay Operator)
+  Scenario: Polder hands over his private log to one outsider in exchange
+  for a promise to act on it. The log names the unauthorized routing
+  organizer.
+  Paths:
+    (a) Act on it via Vell (ties to 7.3 (a)) — full follow-through; Polder
+        safe.
+    (b) Act on it via Torrin (ties to 7.3 (c)) — Polder disappears within
+        the month.
+    (c) Keep the log; act on nothing — Polder disillusioned; the log is
+        useful lore for act 3.
+  Hazards: if option (c), a surveilled meeting later.
+
+7.7 Renn Cask's Arrangement
+  Location: Caravan Rest (168)
+  NPC: Renn Cask (Caravan Master); external supplier
+  Scenario: Broker a legitimate supply arrangement to replace Renn's
+  off-book one before exposure.
+  Paths:
+    (a) Successful brokerage — Renn stays in business legitimately;
+        Vell indirectly rewards.
+    (b) Broker fails; Renn is exposed — criminal charge at the Toll House.
+    (c) Blackmail Renn instead — personal profit; Renn's caravan later
+        vanishes; the loss is pinned on the player.
+  Hazards: social failure cascade.
+
+7.8 The Lower Walks Inspection
+  Location: The Cistern Level (169)
+  Floor (173)
+  NPC: Old Drell (Retired Structural Engineer)
+  Scenario: Drell's old notes must be compared to the current state of the
+  deep support pillars. He isn't asking about the bridge; he is asking
+  about what he remembers hearing during original construction.
+  Paths:
+    (a) Honest inspection, full comparison — Drell's dying peace; notes
+        transfer to Dessa or Hask.
+    (b) Fabricate reassurance — Drell dies peacefully; the pillars' true
+        state misrepresented; an act 3 crisis.
+    (c) Identify the sound source if any — unique lore reward; tied to 7.4.
+  Hazards: the descent itself; whatever Drell heard.
+
+7.9 Midspan Market Protection
+  Location: The Midspan Market (164)
+  NPC: Korren Slade (Vendor); antagonist: thieves including a junior Guild
+  surveyor
+  Scenario: Ambush during the fullest caravan passage. One of the thieves
+  is a junior Guild surveyor working off debts Dessa Pell doesn't know
+  about. Handle quietly or not at all.
+  Paths:
+    (a) Capture all thieves, hand over to Vell — Guild internal
+        investigation; Dessa humbled.
+    (b) Let the junior surveyor escape; expose the rest — quiet resolution;
+        the junior becomes a grateful informant later.
+    (c) Kill all; claim self-defense — Guild suspicion; Korren satisfied
+        but not comfortable.
+  Hazards: a four-way fight on the Midspan Market.
+
+7.10 The Western Restriction
+  Location: The Anchor Towers (163)
+  NPC: Torrin Gauge (Trade Coordinator)
+  Scenario: Stage a minor accident on the eastern approach to shift traffic
+  back to the western Main Span, delaying the restriction vote. No one
+  hurt. Must look natural.
+  Paths:
+    (a) Stage the accident cleanly — vote delayed; Torrin pays; Vell
+        suspects.
+    (b) Stage and sabotage — appear to stage the accident but ensure
+        Vell's faction has the evidence; Torrin becomes hostile.
+    (c) Refuse outright — Torrin pays a kill fee to keep the player quiet;
+        declines future work with the player.
+  Hazards: accidental casualties if staging fails.
+
+
+================================================================================
+8. REDGROVE HOLD                                                     (Companions)
+================================================================================
+
+8.1 The Ashback Walk
+  Location: The Ring Yard (174)
+  NPC: Hesta Vire (Senior Hunter)
+  Scenario: Walk the Ashback Run end-to-end. Something maintains the trail.
+  Mark the farthest point of maintenance. Do not camp on the trail.
+  Paths:
+    (a) Full walk, clean observation — the maintenance boundary is marked;
+        Hesta acts politically.
+    (b) Camp on the trail — unique encounter with the maintainer; if
+        survived, rare trophy.
+    (c) Destroy a section of the trail — provokes the maintainer to
+        reclaim; changes the Ashback Run topology.
+  Hazards: the maintainer; weather.
+
+8.2 What Happened to Dran
+  Location: The Watch Posts (180)
+  NPC: Jassen Pole (Hunter, Survivor)
+  Scenario: Compare the Northern Ridge terrain to Jassen's obsessive
+  sketches. If memory doesn't match the place, which is wrong?
+  Paths:
+    (a) Ground matches sketches — Jassen's memory is reliable; Dran
+        vanished cleanly; no explanation found.
+    (b) Ground has shifted — Jassen's memory is correct but the place is
+        not; a structural investigation unlocks.
+    (c) Sketches are wrong — confront Jassen; he breaks down; a different
+        memory is exposed.
+  Hazards: the Northern Ridge itself.
+
+8.3 The Red Grove
+  Location: The Red Grove (185)
+  NPC: Tella Varn (Foraging Lead); subject: the boot prints
+  Scenario: Draw the boot prints in exact position and the pattern of
+  their circling the largest tree. Item: Tella's Fine Charcoal (new;
+  oiled cloth wrap, holds a point in rain).
+  Paths:
+    (a) Full accurate drawings — Tella analyzes; pattern reveals a
+        predictable schedule for act 3.
+    (b) Take a plaster cast of one print — physical evidence; Tella shares
+        it with Hesta.
+    (c) Stay until the prints are made in real time — extreme risk;
+        possible direct encounter with the Grove-Walker (8.10).
+  Hazards: the Grove-Walker itself if option (c).
+
+8.4 Aggression Training
+  Location: The Trainer's Lodge (176)
+  NPC: Wren Cobb (Trainer)
+  Scenario: A student simulates prey-that-turns-predator against a senior
+  hunter. Holding ground is not normally a Companion tactic.
+  Paths:
+    (a) Play the student role — learn the new tactic; unlock a unique
+        combat option.
+    (b) Play the senior hunter role — test the student's resolve; Wren
+        uses the data; the student passes or fails visibly.
+    (c) Argue against the training publicly — Wren loses standing; the
+        settlement adapts worse to the behavioral shift.
+  Hazards: the combat itself.
+
+8.5 Marte's Route
+  Location: The Watch Posts (180)
+  NPC: Marte Fell (Hunter, Second Survivor)
+  Scenario: One run through the Deep Blinds toward the edge of the maps.
+  Marte talks — not about the ridge, about everything else.
+  Paths:
+    (a) Listen, report honestly to Hesta — Hesta understands something
+        Marte cannot say directly.
+    (b) Push Marte on the ridge topic — she breaks; loses future trust.
+    (c) Keep everything confidential — Marte grateful; Hesta left in the
+        dark.
+  Hazards: Deep Blinds wildlife.
+
+8.6 Scar's Refusal
+  Location: The Ashback Run (182)
+  NPC: Pikel Ren (Young Hunter); subject: Scar (dog)
+  Scenario: Scar leads somewhere off the known trails — revealing a
+  secondary kill pattern at the Bone Rack.
+  Paths:
+    (a) Follow Scar wherever — unique location discovered; Hesta briefed.
+    (b) Redirect Scar back to the Ashback Run — Scar resists; Pikel
+        loses trust with his dog.
+    (c) Use Scar's path for a personal hunt — solo trophy; Pikel hostile.
+  Hazards: whatever made the kill pattern.
+
+8.7 The Supply Math
+  Location: The Smoke Pits (175)
+  NPC: Doss Harken (Smoke Pit Tender)
+  Scenario: Three trapping lines along the Stream Access and outer
+  Foraging Trails, maintained for a week. The smaller game is also
+  behaving wrong.
+  Paths:
+    (a) Full week of maintenance — rations restored; unique behavioral
+        data logged.
+    (b) Subcontract the second half to an apprentice — Doss accepts;
+        apprentice quality is low; partial restoration.
+    (c) Abandon mid-week — rations collapse; settlement fallback to
+        Hesta's leadership.
+  Hazards: the wrongness of the small game (minor combat encounters).
+
+8.8 The Northern Camp
+  Location: The Northern Ridge (183)
+  NPC: Pikel Ren (Young Hunter)
+  Scenario: Pikel wants a solo kill on the Northern Ridge. Wren and Hesta
+  have refused. He asks the player to come anyway.
+  Paths:
+    (a) Accompany Pikel, survive — Pikel promoted; the ridge tests them
+        both; a scar quest.
+    (b) Refuse and report Pikel — Wren disciplines; Pikel hostile.
+    (c) Accompany Pikel and let him fail safely — Pikel learns his limits;
+        unique bonding dialogue unlocks.
+  Hazards: the Northern Ridge; Pikel's recklessness.
+
+8.9 Resk's Return
+  Location: The Ring Yard (174)
+  Posts (180)
+  NPC: Old Resk (Retired Hunter, Settlement Historian)
+  Scenario: Walk the outer edge of the Hold with Resk — the path he took
+  during the last disruption thirty years ago. He points out places
+  animals behaved oddly then.
+  Paths:
+    (a) Full walk — Resk's lesson completed; pattern match with current
+        behavior; act 3 disruption prediction unlocked.
+    (b) Short walk due to Resk's frailty — partial lesson; generic
+        prediction.
+    (c) Carry Resk the whole way — Resk's pride suffers; a bittersweet
+        reward dialogue.
+  Hazards: Resk's health; the places themselves.
+
+8.10 The Grove at Night
+  Location: The Red Grove (185)
+  NPC: Kael Dunner (Vendor); subject: the Grove-Walker
+  Scenario: Overnight observation from a tree stand. No interference. Do
+  not descend until full daylight. New enemy: the Grove-Walker (bipedal,
+  slow, makes the boot prints, active only midnight to third hour after).
+  Paths:
+    (a) Full observation, descend at daylight — reward paid; the Grove-
+        Walker's behavior documented; later combat preparation unlocks.
+    (b) Engage from the stand — high reward if killed; the Red Grove's
+        ecology shifts permanently.
+    (c) Descend early — Kael assumes the worst; reward forfeit; Grove-
+        Walker encounter at worse odds.
+  Hazards: the Grove-Walker itself.
+
+
+================================================================================
+9. GREYFEN SHORE                                                      (unaligned)
+================================================================================
+
+9.1 The Net Below
+  Location: The Net House (191)
+  NPC: Liss Corr (Net-Maker and Fishing Coordinator)
+  Scenario: A trap net deployed in the mid-depth zone, recorded for a
+  full day. Something is breaking her nets.
+  Paths:
+    (a) Full deployment, honest record — the record suggests a collective
+        pressure; Liss's theory unlocks.
+    (b) Retrieve the net early on first strike — fewer data; Liss
+        dissatisfied.
+    (c) Use a decoy net to lure the source — partial success; possible
+        unique encounter.
+  Hazards: weather; the source itself.
+
+9.2 The Deep Object
+  Location: The Alchemist's Workshop (189)
+  NPC: Essa Drell (Alchemist); counter: Sorren Vael (father)
+  Scenario: Essa needs more material from the Deep Water. Sorren refuses
+  to do the drop.
+  Paths:
+    (a) Do the drop for Essa — retrieve a sibling object; act 3 triggers.
+    (b) Convince Sorren to go (requires 9.5 progress) — Sorren retrieves
+        it; the act 3 trigger changes flavor.
+    (c) Sabotage Essa's coordinates — no retrieval; Essa hostile; the
+        object's siblings stay undisturbed.
+  Hazards: Deep Water pressure; what lives near the objects.
+
+9.3 The Missing Island
+  Location: The Island Scatter (196)
+  NPC: Tav Renn (Young Navigator)
+  Scenario: Sail to where Fenntop was. Tav wants a witness.
+  Paths:
+    (a) Confirm Fenntop is gone — Tav accepts; his navigation career is
+        reshaped.
+    (b) Confirm Fenntop is present but changed — Tav's sanity holds; a
+        second expedition unlocks.
+    (c) Claim Fenntop was never there — gaslight Tav; his career ends;
+        reward paid by his employer quietly.
+  Hazards: the Island Scatter's anomalous waters.
+
+9.4 The Shoreline Shift
+  Location: The Clay Shelf (186)
+  NPC: Pol Strand (Boat Builder and Dock Master)
+  Scenario: Exploratory pits along the Clay Shelf at night, without
+  attracting attention of residents whose homes are affected.
+  Paths:
+    (a) All three pits, clean work — Pol acts on the data; shelf
+        stabilized.
+    (b) Discovered by residents — Pol pays half; a complaint lodged.
+    (c) Discover something under the shelf — unique lore; Pol rewards
+        generously.
+  Hazards: residents; what is under the shelf.
+
+9.5 Father and Daughter
+  Location: The Nearshore Shallows (194)
+  NPC: Hanna Vael (Nearshore Fisher); subject: Sorren
+  Scenario: Escort Sorren on nearshore runs long enough to wear out his
+  restlessness. Sorren tests the escort.
+  Paths:
+    (a) Bore Sorren effectively — Hanna's goal achieved; Sorren rests.
+    (b) Let Sorren go deep once under supervision — Hanna furious; Sorren
+        grateful; 9.2 option (b) becomes available.
+    (c) Tell Sorren the truth of his daughter's worry — Sorren angry; the
+        family fractures; long-term rep loss.
+  Hazards: nearshore predators.
+
+9.6 Curr's Path
+  Location: The Nearshore Shallows (194)
+  NPC: Maren Greyf (Navigator); observed: Curr (cormorant)
+  Scenario: Follow Curr for a full day. Record every landing, avoidance,
+  watch. Translate to a map.
+  Paths:
+    (a) Full day, honest map — the pattern is implicating; Maren suppresses
+        it.
+    (b) Publish the map at the Dock Commons (190) — political shockwave;
+        navigators divided.
+    (c) Kill Curr — Maren devastated; no map; reputation loss with
+        navigators generally.
+  Hazards: weather; tides.
+
+9.7 Wendt's Memory
+  Location: The Watch Shelf (193)
+  NPC: Old Wendt (Retired Fisher)
+  Scenario: Row Wendt a mile into the Fishing Grounds at dusk. Silence.
+  Paths:
+    (a) Sit full silence, row home when he asks — his account on the dock
+        is precise; rare lore unlocked.
+    (b) Break the silence — his account is muddled; reward reduced.
+    (c) Let Wendt sit past the asked time — unique overnight encounter;
+        his account changes character.
+  Hazards: whatever he was alone with out there, if the time extends.
+
+9.8 The Damaged Hull
+  Location: The Boat Lines (187)
+  NPC: Pol Strand (second request)
+  Scenario: Interview two boat owners whose stress marks don't match
+  reported routes. Gently, no accusation.
+  Paths:
+    (a) Coax full honesty — the owners confess to an unreported shared
+        route; Pol acts.
+    (b) Pressure one, coax the other — uneven testimony; Pol gets partial
+        truth.
+    (c) Skip interviews, inspect the boats directly — physical evidence
+        only; Pol pays partial.
+  Hazards: social fallout; a shared secret that touches 9.3.
+
+9.9 The Alchemist's Workshop
+  Location: The Alchemist's Workshop (189)
+  NPC: Essa Drell (second request)
+  Scenario: Move Essa's equipment overnight without spilling. The deep
+  object cannot be separated from the instruments by more than three
+  meters.
+  Paths:
+    (a) Careful move, full night — Essa grateful; the object behaves
+        unusually during transit.
+    (b) Drop a non-critical piece — minor loss; Essa displeased.
+    (c) Separate the object past three meters once — an immediate and
+        unique localized event; high-risk, high-reward.
+  Hazards: the object itself.
+
+9.10 The Dalla Ledger
+  Location: The Reed Stores (192)
+  NPC: Dalla Fenn (Vendor and Trade Manager)
+  Scenario: Cross-reference five years of trade records. Which traders
+  never came back; whether any routes pass through where the island was.
+  Paths:
+    (a) Full honest cross-reference — one active trader is implicated;
+        Dalla decides to act or conceal.
+    (b) Flag false matches to protect someone — Dalla unaware; the real
+        pattern hidden.
+    (c) Sell the analysis to the implicated trader — payoff, long-term
+        hostility with Dalla.
+  Hazards: the implicated trader's crew if exposed.
+
+
+(Continued in part 2: settlements 10–17.)
