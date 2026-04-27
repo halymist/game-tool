@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/static/talent-designer.css">
     <link rel="stylesheet" href="/static/npc-designer.css">
     <link rel="stylesheet" href="/static/server-designer.css">
+    <link rel="stylesheet" href="/static/coupon-designer.css">
     <link rel="stylesheet" href="/static/chat-moderation.css">
     <link rel="stylesheet" href="/static/concept-designer.css">
     <link rel="stylesheet" href="/static/cosmetic-designer.css">
@@ -101,6 +102,10 @@
                     <a href="#" onclick="showPage('servers'); return false;" class="tool-card">
                         <span class="tool-card-icon">🖥️</span>
                         <span class="tool-card-title">Servers</span>
+                    </a>
+                    <a href="#" onclick="showPage('coupons'); return false;" class="tool-card">
+                        <span class="tool-card-icon">🎟️</span>
+                        <span class="tool-card-title">Coupons</span>
                     </a>
                     <a href="#" onclick="showPage('players'); return false;" class="tool-card">
                         <span class="tool-card-icon">👤</span>
@@ -1964,6 +1969,59 @@
             </div>
         </div>
 
+        <!-- Coupon Management Section -->
+        <div id="coupons-content" class="page-content" style="display: none;">
+            <div class="coupon-manager-container">
+                <div class="coupon-create-panel">
+                    <div class="coupon-create-header">
+                        <h3>Create Coupon</h3>
+                    </div>
+                    <form id="couponCreateForm" class="coupon-create-form">
+                        <div class="coupon-field">
+                            <label for="couponCodeInput">Code</label>
+                            <div class="coupon-input-with-button">
+                                <input type="text" id="couponCodeInput" placeholder="SUMMER2026">
+                                <button type="button" id="couponGenerateBtn" class="btn-coupon-generate">Generate</button>
+                            </div>
+                        </div>
+                        <div class="coupon-field">
+                            <label for="couponExpiryInput">Expires At</label>
+                            <input type="date" id="couponExpiryInput" required>
+                        </div>
+                        <div class="coupon-form-actions">
+                            <button type="submit" id="couponCreateBtn" class="btn-coupon-create">Create Coupon</button>
+                        </div>
+                    </form>
+                    <div id="couponStatus" class="coupon-status"></div>
+                </div>
+
+                <div class="coupon-separator" aria-hidden="true"></div>
+
+                <div class="coupon-table-panel">
+                    <div class="coupon-table-header">
+                        <h3>History</h3>
+                    </div>
+                    <div class="coupon-table-wrapper">
+                        <table class="coupon-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Code</th>
+                                    <th>Expires</th>
+                                    <th>Ends in (days)</th>
+                                    <th>Created</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="couponTableBody">
+                                <tr><td colspan="6" class="coupon-empty">No coupons found</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Chat Moderation Section -->
         <div id="moderation-content" class="page-content" style="display: none;">
             <div class="moderation-layout">
@@ -2173,7 +2231,123 @@
 
         <!-- Tab: Bulk -->
         <div class="combat-tab-content" id="combatTabBulk" data-combat-tab="bulk">
-            <div class="combat-tab-placeholder">Bulk — coming soon</div>
+            <div class="bulk-combat-container">
+                <div class="bulk-layout">
+                    <!-- Left: setup + history -->
+                    <div class="bulk-left">
+                        <div class="bulk-section">
+                            <h3 class="bulk-section-title">Baseline Stats</h3>
+                            <p class="bulk-section-hint">Both opponents share these stats. Each one is given exactly one effect.</p>
+                            <div class="bulk-stats-grid">
+                                <div class="bulk-stat"><label>Strength</label><input type="number" id="bulkStr" value="10" min="0" max="999"></div>
+                                <div class="bulk-stat"><label>Stamina</label><input type="number" id="bulkSta" value="10" min="1" max="999"></div>
+                                <div class="bulk-stat"><label>Agility</label><input type="number" id="bulkAgi" value="10" min="0" max="999"></div>
+                                <div class="bulk-stat"><label>Luck</label><input type="number" id="bulkLck" value="10" min="0" max="999"></div>
+                                <div class="bulk-stat"><label>Armor</label><input type="number" id="bulkArm" value="10" min="0" max="999"></div>
+                                <div class="bulk-stat bulk-stat-damage">
+                                    <label>Damage</label>
+                                    <div class="bulk-damage-inputs">
+                                        <input type="number" id="bulkMinDmg" value="5" min="0" max="999" placeholder="Min">
+                                        <span>-</span>
+                                        <input type="number" id="bulkMaxDmg" value="10" min="0" max="999" placeholder="Max">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bulk-section">
+                            <h3 class="bulk-section-title">Simulation</h3>
+                            <div class="bulk-stats-grid">
+                                <div class="bulk-stat" title="Starting factor value for every effect. Calibration adjusts each one from here.">
+                                    <label>Start Value</label>
+                                    <input type="number" id="bulkEffectValue" value="5" min="1" max="100" step="0.5">
+                                </div>
+                                <div class="bulk-stat" title="Fights per matchup. Higher = more reliable rating signal.">
+                                    <label>Fights / Pair</label>
+                                    <input type="number" id="bulkFightsPerPair" value="20" min="2" max="200">
+                                </div>
+                                <div class="bulk-stat" title="Swiss rounds per phase.">
+                                    <label>Rounds</label>
+                                    <input type="number" id="bulkRounds" value="6" min="1" max="30">
+                                </div>
+                                <div class="bulk-stat" title="Calibration phases. Each phase reuses the previous values to converge toward equal strength.">
+                                    <label>Phases</label>
+                                    <input type="number" id="bulkPhases" value="4" min="1" max="12">
+                                </div>
+                                <div class="bulk-stat" title="Lower bound for calibrated value.">
+                                    <label>Value Min</label>
+                                    <input type="number" id="bulkValueMin" value="1" min="0" max="100" step="0.5">
+                                </div>
+                                <div class="bulk-stat" title="Upper bound for calibrated value.">
+                                    <label>Value Max</label>
+                                    <input type="number" id="bulkValueMax" value="50" min="1" max="500" step="0.5">
+                                </div>
+                            </div>
+                            <div class="bulk-actions">
+                                <button type="button" id="bulkStartBtn" class="btn-fight">▶ Start Bulk Run</button>
+                                <span id="bulkStatus" class="bulk-status"></span>
+                            </div>
+                            <div class="bulk-progress" id="bulkProgress" style="display:none;">
+                                <div class="bulk-progress-bar"><div class="bulk-progress-fill" id="bulkProgressFill"></div></div>
+                                <div class="bulk-progress-meta">
+                                    <span id="bulkProgressText">0 / 0 matches</span>
+                                    <span id="bulkProgressEta"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bulk-section">
+                            <h3 class="bulk-section-title">History</h3>
+                            <div class="bulk-history-wrapper">
+                                <table class="bulk-history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Started</th>
+                                            <th>Effects</th>
+                                            <th>Matches</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bulkHistoryBody">
+                                        <tr><td colspan="6" class="bulk-empty">No runs yet</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: results -->
+                    <div class="bulk-right">
+                        <div class="bulk-section bulk-results-section">
+                            <div class="bulk-results-header">
+                                <h3 class="bulk-section-title">Ranking</h3>
+                                <span id="bulkResultsLabel" class="bulk-results-label"></span>
+                            </div>
+                            <div class="bulk-results-wrapper">
+                                <table class="bulk-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Effect</th>
+                                            <th title="Calibrated factor value at which this effect ≈ baseline strength">Value</th>
+                                            <th title="Final-phase Elo rating (closer to mean = better calibrated)">Rating</th>
+                                            <th>Wins</th>
+                                            <th>Losses</th>
+                                            <th>Win %</th>
+                                            <th title="Per-phase value progression">Trace</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bulkResultsBody">
+                                        <tr><td colspan="8" class="bulk-empty">Start a run or pick one from history.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
             </div><!-- /combat-layout -->
@@ -2267,6 +2441,7 @@
             'players': { title: 'Players', element: 'players-content' },
             'concept': { title: 'Concept', element: 'concept-content' },
             'servers': { title: 'Servers', element: 'servers-content' },
+            'coupons': { title: 'Coupons', element: 'coupons-content' },
             'moderation': { title: 'Chat', element: 'moderation-content' },
             'analytics': { title: 'Analytics', element: 'analytics-content' },
             'cosmetics': { title: 'Cosmetics', element: 'cosmetics-content' },
@@ -2322,6 +2497,18 @@
                     }
                     if (window.loadServerData) {
                         window.loadServerData();
+                    }
+                }
+
+                // If showing the coupon manager, initialize or reload
+                if (pageName === 'coupons') {
+                    if (window.initCouponManager && !window.couponManagerInitialized) {
+                        console.log('Initializing coupon manager...');
+                        window.initCouponManager();
+                        window.couponManagerInitialized = true;
+                    }
+                    if (window.loadCouponData) {
+                        window.loadCouponData();
                     }
                 }
 
@@ -2461,6 +2648,7 @@
                 'talent-designer.js',
                 'npc-designer.js',
                 'server-designer.js',
+                'coupon-designer.js',
                 'chat-moderation.js',
                 'item-designer.js',
                 'perk-designer.js',
@@ -2469,7 +2657,8 @@
                 'quest-designer.js',
                 'concept-designer.js',
                 'cosmetic-designer.js',
-                'combat-tester.js'
+                'combat-tester.js',
+                'bulk-combat.js'
             ];
             for (const file of scripts) {
                 if (document.querySelector(`script[src$="${file}"]`)) continue;

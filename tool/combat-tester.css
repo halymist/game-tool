@@ -1003,3 +1003,283 @@
 .combat-stats-table tbody tr:nth-child(even) {
     background: rgba(255, 255, 255, 0.02);
 }
+
+
+/* ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+   Bulk combat: effect ranking via simulated fights
+   ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+
+.bulk-combat-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 1rem 1.5rem;
+    overflow: auto;
+}
+
+.bulk-layout {
+    display: grid;
+    grid-template-columns: minmax(380px, 460px) 1fr;
+    gap: 1.25rem;
+    flex: 1;
+    min-height: 0;
+}
+
+@media (max-width: 1100px) {
+    .bulk-layout { grid-template-columns: 1fr; }
+}
+
+.bulk-left,
+.bulk-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.bulk-section {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md, 8px);
+    padding: 0.9rem 1rem;
+}
+
+.bulk-section-title {
+    margin: 0 0 0.4rem 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+}
+
+.bulk-section-hint {
+    margin: 0 0 0.6rem 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+}
+
+/* ¦¦ Stat input grid ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+
+.bulk-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.55rem;
+}
+
+.bulk-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.bulk-stat label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.bulk-stat input[type="number"] {
+    background: var(--bg-input, #161a22);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm, 6px);
+    color: var(--text-primary);
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    width: 100%;
+}
+.bulk-stat input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+.bulk-stat-damage { grid-column: span 2; }
+.bulk-damage-inputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.bulk-damage-inputs input { flex: 1; min-width: 0; }
+.bulk-damage-inputs span { color: var(--text-muted); }
+
+/* ¦¦ Actions / progress ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+
+.bulk-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 0.7rem;
+}
+
+.bulk-actions .btn-fight {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease, opacity 0.12s ease;
+}
+.bulk-actions .btn-fight:hover:not(:disabled) { filter: brightness(1.1); }
+.bulk-actions .btn-fight:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.bulk-status {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.bulk-status.bulk-status-error { color: #f87171; }
+
+.bulk-progress { margin-top: 0.8rem; }
+.bulk-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: var(--bg-input, #161a22);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.bulk-progress-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), #60a5fa);
+    transition: width 0.4s ease;
+}
+.bulk-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+}
+
+/* ¦¦ Tables ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+
+.bulk-history-wrapper,
+.bulk-results-wrapper {
+    overflow: auto;
+    max-height: 520px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm, 6px);
+}
+
+.bulk-history-table,
+.bulk-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.bulk-history-table th,
+.bulk-history-table td,
+.bulk-results-table th,
+.bulk-results-table td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
+}
+
+.bulk-history-table thead th,
+.bulk-results-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.bulk-history-row { cursor: pointer; transition: background 0.1s ease; }
+.bulk-history-row:hover { background: var(--bg-hover); }
+.bulk-history-row-active { background: rgba(59,130,246,0.10); }
+
+.bulk-status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.bulk-status-running  { background: rgba(59,130,246,0.18); color: #93c5fd; }
+.bulk-status-finished { background: rgba(34,197,94,0.15);  color: #86efac; }
+.bulk-status-failed   { background: rgba(248,113,113,0.15); color: #fca5a5; }
+
+.bulk-delete-btn {
+    background: none;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm, 6px);
+    color: var(--text-muted);
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+.bulk-delete-btn:hover { color: #fca5a5; border-color: #fca5a5; }
+
+.bulk-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    padding: 1rem !important;
+}
+
+/* ¦¦ Results panel ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+
+.bulk-results-section { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.bulk-results-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.bulk-results-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.bulk-rank {
+    font-weight: 700;
+    color: var(--accent);
+    width: 36px;
+}
+.bulk-effect-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: normal;
+}
+.bulk-rating {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bulk-value {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #86efac;
+}
+.bulk-trace {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

@@ -248,6 +248,9 @@ func main() {
 	// Server management endpoints
 	http.HandleFunc("/api/getServers", corsHandler(handleGetServers))
 	http.HandleFunc("/api/createServer", corsHandler(handleCreateServer))
+	http.HandleFunc("/api/getCoupons", corsHandler(handleGetCoupons))
+	http.HandleFunc("/api/createCoupon", corsHandler(handleCreateCoupon))
+	http.HandleFunc("/api/deleteCoupon", corsHandler(handleDeleteCoupon))
 
 	// Chat moderation endpoints
 	http.HandleFunc("/api/getBannedWords", corsHandler(handleGetBannedWords))
@@ -273,6 +276,12 @@ func main() {
 
 	// Combat tester endpoint
 	http.HandleFunc("/api/testCombat", corsHandler(handleTestCombat))
+
+	// Bulk combat (effect ranking) endpoints
+	http.HandleFunc("/api/startBulkCombat", corsHandler(handleStartBulkCombat))
+	http.HandleFunc("/api/getBulkCombatRuns", corsHandler(handleGetBulkCombatRuns))
+	http.HandleFunc("/api/getBulkCombatRun", corsHandler(handleGetBulkCombatRun))
+	http.HandleFunc("/api/deleteBulkCombatRun", corsHandler(handleDeleteBulkCombatRun))
 
 	port := envOrDefault("PORT", "3030")
 	fmt.Printf("Server starting on :%s\n", port)
