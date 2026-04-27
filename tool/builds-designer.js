@@ -327,6 +327,10 @@ function totalPointsSpent() {
     return n;
 }
 
+function refreshTalentCells() {
+    getBuildTalents().forEach(t => updateTalentCell(t.talentId));
+}
+
 function updatePointCount() {
     const el = document.getElementById('buildPointCount');
     if (el) el.textContent = `${totalPointsSpent()} / 70`;
@@ -337,11 +341,9 @@ function upgradeBuildTalent(talentId) {
     if (!talent) return;
     const cur = buildsState.talents.get(talentId) || { points: 0, talentOrder: 0, perkId: null };
     if (cur.points <= 0 && !isTalentUnlocked(talentId)) {
-        alert('Locked talent: invest first in bottom-row talents, or next to a maxed neighboring talent.');
         return;
     }
     if (totalPointsSpent() >= 70) {
-        alert('Build cap reached: 70 days × 1 point.');
         return;
     }
     if (cur.points >= talent.maxPoints) return;
@@ -353,7 +355,7 @@ function upgradeBuildTalent(talentId) {
         talentOrder: cur.talentOrder || buildsState.talentOrderSeq,
         perkId: cur.perkId || null,
     });
-    updateTalentCell(talentId);
+    refreshTalentCells();
     updatePointCount();
 
     if (newPoints >= talent.maxPoints && (talent.perkSlot === true || talent.perkSlot > 0)) {
@@ -376,7 +378,7 @@ function downgradeBuildTalent(talentId) {
             perkId: newPoints < talent.maxPoints ? null : cur.perkId,
         });
     }
-    updateTalentCell(talentId);
+    refreshTalentCells();
     updatePointCount();
 }
 
