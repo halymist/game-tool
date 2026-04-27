@@ -298,6 +298,29 @@ function renderTalentTree() {
     });
 }
 
+function isTalentUnlocked(talentId) {
+    const talents = getBuildTalents();
+    const target = talents.find(t => t.talentId === talentId);
+    if (!target) return false;
+
+    const row = target.row || 1;
+    const col = target.col || 1;
+    if (row <= 1) return true; // Bottom row is the starting row.
+
+    const neighbors = talents.filter(t => {
+        const nr = t.row || 1;
+        const nc = t.col || 1;
+        const dr = Math.abs(nr - row);
+        const dc = Math.abs(nc - col);
+        return dr + dc === 1;
+    });
+
+    return neighbors.some(n => {
+        const state = buildsState.talents.get(n.talentId);
+        return !!state && state.points >= (n.maxPoints || 0);
+    });
+}
+
 function totalPointsSpent() {
     let n = 0;
     buildsState.talents.forEach(t => { n += t.points || 0; });
@@ -312,11 +335,15 @@ function updatePointCount() {
 function upgradeBuildTalent(talentId) {
     const talent = getBuildTalents().find(t => t.talentId === talentId);
     if (!talent) return;
+    const cur = buildsState.talents.get(talentId) || { points: 0, talentOrder: 0, perkId: null };
+    if (cur.points <= 0 && !isTalentUnlocked(talentId)) {
+        alert('Locked talent: invest first in bottom-row talents, or next to a maxed neighboring talent.');
+        return;
+    }
     if (totalPointsSpent() >= 70) {
         alert('Build cap reached: 70 days × 1 point.');
         return;
     }
-    const cur = buildsState.talents.get(talentId) || { points: 0, talentOrder: 0, perkId: null };
     if (cur.points >= talent.maxPoints) return;
 
     buildsState.talentOrderSeq++;
@@ -360,6 +387,8 @@ function updateTalentCell(talentId) {
     const cur = buildsState.talents.get(talentId) || { points: 0, perkId: null };
     const span = cell.querySelector('.ct-current');
     if (span) span.textContent = cur.points;
+    const isLocked = cur.points <= 0 && !isTalentUnlocked(talentId);
+    cell.classList.toggle('builds-talent-locked', isLocked);
     cell.classList.toggle('has-points', cur.points > 0);
     cell.classList.toggle('maxed', talent && cur.points >= talent.maxPoints);
     const ind = cell.querySelector('.ct-perk-indicator');
@@ -435,11 +464,10 @@ function renderRunsList() {
     }
     el.innerHTML = buildsState.runs.map(r => {
         const isActive = r.runId === buildsState.selectedRunId ? 'builds-run-row-active' : '';
-        const statusBadge = `<span class="builds-status builds-status-${r.status}">${r.status}</span>`;
+        const date = formatBuildsDate(r.createdAt);
         return `
             <div class="builds-run-row ${isActive}" data-id="${r.runId}">
-                <div class="builds-run-id">#${r.runId} ${statusBadge}</div>
-                <div class="builds-run-meta">${formatBuildsDate(r.createdAt)} · ${r.completedMatches}/${r.totalMatches}</div>
+                <div class="builds-run-id">#${r.runId} · ${date}</div>
                 <button type="button" class="builds-run-del" data-id="${r.runId}" title="Delete">✕</button>
             </div>
         `;

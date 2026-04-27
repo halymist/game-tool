@@ -222,7 +222,7 @@ async function loadBulkHistory() {
 function renderBulkHistory() {
     const tbody = document.getElementById('bulkHistoryBody');
     if (!bulkState.runs.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="bulk-empty">No runs yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="bulk-empty">No runs yet</td></tr>';
         return;
     }
     tbody.innerHTML = bulkState.runs.map(run => {
@@ -230,15 +230,12 @@ function renderBulkHistory() {
         const date = formatBulkDateTime(run.createdAt);
         const matches = `${run.completedMatches}/${run.totalMatches}`;
         const isActive = run.runId === bulkState.selectedRunId ? 'bulk-history-row-active' : '';
-        const statusBadge = `<span class="bulk-status-badge bulk-status-${run.status}">${run.status}</span>`;
         return `
             <tr class="bulk-history-row ${isActive}" onclick="selectBulkRun(${run.runId})">
                 <td>${run.runId}</td>
                 <td>${date}</td>
                 <td>${effectCount}</td>
                 <td>${matches}</td>
-                <td>${statusBadge}</td>
-                <td><button type="button" class="bulk-delete-btn" onclick="event.stopPropagation(); deleteBulkRun(${run.runId})" title="Delete">✕</button></td>
             </tr>
         `;
     }).join('');

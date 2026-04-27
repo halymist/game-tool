@@ -4,6 +4,7 @@
 #combat-content.page-content {
     max-width: none;
     padding: 0;
+    overflow: hidden;
 }
 
 /* Widen enemy designer page */
@@ -1005,9 +1006,9 @@
 }
 
 
-/* ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦
+/* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
    Bulk combat: effect ranking via simulated fights
-   ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
 .bulk-combat-container {
     display: flex;
@@ -1015,7 +1016,7 @@
     flex: 1;
     min-height: 0;
     padding: 1rem 1.5rem;
-    overflow: auto;
+    overflow: hidden;
 }
 
 .bulk-layout {
@@ -1024,6 +1025,7 @@
     gap: 1.25rem;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
 
 @media (max-width: 1100px) {
@@ -1036,6 +1038,8 @@
     flex-direction: column;
     gap: 1rem;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .bulk-section {
@@ -1061,7 +1065,7 @@
     line-height: 1.35;
 }
 
-/* ¦¦ Stat input grid ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* ï¿½ï¿½ Stat input grid ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
 .bulk-stats-grid {
     display: grid;
@@ -1108,7 +1112,7 @@
 .bulk-damage-inputs input { flex: 1; min-width: 0; }
 .bulk-damage-inputs span { color: var(--text-muted); }
 
-/* ¦¦ Actions / progress ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* ï¿½ï¿½ Actions / progress ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
 .bulk-actions {
     display: flex;
@@ -1160,7 +1164,7 @@
     margin-top: 0.3rem;
 }
 
-/* ¦¦ Tables ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* ï¿½ï¿½ Tables ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
 .bulk-history-wrapper,
 .bulk-results-wrapper {
@@ -1168,6 +1172,12 @@
     max-height: 520px;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm, 6px);
+}
+
+.bulk-results-wrapper {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
 }
 
 .bulk-history-table,
@@ -1236,7 +1246,7 @@
     padding: 1rem !important;
 }
 
-/* ¦¦ Results panel ¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦¦ */
+/* ï¿½ï¿½ Results panel ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
 
 .bulk-results-section { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 
