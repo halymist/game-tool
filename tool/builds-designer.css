@@ -1,0 +1,352 @@
+/* ==================== Builds Designer (Test2) ==================== */
+
+.builds-container {
+    height: 100%;
+    overflow: hidden;
+}
+
+.builds-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1rem;
+    height: 100%;
+    padding: 1rem;
+}
+
+.builds-left,
+.builds-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+}
+
+.builds-section {
+    background: var(--bg-secondary, #1a1d24);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 8px;
+    padding: 0.85rem;
+}
+
+.builds-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.builds-section-title {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.builds-btn-new,
+.builds-btn-save,
+.builds-btn-delete,
+.builds-btn-run {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.builds-btn-new:hover,
+.builds-btn-save:hover,
+.builds-btn-run:hover {
+    filter: brightness(1.15);
+}
+.builds-btn-delete {
+    background: #b91c1c;
+}
+.builds-btn-delete:hover {
+    background: #dc2626;
+}
+
+.builds-list,
+.builds-runs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.builds-list-row,
+.builds-run-row {
+    background: var(--bg-tertiary, #242832);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.55rem 0.7rem;
+    cursor: pointer;
+    transition: border-color 0.1s, background 0.1s;
+    position: relative;
+}
+.builds-list-row:hover,
+.builds-run-row:hover {
+    border-color: var(--accent, #6366f1);
+}
+.builds-list-row-active,
+.builds-run-row-active {
+    border-color: var(--accent, #6366f1);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.builds-list-name {
+    color: var(--text-primary, #e2e8f0);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.builds-list-meta,
+.builds-run-meta {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.72rem;
+    margin-top: 2px;
+}
+
+.builds-run-id {
+    color: var(--text-primary, #e2e8f0);
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.builds-run-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: transparent;
+    border: 0;
+    color: var(--text-muted, #94a3b8);
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.builds-run-del:hover { color: #f87171; }
+
+.builds-status {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: #475569;
+    text-transform: uppercase;
+}
+.builds-status-running  { background: #3b82f6; }
+.builds-status-finished { background: #16a34a; }
+.builds-status-failed   { background: #b91c1c; }
+
+.builds-empty {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 0.8rem 0;
+}
+
+/* Run config row */
+.builds-run-config {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+.builds-run-config .builds-btn-run {
+    grid-column: 1 / -1;
+}
+
+/* Editor */
+.builds-editor {
+    background: var(--bg-secondary, #1a1d24);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 8px;
+    padding: 1rem;
+}
+.builds-editor-empty {
+    background: var(--bg-secondary, #1a1d24);
+    border: 1px dashed var(--border-color, #2a2f3a);
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+}
+
+.builds-editor-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+.builds-name-input {
+    flex: 1;
+    background: var(--bg-tertiary, #242832);
+    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.builds-editor-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.builds-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.4rem;
+    margin-bottom: 0.6rem;
+}
+.builds-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.builds-stat label {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.builds-stat input {
+    background: var(--bg-tertiary, #242832);
+    color: var(--text-primary, #e2e8f0);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 4px;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.85rem;
+}
+.builds-points-info span {
+    color: var(--accent, #6366f1);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding-top: 0.3rem;
+}
+
+.builds-hint {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+    margin: 0 0 0.6rem;
+}
+
+/* Reuse the .ct-* talent tree styling — just give it a frame */
+.builds-talent-section {
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 6px;
+    padding: 0.5rem;
+    background: var(--bg-tertiary, #242832);
+}
+
+/* Rankings */
+.builds-rankings {
+    background: var(--bg-secondary, #1a1d24);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 8px;
+    padding: 1rem;
+}
+.builds-rankings-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+}
+.builds-rankings-head h3 {
+    margin: 0;
+    color: var(--text-primary, #e2e8f0);
+    font-size: 1rem;
+}
+.builds-run-label {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.8rem;
+}
+
+.builds-progress {
+    margin-bottom: 0.6rem;
+}
+.builds-progress-bar {
+    height: 6px;
+    background: var(--bg-tertiary, #242832);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.builds-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    transition: width 0.4s;
+}
+.builds-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+.builds-milestones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+}
+.builds-milestone {
+    background: var(--bg-tertiary, #242832);
+    color: var(--text-muted, #94a3b8);
+    border: 1px solid var(--border-color, #2a2f3a);
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+.builds-milestone:hover { border-color: var(--accent, #6366f1); }
+.builds-milestone-active {
+    background: var(--accent, #6366f1);
+    color: #fff;
+    border-color: var(--accent, #6366f1);
+    font-weight: 700;
+}
+
+.builds-rankings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+.builds-rankings-table th,
+.builds-rankings-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color, #2a2f3a);
+}
+.builds-rankings-table th {
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+}
+.builds-rank {
+    color: var(--accent, #6366f1);
+    font-weight: 700;
+    width: 32px;
+}
+.builds-name {
+    color: var(--text-primary, #e2e8f0);
+    font-weight: 600;
+}
+.builds-rating {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: #86efac;
+}
+.builds-trace {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.7rem;
+    color: var(--text-muted, #94a3b8);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

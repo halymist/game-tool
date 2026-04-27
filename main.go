@@ -283,6 +283,17 @@ func main() {
 	http.HandleFunc("/api/getBulkCombatRun", corsHandler(handleGetBulkCombatRun))
 	http.HandleFunc("/api/deleteBulkCombatRun", corsHandler(handleDeleteBulkCombatRun))
 
+	// Builds tester endpoints (Test2 tab)
+	http.HandleFunc("/api/saveBuild", corsHandler(handleSaveBuild))
+	http.HandleFunc("/api/getBuilds", corsHandler(handleGetBuilds))
+	http.HandleFunc("/api/getBuild", corsHandler(handleGetBuild))
+	http.HandleFunc("/api/deleteBuild", corsHandler(handleDeleteBuild))
+	http.HandleFunc("/api/startBuildRun", corsHandler(handleStartBuildRun))
+	http.HandleFunc("/api/getBuildRuns", corsHandler(handleGetBuildRuns))
+	http.HandleFunc("/api/getBuildRun", corsHandler(handleGetBuildRun))
+	http.HandleFunc("/api/deleteBuildRun", corsHandler(handleDeleteBuildRun))
+	http.HandleFunc("/api/addBuildToRun", corsHandler(handleAddBuildToRun))
+
 	port := envOrDefault("PORT", "3030")
 	fmt.Printf("Server starting on :%s\n", port)
 	fmt.Println("Available endpoints:")
