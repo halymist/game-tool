@@ -17,6 +17,7 @@ const GlobalData = {
     npcs: [],              // Array of all NPCs from game.npcs
     settlements: [],       // Array of all settlements from game.world_info
     quests: [],            // Array of all quests from game.quests (all settlements)
+    questChains: [],       // Array of all quest chains from game.questchain (all settlements)
     settlementAssets: [],  // Array of available settlement assets from S3
     questAssets: [],       // Array of available quest assets from S3 (images/quests)
     expeditionMapAssets: [], // Array of expedition map assets from S3 (images/expedition-maps)
@@ -178,6 +179,7 @@ function buildGlobalDataSummary() {
         npcs: GlobalData.npcs.length,
         settlements: GlobalData.settlements.length,
         quests: GlobalData.quests.length,
+        questChains: GlobalData.questChains.length,
         questAssets: GlobalData.questAssets.length,
         settlementAssets: GlobalData.settlementAssets.length,
         expeditionMapAssets: GlobalData.expeditionMapAssets.length,
@@ -259,6 +261,7 @@ if (typeof window !== 'undefined') {
     window.getExpeditionMapAssets = getExpeditionMapAssets;
     window.loadQuestsData = loadQuestsData;
     window.getQuestsData = getQuestsData;
+    window.getQuestChainsData = getQuestChainsData;
 }
 
 // === EFFECTS DATA STRUCTURE ===
@@ -643,8 +646,12 @@ async function loadQuestsData(options = {}) {
             });
             if (response.ok) {
                 const data = await response.json();
+                setGlobalArray('questChains', Array.isArray(data?.chains) ? data.chains : []);
                 setGlobalArray('quests', Array.isArray(data?.quests) ? data.quests : []);
-                console.log(`${GLOBAL_DATA_LOG_PREFIX} quests loaded`, { count: GlobalData.quests.length });
+                console.log(`${GLOBAL_DATA_LOG_PREFIX} quests loaded`, {
+                    count: GlobalData.quests.length,
+                    chains: GlobalData.questChains.length,
+                });
                 return GlobalData.quests;
             } else {
                 throw new Error('Server error: ' + await response.text());
@@ -661,6 +668,10 @@ async function loadQuestsData(options = {}) {
 
 function getQuestsData() {
     return GlobalData.quests;
+}
+
+function getQuestChainsData() {
+    return GlobalData.questChains;
 }
 
 function getSettlementById(settlementId) {

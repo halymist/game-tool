@@ -78,10 +78,25 @@ console.log('📦 expedition-designer.js LOADED');
     function syncGlobalCaches(settlementId, reason = 'sync') {
         const sid = Number(settlementId);
         const allQuests = getGlobalArray('quests');
+        const allChains = typeof window.getQuestChainsData === 'function'
+            ? (window.getQuestChainsData() || [])
+            : getGlobalArray('questChains');
+        const chainIdsForSettlement = new Set(
+            allChains
+                .filter((chain) => Number(chain && chain.settlement_id) === sid)
+                .map((chain) => Number(chain.questchain_id))
+                .filter((id) => id > 0)
+        );
         state.mapAssets = getGlobalArray('expeditionMapAssets').slice();
         state.quests = sid > 0
             ? allQuests
-                .filter((quest) => Number(quest.settlement_id) === sid)
+                .filter((quest) => {
+                    const questSettlementId = Number(quest && quest.settlement_id);
+                    const questChainId = Number(quest && quest.questchain_id);
+                    if (questSettlementId === sid) return true;
+                    if (chainIdsForSettlement.size > 0 && chainIdsForSettlement.has(questChainId)) return true;
+                    return false;
+                })
                 .map((quest) => ({
                     quest_id: Number(quest.quest_id),
                     quest_name: quest.quest_name || `Quest ${quest.quest_id}`,
@@ -92,6 +107,8 @@ console.log('📦 expedition-designer.js LOADED');
             reason,
             settlementId: sid > 0 ? sid : null,
             totalQuests: allQuests.length,
+            totalQuestChains: allChains.length,
+            settlementQuestChains: sid > 0 ? chainIdsForSettlement.size : 0,
             settlementQuests: state.quests.length,
             mapAssets: state.mapAssets.length,
         });
