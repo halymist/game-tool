@@ -184,7 +184,6 @@ func main() {
 	http.HandleFunc("/api/getItems", corsHandler(handleGetItems))
 	http.HandleFunc("/api/getPerks", corsHandler(getPerksHandler))
 	http.HandleFunc("/api/generateQuestAi", corsHandler(handleGenerateQuestAi))
-	http.HandleFunc("/api/generateExpeditionCluster", corsHandler(handleGenerateExpeditionCluster))
 
 	// Item endpoints (uses tooling schema)
 	http.HandleFunc("/api/createItem", corsHandler(handleCreateItem))
@@ -215,14 +214,12 @@ func main() {
 	http.HandleFunc("/api/getEnemyAssets", corsHandler(CreateGetAssetsHandler("enemies")))
 	http.HandleFunc("/api/uploadEnemyAsset", corsHandler(CreateUploadAssetHandler("enemies")))
 
-	// Expedition endpoints
-	http.HandleFunc("/api/getExpeditionAssets", corsHandler(handleGetExpeditionAssets))
-	http.HandleFunc("/api/uploadExpeditionAsset", corsHandler(handleUploadExpeditionAsset))
-	http.HandleFunc("/api/saveExpedition", corsHandler(handleSaveExpedition))
-	http.HandleFunc("/api/mergeExpeditions", corsHandler(handleMergeExpeditions))
+	// Expedition endpoints (map + quest-node graph)
 	http.HandleFunc("/api/getExpedition", corsHandler(handleGetExpedition))
-	http.HandleFunc("/api/deleteExpeditionSlide", corsHandler(handleDeleteExpeditionSlide))
-	http.HandleFunc("/api/deleteExpeditionOption", corsHandler(handleDeleteExpeditionOption))
+	http.HandleFunc("/api/saveExpedition", corsHandler(handleSaveExpedition))
+	http.HandleFunc("/api/getQuestsLite", corsHandler(handleGetQuestsLite))
+	http.HandleFunc("/api/getExpeditionMapAssets", corsHandler(CreateGetAssetsHandler("expedition-maps")))
+	http.HandleFunc("/api/uploadExpeditionMapAsset", corsHandler(CreateUploadAssetHandler("expedition-maps")))
 
 	// Settlement endpoints
 	http.HandleFunc("/api/getSettlements", corsHandler(handleGetSettlements))

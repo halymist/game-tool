@@ -653,14 +653,6 @@ document.addEventListener('keydown', (e) => {
             if (el) el.classList.remove('active');
             document.body.classList.remove('quest-preview-open');
         }},
-        { id: 'expeditionPreviewOverlay', close: () => {
-            const el = document.getElementById('expeditionPreviewOverlay');
-            if (el) { el.classList.remove('active'); el.setAttribute('aria-hidden', 'true'); }
-            const questOverlay = document.getElementById('questPreviewOverlay');
-            if (!questOverlay?.classList.contains('active')) {
-                document.body.classList.remove('quest-preview-open');
-            }
-        }}
     ];
     for (const o of activeOverlays) {
         const el = document.getElementById(o.id);
@@ -670,8 +662,7 @@ document.addEventListener('keydown', (e) => {
     // 4. Overlays using display:flex/block
     const displayOverlays = [
         'enemyAssetGalleryOverlay',
-        'questGenerateOverlay',
-        'expeditionGenerateOverlay'
+        'questGenerateOverlay'
     ];
     for (const id of displayOverlays) {
         const el = document.getElementById(id);

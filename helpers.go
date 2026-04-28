@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"log"
@@ -11,6 +12,33 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+// nullInt converts a *int into a sql.NullInt64 (NULL when nil).
+func nullInt(v *int) sql.NullInt64 {
+	if v == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*v), Valid: true}
+}
+
+// nullStr converts a *string into a sql.NullString (NULL when nil).
+func nullStr(v *string) sql.NullString {
+	if v == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *v, Valid: true}
+}
+
+// nullBool converts a *bool into a sql.NullBool (NULL when nil).
+func nullBool(v *bool) sql.NullBool {
+	if v == nil {
+		return sql.NullBool{}
+	}
+	return sql.NullBool{Bool: *v, Valid: true}
+}
+
+// Silence unused import when database/sql is not otherwise referenced here.
+var _ = sql.ErrNoRows
 
 // Effect represents the database structure for effects (game.effects)
 type Effect struct {

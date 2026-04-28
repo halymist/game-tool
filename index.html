@@ -1047,357 +1047,63 @@
             </div>
         </div>
 
-        <!-- Expedition Designer Section -->
+        <!-- Expedition Designer Section (map + quest-node graph) -->
         <div id="dungeons-content" class="page-content" style="display: none;">
             <div class="expedition-designer-container">
-                <!-- Toolbar -->
                 <div class="expedition-toolbar">
                     <div class="toolbar-left">
                         <div class="expedition-settlement-select">
                             <label>Settlement:</label>
-                            <select id="expeditionSettlementSelect" onchange="window.onExpeditionSettlementChange && window.onExpeditionSettlementChange()">
-                            </select>
+                            <select id="expeditionSettlementSelect"></select>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 4px;">
-                            <button id="zoomOutBtn" class="zoom-btn" title="Zoom Out" onclick="window.changeZoom(-0.1)">−</button>
-                            <span id="zoomIndicator" class="zoom-indicator">100%</span>
-                            <button id="zoomInBtn" class="zoom-btn" title="Zoom In" onclick="window.changeZoom(0.1)">+</button>
-                        </div>
+                        <span id="expeditionStatus" class="expedition-status"></span>
                     </div>
                     <div class="toolbar-right">
-                        <button id="addSlideBtn" class="btn-primary">Add Slide</button>
-                        <button id="expeditionGenerateBtn" class="btn-secondary">Generate Cluster</button>
-                        <button id="expeditionPreviewToggle" class="btn-secondary" type="button">Preview</button>
-                        <button id="saveExpeditionBtn" class="btn-success" onclick="window.saveExpedition()">Save</button>
-                        <button id="mergeExpeditionBtn" class="btn-publish" onclick="window.mergeExpedition()">Publish to Game</button>
+                        <button id="expeditionUploadMapBtn" class="btn-secondary" type="button">Upload Map</button>
+                        <button id="expeditionEdgeModeBtn" class="btn-secondary" type="button" title="Toggle edge mode (or hold Shift while clicking nodes)">Edges: Off</button>
+                        <button id="expeditionSaveBtn" class="btn-success" type="button">Save</button>
+                        <input type="file" id="expeditionMapFileInput" accept="image/*" style="display:none;">
                     </div>
                 </div>
-                <div id="expeditionPreviewOverlay" class="quest-preview-overlay" aria-hidden="true">
-                    <div class="quest-preview-card">
-                        <div class="quest-preview-header">
-                            <div class="quest-preview-heading">
-                                <button id="expeditionPreviewBack" class="btn-secondary" type="button">← Back</button>
-                            </div>
-                            <div class="quest-preview-header-actions">
-                                <button id="expeditionPreviewReset" class="btn-secondary" type="button">Reset</button>
-                                <button id="expeditionPreviewClose" class="quest-preview-close" type="button">✕</button>
-                            </div>
-                        </div>
-                        <div class="quest-preview-scene" id="expeditionPreviewScene">
-                            <div class="quest-preview-scene-mask"></div>
-                            <div class="quest-preview-scene-content">
-                                <div id="expeditionPreviewText" class="quest-preview-text"></div>
-                                <div id="expeditionPreviewReward" class="quest-preview-reward" style="display:none;"></div>
-                                <div id="expeditionPreviewOptions" class="quest-preview-options"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Canvas -->
-                <div id="expeditionCanvas" class="expedition-canvas">
-                    <svg id="connectionsSvg" class="connections-svg">
-                        <path id="connectionPreview" class="connection-preview" style="display:none"></path>
-                    </svg>
-                    <div id="slidesContainer" class="slides-container"></div>
-                    
-                    <!-- Navigation Controls -->
-                    <div class="canvas-nav-controls">
-                        <button class="nav-btn" onclick="window.panCanvas(0, 100)" title="Pan Up">▲</button>
-                        <div class="nav-row">
-                            <button class="nav-btn" onclick="window.panCanvas(100, 0)" title="Pan Left">◀</button>
-                            <button class="nav-btn nav-center" onclick="window.centerCanvas()" title="Center">⊙</button>
-                            <button class="nav-btn" onclick="window.panCanvas(-100, 0)" title="Pan Right">▶</button>
-                        </div>
-                        <button class="nav-btn" onclick="window.panCanvas(0, -100)" title="Pan Down">▼</button>
-                    </div>
-                </div>
-                
-                <div id="expeditionGenerateOverlay" class="generate-overlay" style="display:none;">
-                    <div id="expeditionGeneratePanel" class="generate-modal expedition-generate-sidebar">
-                        <div class="quest-generate-header">
-                            <h3>Generate Cluster</h3>
-                            <button id="expeditionGenerateClose" class="btn-secondary">Close</button>
-                        </div>
-                        <div class="quest-generate-body">
-                            <div class="generate-columns">
-                                <div class="generate-left">
-                                    <div class="quest-generate-field">
-                                        <label>Location</label>
-                                        <div class="combobox-wrapper" id="expeditionGenerateLocationCombobox">
-                                            <input type="text" id="expeditionGenerateLocationInput" class="combobox-input" placeholder="Search or select location..." autocomplete="off">
-                                            <input type="hidden" id="expeditionGenerateLocation">
-                                            <div class="combobox-dropdown" id="expeditionGenerateLocationDropdown"></div>
-                                        </div>
-                                    </div>
-                                    <div class="quest-generate-row">
-                                        <div class="quest-generate-field">
-                                            <label>NPCs</label>
-                                            <input type="text" id="expeditionGenerateNpcFilter" class="quest-generate-filter" placeholder="Search NPCs...">
-                                            <select id="expeditionGenerateNpcs" multiple></select>
-                                        </div>
-                                        <div class="quest-generate-field">
-                                            <label>Enemies</label>
-                                            <input type="text" id="expeditionGenerateEnemyFilter" class="quest-generate-filter" placeholder="Search enemies...">
-                                            <select id="expeditionGenerateEnemies" multiple></select>
-                                        </div>
-                                    </div>
-                                    <div class="quest-generate-section">
-                                        <h4>Rewards</h4>
-                                        <div class="quest-generate-row">
-                                            <div class="quest-generate-field">
-                                                <label>Item Rewards</label>
-                                                <input type="text" id="expeditionGenerateItemRewardFilter" class="quest-generate-filter" placeholder="Search items...">
-                                                <select id="expeditionGenerateRewardItems" multiple></select>
-                                            </div>
-                                            <div class="quest-generate-field">
-                                                <label>Perk Rewards</label>
-                                                <input type="text" id="expeditionGeneratePerkRewardFilter" class="quest-generate-filter" placeholder="Search perks...">
-                                                <select id="expeditionGenerateRewardPerks" multiple></select>
-                                            </div>
-                                            <div class="quest-generate-field">
-                                                <label>Potion Rewards</label>
-                                                <input type="text" id="expeditionGeneratePotionRewardFilter" class="quest-generate-filter" placeholder="Search potions...">
-                                                <select id="expeditionGenerateRewardPotions" multiple></select>
-                                            </div>
-                                            <div class="quest-generate-field">
-                                                <label>Blessing Rewards</label>
-                                                <input type="text" id="expeditionGenerateBlessingRewardFilter" class="quest-generate-filter" placeholder="Search blessings...">
-                                                <select id="expeditionGenerateRewardBlessings" multiple></select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="generate-right">
-                                    <div class="quest-generate-field generate-prompt">
-                                        <label>Prompt</label>
-                                        <textarea id="expeditionGeneratePrompt" placeholder="What kind of expedition cluster do you want?"></textarea>
-                                    </div>
-                                    <div class="quest-generate-actions">
-                                        <button id="expeditionGenerateRun" class="btn-primary btn-generate">Generate</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Option Modal -->
-            <div id="optionModal" class="option-modal">
-                <div class="option-modal-content">
-                    <h3 id="optionModalTitle">Add Option</h3>
-                    <div class="modal-field">
-                        <label>Option Text</label>
-                        <input type="text" id="optionModalText" placeholder="Enter option text...">
-                    </div>
-                    <div class="modal-field">
-                        <label>Type</label>
-                        <select id="optionModalType" onchange="window.updateOptionModalFields && window.updateOptionModalFields(this.value)">
-                            <option value="dialogue">💬 Dialogue (no check)</option>
-                            <option value="skill">🎯 Skill Check (stat requirement)</option>
-                            <option value="effect">✨ Effect Check (effect requirement)</option>
-                            <option value="combat">⚔️ Combat (enemy encounter)</option>
-                            <option value="faction">🛡️ Faction Gate</option>
-                            <option value="silver">🪙 Silver Gate (cost)</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Skill Check Fields -->
-                    <div id="optionStatFields" class="modal-field-row" style="display:none;">
-                        <div class="modal-field">
-                            <label>Stat Type</label>
-                            <select id="optionStatType">
-                                <option value="">Select stat...</option>
-                                <option value="strength">Strength</option>
-                                <option value="agility">Agility</option>
-                                <option value="stamina">Stamina</option>
-                                <option value="luck">Luck</option>
-                                <option value="armor">Armor</option>
-                            </select>
-                        </div>
-                        <div class="modal-field">
-                            <label>Required Amount</label>
-                            <input type="number" id="optionStatRequired" placeholder="e.g. 50" min="1">
-                        </div>
-                    </div>
-                    
-                    <!-- Effect Check Fields -->
-                    <div id="optionEffectFields" class="modal-field-row" style="display:none;">
-                        <div class="modal-field">
-                            <label>Effect</label>
-                            <select id="optionEffectId">
-                                <option value="">Select effect...</option>
-                                <!-- Populated dynamically from global effects array -->
-                            </select>
-                        </div>
-                        <div class="modal-field">
-                            <label>Required Amount</label>
-                            <input type="number" id="optionEffectAmount" placeholder="e.g. 10" min="1">
-                        </div>
-                    </div>
-                    
-                    <!-- Combat Fields -->
-                    <div id="optionCombatFields" class="modal-field" style="display:none;">
-                        <label>Select Enemy</label>
-                        <input type="hidden" id="optionEnemyId" value="">
-                        <div id="enemyPickerGrid" class="enemy-picker-grid">
-                            <!-- Populated dynamically with enemy icons -->
-                        </div>
-                    </div>
 
-                    <!-- Faction Fields -->
-                    <div id="optionFactionFields" class="modal-field" style="display:none;">
-                        <label>Required Faction</label>
-                        <select id="optionFactionRequired">
-                            <option value="">Select faction...</option>
-                            <option value="order">Order</option>
-                            <option value="guild">Guild</option>
-                            <option value="companions">Companions</option>
-                        </select>
-                        <small style="color:#889;margin-top:6px;display:block;">Only members of this faction see the option.</small>
+                <div id="expeditionMapStage" class="expedition-map-stage">
+                    <div id="expeditionMapEmpty" class="expedition-map-empty">
+                        <p>No map uploaded for this settlement.</p>
+                        <p class="expedition-map-empty-hint">Click <strong>Upload Map</strong> to add an exploration map image. Then double-click on the map to place quest nodes.</p>
                     </div>
+                    <div id="expeditionMapInner" class="expedition-map-inner" style="display:none;">
+                        <img id="expeditionMapImage" class="expedition-map-image" alt="Expedition map">
+                        <svg id="expeditionEdgeLayer" class="expedition-edge-layer"></svg>
+                        <div id="expeditionNodeLayer" class="expedition-node-layer"></div>
+                    </div>
+                </div>
+            </div>
 
-                    <!-- Silver Gate Fields -->
-                    <div id="optionSilverFields" class="modal-field" style="display:none;">
-                        <label>Silver Required</label>
-                        <input type="number" id="optionSilverRequired" placeholder="e.g. 200" min="0" step="10">
-                        <small style="color:#889;margin-top:6px;display:block;">Option stays hidden unless the player can spend this amount.</small>
-                    </div>
-                    
-                    <div class="modal-buttons">
-                        <button id="optionModalCancel" class="btn-cancel" onclick="window.closeOptionModal()">Cancel</button>
-                        <button id="optionModalSave" class="btn-primary" onclick="window.saveOptionFromModal()">Save</button>
-                    </div>
+            <!-- Node popover -->
+            <div id="expeditionNodePopover" class="expedition-node-popover" style="display:none;">
+                <div class="expedition-popover-header">
+                    <strong>Node</strong>
+                    <button class="expedition-popover-close" type="button" data-action="close">✕</button>
                 </div>
-            </div>
-            
-            <!-- Expedition Asset Gallery Overlay (same style as quest gallery) -->
-            <div id="expeditionAssetGalleryOverlay" class="expedition-asset-gallery-overlay">
-                <div class="expedition-asset-gallery-modal">
-                    <div class="expedition-asset-gallery-header">
-                        <h3>Select Slide Background</h3>
-                        <div class="asset-gallery-filter">
-                            <input type="text" id="expeditionAssetFilter" placeholder="Filter by location name..." autocomplete="off">
-                        </div>
-                        <div class="gallery-header-actions">
-                            <span id="expeditionAssetUploadStatus" class="expedition-upload-status"></span>
-                            <button id="expeditionUploadBtn" class="gallery-upload-btn" type="button">Upload</button>
-                            <input type="file" id="expeditionAssetFileInput" accept="image/*" style="display: none;">
-                            <button class="asset-gallery-close" type="button" onclick="window.closeExpeditionAssetGallery()">✕</button>
-                        </div>
-                    </div>
-                    <div class="expedition-asset-gallery-content">
-                        <div id="expeditionAssetGallery" class="expedition-asset-grid">
-                            <!-- Assets will be populated here -->
-                        </div>
-                    </div>
+                <div class="modal-field">
+                    <label>Label (optional)</label>
+                    <input type="text" id="expeditionNodeLabel" placeholder="Display label">
                 </div>
-            </div>
-            
-            <!-- Reward Modal -->
-            <div id="rewardModal" class="option-modal">
-                <div class="option-modal-content">
-                    <h3>Slide Reward</h3>
-                    <div class="modal-field">
-                        <label>Reward Type</label>
-                        <select id="rewardModalType" onchange="window.updateRewardModalFields && window.updateRewardModalFields(this.value)">
-                            <option value="stat">📊 Stat Bonus</option>
-                            <option value="talent">⭐ Talent Point</option>
-                            <option value="item">🎒 Item</option>
-                            <option value="perk">🔮 Perk</option>
-                            <option value="blessing">✨ Blessing</option>
-                            <option value="potion">🧪 Potion</option>
-                            <option value="silver">🪙 Silver</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Stat Bonus Fields -->
-                    <div id="rewardStatFields" class="modal-field">
-                        <label>Stat Type</label>
-                        <select id="rewardStatType">
-                            <option value="strength">💪 Strength</option>
-                            <option value="stamina">❤️ Stamina</option>
-                            <option value="agility">🏃 Agility</option>
-                            <option value="luck">🍀 Luck</option>
-                            <option value="armor">🛡️ Armor</option>
-                        </select>
-                        <label style="margin-top:8px;">Amount</label>
-                        <input type="number" id="rewardStatAmount" value="1" min="1" max="100">
-                    </div>
-                    
-                    <!-- Item Fields -->
-                    <div id="rewardItemFields" class="modal-field" style="display:none;">
-                        <label>Select Item</label>
-                        <input type="hidden" id="rewardItemId" value="">
-                        <div id="rewardItemPickerGrid" class="item-picker-grid">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-                    
-                    <!-- Perk Fields -->
-                    <div id="rewardPerkFields" class="modal-field" style="display:none;">
-                        <label>Select Perk</label>
-                        <select id="rewardPerkId">
-                            <option value="">-- Select a perk --</option>
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
-                    
-                    <!-- Blessing Fields -->
-                    <div id="rewardBlessingFields" class="modal-field" style="display:none;">
-                        <label>Select Blessing</label>
-                        <select id="rewardBlessingId">
-                            <option value="">-- Select a blessing --</option>
-                            <!-- Populated dynamically -->
-                        </select>
-                    </div>
-                    
-                    <!-- Potion Fields -->
-                    <div id="rewardPotionFields" class="modal-field" style="display:none;">
-                        <label>Select Potion</label>
-                        <input type="hidden" id="rewardPotionId" value="">
-                        <div id="rewardPotionPickerGrid" class="item-picker-grid">
-                            <!-- Populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Silver Fields -->
-                    <div id="rewardSilverFields" class="modal-field" style="display:none;">
-                        <label>Silver Amount</label>
-                        <input type="number" id="rewardSilverAmount" value="0" min="0" step="10" placeholder="e.g. 250">
-                        <small style="color:#889;display:block;margin-top:6px;">Granted as pure currency instead of loot.</small>
-                    </div>
-                    
-                    <div class="modal-buttons">
-                        <button class="btn-cancel" onclick="window.closeRewardModal()">Cancel</button>
-                        <button class="btn-primary" onclick="window.saveRewardFromModal()">Save Reward</button>
-                    </div>
+                <div class="modal-field">
+                    <label>Quest</label>
+                    <select id="expeditionNodeQuest">
+                        <option value="">— No quest —</option>
+                    </select>
                 </div>
-            </div>
-            
-            <!-- Effect Modal (for slide effects) -->
-            <div id="effectModal" class="option-modal">
-                <div class="option-modal-content" style="max-width: 400px;">
-                    <h3>Slide Effect</h3>
-                    <p style="color: #888; font-size: 12px; margin-bottom: 15px;">
-                        Effects are applied when a character enters this slide (e.g., health loss, stat debuffs).
-                    </p>
-                    <div class="modal-field">
-                        <label>Effect Type</label>
-                        <select id="slideEffectId">
-                            <option value="">-- Select an effect --</option>
-                        </select>
-                    </div>
-                    <div class="modal-field">
-                        <label>Factor (amount)</label>
-                        <input type="number" id="slideEffectFactor" value="0" placeholder="e.g., -10 for health loss">
-                        <small style="color: #888;">Negative values for penalties (e.g., -10 health), positive for buffs</small>
-                    </div>
-                    <div class="modal-buttons">
-                        <button class="btn-cancel" onclick="window.closeEffectModal()">Cancel</button>
-                        <button class="btn-primary" onclick="window.saveEffectFromModal()">Save Effect</button>
-                    </div>
+                <div class="modal-field">
+                    <label class="expedition-checkbox">
+                        <input type="checkbox" id="expeditionNodeIsStart">
+                        <span>Starting area (visible from settlement)</span>
+                    </label>
+                </div>
+                <div class="modal-buttons">
+                    <button class="btn-delete" type="button" data-action="delete">Delete</button>
+                    <button class="btn-primary" type="button" data-action="apply">Apply</button>
                 </div>
             </div>
         </div>
