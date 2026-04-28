@@ -11,6 +11,7 @@ console.log('📦 expedition-designer.js LOADED');
     'use strict';
 
     const MAP_FOLDER = 'expedition-maps';
+    const LOG_PREFIX = '[expedition-designer]';
 
     const state = {
         settlementId: null,
@@ -23,14 +24,78 @@ console.log('📦 expedition-designer.js LOADED');
         mapAssets: [],       // [{assetID, icon, name}]
         nextClientId: -1,    // negative for newly-created (positive ids come from server)
         selectedNodeId: null,
-        edgeMode: false,
         edgeSourceId: null,
         dragging: null,      // {clientId, offsetXPct, offsetYPct}
         dirty: false,
+        isSaving: false,
+        baselineSignature: null,
+        lastLoadedSettlementId: null,
     };
+
+    let hasAttachedEvents = false;
+    let hasInitialized = false;
+    let hasActivatedOnce = false;
+    let isActivating = false;
+    let activeLoadToken = 0;
 
     // ---------- DOM helpers ----------
     const $ = (id) => document.getElementById(id);
+
+    function log(message, payload) {
+        if (payload === undefined) {
+            console.log(`${LOG_PREFIX} ${message}`);
+            return;
+        }
+        console.log(`${LOG_PREFIX} ${message}`, payload);
+    }
+
+    function getGlobalArray(key) {
+        return Array.isArray(window.GlobalData && window.GlobalData[key]) ? window.GlobalData[key] : [];
+    }
+
+    function buildGlobalSnapshot(settlementId = state.settlementId) {
+        const sid = Number(settlementId);
+        const allQuests = getGlobalArray('quests');
+        const settlementQuestCount = sid > 0
+            ? allQuests.filter((quest) => Number(quest.settlement_id) === sid).length
+            : 0;
+        return {
+            settlements: getGlobalArray('settlements').length,
+            quests: allQuests.length,
+            expeditionMapAssets: getGlobalArray('expeditionMapAssets').length,
+            activeSettlementId: sid > 0 ? sid : null,
+            activeSettlementQuestCount: settlementQuestCount,
+        };
+    }
+
+    function getSelectedSettlementFromDom() {
+        const select = $('expeditionSettlementSelect');
+        if (!select) return null;
+        const id = parseInt(select.value, 10);
+        return id > 0 ? id : null;
+    }
+
+    function syncGlobalCaches(settlementId, reason = 'sync') {
+        const sid = Number(settlementId);
+        const allQuests = getGlobalArray('quests');
+        state.mapAssets = getGlobalArray('expeditionMapAssets').slice();
+        state.quests = sid > 0
+            ? allQuests
+                .filter((quest) => Number(quest.settlement_id) === sid)
+                .map((quest) => ({
+                    quest_id: Number(quest.quest_id),
+                    quest_name: quest.quest_name || `Quest ${quest.quest_id}`,
+                    asset_id: quest.asset_id ?? null,
+                }))
+            : [];
+        log('Global caches synced', {
+            reason,
+            settlementId: sid > 0 ? sid : null,
+            totalQuests: allQuests.length,
+            settlementQuests: state.quests.length,
+            mapAssets: state.mapAssets.length,
+        });
+    }
 
     function setStatus(msg, isError) {
         const el = $('expeditionStatus');
@@ -40,15 +105,64 @@ console.log('📦 expedition-designer.js LOADED');
     }
 
     function markDirty() {
-        state.dirty = true;
-        const btn = $('expeditionSaveBtn');
-        if (btn) btn.classList.add('btn-pending');
+        refreshDirtyState();
     }
 
     function clearDirty() {
+        state.baselineSignature = buildStateSignature();
         state.dirty = false;
+        updateSaveButton();
+    }
+
+    function buildStateSignature() {
+        const nodes = Array.from(state.nodes.values())
+            .map((n) => ({
+                client_id: Number(n.client_id),
+                quest_id: n.quest_id == null ? null : Number(n.quest_id),
+                is_start: !!n.is_start,
+                pos_x: Number(Number(n.pos_x || 0).toFixed(6)),
+                pos_y: Number(Number(n.pos_y || 0).toFixed(6)),
+                label: (n.label || '').trim() || null,
+            }))
+            .sort((a, b) => a.client_id - b.client_id);
+
+        const edges = Array.from(state.edges.values())
+            .map((e) => {
+                const a = Number(e.a_client_id);
+                const b = Number(e.b_client_id);
+                return a < b ? [a, b] : [b, a];
+            })
+            .sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]));
+
+        return JSON.stringify({
+            settlement_id: state.settlementId || null,
+            map_asset_id: state.mapAssetId || null,
+            nodes,
+            edges,
+        });
+    }
+
+    function refreshDirtyState() {
+        if (!state.baselineSignature) {
+            state.baselineSignature = buildStateSignature();
+        }
+        state.dirty = buildStateSignature() !== state.baselineSignature;
+        updateSaveButton();
+    }
+
+    function updateSaveButton() {
         const btn = $('expeditionSaveBtn');
-        if (btn) btn.classList.remove('btn-pending');
+        if (!btn) return;
+        const canSave = !!state.settlementId && state.dirty && !state.isSaving;
+        btn.disabled = !canSave;
+        btn.classList.toggle('btn-pending', state.dirty);
+        btn.classList.toggle('is-saving', state.isSaving);
+        btn.textContent = state.isSaving ? 'Saving...' : 'Save';
+
+        const discardBtn = $('expeditionDiscardBtn');
+        if (discardBtn) {
+            discardBtn.disabled = !state.settlementId || !state.dirty || state.isSaving;
+        }
     }
 
     function pairKey(a, b) {
@@ -107,6 +221,7 @@ console.log('📦 expedition-designer.js LOADED');
     }
 
     async function loadExpedition(settlementId) {
+        log('Requesting expedition payload', { settlementId });
         const data = await authFetch(`/api/getExpedition?settlementId=${settlementId}`);
         state.settlementId = data.settlement_id;
         state.expeditionId = data.expedition_id;
@@ -131,16 +246,19 @@ console.log('📦 expedition-designer.js LOADED');
             });
         }
         state.mapImageUrl = resolveMapImageUrl(state.mapAssetId);
+        log('Expedition payload received', {
+            settlementId: state.settlementId,
+            expeditionId: state.expeditionId,
+            mapAssetId: state.mapAssetId,
+            nodes: state.nodes.size,
+            edges: state.edges.size,
+        });
         clearDirty();
     }
 
     async function loadQuestsLite(settlementId) {
-        try {
-            state.quests = await authFetch(`/api/getQuestsLite?settlementId=${settlementId}`);
-        } catch (e) {
-            console.warn('getQuestsLite failed:', e);
-            state.quests = [];
-        }
+        syncGlobalCaches(settlementId, 'loadQuestsLite');
+        return state.quests;
     }
 
     function getMapAssets() {
@@ -166,19 +284,53 @@ console.log('📦 expedition-designer.js LOADED');
         return buildMapUrl(assetId);
     }
 
-    async function loadMapAssets(options = {}) {
-        try {
-            if (typeof window.loadExpeditionMapAssetsData === 'function') {
-                const assets = await window.loadExpeditionMapAssetsData(options);
-                state.mapAssets = Array.isArray(assets) ? assets : [];
-            } else {
-                const data = await authFetch('/api/getExpeditionMapAssets');
-                state.mapAssets = Array.isArray(data) ? data : (data.assets || []);
+    function probeImageUrl(url) {
+        return new Promise((resolve) => {
+            if (!url) {
+                resolve(false);
+                return;
             }
-        } catch (e) {
-            console.warn('getExpeditionMapAssets failed:', e);
-            state.mapAssets = [];
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
+    }
+
+    async function resolveMapImageUrlSmart(assetId) {
+        if (!assetId) return null;
+
+        const preferred = resolveMapImageUrl(assetId);
+        if (preferred && await probeImageUrl(preferred)) {
+            return preferred;
         }
+
+        const exts = ['webp', 'png', 'jpg', 'jpeg', 'gif'];
+        for (const ext of exts) {
+            const candidate = typeof window.buildPublicAssetUrl === 'function'
+                ? window.buildPublicAssetUrl(`images/${MAP_FOLDER}/${assetId}.${ext}`)
+                : `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/${MAP_FOLDER}/${assetId}.${ext}`;
+            if (await probeImageUrl(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    async function loadMapAssets(options = {}) {
+        if (options && options.forceReload === true && typeof window.loadExpeditionMapAssetsData === 'function') {
+            try {
+                const assets = await window.loadExpeditionMapAssetsData(options);
+                state.mapAssets = Array.isArray(assets) ? assets.slice() : [];
+                log('Map asset gallery force reloaded', { count: state.mapAssets.length });
+                return state.mapAssets;
+            } catch (e) {
+                console.warn('Global expedition map assets reload failed:', e);
+            }
+        }
+        syncGlobalCaches(state.settlementId, 'loadMapAssets');
+        return state.mapAssets;
     }
 
     function nextMapAssetId() {
@@ -191,7 +343,9 @@ console.log('📦 expedition-designer.js LOADED');
     }
 
     async function saveExpedition() {
-        if (!state.settlementId) return;
+        if (!state.settlementId || !state.dirty || state.isSaving) return;
+        state.isSaving = true;
+        updateSaveButton();
         setStatus('Saving…');
         try {
             const payload = {
@@ -239,6 +393,9 @@ console.log('📦 expedition-designer.js LOADED');
         } catch (e) {
             console.error(e);
             setStatus('Save failed: ' + e.message, true);
+        } finally {
+            state.isSaving = false;
+            updateSaveButton();
         }
     }
 
@@ -250,7 +407,7 @@ console.log('📦 expedition-designer.js LOADED');
         }
         setStatus('Uploading map…');
         try {
-            await loadMapAssets();
+            syncGlobalCaches(state.settlementId, 'before map upload');
             const assetId = nextMapAssetId();
             const webpBlob = await convertImageToWebP(file, 2048, 2048, 0.8);
             const base64 = await blobToBase64Safe(webpBlob);
@@ -264,8 +421,13 @@ console.log('📦 expedition-designer.js LOADED');
             });
             state.mapAssetId = result.assetID || assetId;
             await loadMapAssets({ forceReload: true });
-            state.mapImageUrl = result.icon || resolveMapImageUrl(state.mapAssetId);
+            state.mapImageUrl = result.icon || await resolveMapImageUrlSmart(state.mapAssetId);
             markDirty();
+            log('Map upload completed', {
+                mapAssetId: state.mapAssetId,
+                mapImageUrl: state.mapImageUrl,
+                mapAssets: state.mapAssets.length,
+            });
             setStatus('Map uploaded. Click Save to persist.');
             renderMap();
         } catch (e) {
@@ -385,6 +547,9 @@ console.log('📦 expedition-designer.js LOADED');
         const inner = $('expeditionMapInner');
         if (!svg || !inner) return;
         const rect = inner.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            return;
+        }
         svg.setAttribute('viewBox', `0 0 ${rect.width || 1} ${rect.height || 1}`);
         svg.setAttribute('width', rect.width);
         svg.setAttribute('height', rect.height);
@@ -406,11 +571,15 @@ console.log('📦 expedition-designer.js LOADED');
     function attachNodeHandlers(el, node) {
         el.addEventListener('mousedown', (e) => onNodeMouseDown(e, node));
         el.addEventListener('click', (e) => onNodeClick(e, node));
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openNodePopover(node, e.clientX, e.clientY);
+        });
     }
 
     function onNodeMouseDown(e, node) {
         if (e.button !== 0) return;
-        if (e.shiftKey || state.edgeMode) return; // edge mode handled in click
         e.preventDefault();
         e.stopPropagation();
         const inner = $('expeditionMapInner');
@@ -451,26 +620,18 @@ console.log('📦 expedition-designer.js LOADED');
     function onNodeClick(e, node) {
         e.stopPropagation();
         if (state.dragging && state.dragging.moved) return; // suppress click after drag
-        if (e.shiftKey || state.edgeMode) {
-            handleEdgeClick(node);
-            return;
-        }
-        state.selectedNodeId = node.client_id;
-        renderNodes();
-        openNodePopover(node, e.clientX, e.clientY);
-    }
-
-    function handleEdgeClick(node) {
+        // Left click is edge workflow by default:
+        // first click picks source, second click toggles edge.
         if (state.edgeSourceId === null) {
             state.edgeSourceId = node.client_id;
+            state.selectedNodeId = node.client_id;
             renderNodes();
-            setStatus('Edge: click a second node to toggle the connection.');
+            setStatus('Connection source selected. Click another node to connect/disconnect. Right-click a node to edit.');
             return;
         }
         if (state.edgeSourceId === node.client_id) {
-            state.edgeSourceId = null;
-            renderNodes();
-            setStatus('');
+            // Clicking the same node again opens editor.
+            openNodePopover(node, e.clientX, e.clientY);
             return;
         }
         const key = pairKey(state.edgeSourceId, node.client_id);
@@ -485,6 +646,7 @@ console.log('📦 expedition-designer.js LOADED');
             setStatus('Edge added.');
         }
         state.edgeSourceId = null;
+        state.selectedNodeId = node.client_id;
         markDirty();
         renderNodes();
         renderEdges();
@@ -544,20 +706,26 @@ console.log('📦 expedition-designer.js LOADED');
         renderNodes();
     }
 
-    function applyPopover() {
+    function applyPopoverFieldsLive() {
         const pop = $('expeditionNodePopover');
         if (!pop) return;
         const cid = parseInt(pop.dataset.clientId, 10);
         const node = state.nodes.get(cid);
-        if (!node) return closeNodePopover();
+        if (!node) return;
         const questVal = $('expeditionNodeQuest').value;
-        node.quest_id = questVal ? parseInt(questVal, 10) : null;
-        node.is_start = $('expeditionNodeIsStart').checked;
+        const nextQuestID = questVal ? parseInt(questVal, 10) : null;
+        const nextIsStart = $('expeditionNodeIsStart').checked;
         const lbl = $('expeditionNodeLabel').value.trim();
-        node.label = lbl || null;
+        const nextLabel = lbl || null;
+
+        const changed = node.quest_id !== nextQuestID || node.is_start !== nextIsStart || node.label !== nextLabel;
+        if (!changed) return;
+
+        node.quest_id = nextQuestID;
+        node.is_start = nextIsStart;
+        node.label = nextLabel;
         markDirty();
-        closeNodePopover();
-        renderMap();
+        renderNodes();
     }
 
     function deleteNodeFromPopover() {
@@ -575,24 +743,63 @@ console.log('📦 expedition-designer.js LOADED');
         renderMap();
     }
 
-    // ---------- Edge mode toggle ----------
-    function toggleEdgeMode() {
-        state.edgeMode = !state.edgeMode;
-        state.edgeSourceId = null;
-        const btn = $('expeditionEdgeModeBtn');
-        if (btn) {
-            btn.textContent = state.edgeMode ? 'Edges: On' : 'Edges: Off';
-            btn.classList.toggle('active', state.edgeMode);
+    // ---------- Wiring ----------
+    async function loadSettlementIntoEditor(settlementID) {
+        const sid = Number(settlementID);
+        if (!(sid > 0)) return;
+        const loadToken = ++activeLoadToken;
+        setStatus('Loading…');
+        log('Loading settlement into editor', {
+            settlementId: sid,
+            global: buildGlobalSnapshot(sid),
+        });
+        try {
+            closeNodePopover();
+            state.settlementId = sid;
+            syncGlobalCaches(sid, 'loadSettlementIntoEditor');
+            await loadExpedition(sid);
+            if (loadToken !== activeLoadToken) return;
+            state.mapImageUrl = await resolveMapImageUrlSmart(state.mapAssetId);
+            if (loadToken !== activeLoadToken) return;
+            state.edgeSourceId = null;
+            state.lastLoadedSettlementId = sid;
+            setStatus('');
+            clearDirty();
+            renderMap();
+            log('Settlement loaded into editor', {
+                settlementId: sid,
+                expeditionId: state.expeditionId,
+                mapAssetId: state.mapAssetId,
+                mapImageUrl: state.mapImageUrl,
+                nodes: state.nodes.size,
+                edges: state.edges.size,
+                questOptions: state.quests.length,
+            });
+        } catch (e) {
+            console.error(e);
+            setStatus('Load failed: ' + e.message, true);
+            log('Settlement load failed', {
+                settlementId: sid,
+                error: e.message,
+                global: buildGlobalSnapshot(sid),
+            });
         }
-        setStatus(state.edgeMode ? 'Edge mode on. Click two nodes to toggle a connection.' : '');
-        renderNodes();
     }
 
-    // ---------- Wiring ----------
+    async function dismissChanges() {
+        if (!state.settlementId || state.isSaving || !state.dirty) return;
+        await loadSettlementIntoEditor(state.settlementId);
+        setStatus('Changes discarded.');
+        setTimeout(() => setStatus(''), 1200);
+    }
+
     function attachEvents() {
+        if (hasAttachedEvents) return;
+        hasAttachedEvents = true;
         const sel = $('expeditionSettlementSelect');
         if (sel) sel.addEventListener('change', async () => {
             const id = parseInt(sel.value, 10);
+            log('Settlement selection changed', { selectedSettlementId: id || null });
             if (!id) {
                 state.settlementId = null;
                 state.expeditionId = null;
@@ -601,20 +808,16 @@ console.log('📦 expedition-designer.js LOADED');
                 state.nodes.clear();
                 state.edges.clear();
                 state.quests = [];
+                state.edgeSourceId = null;
+                state.baselineSignature = null;
+                state.dirty = false;
+                state.isSaving = false;
+                state.lastLoadedSettlementId = null;
+                updateSaveButton();
                 renderMap();
                 return;
             }
-            setStatus('Loading…');
-            try {
-                state.settlementId = id;
-                await Promise.all([loadExpedition(id), loadQuestsLite(id), loadMapAssets()]);
-                state.mapImageUrl = resolveMapImageUrl(state.mapAssetId);
-                setStatus('');
-                renderMap();
-            } catch (e) {
-                console.error(e);
-                setStatus('Load failed: ' + e.message, true);
-            }
+            await loadSettlementIntoEditor(id);
         });
 
         const upload = $('expeditionUploadMapBtn');
@@ -634,14 +837,21 @@ console.log('📦 expedition-designer.js LOADED');
             });
         }
 
-        const edgeBtn = $('expeditionEdgeModeBtn');
-        if (edgeBtn) edgeBtn.addEventListener('click', toggleEdgeMode);
-
         const saveBtn = $('expeditionSaveBtn');
         if (saveBtn) saveBtn.addEventListener('click', saveExpedition);
 
+        const discardBtn = $('expeditionDiscardBtn');
+        if (discardBtn) discardBtn.addEventListener('click', dismissChanges);
+
         const stage = $('expeditionMapStage');
-        if (stage) stage.addEventListener('dblclick', onMapDblClick);
+        if (stage) {
+            stage.addEventListener('dblclick', onMapDblClick);
+            stage.addEventListener('click', () => {
+                state.edgeSourceId = null;
+                renderNodes();
+                setStatus('');
+            });
+        }
 
         // Repaint edges on resize so SVG matches the rendered image size.
         window.addEventListener('resize', () => renderEdges());
@@ -653,10 +863,16 @@ console.log('📦 expedition-designer.js LOADED');
             pop.addEventListener('click', (e) => {
                 const action = e.target && e.target.dataset && e.target.dataset.action;
                 if (action === 'close') closeNodePopover();
-                else if (action === 'apply') applyPopover();
                 else if (action === 'delete') deleteNodeFromPopover();
             });
         }
+
+        const labelEl = $('expeditionNodeLabel');
+        const questEl = $('expeditionNodeQuest');
+        const startEl = $('expeditionNodeIsStart');
+        if (labelEl) labelEl.addEventListener('input', applyPopoverFieldsLive);
+        if (questEl) questEl.addEventListener('change', applyPopoverFieldsLive);
+        if (startEl) startEl.addEventListener('change', applyPopoverFieldsLive);
 
         // Click outside popover closes it (but keep clicks on nodes/popover alive).
         document.addEventListener('mousedown', (e) => {
@@ -675,39 +891,150 @@ console.log('📦 expedition-designer.js LOADED');
         }[c]));
     }
 
-    async function init() {
-        const root = $('dungeons-content');
-        if (!root) return;
-        attachEvents();
-        // Load settlements lazily; populate when GlobalData is ready.
-        if (window.GlobalData && window.GlobalData.settlements && window.GlobalData.settlements.length) {
-            populateSettlementSelect();
-        } else if (typeof window.subscribeToGlobalData === 'function') {
-            window.subscribeToGlobalData('settlements', () => populateSettlementSelect());
-            if (typeof window.loadSettlementsData === 'function') {
-                window.loadSettlementsData().catch((e) => console.error('Settlement load failed', e));
+    function ensureSelectedSettlement() {
+        populateSettlementSelect();
+        const select = $('expeditionSettlementSelect');
+        if (!select) return null;
+        let selected = parseInt(select.value, 10);
+        if (!(selected > 0)) {
+            const firstOption = Array.from(select.options || []).find((option) => parseInt(option.value, 10) > 0);
+            if (firstOption) {
+                select.value = firstOption.value;
+                selected = parseInt(firstOption.value, 10);
             }
         }
-        if (typeof window.subscribeToGlobalData === 'function') {
-            window.subscribeToGlobalData('expeditionMapAssets', () => {
-                state.mapImageUrl = resolveMapImageUrl(state.mapAssetId);
+        return selected > 0 ? selected : null;
+    }
+
+    async function waitForGlobalDataReady() {
+        if (window.__globalDataPreloaded) {
+            log('Verified shared GlobalData preload', window.__globalDataSummary || buildGlobalSnapshot());
+            return true;
+        }
+
+        log('GlobalData not flagged as ready yet; waiting for preload event', buildGlobalSnapshot());
+        return new Promise((resolve) => {
+            let finished = false;
+            const complete = (ready, detail) => {
+                if (finished) return;
+                finished = true;
+                window.clearTimeout(timeoutId);
+                window.removeEventListener('global-data-preloaded', onReady);
+                log(ready ? 'Received global-data-preloaded event' : 'Timed out waiting for preload; using current GlobalData snapshot', detail || buildGlobalSnapshot());
+                resolve(ready);
+            };
+            const onReady = (event) => complete(true, event && event.detail ? event.detail : buildGlobalSnapshot());
+            const timeoutId = window.setTimeout(() => complete(false), 4000);
+            window.addEventListener('global-data-preloaded', onReady);
+        });
+    }
+
+    function registerGlobalSubscriptions() {
+        if (typeof window.subscribeToGlobalData !== 'function') return;
+
+        window.subscribeToGlobalData('settlements', () => {
+            const previous = getSelectedSettlementFromDom();
+            populateSettlementSelect();
+            const current = getSelectedSettlementFromDom();
+            log('Settlements subscription fired', {
+                previousSettlementId: previous,
+                selectedSettlementId: current,
+                count: getGlobalArray('settlements').length,
+            });
+        });
+
+        window.subscribeToGlobalData('quests', () => {
+            const settlementId = state.settlementId || getSelectedSettlementFromDom();
+            syncGlobalCaches(settlementId, 'quests subscription');
+            renderNodes();
+            log('Quests subscription fired', buildGlobalSnapshot(settlementId));
+        });
+
+        window.subscribeToGlobalData('expeditionMapAssets', () => {
+            syncGlobalCaches(state.settlementId, 'expeditionMapAssets subscription');
+            if (!state.mapAssetId) {
                 renderMap();
-            }, { skipInitial: true });
+                return;
+            }
+            resolveMapImageUrlSmart(state.mapAssetId).then((url) => {
+                state.mapImageUrl = url;
+                renderMap();
+                log('Expedition map gallery subscription refreshed current map URL', {
+                    mapAssetId: state.mapAssetId,
+                    mapImageUrl: state.mapImageUrl,
+                    mapAssets: state.mapAssets.length,
+                });
+            });
+        });
+    }
+
+    async function initExpeditionDesigner() {
+        const root = $('dungeons-content');
+        if (!root) return;
+        if (hasInitialized) {
+            log('initExpeditionDesigner called again; reusing existing setup');
+            return;
         }
-        if (typeof window.loadExpeditionMapAssetsData === 'function') {
-            window.loadExpeditionMapAssetsData().catch((e) => console.error('Expedition map assets load failed', e));
-        }
+        attachEvents();
+        registerGlobalSubscriptions();
+        hasInitialized = true;
+        log('Expedition designer initialized', buildGlobalSnapshot());
+        updateSaveButton();
         renderMap();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    async function activateExpeditionDesigner(options = {}) {
+        await initExpeditionDesigner();
+        if (isActivating) {
+            log('Activation requested while another activation is in progress');
+        }
+        isActivating = true;
+        try {
+            await waitForGlobalDataReady();
+            const selectedSettlementId = ensureSelectedSettlement();
+            log('Activating expedition designer from page navigation', {
+                selectedSettlementId,
+                global: buildGlobalSnapshot(selectedSettlementId),
+            });
+
+            if (!selectedSettlementId) {
+                setStatus('No settlements loaded.', true);
+                renderMap();
+                return;
+            }
+
+            syncGlobalCaches(selectedSettlementId, 'activateExpeditionDesigner');
+
+            if (options.forceReload === true || !hasActivatedOnce || state.lastLoadedSettlementId !== selectedSettlementId) {
+                await loadSettlementIntoEditor(selectedSettlementId);
+                hasActivatedOnce = true;
+                return;
+            }
+
+            state.mapImageUrl = await resolveMapImageUrlSmart(state.mapAssetId);
+            renderMap();
+            log('Activation reused currently loaded expedition state', {
+                selectedSettlementId,
+                expeditionId: state.expeditionId,
+                mapAssetId: state.mapAssetId,
+                mapImageUrl: state.mapImageUrl,
+                questOptions: state.quests.length,
+            });
+        } finally {
+            isActivating = false;
+        }
     }
 
     // Expose minimal hooks for debugging.
-    window.expeditionDesigner = { state, renderMap };
+    window.initExpeditionDesigner = initExpeditionDesigner;
+    window.activateExpeditionDesigner = activateExpeditionDesigner;
+    window.refreshExpeditionDesigner = () => activateExpeditionDesigner({ forceReload: true });
+    window.expeditionDesigner = {
+        state,
+        renderMap,
+        init: initExpeditionDesigner,
+        activate: activateExpeditionDesigner,
+    };
 
-    console.log('✅ expedition-designer.js READY');
+    log('READY - awaiting page activation');
 })();

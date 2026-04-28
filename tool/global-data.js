@@ -16,6 +16,7 @@ const GlobalData = {
     itemAssets: [],        // Array of available item assets from S3
     npcs: [],              // Array of all NPCs from game.npcs
     settlements: [],       // Array of all settlements from game.world_info
+    quests: [],            // Array of all quests from game.quests (all settlements)
     settlementAssets: [],  // Array of available settlement assets from S3
     questAssets: [],       // Array of available quest assets from S3 (images/quests)
     expeditionMapAssets: [], // Array of expedition map assets from S3 (images/expedition-maps)
@@ -25,6 +26,7 @@ const GlobalData = {
 
 const DEFAULT_ASSET_PUBLIC_BASE_URL = 'https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev';
 const ASSET_PUBLIC_BASE_URL = String(window.ASSET_PUBLIC_BASE_URL || DEFAULT_ASSET_PUBLIC_BASE_URL).replace(/\/+$/, '');
+const GLOBAL_DATA_LOG_PREFIX = '[GlobalData]';
 
 function getAssetPublicBaseUrl() {
     return ASSET_PUBLIC_BASE_URL;
@@ -167,6 +169,26 @@ function getGlobalDataSnapshot(key) {
     return GlobalData[key];
 }
 
+function buildGlobalDataSummary() {
+    return {
+        effects: GlobalData.effects.length,
+        enemies: GlobalData.enemies.length,
+        perks: GlobalData.perks.length,
+        items: GlobalData.items.length,
+        npcs: GlobalData.npcs.length,
+        settlements: GlobalData.settlements.length,
+        quests: GlobalData.quests.length,
+        questAssets: GlobalData.questAssets.length,
+        settlementAssets: GlobalData.settlementAssets.length,
+        expeditionMapAssets: GlobalData.expeditionMapAssets.length,
+        perkAssets: GlobalData.perkAssets.length,
+        itemAssets: GlobalData.itemAssets.length,
+        enemyAssets: GlobalData.enemyAssets.length,
+        cosmetics: GlobalData.cosmetics.length,
+        cosmeticAssets: GlobalData.cosmeticAssets.length,
+    };
+}
+
 function notifyGlobalDataChange(key, payload) {
     const listeners = globalDataSubscribers.get(key);
     if (!listeners || listeners.size === 0) return;
@@ -226,8 +248,17 @@ if (typeof window !== 'undefined') {
     window.subscribeToGlobalData = subscribeToGlobalData;
     window.notifyGlobalDataChange = notifyGlobalDataChange;
     window.preloadGlobalData = preloadGlobalData;
+    window.getGlobalDataSummary = buildGlobalDataSummary;
     window.getAssetPublicBaseUrl = getAssetPublicBaseUrl;
     window.buildPublicAssetUrl = buildPublicAssetUrl;
+    window.loadSettlementsData = loadSettlementsData;
+    window.getSettlements = getSettlements;
+    window.loadQuestAssetsData = loadQuestAssetsData;
+    window.getQuestAssets = getQuestAssets;
+    window.loadExpeditionMapAssetsData = loadExpeditionMapAssetsData;
+    window.getExpeditionMapAssets = getExpeditionMapAssets;
+    window.loadQuestsData = loadQuestsData;
+    window.getQuestsData = getQuestsData;
 }
 
 // === EFFECTS DATA STRUCTURE ===
@@ -290,6 +321,7 @@ let itemsLoadingPromise = null;
 let perkAssetsLoadingPromise = null;
 let itemAssetsLoadingPromise = null;
 let settlementsLoadingPromise = null;
+let questsLoadingPromise = null;
 let questAssetsLoadingPromise = null;
 let settlementAssetsLoadingPromise = null;
 let expeditionMapAssetsLoadingPromise = null;
@@ -574,6 +606,7 @@ async function loadSettlementsData(options = {}) {
                 if (data.success && data.settlements) {
                     setGlobalArray('settlements', data.settlements);
                 }
+                console.log(`${GLOBAL_DATA_LOG_PREFIX} settlements loaded`, { count: GlobalData.settlements.length });
                 return GlobalData.settlements;
             } else {
                 throw new Error('Server error: ' + await response.text());
@@ -590,6 +623,44 @@ async function loadSettlementsData(options = {}) {
 
 function getSettlements() {
     return GlobalData.settlements;
+}
+
+// --- Quests (all settlements) ---
+async function loadQuestsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.quests.length > 0) {
+        return GlobalData.quests;
+    }
+    if (questsLoadingPromise) return questsLoadingPromise;
+
+    questsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('/api/getQuests', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGlobalArray('quests', Array.isArray(data?.quests) ? data.quests : []);
+                console.log(`${GLOBAL_DATA_LOG_PREFIX} quests loaded`, { count: GlobalData.quests.length });
+                return GlobalData.quests;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading quests:', error);
+            throw error;
+        } finally {
+            questsLoadingPromise = null;
+        }
+    })();
+    return questsLoadingPromise;
+}
+
+function getQuestsData() {
+    return GlobalData.quests;
 }
 
 function getSettlementById(settlementId) {
@@ -729,6 +800,7 @@ async function loadExpeditionMapAssetsData(options = {}) {
                     remoteKey: 'remoteIcon'
                 });
                 setGlobalArray('expeditionMapAssets', normalizedAssets);
+                console.log(`${GLOBAL_DATA_LOG_PREFIX} expedition map assets loaded`, { count: GlobalData.expeditionMapAssets.length });
                 return GlobalData.expeditionMapAssets;
             } else {
                 throw new Error('Server error: ' + await response.text());
@@ -935,6 +1007,7 @@ const GLOBAL_DATA_LOADERS = {
     itemAssets:       () => loadItemAssets(),
     enemyAssets:      () => loadEnemyAssets(),
     settlements:      () => loadSettlementsData(),
+    quests:           () => loadQuestsData(),
     settlementAssets: () => loadSettlementAssetsData(),
     questAssets:      () => loadQuestAssetsData(),
     expeditionMapAssets: () => loadExpeditionMapAssetsData(),
@@ -945,6 +1018,7 @@ const GLOBAL_DATA_LOADERS = {
 async function preloadGlobalData(keys = []) {
     if (!Array.isArray(keys) || keys.length === 0) return Promise.resolve();
     const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
+    console.log(`${GLOBAL_DATA_LOG_PREFIX} preload start`, { keys: uniqueKeys });
     const tasks = uniqueKeys.map((key) => {
         const loader = GLOBAL_DATA_LOADERS[key];
         if (typeof loader !== 'function') {
@@ -956,6 +1030,10 @@ async function preloadGlobalData(keys = []) {
         });
     });
     return Promise.all(tasks).then(() => {
+        const summary = buildGlobalDataSummary();
+        window.__globalDataPreloaded = true;
+        window.__globalDataSummary = summary;
+        window.dispatchEvent(new CustomEvent('global-data-preloaded', { detail: summary }));
         const dataEntries = [
             `${GlobalData.effects.length} effects`,
             `${GlobalData.enemies.length} enemies`,
@@ -964,6 +1042,7 @@ async function preloadGlobalData(keys = []) {
             `${GlobalData.talents.length} talents`,
             `${GlobalData.npcs.length} npcs`,
             `${GlobalData.settlements.length} settlements`,
+            `${GlobalData.quests.length} quests`,
             `${GlobalData.cosmetics.length} cosmetics`
         ];
         const assetEntries = [
@@ -977,6 +1056,7 @@ async function preloadGlobalData(keys = []) {
         ];
         console.log(`🌍 GlobalData ready — ${dataEntries.join(', ')}`);
         console.log(`🖼️ Asset galleries — ${assetEntries.join(', ')}`);
+        console.log(`${GLOBAL_DATA_LOG_PREFIX} preload complete`, summary);
     });
 }
 

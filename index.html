@@ -1060,7 +1060,7 @@
                     </div>
                     <div class="toolbar-right">
                         <button id="expeditionUploadMapBtn" class="btn-secondary" type="button">Upload Map</button>
-                        <button id="expeditionEdgeModeBtn" class="btn-secondary" type="button" title="Toggle edge mode (or hold Shift while clicking nodes)">Edges: Off</button>
+                        <button id="expeditionDiscardBtn" class="btn-secondary" type="button">Discard</button>
                         <button id="expeditionSaveBtn" class="btn-success" type="button">Save</button>
                         <input type="file" id="expeditionMapFileInput" accept="image/*" style="display:none;">
                     </div>
@@ -1069,7 +1069,7 @@
                 <div id="expeditionMapStage" class="expedition-map-stage">
                     <div id="expeditionMapEmpty" class="expedition-map-empty">
                         <p>No map uploaded for this settlement.</p>
-                        <p class="expedition-map-empty-hint">Click <strong>Upload Map</strong> to add an exploration map image. Then double-click on the map to place quest nodes.</p>
+                        <p class="expedition-map-empty-hint">Click <strong>Upload Map</strong> to add an exploration map image. Double-click map to place nodes, then click one node and another to connect them.</p>
                     </div>
                     <div id="expeditionMapInner" class="expedition-map-inner" style="display:none;">
                         <img id="expeditionMapImage" class="expedition-map-image" alt="Expedition map">
@@ -1103,7 +1103,6 @@
                 </div>
                 <div class="modal-buttons">
                     <button class="btn-delete" type="button" data-action="delete">Delete</button>
-                    <button class="btn-primary" type="button" data-action="apply">Apply</button>
                 </div>
             </div>
         </div>
@@ -2350,14 +2349,13 @@
                 if (pageName === 'dungeons') {
                     // Initialize expedition designer if not done yet
                     if (window.initExpeditionDesigner && !window.expeditionDesignerInitialized) {
-                        console.log('Initializing expedition designer...');
+                        console.log('[boot] Initializing expedition designer...');
                         window.initExpeditionDesigner();
                         window.expeditionDesignerInitialized = true;
                     }
-                    // Load expedition data
-                    if (window.loadExpedition) {
-                        console.log('Auto-loading expedition data...');
-                        window.loadExpedition();
+                    if (window.activateExpeditionDesigner) {
+                        console.log('[boot] Activating expedition designer...', window.getGlobalDataSummary ? window.getGlobalDataSummary() : null);
+                        window.activateExpeditionDesigner();
                     }
                 }
                 
@@ -2429,13 +2427,15 @@
             try {
                 if (typeof preloadGlobalData === 'function') {
                     if (status) status.textContent = 'Fetching game data…';
+                    console.log('[boot] Starting shared GlobalData preload');
                     await preloadGlobalData([
-                        'settlements', 'settlementAssets', 'questAssets',
+                        'settlements', 'quests', 'settlementAssets', 'questAssets', 'expeditionMapAssets',
                         'items', 'perks', 'npcs',
                         'itemAssets', 'perkAssets', 'enemyAssets',
                         'effects', 'enemies',
                         'cosmetics', 'cosmeticAssets'
                     ]);
+                    console.log('[boot] Shared GlobalData preload finished', window.getGlobalDataSummary ? window.getGlobalDataSummary() : null);
                 }
             } catch (e) {
                 console.error('Global data preload failed', e);
