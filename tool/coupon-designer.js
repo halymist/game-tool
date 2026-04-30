@@ -24,22 +24,10 @@
         if (!isoLike) return '-';
         const d = new Date(isoLike);
         if (isNaN(d.getTime())) return '-';
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-    }
-
-    function formatDateTime(isoLike) {
-        if (!isoLike) return '-';
-        const d = new Date(isoLike);
-        if (isNaN(d.getTime())) return '-';
-        const yyyy = d.getFullYear();
         const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+        const yyyy = d.getFullYear();
+        return `${dd}.${mm}.${yyyy}`;
     }
 
     function toDateOnlyMs(value) {
@@ -112,7 +100,7 @@
         if (!body) return;
 
         if (!state.coupons.length) {
-            body.innerHTML = '<tr><td colspan="6" class="coupon-empty">No coupons found</td></tr>';
+            body.innerHTML = '<tr><td colspan="7" class="coupon-empty">No coupons found</td></tr>';
             return;
         }
 
@@ -130,9 +118,11 @@
                     <td>${formatDate(coupon.expires_at)}</td>
                     <td>
                         <span class="coupon-days ${coupon.is_active ? 'coupon-days-active' : 'coupon-days-expired'}">${endsIn}</span>
-                        <span class="coupon-state-label">${activeLabel}</span>
                     </td>
-                    <td>${formatDateTime(coupon.created_at)}</td>
+                    <td>
+                        <span class="coupon-status-badge ${coupon.is_active ? 'coupon-status-active' : 'coupon-status-expired'}">${activeLabel}</span>
+                    </td>
+                    <td>${formatDate(coupon.created_at)}</td>
                     <td>
                         <button type="button" class="btn-coupon-disable" data-coupon-id="${coupon.id}">Remove</button>
                     </td>
@@ -158,7 +148,7 @@
             setStatus(err.message || 'Failed to load coupons', 'error');
             const body = qs('couponTableBody');
             if (body) {
-                body.innerHTML = '<tr><td colspan="6" class="coupon-empty">Failed to load coupons</td></tr>';
+                body.innerHTML = '<tr><td colspan="7" class="coupon-empty">Failed to load coupons</td></tr>';
             }
         }
     }

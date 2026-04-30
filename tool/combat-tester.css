@@ -7,11 +7,6 @@
     overflow: hidden;
 }
 
-/* Widen enemy designer page */
-#enemies-content.page-content {
-    max-width: 95%;
-}
-
 /* ── Layout: sidebar + content ────────────────────────── */
 .combat-layout {
     display: flex;

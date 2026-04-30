@@ -651,20 +651,17 @@ console.log('📦 expedition-designer.js LOADED');
         const key = pairKey(state.edgeSourceId, node.client_id);
         if (state.edges.has(key)) {
             state.edges.delete(key);
-            setStatus('Edge removed.');
         } else {
             state.edges.set(key, {
                 a_client_id: state.edgeSourceId,
                 b_client_id: node.client_id,
             });
-            setStatus('Edge added.');
         }
         state.edgeSourceId = null;
         state.selectedNodeId = node.client_id;
         markDirty();
         renderNodes();
         renderEdges();
-        setTimeout(() => setStatus(''), 1200);
     }
 
     // ---------- Add node by double-clicking the map ----------

@@ -53,6 +53,7 @@ const questState = {
     // Track deleted items (server IDs of items that were loaded then deleted)
     deletedQuestIds: [],
     deletedOptionIds: [],
+    isSaving: false,
 };
 
 // Faction lookup: UI keeps string keys, backend expects integer codes (namespaced for quests)
@@ -2814,10 +2815,24 @@ function checkQuestSaveConditions() {
     if (!btn) return;
     const errors = getQuestValidationErrors();
     const valid = errors.length === 0;
+    const canSave = valid && !questState.isSaving;
 
-    btn.disabled = !valid;
-    btn.classList.toggle('btn-disabled', !valid);
-    btn.title = valid ? 'Save quest chain' : `Cannot save yet:\n- ${errors.join('\n- ')}`;
+    btn.disabled = !canSave;
+    btn.classList.toggle('btn-disabled', !canSave);
+    if (questState.isSaving) {
+        btn.title = 'Saving...';
+    } else {
+        btn.title = valid ? 'Save quest chain' : `Cannot save yet:\n- ${errors.join('\n- ')}`;
+    }
+}
+
+function setQuestSaveButtonLoading(isLoading) {
+    const btn = document.getElementById('saveQuestBtn');
+    questState.isSaving = !!isLoading;
+    if (!btn) return;
+
+    btn.classList.toggle('is-saving', questState.isSaving);
+    btn.textContent = questState.isSaving ? 'Saving...' : 'Save';
 }
 
 // ==================== SAVE ====================
@@ -2836,6 +2851,8 @@ async function saveQuest() {
     const chainContext = chainContextInput?.value || questState.chainContext || '';
     
     const isNewChain = !questState.selectedChain;
+    setQuestSaveButtonLoading(true);
+    checkQuestSaveConditions();
     
     try {
         const token = await getCurrentAccessToken();
@@ -3080,6 +3097,9 @@ async function saveQuest() {
     } catch (error) {
         console.error('Save error:', error);
         alert(`❌ Failed to save: ${error.message}`);
+    } finally {
+        setQuestSaveButtonLoading(false);
+        checkQuestSaveConditions();
     }
 }
 window.saveQuest = saveQuest;

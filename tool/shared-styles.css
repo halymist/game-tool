@@ -525,12 +525,6 @@ body {
     padding: 12px !important;
 }
 
-/* Enemy designer - full width for busy combat editor */
-#enemies-content {
-    max-width: none !important;
-    padding: 12px !important;
-}
-
 /* Combat tester - full width, full height */
 #combat-content {
     max-width: none !important;

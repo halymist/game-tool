@@ -209,10 +209,28 @@
     color: #fca5a5;
 }
 
-.coupon-state-label {
-    margin-left: 0.45rem;
-    color: var(--text-muted);
+.coupon-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
     font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.coupon-status-active {
+    color: #86efac;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.coupon-status-expired {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.14);
+    border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .coupon-table thead th {
