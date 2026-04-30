@@ -15,6 +15,7 @@ let enemyPerks = [];   // Available perks for perk slots (renamed to avoid confl
 let enemyAssets = [];
 let enemySelectedAssetId = null;
 let enemySelectedAssetIcon = null;
+let enemyAssetGallery = null;
 
 // Talent tree state for current enemy being edited
 let currentTalentOrder = 0; // Next talent order to assign
@@ -78,57 +79,7 @@ function setupEnemyEventListeners() {
     const mergeBtn = document.getElementById('mergeEnemiesBtn');
     if (mergeBtn) mergeBtn.addEventListener('click', mergeApprovedEnemies);
     
-    // Asset gallery
-    const assetGalleryBtn = document.getElementById('enemyAssetGalleryBtn');
-    if (assetGalleryBtn) assetGalleryBtn.addEventListener('click', toggleEnemyAssetGallery);
-    
-    const assetGalleryClose = document.getElementById('enemyAssetGalleryClose');
-    if (assetGalleryClose) assetGalleryClose.addEventListener('click', toggleEnemyAssetGallery);
-    
-    const assetGalleryOverlay = document.getElementById('enemyAssetGalleryOverlay');
-    if (assetGalleryOverlay) {
-        assetGalleryOverlay.addEventListener('click', (e) => {
-            if (e.target === assetGalleryOverlay) toggleEnemyAssetGallery();
-        });
-    }
-    
-    // Upload button
-    const uploadBtn = document.getElementById('enemyUploadNewBtn');
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', () => {
-            document.getElementById('enemyIconFile').click();
-        });
-    }
-    
-    // File input
-    const fileInput = document.getElementById('enemyIconFile');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) handleEnemyIconUpload(file);
-        });
-    }
-    
-    // Icon upload area - click to open gallery
-    const iconUploadArea = document.getElementById('enemyIconUploadArea');
-    if (iconUploadArea) {
-        iconUploadArea.addEventListener('click', () => {
-            toggleEnemyAssetGallery();
-        });
-        iconUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.add('drag-over');
-        });
-        iconUploadArea.addEventListener('dragleave', () => {
-            iconUploadArea.classList.remove('drag-over');
-        });
-        iconUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) handleEnemyIconUpload(file);
-        });
-    }
+    getEnemyAssetGallery();
     
     // Cancel button
     const cancelBtn = document.getElementById('enemyCancelBtn');
@@ -1135,37 +1086,71 @@ async function removePendingEnemy(toolingId) {
 
 // ==================== ASSET GALLERY ====================
 
+function getEnemyAssetGallery() {
+    if (enemyAssetGallery) return enemyAssetGallery;
+    enemyAssetGallery = new AssetGallery({
+        overlayId: 'enemyAssetGalleryOverlay',
+        gridId: 'enemyAssetGrid',
+        visibility: 'display-flex',
+        openTriggerIds: ['enemyAssetGalleryBtn', 'enemyIconUploadArea'],
+        closeTriggerIds: ['enemyAssetGalleryClose'],
+        uploadTriggerIds: ['enemyUploadNewBtn'],
+        fileInputId: 'enemyIconFile',
+        dropZoneId: 'enemyIconUploadArea',
+        getAssets: () => enemyAssets,
+        getSelectedAssetId: () => enemySelectedAssetId,
+        uploadEndpoint: '/api/uploadEnemyAsset',
+        getNextAssetID: () => {
+            const currentAssets = getEnemyAssets();
+            return currentAssets.reduce((max, asset) => Math.max(max, asset.assetID || 0), 0) + 1;
+        },
+        width: 256,
+        height: 256,
+        quality: 0.85,
+        imageAlt: asset => asset.name || `Asset ${asset.assetID}`,
+        onSelect: (asset, { assetId, iconUrl, gallery }) => {
+            enemySelectedAssetId = assetId;
+            enemySelectedAssetIcon = iconUrl;
+            const preview = document.getElementById('enemyIconPreview');
+            if (preview) {
+                preview.innerHTML = `<img src="${DesignerBase.escapeHtml(iconUrl)}" alt="Selected icon" />`;
+            }
+            gallery.render();
+            gallery.close();
+            checkEnemySaveConditions();
+        },
+        onUploaded: ({ result, base64Data, gallery }) => {
+            const iconUrl = result.icon || base64Data;
+            const newAsset = {
+                assetID: result.assetID,
+                id: result.assetID,
+                name: String(result.assetID),
+                icon: iconUrl,
+                url: iconUrl,
+                remoteUrl: iconUrl
+            };
+            enemyAssets.push(newAsset);
+            if (GlobalData.enemyAssets) GlobalData.enemyAssets.push(newAsset);
+            gallery.select(newAsset);
+        },
+        onUploadError: ({ error, result }) => {
+            alert('Upload failed: ' + (result?.message || error.message));
+            console.error('Error uploading enemy asset:', error);
+        }
+    });
+    return enemyAssetGallery;
+}
+
 function toggleEnemyAssetGallery() {
-    const overlay = document.getElementById('enemyAssetGalleryOverlay');
-    if (overlay) {
-        overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
-    }
+    getEnemyAssetGallery().toggle();
 }
 
 function createEnemyAssetGallery() {
-    const grid = document.getElementById('enemyAssetGrid');
-    if (!grid) return;
-    
-    grid.innerHTML = enemyAssets.map(asset => `
-        <div class="asset-item ${asset.assetID === enemySelectedAssetId ? 'selected' : ''}"
-             onclick="selectEnemyAsset(${asset.assetID}, '${asset.icon}')">
-            <img src="${asset.icon}" alt="${asset.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22><rect fill=%22%23333%22 width=%2264%22 height=%2264%22/></svg>'"/>
-        </div>
-    `).join('');
+    getEnemyAssetGallery().render();
 }
 
 function selectEnemyAsset(assetId, iconUrl) {
-    enemySelectedAssetId = assetId;
-    enemySelectedAssetIcon = iconUrl;
-    
-    const preview = document.getElementById('enemyIconPreview');
-    if (preview) {
-        preview.innerHTML = `<img src="${iconUrl}" alt="Selected icon" />`;
-    }
-    
-    createEnemyAssetGallery();
-    toggleEnemyAssetGallery();
-    checkEnemySaveConditions();
+    getEnemyAssetGallery().selectById(assetId, iconUrl);
 }
 
 function getEnemyValidationErrors() {
@@ -1236,61 +1221,7 @@ function checkEnemySaveConditions() {
 }
 
 async function handleEnemyIconUpload(file) {
-    if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
-        return;
-    }
-    
-    try {
-        // Use global functions from global-data.js
-        const webpBlob = await convertImageToWebP(file, 256, 256, 0.85);
-        const base64 = await blobToBase64(webpBlob);
-        
-        // Calculate next asset ID
-        const currentAssets = getEnemyAssets();
-        const maxId = currentAssets.reduce((max, a) => Math.max(max, a.assetID || 0), 0);
-        const newAssetId = maxId + 1;
-        
-        const token = await getCurrentAccessToken();
-        const response = await fetch('/api/uploadEnemyAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                assetID: newAssetId,
-                imageData: base64,
-                contentType: 'image/webp'
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('✅ Asset uploaded:', result.assetID);
-            
-            // Push locally instead of full reload
-            const newAsset = {
-                assetID: result.assetID,
-                id: result.assetID,
-                name: String(result.assetID),
-                icon: result.icon || base64,
-                url: result.icon || base64,
-                remoteUrl: result.icon || base64
-            };
-            enemyAssets.push(newAsset);
-            GlobalData.enemyAssets.push(newAsset);
-            
-            selectEnemyAsset(result.assetID, result.icon || base64);
-            createEnemyAssetGallery();
-        } else {
-            alert('Upload failed: ' + result.message);
-        }
-    } catch (error) {
-        console.error('Error uploading:', error);
-        alert('Error uploading: ' + error.message);
-    }
+    return getEnemyAssetGallery().upload(file);
 }
 
 // ==================== UTILITIES ====================

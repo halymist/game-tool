@@ -7,6 +7,7 @@ let talentEditorState = {
 };
 
 let talentAssets = [];
+let talentAssetGallery = null;
 
 function registerTalentDesigner() {
     if (!document.getElementById('talents-content')) return;
@@ -102,32 +103,7 @@ function setupTalentEditorListeners() {
         maxPointsInput.addEventListener('blur', () => normalizeIntegerInputValue(maxPointsInput));
     }
 
-    // Icon preview click is handled inline via onclick="toggleTalentAssetGallery()"
-
-    const assetGalleryClose = document.getElementById('talentAssetGalleryClose');
-    if (assetGalleryClose) assetGalleryClose.addEventListener('click', toggleTalentAssetGallery);
-
-    const assetGalleryOverlay = document.getElementById('talentAssetGalleryOverlay');
-    if (assetGalleryOverlay) {
-        assetGalleryOverlay.addEventListener('click', (e) => {
-            if (e.target === assetGalleryOverlay) toggleTalentAssetGallery();
-        });
-    }
-
-    const uploadBtn = document.getElementById('talentUploadNewBtn');
-    if (uploadBtn) uploadBtn.addEventListener('click', () => document.getElementById('talentAssetFile').click());
-
-    const uploadBtnOverlay = document.getElementById('talentUploadNewBtnOverlay');
-    if (uploadBtnOverlay) uploadBtnOverlay.addEventListener('click', () => document.getElementById('talentAssetFile').click());
-
-    const fileInput = document.getElementById('talentAssetFile');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) uploadTalentAsset(file);
-            e.target.value = '';
-        });
-    }
+    getTalentAssetGallery();
 
     const saveBtn = document.getElementById('talentSaveBtn');
     if (saveBtn) saveBtn.addEventListener('click', saveTalentChanges);
@@ -257,32 +233,52 @@ async function loadTalentAssetsFallback() {
     }
 }
 
+function getTalentAssetGallery() {
+    if (talentAssetGallery) return talentAssetGallery;
+    talentAssetGallery = new AssetGallery({
+        overlayId: 'talentAssetGalleryOverlay',
+        gridId: 'talentAssetGrid',
+        openTriggerIds: ['talentAssetPreview'],
+        closeTriggerIds: ['talentAssetGalleryClose'],
+        uploadTriggerIds: ['talentUploadNewBtn', 'talentUploadNewBtnOverlay'],
+        fileInputId: 'talentAssetFile',
+        getAssets: () => talentAssets,
+        getSelectedAssetId: () => document.getElementById('talentAssetId')?.value || null,
+        uploadEndpoint: '/api/uploadTalentAsset',
+        getNextAssetID: getNextAvailableTalentAssetID,
+        width: 128,
+        height: 128,
+        quality: 0.8,
+        onSelect: (asset, { assetId, iconUrl, gallery }) => {
+            document.getElementById('talentAssetId').value = assetId;
+            updateTalentAssetPreview(assetId, iconUrl);
+            gallery.close();
+        },
+        onUploaded: async ({ result, base64Data, gallery }) => {
+            await ensureTalentAssets({ forceReload: true });
+            const refreshedIcon = getTalentAssetIcon(result.assetID) || result.icon || base64Data;
+            gallery.render();
+            gallery.selectById(result.assetID, refreshedIcon);
+            alert('Talent asset uploaded successfully!');
+        },
+        onUploadError: ({ error, result }) => {
+            alert(result?.message ? 'Error uploading asset: ' + result.message : 'Failed to upload asset. Please try again.');
+            console.error('Error uploading talent asset:', error);
+        }
+    });
+    return talentAssetGallery;
+}
+
 function createTalentAssetGallery() {
-    const grid = document.getElementById('talentAssetGrid');
-    if (!grid) return;
-
-    if (talentAssets.length === 0) {
-        grid.innerHTML = '<p class="loading-text">No assets found. Upload a new one!</p>';
-        return;
-    }
-
-    grid.innerHTML = talentAssets.map(asset => `
-        <div class="asset-item" onclick="selectTalentAsset(${asset.assetID}, '${asset.icon}')">
-            <img src="${asset.icon}" alt="Asset ${asset.assetID}">
-        </div>
-    `).join('');
+    getTalentAssetGallery().render();
 }
 
 function toggleTalentAssetGallery() {
-    const overlay = document.getElementById('talentAssetGalleryOverlay');
-    if (!overlay) return;
-    overlay.classList.toggle('hidden');
+    getTalentAssetGallery().toggle();
 }
 
 function selectTalentAsset(assetId, iconUrl) {
-    document.getElementById('talentAssetId').value = assetId;
-    updateTalentAssetPreview(assetId, iconUrl);
-    toggleTalentAssetGallery();
+    getTalentAssetGallery().selectById(assetId, iconUrl);
 }
 
 function updateTalentAssetPreview(assetId, iconUrl) {
@@ -303,49 +299,7 @@ function updateTalentAssetPreview(assetId, iconUrl) {
 }
 
 async function uploadTalentAsset(file) {
-    if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
-        return;
-    }
-
-    try {
-        const webpBlob = await convertImageToWebP(file, 128, 128, 0.8);
-        const base64Data = await blobToBase64(webpBlob);
-        const nextAssetID = getNextAvailableTalentAssetID();
-
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
-        }
-
-        const response = await fetch('/api/uploadTalentAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                assetID: nextAssetID,
-                imageData: base64Data,
-                contentType: 'image/webp'
-            })
-        });
-
-        const result = await response.json();
-        if (result.success) {
-            await ensureTalentAssets({ forceReload: true });
-            createTalentAssetGallery();
-            const refreshedIcon = getTalentAssetIcon(result.assetID) || result.icon || base64Data;
-            selectTalentAsset(result.assetID, refreshedIcon);
-            alert('Talent asset uploaded successfully!');
-        } else {
-            alert('Error uploading asset: ' + (result.message || 'Unknown error'));
-        }
-    } catch (error) {
-        console.error('Error uploading talent asset:', error);
-        alert('Failed to upload asset. Please try again.');
-    }
+    return getTalentAssetGallery().upload(file);
 }
 
 function getNextAvailableTalentAssetID() {

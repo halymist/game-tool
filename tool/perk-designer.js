@@ -12,6 +12,7 @@ let perkAssets = [];
 let perkSelectedAssetId = null;
 let perkSelectedAssetIcon = null;
 let perkFormSnapshot = null;
+let perkAssetGallery = null;
 
 let perkDesignerBootstrapped = false;
 
@@ -64,73 +65,7 @@ function setupPerkEventListeners() {
         mergePerksBtn.addEventListener('click', mergeApprovedPerks);
     }
     
-    // Asset gallery button
-    const assetGalleryBtn = document.getElementById('perkAssetGalleryBtn');
-    if (assetGalleryBtn) {
-        assetGalleryBtn.addEventListener('click', togglePerkAssetGallery);
-    }
-    
-    // Asset gallery close button
-    const assetGalleryClose = document.getElementById('perkAssetGalleryClose');
-    if (assetGalleryClose) {
-        assetGalleryClose.addEventListener('click', togglePerkAssetGallery);
-    }
-    
-    // Close gallery when clicking overlay
-    const assetGalleryOverlay = document.getElementById('perkAssetGalleryOverlay');
-    if (assetGalleryOverlay) {
-        assetGalleryOverlay.addEventListener('click', (e) => {
-            if (e.target === assetGalleryOverlay) {
-                togglePerkAssetGallery();
-            }
-        });
-    }
-    
-    // Upload new asset button
-    const uploadNewBtn = document.getElementById('perkUploadNewBtn');
-    if (uploadNewBtn) {
-        uploadNewBtn.addEventListener('click', () => {
-            document.getElementById('perkIconFile').click();
-        });
-    }
-    
-    // File input change handler
-    const fileInput = document.getElementById('perkIconFile');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                handlePerkIconUpload(file);
-            }
-        });
-    }
-    
-    // Click on icon preview to open gallery
-    const iconUploadArea = document.getElementById('perkIconUploadArea');
-    if (iconUploadArea) {
-        iconUploadArea.addEventListener('click', () => {
-            togglePerkAssetGallery();
-        });
-        
-        // Drag and drop
-        iconUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.add('drag-over');
-        });
-        
-        iconUploadArea.addEventListener('dragleave', () => {
-            iconUploadArea.classList.remove('drag-over');
-        });
-        
-        iconUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                handlePerkIconUpload(file);
-            }
-        });
-    }
+    getPerkAssetGallery();
     
     // Cancel button
     const cancelBtn = document.getElementById('perkCancelBtn');
@@ -250,20 +185,66 @@ async function loadPerksAndEffects(options = {}) {
     }
 }
 
+function getPerkAssetGallery() {
+    if (perkAssetGallery) return perkAssetGallery;
+    perkAssetGallery = new AssetGallery({
+        overlayId: 'perkAssetGalleryOverlay',
+        gridId: 'perkAssetGrid',
+        openTriggerIds: ['perkAssetGalleryBtn', 'perkIconUploadArea'],
+        closeTriggerIds: ['perkAssetGalleryClose'],
+        uploadTriggerIds: ['perkUploadNewBtn'],
+        fileInputId: 'perkIconFile',
+        dropZoneId: 'perkIconUploadArea',
+        getAssets: () => perkAssets,
+        getSelectedAssetId: () => perkSelectedAssetId,
+        uploadEndpoint: '/api/uploadPerkAsset',
+        getNextAssetID: getNextAvailablePerkAssetID,
+        width: 128,
+        height: 128,
+        quality: 0.8,
+        onSelect: (asset, { assetId, iconUrl, gallery }) => {
+            perkSelectedAssetId = assetId;
+            perkSelectedAssetIcon = iconUrl;
+            document.getElementById('perkAssetID').value = assetId;
+            updatePerkIconPreview(assetId);
+            gallery.close();
+            checkPerkSaveConditions();
+        },
+        onUploadStart: ({ assetID, base64Data }) => {
+            const preview = document.getElementById('perkIconPreview');
+            const placeholder = document.getElementById('perkIconPlaceholder');
+            const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+            if (preview) {
+                preview.src = base64Data;
+                preview.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+            if (assetIdDisplay) assetIdDisplay.textContent = `Uploading... (Asset ID: ${assetID})`;
+        },
+        onUploaded: ({ result, base64Data }) => {
+            perkSelectedAssetId = result.assetID;
+            perkSelectedAssetIcon = result.icon || base64Data;
+            document.getElementById('perkAssetID').value = result.assetID;
+            const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
+            if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
+            perkAssets.push({
+                assetID: result.assetID,
+                name: result.assetID.toString(),
+                icon: result.icon || base64Data
+            });
+            alert('Perk icon uploaded successfully!');
+        },
+        onUploadError: ({ error, result }) => {
+            alert(result?.message ? 'Error uploading icon: ' + result.message : 'Failed to upload icon. Please try again.');
+            console.error('Error uploading perk icon:', error);
+            clearPerkIconPreview();
+        }
+    });
+    return perkAssetGallery;
+}
+
 function createPerkAssetGallery() {
-    const grid = document.getElementById('perkAssetGrid');
-    if (!grid) return;
-    
-    if (perkAssets.length === 0) {
-        grid.innerHTML = '<p class="loading-text">No assets found. Upload a new one!</p>';
-        return;
-    }
-    
-    grid.innerHTML = perkAssets.map(asset => `
-        <div class="asset-item" onclick="selectPerkAsset(${asset.assetID}, '${asset.icon}')">
-            <img src="${asset.icon}" alt="Asset ${asset.assetID}">
-        </div>
-    `).join('');
+    getPerkAssetGallery().render();
 }
 
 function renderPerkList() {
@@ -843,37 +824,12 @@ async function mergeApprovedPerks() {
 
 // Asset Gallery Functions
 function togglePerkAssetGallery() {
-    const overlay = document.getElementById('perkAssetGalleryOverlay');
-    if (overlay) {
-        overlay.classList.toggle('hidden');
-    }
+    getPerkAssetGallery().toggle();
 }
 
 function selectPerkAsset(assetId, iconUrl) {
     console.log('Selected perk asset:', assetId);
-    
-    perkSelectedAssetId = assetId;
-    perkSelectedAssetIcon = iconUrl;
-    
-    document.getElementById('perkAssetID').value = assetId;
-    
-    const preview = document.getElementById('perkIconPreview');
-    const placeholder = document.getElementById('perkIconPlaceholder');
-    const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
-    
-    if (preview) {
-        preview.src = iconUrl;
-        preview.style.display = 'block';
-    }
-    if (placeholder) {
-        placeholder.style.display = 'none';
-    }
-    if (assetIdDisplay) {
-        assetIdDisplay.textContent = `Asset ID: ${assetId}`;
-    }
-    
-    togglePerkAssetGallery();
-    checkPerkSaveConditions();
+    getPerkAssetGallery().selectById(assetId, iconUrl);
 }
 
 function updatePerkIconPreview(assetId) {
@@ -928,92 +884,7 @@ function clearPerkIconPreview() {
 }
 
 async function handlePerkIconUpload(file) {
-    if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
-        return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-        alert('File size should be less than 10MB');
-        return;
-    }
-
-    try {
-        console.log('Converting perk icon to WebP format...');
-        
-        const webpBlob = await convertImageToWebP(file, 128, 128, 0.8);
-        const base64Data = await blobToBase64(webpBlob);
-        
-        const nextAssetID = getNextAvailablePerkAssetID();
-        console.log('Next available perk asset ID:', nextAssetID);
-        
-        const preview = document.getElementById('perkIconPreview');
-        const placeholder = document.getElementById('perkIconPlaceholder');
-        const assetIdDisplay = document.getElementById('perkAssetIDDisplay');
-        
-        if (preview) {
-            preview.src = base64Data;
-            preview.style.display = 'block';
-        }
-        if (placeholder) {
-            placeholder.style.display = 'none';
-        }
-        if (assetIdDisplay) {
-            assetIdDisplay.textContent = `Uploading... (Asset ID: ${nextAssetID})`;
-        }
-        
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
-        }
-        
-        const response = await fetch('/api/uploadPerkAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                assetID: nextAssetID,
-                imageData: base64Data,
-                contentType: 'image/webp'
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('✅ Perk asset uploaded successfully:', result);
-            
-            perkSelectedAssetId = result.assetID;
-            perkSelectedAssetIcon = result.icon || base64Data;
-            
-            document.getElementById('perkAssetID').value = result.assetID;
-            
-            if (assetIdDisplay) {
-                assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
-            }
-            
-            perkAssets.push({
-                assetID: result.assetID,
-                name: result.assetID.toString(),
-                icon: result.icon || base64Data
-            });
-            
-            createPerkAssetGallery();
-            
-            alert('Perk icon uploaded successfully!');
-        } else {
-            alert('Error uploading icon: ' + (result.message || 'Unknown error'));
-            clearPerkIconPreview();
-        }
-        
-    } catch (error) {
-        console.error('Error uploading perk icon:', error);
-        alert('Failed to upload icon. Please try again.');
-        clearPerkIconPreview();
-    }
+    return getPerkAssetGallery().upload(file);
 }
 
 function getNextAvailablePerkAssetID() {

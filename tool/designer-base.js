@@ -70,6 +70,283 @@ class SaveButton {
 // Expose globally so non-module designer scripts can use it.
 window.SaveButton = SaveButton;
 
+class AssetGallery {
+    constructor(config = {}) {
+        this.config = {
+            visibility: 'hidden-class',
+            emptyHtml: '<p class="loading-text">No assets found. Upload a new one!</p>',
+            itemClass: 'asset-item',
+            thumbnailClass: '',
+            imageAlt: asset => `Asset ${asset.assetID ?? asset.id ?? ''}`,
+            assetId: asset => Number(asset.assetID ?? asset.id),
+            assetIcon: asset => asset.icon || asset.url || asset.remoteUrl || '',
+            maxFileSize: 10 * 1024 * 1024,
+            width: 128,
+            height: 128,
+            quality: 0.8,
+            ...config
+        };
+        this.bind();
+    }
+
+    bind() {
+        this.bindClickList(this.config.openTriggerIds, () => this.open());
+        this.bindClickList(this.config.closeTriggerIds, () => this.close());
+        this.bindClickList(this.config.uploadTriggerIds, () => this.getFileInput()?.click());
+
+        const overlay = this.getOverlay();
+        if (overlay && !overlay.dataset.assetGalleryBackdropBound) {
+            overlay.addEventListener('click', event => {
+                if (event.target === overlay) this.close();
+            });
+            overlay.dataset.assetGalleryBackdropBound = 'true';
+        }
+
+        const fileInput = this.getFileInput();
+        if (fileInput && !fileInput.dataset.assetGalleryFileBound) {
+            fileInput.addEventListener('change', event => {
+                const file = event.target.files?.[0];
+                if (file) this.upload(file);
+                event.target.value = '';
+            });
+            fileInput.dataset.assetGalleryFileBound = 'true';
+        }
+
+        const dropZone = this.getElement(this.config.dropZoneId);
+        if (dropZone && !dropZone.dataset.assetGalleryDropBound) {
+            dropZone.addEventListener('dragover', event => {
+                event.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+            dropZone.addEventListener('drop', event => {
+                event.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = event.dataTransfer.files?.[0];
+                if (file) this.upload(file);
+            });
+            dropZone.dataset.assetGalleryDropBound = 'true';
+        }
+    }
+
+    bindClickList(ids, handler) {
+        (ids || []).forEach(id => {
+            const element = this.getElement(id);
+            if (!element || element.dataset.assetGalleryClickBound === 'true') return;
+            element.addEventListener('click', event => {
+                event.preventDefault();
+                handler(event);
+            });
+            element.dataset.assetGalleryClickBound = 'true';
+        });
+    }
+
+    getElement(id) {
+        return typeof id === 'string' ? document.getElementById(id) : id;
+    }
+
+    getOverlay() {
+        return this.getElement(this.config.overlayId);
+    }
+
+    getFileInput() {
+        return this.getElement(this.config.fileInputId);
+    }
+
+    getAssets() {
+        if (typeof this.config.getAssets === 'function') return this.config.getAssets() || [];
+        if (this.config.globalDataKey && window.GlobalData) return window.GlobalData[this.config.globalDataKey] || [];
+        return Array.isArray(this.config.assets) ? this.config.assets : [];
+    }
+
+    open() {
+        this.render();
+        const overlay = this.getOverlay();
+        if (!overlay) return;
+        if (this.config.visibility === 'display-flex') {
+            overlay.style.display = 'flex';
+        } else if (this.config.visibility === 'active-class') {
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('hidden');
+        }
+    }
+
+    close() {
+        const overlay = this.getOverlay();
+        if (!overlay) return;
+        if (this.config.visibility === 'display-flex') {
+            overlay.style.display = 'none';
+        } else if (this.config.visibility === 'active-class') {
+            overlay.classList.remove('active');
+        } else {
+            overlay.classList.add('hidden');
+        }
+    }
+
+    toggle() {
+        const overlay = this.getOverlay();
+        if (!overlay) return;
+        if (this.config.visibility === 'display-flex') {
+            const visible = overlay.style.display && overlay.style.display !== 'none';
+            visible ? this.close() : this.open();
+        } else if (this.config.visibility === 'active-class') {
+            overlay.classList.contains('active') ? this.close() : this.open();
+        } else {
+            overlay.classList.contains('hidden') ? this.open() : this.close();
+        }
+    }
+
+    render() {
+        const grid = this.getElement(this.config.gridId);
+        if (!grid) return;
+        const assets = this.getAssets();
+        if (!assets.length) {
+            grid.innerHTML = this.config.emptyHtml;
+            return;
+        }
+
+        const selectedId = typeof this.config.getSelectedAssetId === 'function' ? this.config.getSelectedAssetId() : null;
+        grid.innerHTML = assets.map(asset => {
+            const id = this.config.assetId(asset);
+            const icon = this.config.assetIcon(asset);
+            const selectedClass = Number(selectedId) === Number(id) ? ' selected' : '';
+            const thumbClass = this.config.thumbnailClass ? ` class="${this.config.thumbnailClass}"` : '';
+            return `
+                <div class="${this.config.itemClass}${selectedClass}" data-asset-id="${id}">
+                    <img src="${DesignerBase.escapeHtml(icon)}" alt="${DesignerBase.escapeHtml(this.config.imageAlt(asset))}"${thumbClass}>
+                </div>
+            `;
+        }).join('');
+
+        grid.querySelectorAll('[data-asset-id]').forEach(item => {
+            item.addEventListener('click', () => {
+                const assetId = Number(item.dataset.assetId);
+                const asset = assets.find(entry => Number(this.config.assetId(entry)) === assetId);
+                if (asset) this.select(asset);
+            });
+        });
+    }
+
+    select(asset) {
+        if (typeof this.config.onSelect === 'function') {
+            this.config.onSelect(asset, {
+                assetId: this.config.assetId(asset),
+                iconUrl: this.config.assetIcon(asset),
+                gallery: this
+            });
+        }
+    }
+
+    selectById(assetId, fallbackIcon = '') {
+        const assets = this.getAssets();
+        const asset = assets.find(entry => Number(this.config.assetId(entry)) === Number(assetId)) || {
+            assetID: Number(assetId),
+            icon: fallbackIcon
+        };
+        this.select(asset);
+    }
+
+    async upload(file) {
+        if (!file.type.startsWith('image/')) {
+            alert('Please upload an image file');
+            return null;
+        }
+        if (this.config.maxFileSize && file.size > this.config.maxFileSize) {
+            alert('File size should be less than 10MB');
+            return null;
+        }
+        if (!this.config.uploadEndpoint || typeof this.config.getNextAssetID !== 'function') {
+            if (typeof this.config.onFileSelect === 'function') return this.config.onFileSelect(file, this);
+            return null;
+        }
+
+        try {
+            const assetID = this.config.getNextAssetID();
+            const webpBlob = await this.convertImageToWebP(file);
+            const base64Data = await this.blobToBase64(webpBlob);
+            if (typeof this.config.onUploadStart === 'function') {
+                this.config.onUploadStart({ assetID, base64Data, file, gallery: this });
+            }
+
+            const token = await getCurrentAccessToken();
+            if (!token) {
+                alert('Authentication required');
+                return null;
+            }
+
+            const response = await fetch(this.config.uploadEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    assetID,
+                    imageData: base64Data,
+                    contentType: 'image/webp'
+                })
+            });
+            const result = await response.json();
+
+            if (!result.success) {
+                const message = result.message || 'Unknown error';
+                if (typeof this.config.onUploadError === 'function') {
+                    this.config.onUploadError({ error: new Error(message), result, gallery: this });
+                } else {
+                    alert('Error uploading icon: ' + message);
+                }
+                return result;
+            }
+
+            if (typeof this.config.onUploaded === 'function') {
+                await this.config.onUploaded({ result, base64Data, assetID, file, gallery: this });
+            }
+            this.render();
+            return result;
+        } catch (error) {
+            console.error('Error uploading asset:', error);
+            if (typeof this.config.onUploadError === 'function') {
+                this.config.onUploadError({ error, gallery: this });
+            } else {
+                alert('Failed to upload icon. Please try again.');
+            }
+            return null;
+        }
+    }
+
+    convertImageToWebP(file) {
+        const { width, height, quality } = this.config;
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            img.onload = () => {
+                canvas.width = width;
+                canvas.height = height || width;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    blob ? resolve(blob) : reject(new Error('Failed to convert image to WebP'));
+                }, 'image/webp', quality);
+                URL.revokeObjectURL(img.src);
+            };
+            img.onerror = () => reject(new Error('Failed to load image'));
+            img.src = URL.createObjectURL(file);
+        });
+    }
+
+    blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+}
+window.AssetGallery = AssetGallery;
+
 /**
  * Show a small confirm popup. Returns a Promise<boolean>.
  */

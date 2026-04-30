@@ -25,6 +25,7 @@ let itemAssets = []; // Available item assets from S3
 let selectedAssetId = null; // Currently selected asset ID
 let itemFormSnapshot = null; // Snapshot for dirty tracking on updates
 let selectedAssetIcon = null; // Currently selected asset icon URL
+let itemAssetGallery = null;
 
 let itemDesignerBootstrapped = false;
 
@@ -100,73 +101,7 @@ function setupEventListeners() {
         mergeItemsBtn.addEventListener('click', mergeApprovedItems);
     }
     
-    // Item asset gallery button
-    const assetGalleryBtn = document.getElementById('itemAssetGalleryBtn');
-    if (assetGalleryBtn) {
-        assetGalleryBtn.addEventListener('click', toggleItemAssetGallery);
-    }
-    
-    // Item asset gallery close button
-    const assetGalleryClose = document.getElementById('itemAssetGalleryClose');
-    if (assetGalleryClose) {
-        assetGalleryClose.addEventListener('click', toggleItemAssetGallery);
-    }
-    
-    // Close gallery when clicking overlay background
-    const assetGalleryOverlay = document.getElementById('itemAssetGalleryOverlay');
-    if (assetGalleryOverlay) {
-        assetGalleryOverlay.addEventListener('click', (e) => {
-            if (e.target === assetGalleryOverlay) {
-                toggleItemAssetGallery();
-            }
-        });
-    }
-    
-    // Upload new asset button
-    const uploadNewBtn = document.getElementById('itemUploadNewBtn');
-    if (uploadNewBtn) {
-        uploadNewBtn.addEventListener('click', () => {
-            document.getElementById('itemIconFile').click();
-        });
-    }
-    
-    // File input change handler
-    const fileInput = document.getElementById('itemIconFile');
-    if (fileInput) {
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                handleItemIconUpload(file);
-            }
-        });
-    }
-    
-    // Click on icon preview area to open asset gallery
-    const iconUploadArea = document.getElementById('itemIconUploadArea');
-    if (iconUploadArea) {
-        iconUploadArea.addEventListener('click', () => {
-            toggleItemAssetGallery();
-        });
-        
-        // Drag and drop support
-        iconUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.add('drag-over');
-        });
-        
-        iconUploadArea.addEventListener('dragleave', () => {
-            iconUploadArea.classList.remove('drag-over');
-        });
-        
-        iconUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            iconUploadArea.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                handleItemIconUpload(file);
-            }
-        });
-    }
+    getItemAssetGallery();
     
     // Cancel button
     const cancelBtn = document.getElementById('itemCancelBtn');
@@ -1132,33 +1067,78 @@ function escapeHtml(text) {
 
 // === ITEM ASSET GALLERY FUNCTIONS ===
 
+function getItemAssetGallery() {
+    if (itemAssetGallery) return itemAssetGallery;
+    itemAssetGallery = new AssetGallery({
+        overlayId: 'itemAssetGalleryOverlay',
+        gridId: 'itemAssetGrid',
+        openTriggerIds: ['itemAssetGalleryBtn', 'itemIconUploadArea'],
+        closeTriggerIds: ['itemAssetGalleryClose'],
+        uploadTriggerIds: ['itemUploadNewBtn'],
+        fileInputId: 'itemIconFile',
+        dropZoneId: 'itemIconUploadArea',
+        getAssets: () => itemAssets,
+        getSelectedAssetId: () => selectedAssetId,
+        itemClass: 'item-asset-item',
+        thumbnailClass: 'item-asset-thumbnail',
+        uploadEndpoint: '/api/uploadItemAsset',
+        getNextAssetID: getNextAvailableItemAssetID,
+        width: 128,
+        height: 128,
+        quality: 0.8,
+        onSelect: (asset, { assetId, iconUrl, gallery }) => {
+            selectedAssetId = assetId;
+            selectedAssetIcon = iconUrl;
+            document.getElementById('itemAssetID').value = assetId;
+            updateIconPreview(assetId);
+            gallery.close();
+            checkItemSaveConditions();
+        },
+        onUploadStart: ({ assetID, base64Data }) => {
+            const preview = document.getElementById('itemIconPreview');
+            const placeholder = document.getElementById('itemIconPlaceholder');
+            const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+            if (preview) {
+                preview.src = base64Data;
+                preview.style.display = 'block';
+            }
+            if (placeholder) placeholder.style.display = 'none';
+            if (assetIdDisplay) assetIdDisplay.textContent = `Uploading... (Asset ID: ${assetID})`;
+        },
+        onUploaded: ({ result, base64Data }) => {
+            selectedAssetId = result.assetID;
+            selectedAssetIcon = result.icon || base64Data;
+            document.getElementById('itemAssetID').value = result.assetID;
+            const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
+            if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
+            itemAssets.push({
+                assetID: result.assetID,
+                name: result.assetID.toString(),
+                icon: result.icon || base64Data
+            });
+            alert('Item icon uploaded successfully!');
+        },
+        onUploadError: ({ error, result }) => {
+            alert(result?.message ? 'Error uploading icon: ' + result.message : 'Failed to upload icon. Please try again.');
+            console.error('Error uploading item icon:', error);
+            clearIconPreview();
+        }
+    });
+    return itemAssetGallery;
+}
+
 /**
  * Create the item asset gallery with available assets from S3
  */
 function createItemAssetGallery() {
-    if (itemAssets.length === 0) {
-        console.log('No item assets available for gallery');
-        return;
-    }
-    
-    const assetGrid = document.getElementById('itemAssetGrid');
-    if (!assetGrid) return;
-    
-    assetGrid.innerHTML = itemAssets.map(asset => `
-        <div class="item-asset-item" data-asset-id="${asset.assetID}" onclick="selectItemAsset(${asset.assetID}, '${asset.icon}')">
-            <img src="${asset.icon}" alt="Asset ${asset.assetID}" class="item-asset-thumbnail">
-        </div>
-    `).join('');
+    getItemAssetGallery().render();
 }
 
 /**
  * Toggle the item asset gallery overlay visibility
  */
 function toggleItemAssetGallery() {
-    const overlay = document.getElementById('itemAssetGalleryOverlay');
-    if (overlay) {
-        overlay.classList.toggle('hidden');
-    }
+    getItemAssetGallery().toggle();
 }
 
 /**
@@ -1166,32 +1146,7 @@ function toggleItemAssetGallery() {
  */
 function selectItemAsset(assetId, iconUrl) {
     console.log('Selected asset:', assetId);
-    
-    selectedAssetId = assetId;
-    selectedAssetIcon = iconUrl;
-    
-    // Update hidden field
-    document.getElementById('itemAssetID').value = assetId;
-    
-    // Update preview
-    const preview = document.getElementById('itemIconPreview');
-    const placeholder = document.getElementById('itemIconPlaceholder');
-    const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
-    
-    if (preview) {
-        preview.src = iconUrl;
-        preview.style.display = 'block';
-    }
-    if (placeholder) {
-        placeholder.style.display = 'none';
-    }
-    if (assetIdDisplay) {
-        assetIdDisplay.textContent = `Asset ID: ${assetId}`;
-    }
-    
-    // Close gallery
-    toggleItemAssetGallery();
-    checkItemSaveConditions();
+    getItemAssetGallery().selectById(assetId, iconUrl);
 }
 
 /**
@@ -1255,107 +1210,7 @@ function clearIconPreview() {
  * Handle item icon upload from file input
  */
 async function handleItemIconUpload(file) {
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        alert('Please upload an image file');
-        return;
-    }
-
-    // Validate file size (max 10MB for original file)
-    if (file.size > 10 * 1024 * 1024) {
-        alert('File size should be less than 10MB');
-        return;
-    }
-
-    try {
-        console.log('Converting item icon to WebP format...');
-        console.log('Original file:', file.name, 'Size:', (file.size / 1024).toFixed(2) + 'KB');
-
-        // Convert to WebP 128x128 with 80% quality (item icons are typically smaller)
-        const webpBlob = await convertImageToWebP(file, 128, 128, 0.8);
-        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
-        
-        // Convert WebP blob to base64 for upload
-        const base64Data = await blobToBase64(webpBlob);
-        
-        // Get next available asset ID
-        const nextAssetID = getNextAvailableItemAssetID();
-        console.log('Next available asset ID:', nextAssetID);
-        
-        // Show preview immediately
-        const preview = document.getElementById('itemIconPreview');
-        const placeholder = document.getElementById('itemIconPlaceholder');
-        const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
-        
-        if (preview) {
-            preview.src = base64Data;
-            preview.style.display = 'block';
-        }
-        if (placeholder) {
-            placeholder.style.display = 'none';
-        }
-        if (assetIdDisplay) {
-            assetIdDisplay.textContent = `Uploading... (Asset ID: ${nextAssetID})`;
-        }
-        
-        // Upload to S3
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
-        }
-        
-        const response = await fetch('/api/uploadItemAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                assetID: nextAssetID,
-                imageData: base64Data,
-                contentType: 'image/webp'
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('✅ Item asset uploaded successfully:', result);
-            
-            // Update state
-            selectedAssetId = result.assetID;
-            selectedAssetIcon = result.icon || base64Data;
-            
-            // Update hidden field
-            document.getElementById('itemAssetID').value = result.assetID;
-            
-            // Update display
-            if (assetIdDisplay) {
-                assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
-            }
-            
-            // Add to local assets list
-            itemAssets.push({
-                assetID: result.assetID,
-                name: result.assetID.toString(),
-                icon: result.icon || base64Data
-            });
-            
-            // Refresh gallery
-            createItemAssetGallery();
-            
-            alert('Item icon uploaded successfully!');
-        } else {
-            alert('Error uploading icon: ' + (result.message || 'Unknown error'));
-            clearIconPreview();
-        }
-        
-    } catch (error) {
-        console.error('Error uploading item icon:', error);
-        alert('Failed to upload icon. Please try again.');
-        clearIconPreview();
-    }
+    return getItemAssetGallery().upload(file);
 }
 
 /**
