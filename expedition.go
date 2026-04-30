@@ -12,8 +12,8 @@ import (
 // Expedition is a settlement-scoped exploration map: an uploaded image plus a
 // graph of nodes (each referencing a quest) connected by undirected edges.
 //
-// Schema lives in tooling.expeditions / expedition_nodes / expedition_edges
-// (see migrations/20260501_redesign_expeditions.sql).
+// Schema lives in game.expeditions / expedition_nodes / expedition_edges
+// with versioned soft-deletes (see migrations/20260502_expeditions_game_versioned.sql).
 
 type expeditionNode struct {
 	NodeID   int     `json:"node_id"`   // 0 for client-only (new) nodes
@@ -23,6 +23,7 @@ type expeditionNode struct {
 	PosX     float64 `json:"pos_x"`
 	PosY     float64 `json:"pos_y"`
 	Label    *string `json:"label"`
+	Version  int     `json:"version,omitempty"`
 }
 
 type expeditionEdge struct {
@@ -31,6 +32,7 @@ type expeditionEdge struct {
 	NodeBID   int `json:"node_b"`
 	AClientID int `json:"a_client_id"` // designer-side ids, used on save
 	BClientID int `json:"b_client_id"`
+	Version   int `json:"version,omitempty"`
 }
 
 type expeditionPayload struct {
@@ -39,29 +41,67 @@ type expeditionPayload struct {
 	MapAssetID   *int             `json:"map_asset_id"`
 	Nodes        []expeditionNode `json:"nodes"`
 	Edges        []expeditionEdge `json:"edges"`
+	Version      int              `json:"version,omitempty"`
+}
+
+func orderedNodePair(a, b int) (int, int) {
+	if a > b {
+		return b, a
+	}
+	return a, b
+}
+
+func nextExpeditionVersion(tx *sql.Tx) (int, error) {
+	var next int
+	err := tx.QueryRow(`
+		SELECT GREATEST(
+			COALESCE((SELECT MAX(version) FROM game.expeditions), 0),
+			COALESCE((SELECT MAX(version) FROM game.expedition_nodes), 0),
+			COALESCE((SELECT MAX(version) FROM game.expedition_edges), 0)
+		) + 1
+	`).Scan(&next)
+	if err != nil {
+		return 0, err
+	}
+	if next <= 0 {
+		return 1, nil
+	}
+	return next, nil
 }
 
 // ensureExpeditionRow returns the expedition_id for a settlement, creating it
 // if it doesn't exist yet.
-func ensureExpeditionRow(tx *sql.Tx, settlementID int) (int, *int, error) {
+func ensureExpeditionRow(tx *sql.Tx, settlementID int, createVersion int) (int, *int, int, error) {
 	var id int
 	var mapAssetID sql.NullInt64
-	err := tx.QueryRow(`SELECT expedition_id, map_asset_id FROM tooling.expeditions WHERE settlement_id = $1`, settlementID).Scan(&id, &mapAssetID)
+	var version int
+	err := tx.QueryRow(`
+		SELECT expedition_id, map_asset_id, COALESCE(version, 1)
+		FROM game.expeditions
+		WHERE settlement_id = $1
+	`, settlementID).Scan(&id, &mapAssetID, &version)
 	if err == sql.ErrNoRows {
-		err = tx.QueryRow(`INSERT INTO tooling.expeditions (settlement_id) VALUES ($1) RETURNING expedition_id`, settlementID).Scan(&id)
-		if err != nil {
-			return 0, nil, err
+		if createVersion <= 0 {
+			createVersion = 1
 		}
-		return id, nil, nil
+		err = tx.QueryRow(`
+			INSERT INTO game.expeditions (settlement_id, version, is_deleted)
+			VALUES ($1, $2, FALSE)
+			RETURNING expedition_id
+		`, settlementID, createVersion).Scan(&id)
+		if err != nil {
+			return 0, nil, 0, err
+		}
+		return id, nil, createVersion, nil
 	}
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, 0, err
 	}
 	if mapAssetID.Valid {
 		v := int(mapAssetID.Int64)
-		return id, &v, nil
+		return id, &v, version, nil
 	}
-	return id, nil, nil
+	return id, nil, version, nil
 }
 
 // handleGetExpedition: GET /api/getExpedition?settlementId=N
@@ -80,18 +120,23 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 	var expeditionID int
 	var mapAssetID *int
+	var version int
 	nodes := []expeditionNode{}
 	edges := []expeditionEdge{}
 
 	if err := withTx(func(tx *sql.Tx) error {
 		var err error
-		expeditionID, mapAssetID, err = ensureExpeditionRow(tx, settlementID)
+		expeditionID, mapAssetID, version, err = ensureExpeditionRow(tx, settlementID, 1)
 		if err != nil {
 			return fmt.Errorf("ensure row: %w", err)
 		}
 
-		nodeRows, err := tx.Query(`SELECT node_id, quest_id, is_start, pos_x, pos_y, label
-			FROM tooling.expedition_nodes WHERE expedition_id = $1 ORDER BY node_id`, expeditionID)
+		nodeRows, err := tx.Query(`
+			SELECT node_id, quest_id, is_start, pos_x, pos_y, label, COALESCE(version, 1)
+			FROM game.expedition_nodes
+			WHERE expedition_id = $1 AND is_deleted = FALSE
+			ORDER BY node_id
+		`, expeditionID)
 		if err != nil {
 			return fmt.Errorf("query nodes: %w", err)
 		}
@@ -101,7 +146,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			var n expeditionNode
 			var questID sql.NullInt64
 			var label sql.NullString
-			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
+			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label, &n.Version); err != nil {
 				log.Printf("getExpedition: scan node: %v", err)
 				continue
 			}
@@ -117,8 +162,12 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			nodes = append(nodes, n)
 		}
 
-		edgeRows, err := tx.Query(`SELECT edge_id, node_a, node_b
-			FROM tooling.expedition_edges WHERE expedition_id = $1 ORDER BY edge_id`, expeditionID)
+		edgeRows, err := tx.Query(`
+			SELECT edge_id, node_a, node_b, COALESCE(version, 1)
+			FROM game.expedition_edges
+			WHERE expedition_id = $1 AND is_deleted = FALSE
+			ORDER BY edge_id
+		`, expeditionID)
 		if err != nil {
 			return fmt.Errorf("query edges: %w", err)
 		}
@@ -126,7 +175,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 		for edgeRows.Next() {
 			var e expeditionEdge
-			if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID); err != nil {
+			if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID, &e.Version); err != nil {
 				log.Printf("getExpedition: scan edge: %v", err)
 				continue
 			}
@@ -147,6 +196,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		MapAssetID:   mapAssetID,
 		Nodes:        nodes,
 		Edges:        edges,
+		Version:      version,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -177,69 +227,207 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var expeditionID int
+	var saveVersion int
 	outNodes := make([]expeditionNode, 0, len(in.Nodes))
 	outEdges := make([]expeditionEdge, 0, len(in.Edges))
 
 	if err := withTx(func(tx *sql.Tx) error {
-		var err error
-		expeditionID, _, err = ensureExpeditionRow(tx, in.SettlementID)
+		nextVersion, err := nextExpeditionVersion(tx)
+		if err != nil {
+			return fmt.Errorf("compute version: %w", err)
+		}
+		saveVersion = nextVersion
+
+		expeditionID, _, _, err = ensureExpeditionRow(tx, in.SettlementID, saveVersion)
 		if err != nil {
 			return fmt.Errorf("ensure row: %w", err)
 		}
 
-		if _, err := tx.Exec(`UPDATE tooling.expeditions SET map_asset_id = $1, updated_at = now() WHERE expedition_id = $2`,
-			in.MapAssetID, expeditionID); err != nil {
+		if _, err := tx.Exec(`
+			UPDATE game.expeditions
+			SET map_asset_id = $1,
+				updated_at = now(),
+				version = $2,
+				is_deleted = FALSE
+			WHERE expedition_id = $3
+		`, in.MapAssetID, saveVersion, expeditionID); err != nil {
 			return fmt.Errorf("update header: %w", err)
 		}
 
-		if _, err := tx.Exec(`DELETE FROM tooling.expedition_edges WHERE expedition_id = $1`, expeditionID); err != nil {
-			return fmt.Errorf("delete edges: %w", err)
+		type existingNode struct {
+			questID *int
+			isStart bool
+			posX    float64
+			posY    float64
+			label   *string
 		}
-		if _, err := tx.Exec(`DELETE FROM tooling.expedition_nodes WHERE expedition_id = $1`, expeditionID); err != nil {
-			return fmt.Errorf("delete nodes: %w", err)
+		existingNodes := make(map[int]existingNode)
+		nodeRows, err := tx.Query(`
+			SELECT node_id, quest_id, is_start, pos_x, pos_y, label
+			FROM game.expedition_nodes
+			WHERE expedition_id = $1 AND is_deleted = FALSE
+		`, expeditionID)
+		if err != nil {
+			return fmt.Errorf("load existing nodes: %w", err)
 		}
+		for nodeRows.Next() {
+			var nodeID int
+			var questID sql.NullInt64
+			var item existingNode
+			var label sql.NullString
+			if err := nodeRows.Scan(&nodeID, &questID, &item.isStart, &item.posX, &item.posY, &label); err != nil {
+				nodeRows.Close()
+				return fmt.Errorf("scan existing nodes: %w", err)
+			}
+			if questID.Valid {
+				qid := int(questID.Int64)
+				item.questID = &qid
+			}
+			if label.Valid {
+				v := label.String
+				item.label = &v
+			}
+			existingNodes[nodeID] = item
+		}
+		nodeRows.Close()
 
 		clientToDB := map[int]int{}
+		incomingNodeIDs := map[int]bool{}
 		for _, n := range in.Nodes {
-			var newID int
-			err := tx.QueryRow(`INSERT INTO tooling.expedition_nodes
-			(expedition_id, quest_id, is_start, pos_x, pos_y, label)
-			VALUES ($1, $2, $3, $4, $5, $6) RETURNING node_id`,
-				expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&newID)
-			if err != nil {
-				return fmt.Errorf("insert node: %w", err)
+			resolvedNodeID := 0
+			if n.NodeID > 0 {
+				res, err := tx.Exec(`
+					UPDATE game.expedition_nodes
+					SET quest_id = $1,
+						is_start = $2,
+						pos_x = $3,
+						pos_y = $4,
+						label = $5,
+						is_deleted = FALSE,
+						version = $6
+					WHERE node_id = $7 AND expedition_id = $8
+				`, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, saveVersion, n.NodeID, expeditionID)
+				if err != nil {
+					return fmt.Errorf("update node %d: %w", n.NodeID, err)
+				}
+				rows, _ := res.RowsAffected()
+				if rows > 0 {
+					resolvedNodeID = n.NodeID
+				}
 			}
-			clientToDB[n.ClientID] = newID
-			n.NodeID = newID
+
+			if resolvedNodeID == 0 {
+				err := tx.QueryRow(`
+					INSERT INTO game.expedition_nodes
+						(expedition_id, quest_id, is_start, pos_x, pos_y, label, version, is_deleted)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+					RETURNING node_id
+				`, expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, saveVersion).Scan(&resolvedNodeID)
+				if err != nil {
+					return fmt.Errorf("insert node: %w", err)
+				}
+			}
+
+			clientToDB[n.ClientID] = resolvedNodeID
+			incomingNodeIDs[resolvedNodeID] = true
+			n.NodeID = resolvedNodeID
+			n.Version = saveVersion
 			outNodes = append(outNodes, n)
 		}
 
-		seenPair := map[[2]int]bool{}
+		for nodeID := range existingNodes {
+			if incomingNodeIDs[nodeID] {
+				continue
+			}
+			if _, err := tx.Exec(`
+				UPDATE game.expedition_nodes
+				SET is_deleted = TRUE, version = $1
+				WHERE node_id = $2
+			`, saveVersion, nodeID); err != nil {
+				return fmt.Errorf("mark node deleted %d: %w", nodeID, err)
+			}
+		}
+
+		type existingEdge struct {
+			edgeID int
+			nodeA  int
+			nodeB  int
+		}
+		existingEdges := map[string]existingEdge{}
+		edgeRows, err := tx.Query(`
+			SELECT edge_id, node_a, node_b
+			FROM game.expedition_edges
+			WHERE expedition_id = $1 AND is_deleted = FALSE
+		`, expeditionID)
+		if err != nil {
+			return fmt.Errorf("load existing edges: %w", err)
+		}
+		for edgeRows.Next() {
+			var e existingEdge
+			if err := edgeRows.Scan(&e.edgeID, &e.nodeA, &e.nodeB); err != nil {
+				edgeRows.Close()
+				return fmt.Errorf("scan existing edges: %w", err)
+			}
+			a, b := orderedNodePair(e.nodeA, e.nodeB)
+			existingEdges[fmt.Sprintf("%d-%d", a, b)] = existingEdge{edgeID: e.edgeID, nodeA: a, nodeB: b}
+		}
+		edgeRows.Close()
+
+		incomingEdgeKeys := map[string]bool{}
 		for _, e := range in.Edges {
 			a, okA := clientToDB[e.AClientID]
 			b, okB := clientToDB[e.BClientID]
 			if !okA || !okB || a == b {
 				continue
 			}
-			key := [2]int{a, b}
-			if a > b {
-				key = [2]int{b, a}
-			}
-			if seenPair[key] {
+			a, b = orderedNodePair(a, b)
+			key := fmt.Sprintf("%d-%d", a, b)
+			if incomingEdgeKeys[key] {
 				continue
 			}
-			seenPair[key] = true
-			var newID int
-			err := tx.QueryRow(`INSERT INTO tooling.expedition_edges
-			(expedition_id, node_a, node_b) VALUES ($1, $2, $3) RETURNING edge_id`,
-				expeditionID, a, b).Scan(&newID)
-			if err != nil {
-				return fmt.Errorf("insert edge: %w", err)
+			incomingEdgeKeys[key] = true
+
+			existing, exists := existingEdges[key]
+			edgeID := 0
+			if exists {
+				if _, err := tx.Exec(`
+					UPDATE game.expedition_edges
+					SET is_deleted = FALSE, version = $1
+					WHERE edge_id = $2
+				`, saveVersion, existing.edgeID); err != nil {
+					return fmt.Errorf("update edge %d: %w", existing.edgeID, err)
+				}
+				edgeID = existing.edgeID
+			} else {
+				err := tx.QueryRow(`
+					INSERT INTO game.expedition_edges
+						(expedition_id, node_a, node_b, version, is_deleted)
+					VALUES ($1, $2, $3, $4, FALSE)
+					RETURNING edge_id
+				`, expeditionID, a, b, saveVersion).Scan(&edgeID)
+				if err != nil {
+					return fmt.Errorf("insert edge: %w", err)
+				}
 			}
+
 			outEdges = append(outEdges, expeditionEdge{
-				EdgeID: newID, NodeAID: a, NodeBID: b,
+				EdgeID: edgeID, NodeAID: a, NodeBID: b,
 				AClientID: a, BClientID: b,
+				Version: saveVersion,
 			})
+		}
+
+		for key, existing := range existingEdges {
+			if incomingEdgeKeys[key] {
+				continue
+			}
+			if _, err := tx.Exec(`
+				UPDATE game.expedition_edges
+				SET is_deleted = TRUE, version = $1
+				WHERE edge_id = $2
+			`, saveVersion, existing.edgeID); err != nil {
+				return fmt.Errorf("mark edge deleted %d: %w", existing.edgeID, err)
+			}
 		}
 		return nil
 	}); err != nil {
@@ -259,9 +447,38 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		MapAssetID:   in.MapAssetID,
 		Nodes:        outNodes,
 		Edges:        outEdges,
+		Version:      saveVersion,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// handleGetExpeditionVersioned returns the versioned expedition graph delta used
+// by game clients to reconstruct trees using quest ids and node positions.
+// Query param: ?version=N (returns changes where version > N)
+func handleGetExpeditionVersioned(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	clientVersion := 0
+	if v := r.URL.Query().Get("version"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed >= 0 {
+			clientVersion = parsed
+		}
+	}
+
+	var payload []byte
+	err := db.QueryRow(`SELECT game.get_expedition_graph_delta($1)`, clientVersion).Scan(&payload)
+	if err != nil {
+		log.Printf("getExpeditionVersioned: query failed: %v", err)
+		http.Error(w, "DB error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(payload)
 }
 
 // handleGetQuestsLite: GET /api/getQuestsLite?settlementId=N

@@ -216,6 +216,7 @@ func main() {
 
 	// Expedition endpoints (map + quest-node graph)
 	http.HandleFunc("/api/getExpedition", apiHandler(handleGetExpedition))
+	http.HandleFunc("/api/getExpeditionVersioned", apiHandler(handleGetExpeditionVersioned))
 	http.HandleFunc("/api/saveExpedition", apiHandler(handleSaveExpedition))
 	http.HandleFunc("/api/getQuestsLite", apiHandler(handleGetQuestsLite))
 	http.HandleFunc("/api/getExpeditionMapAssets", apiHandler(CreateGetAssetsHandler("expedition-maps")))
