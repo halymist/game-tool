@@ -37,6 +37,7 @@ console.log('📦 expedition-designer.js LOADED');
     let hasActivatedOnce = false;
     let isActivating = false;
     let activeLoadToken = 0;
+    let mapAssetUploader = null;
 
     // ---------- DOM helpers ----------
     const $ = (id) => document.getElementById(id);
@@ -359,6 +360,38 @@ console.log('📦 expedition-designer.js LOADED');
         return max + 1;
     }
 
+    function getMapAssetUploader() {
+        if (mapAssetUploader) return mapAssetUploader;
+        mapAssetUploader = new AssetGallery({
+            uploadEndpoint: '/api/uploadExpeditionMapAsset',
+            getNextAssetID: nextMapAssetId,
+            width: 2048,
+            height: 2048,
+            quality: 0.8,
+            resizeMode: 'contain',
+            onUploadStart: () => setStatus('Uploading map…'),
+            onUploaded: async ({ result, assetID }) => {
+                state.mapAssetId = result.assetID || assetID;
+                await loadMapAssets({ forceReload: true });
+                state.mapImageUrl = result.icon || await resolveMapImageUrlSmart(state.mapAssetId);
+                markDirty();
+                log('Map upload completed', {
+                    mapAssetId: state.mapAssetId,
+                    mapImageUrl: state.mapImageUrl,
+                    mapAssets: state.mapAssets.length,
+                });
+                setStatus('Map uploaded. Click Save to persist.');
+                renderMap();
+            },
+            onUploadError: ({ error, result }) => {
+                const message = result?.message || error.message;
+                console.error(error);
+                setStatus('Map upload failed: ' + message, true);
+            }
+        });
+        return mapAssetUploader;
+    }
+
     async function saveExpedition() {
         if (!state.settlementId || !state.dirty || state.isSaving) return;
         state.isSaving = true;
@@ -423,83 +456,8 @@ console.log('📦 expedition-designer.js LOADED');
             return;
         }
         setStatus('Uploading map…');
-        try {
-            syncGlobalCaches(state.settlementId, 'before map upload');
-            const assetId = nextMapAssetId();
-            const webpBlob = await convertImageToWebP(file, 2048, 2048, 0.8);
-            const base64 = await blobToBase64Safe(webpBlob);
-            const result = await authFetch('/api/uploadExpeditionMapAsset', {
-                method: 'POST',
-                body: JSON.stringify({
-                    assetID: assetId,
-                    imageData: base64,
-                    contentType: 'image/webp',
-                }),
-            });
-            state.mapAssetId = result.assetID || assetId;
-            await loadMapAssets({ forceReload: true });
-            state.mapImageUrl = result.icon || await resolveMapImageUrlSmart(state.mapAssetId);
-            markDirty();
-            log('Map upload completed', {
-                mapAssetId: state.mapAssetId,
-                mapImageUrl: state.mapImageUrl,
-                mapAssets: state.mapAssets.length,
-            });
-            setStatus('Map uploaded. Click Save to persist.');
-            renderMap();
-        } catch (e) {
-            console.error(e);
-            setStatus('Map upload failed: ' + e.message, true);
-        }
-    }
-
-    function blobToBase64Safe(blob) {
-        if (typeof window.blobToBase64 === 'function') {
-            return window.blobToBase64(blob);
-        }
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    }
-
-    async function convertImageToWebP(file, maxWidth = 2048, maxHeight = 2048, quality = 0.8) {
-        if (typeof window.convertImageToWebP === 'function') {
-            return window.convertImageToWebP(file, maxWidth, maxHeight, quality);
-        }
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                if (width > maxWidth || height > maxHeight) {
-                    const ratio = Math.min(maxWidth / width, maxHeight / height);
-                    width = Math.max(1, Math.round(width * ratio));
-                    height = Math.max(1, Math.round(height * ratio));
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    reject(new Error('Canvas not supported'));
-                    return;
-                }
-                ctx.drawImage(img, 0, 0, width, height);
-                canvas.toBlob((blob) => {
-                    if (!blob) {
-                        reject(new Error('Failed to convert image to WebP'));
-                        return;
-                    }
-                    resolve(blob);
-                }, 'image/webp', quality);
-                URL.revokeObjectURL(img.src);
-            };
-            img.onerror = () => reject(new Error('Failed to read image file'));
-            img.src = URL.createObjectURL(file);
-        });
+        syncGlobalCaches(state.settlementId, 'before map upload');
+        return getMapAssetUploader().upload(file);
     }
 
     // ---------- Render ----------

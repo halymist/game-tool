@@ -45,6 +45,7 @@ const questchainState = {
     // All questchains for selection
     questchains: new Map()
 };
+let questchainAssetUploader = null;
 
 // ==================== INITIALIZATION ====================
 function initQuestchainDesigner() {
@@ -217,6 +218,7 @@ function setupQuestchainAssetUpload() {
     
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
+        e.target.value = '';
         if (file) uploadQuestchainAsset(file);
     });
 }
@@ -233,72 +235,41 @@ async function uploadQuestchainAsset(file) {
         uploadStatus.style.display = 'block';
         uploadStatus.style.color = '#4ecdc4';
     }
-    
-    try {
-        const webpBlob = await convertQuestchainImageToWebP(file);
-        
-        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
-        
-        const token = await getCurrentAccessToken();
-        if (!token) throw new Error('Not authenticated');
-        
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-        });
-        reader.readAsDataURL(webpBlob);
-        const base64Data = await base64Promise;
-        
-        const response = await fetch('/api/uploadQuestAsset', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                imageData: base64Data,
-                filename: file.name.replace(/\.[^/.]+$/, '.webp')
-            })
-        });
-        
-        if (!response.ok) throw new Error('Upload failed');
-        
-        const result = await response.json();
-        
-        questchainState.questAssets.push({ id: result.assetId, url: result.url });
-        populateQuestchainAssetGallery();
-        selectQuestchainAsset(result.assetId, result.url);
-        
-        if (uploadStatus) uploadStatus.textContent = 'Upload complete!';
-        setTimeout(() => { if (uploadStatus) uploadStatus.style.display = 'none'; }, 2000);
-        
-    } catch (error) {
-        console.error('Upload failed:', error);
-        if (uploadStatus) {
-            uploadStatus.textContent = 'Upload failed: ' + error.message;
-            uploadStatus.style.color = '#e94560';
-        }
-    }
+    return getQuestchainAssetUploader().upload(file);
 }
 
-async function convertQuestchainImageToWebP(file) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(blob => {
-                if (blob) resolve(blob);
-                else reject(new Error('WebP conversion failed'));
-            }, 'image/webp', 0.9);
-        };
-        img.onerror = reject;
-        img.src = URL.createObjectURL(file);
+function getQuestchainAssetUploader() {
+    if (questchainAssetUploader) return questchainAssetUploader;
+    questchainAssetUploader = new AssetGallery({
+        uploadEndpoint: '/api/uploadQuestAsset',
+        resizeMode: 'original',
+        quality: 0.9,
+        buildUploadBody: ({ base64Data, file }) => ({
+            imageData: base64Data,
+            filename: file.name.replace(/\.[^/.]+$/, '.webp')
+        }),
+        onUploadStart: () => {
+            const uploadStatus = document.getElementById('questchainAssetUploadStatus');
+            if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+        },
+        onUploaded: ({ result }) => {
+            questchainState.questAssets.push({ id: result.assetId, url: result.url });
+            populateQuestchainAssetGallery();
+            selectQuestchainAsset(result.assetId, result.url);
+            const uploadStatus = document.getElementById('questchainAssetUploadStatus');
+            if (uploadStatus) uploadStatus.textContent = 'Upload complete!';
+            setTimeout(() => { if (uploadStatus) uploadStatus.style.display = 'none'; }, 2000);
+        },
+        onUploadError: ({ error }) => {
+            console.error('Upload failed:', error);
+            const uploadStatus = document.getElementById('questchainAssetUploadStatus');
+            if (uploadStatus) {
+                uploadStatus.textContent = 'Upload failed: ' + error.message;
+                uploadStatus.style.color = '#e94560';
+            }
+        }
     });
+    return questchainAssetUploader;
 }
 
 // ==================== ZOOM & PAN ====================

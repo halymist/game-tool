@@ -21,6 +21,8 @@ let settlementState = {
     vendorMsgRect: null, // {x1, y1, x2, y2} percentages
     utilityMsgRect: null
 };
+let settlementAssetUploader = null;
+let locationTextureUploader = null;
 
 const SETTLEMENT_FALLBACK_ITEM_ICON = buildSettlementEmojiDataUri('🎒');
 
@@ -172,6 +174,7 @@ function setupSettlementEventListeners() {
     if (fileInput) {
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
+            e.target.value = '';
             if (file) {
                 // Use quest asset upload for location textures, settlement asset for others
                 if (settlementState.currentAssetTarget === 'location') {
@@ -1308,53 +1311,7 @@ async function uploadSettlementAsset(file) {
         alert('Please select an image file');
         return;
     }
-
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
-        }
-
-        // Convert to WebP format (preserve aspect ratio within 512x910 bounds)
-        console.log('Converting settlement asset to WebP format...');
-        const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
-        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
-        
-        // Convert to base64
-        const base64Data = await blobToBase64(webpBlob);
-
-        const response = await fetch('/api/uploadSettlementAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                imageData: base64Data,
-                filename: file.name.replace(/\.[^/.]+$/, '.webp')
-            })
-        });
-
-        if (!response.ok) throw new Error('Upload failed');
-
-        const result = await response.json();
-        console.log('✅ Settlement asset uploaded:', result);
-
-        // Add to assets array
-        settlementState.settlementAssets.push({
-            id: result.assetId,
-            url: result.url
-        });
-
-        // Refresh gallery and auto-select (same pattern as quest designer)
-        populateAssetGallery();
-        selectSettlementAsset(result.assetId, result.url);
-
-    } catch (error) {
-        console.error('Error uploading settlement asset:', error);
-        alert('Error uploading settlement asset: ' + error.message);
-    }
+    return getSettlementAssetUploader().upload(file);
 }
 
 // Upload location texture (uses quest assets endpoint)
@@ -1363,96 +1320,54 @@ async function uploadLocationTexture(file) {
         alert('Please select an image file');
         return;
     }
+    return getLocationTextureUploader().upload(file);
+}
 
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
+function getSettlementAssetUploader() {
+    if (settlementAssetUploader) return settlementAssetUploader;
+    settlementAssetUploader = new AssetGallery({
+        uploadEndpoint: '/api/uploadSettlementAsset',
+        width: 512,
+        height: 910,
+        quality: 0.9,
+        resizeMode: 'contain',
+        onUploaded: ({ result }) => {
+            console.log('✅ Settlement asset uploaded:', result);
+            settlementState.settlementAssets.push({ id: result.assetId, url: result.url });
+            populateAssetGallery();
+            selectSettlementAsset(result.assetId, result.url);
+        },
+        onUploadError: ({ error }) => {
+            console.error('Error uploading settlement asset:', error);
+            alert('Error uploading settlement asset: ' + error.message);
         }
-
-        // Convert to WebP format (preserve aspect ratio within 512x910 bounds)
-        console.log('Converting quest asset to WebP format...');
-        const webpBlob = await convertImageToWebP(file, 512, 910, 0.9);
-        console.log('WebP converted size:', (webpBlob.size / 1024).toFixed(2) + 'KB');
-        
-        // Convert to base64
-        const base64Data = await blobToBase64(webpBlob);
-
-        const response = await fetch('/api/uploadQuestAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                imageData: base64Data,
-                filename: file.name.replace(/\.[^/.]+$/, '.webp')
-            })
-        });
-
-        if (!response.ok) throw new Error('Upload failed');
-
-        const result = await response.json();
-
-        // Add to assets array
-        settlementState.questAssets.push({
-            id: result.assetId,
-            url: result.url
-        });
-
-        // Refresh gallery and auto-select (same pattern as quest designer)
-        populateAssetGallery();
-        selectSettlementAsset(result.assetId, result.url);
-
-    } catch (error) {
-        console.error('Error uploading quest asset:', error);
-        alert('Error uploading quest asset: ' + error.message);
-    }
+    });
+    return settlementAssetUploader;
 }
 
-// Convert image to WebP format
-function convertImageToWebP(file, maxWidth, maxHeight, quality) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
-            const targetWidth = Math.round(img.width * scale);
-            const targetHeight = Math.round(img.height * scale);
-
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-            ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-
-            canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to convert to WebP'));
-                    }
-                },
-                'image/webp',
-                quality
-            );
-        };
-
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = URL.createObjectURL(file);
+function getLocationTextureUploader() {
+    if (locationTextureUploader) return locationTextureUploader;
+    locationTextureUploader = new AssetGallery({
+        uploadEndpoint: '/api/uploadQuestAsset',
+        width: 512,
+        height: 910,
+        quality: 0.9,
+        resizeMode: 'contain',
+        buildUploadBody: ({ base64Data, file }) => ({
+            imageData: base64Data,
+            filename: file.name.replace(/\.[^/.]+$/, '.webp')
+        }),
+        onUploaded: ({ result }) => {
+            settlementState.questAssets.push({ id: result.assetId, url: result.url });
+            populateAssetGallery();
+            selectSettlementAsset(result.assetId, result.url);
+        },
+        onUploadError: ({ error }) => {
+            console.error('Error uploading quest asset:', error);
+            alert('Error uploading quest asset: ' + error.message);
+        }
     });
-}
-
-// Convert Blob to base64
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
+    return locationTextureUploader;
 }
 
 async function saveSettlement() {
@@ -1582,8 +1497,7 @@ async function saveSettlement() {
             const result = await response.json();
             console.log('✅ Settlement saved:', result);
 
-            // Refresh GlobalData settlements (force reload)
-            await refreshSettlementsData();
+            await syncAfterSave('settlements');
             settlementState.settlements = GlobalData.settlements;
             
             // Repopulate UI
@@ -1663,8 +1577,7 @@ async function deleteSettlement() {
         if (response.ok) {
             console.log('✅ Settlement deleted');
 
-            // Reload settlements
-            await refreshSettlementsData();
+            await syncAfterSave('settlements');
             settlementState.settlements = GlobalData.settlements;
             populateSettlementEditorSelect();
             createNewSettlement();
@@ -1728,7 +1641,6 @@ function checkSettlementSaveConditions() {
     const name = (document.getElementById('settlementName')?.value || '').trim();
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
 
-    // Check all 5 asset areas have an asset
     const settlementAssetId = document.getElementById('settlementAssetArea')?.dataset.assetId || '';
     const arenaAssetId = document.getElementById('arenaAssetArea')?.dataset.assetId || '';
     const expeditionAssetId = document.getElementById('expeditionAssetArea')?.dataset.assetId || '';
@@ -1740,10 +1652,8 @@ function checkSettlementSaveConditions() {
     let canSave = false;
 
     if (settlementState.isNewSettlement) {
-        // New settlement: name + all 5 assets + utility selected
         canSave = !!name && !!allAssetsSet && !!utilityType;
     } else {
-        // Existing settlement: must have changed something
         const currentSnapshot = getSettlementFormSnapshot();
         const isDirty = settlementState._snapshot && currentSnapshot !== settlementState._snapshot;
         canSave = !!isDirty;
@@ -1752,7 +1662,6 @@ function checkSettlementSaveConditions() {
     btn.disabled = !canSave;
     btn.classList.toggle('btn-disabled', !canSave);
 
-    // Show/hide dismiss button for existing settlements with changes
     const dismissBtn = document.getElementById('dismissSettlementBtn');
     if (dismissBtn) {
         if (!settlementState.isNewSettlement && settlementState._snapshot) {

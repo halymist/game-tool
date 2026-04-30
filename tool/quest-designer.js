@@ -60,6 +60,7 @@ const questState = {
 const QUEST_FACTION_KEY_TO_CODE = { order: 1, guild: 2, companions: 3 };
 const QUEST_FACTION_CODE_TO_KEY = { 1: 'order', 2: 'guild', 3: 'companions' };
 const QUEST_FACTION_LABELS = { order: 'Order', guild: 'Guild', companions: 'Companions' };
+let questAssetUploader = null;
 
 function questFactionKeyToCode(key) {
     return key ? QUEST_FACTION_KEY_TO_CODE[key] || null : null;
@@ -157,6 +158,7 @@ function initQuestDesigner() {
     if (questAssetFileInput) {
         questAssetFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
+            e.target.value = '';
             if (file) {
                 uploadQuestAsset(file);
             }
@@ -2195,84 +2197,47 @@ async function uploadQuestAsset(file) {
         uploadStatus.className = 'quest-upload-status';
     }
 
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) throw new Error('Not authenticated');
-
-        // Convert to WebP format
-        const webpBlob = await convertQuestImageToWebP(file);
-        
-        if (uploadStatus) uploadStatus.textContent = 'Uploading...';
-
-        // Convert to base64
-        const reader = new FileReader();
-        const base64Promise = new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-        });
-        reader.readAsDataURL(webpBlob);
-        const base64Data = await base64Promise;
-
-        const response = await fetch('/api/uploadQuestAsset', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                imageData: base64Data,
-                filename: file.name.replace(/\.[^/.]+$/, '.webp')
-            })
-        });
-
-        if (!response.ok) throw new Error('Upload failed');
-
-        const result = await response.json();
-        console.log('✅ Quest asset uploaded:', result);
-
-        // Add to the shared quest asset cache
-        getSharedQuestAssets().push({ id: result.assetId, url: result.url });
-        if (typeof notifyGlobalDataChange === 'function') {
-            notifyGlobalDataChange('questAssets', GlobalData.questAssets);
-        }
-
-        // Refresh gallery and auto-select
-        populateQuestAssetGallery();
-        selectQuestAsset(result.assetId, result.url);
-
-        if (uploadStatus) {
-            uploadStatus.textContent = 'Upload complete!';
-            setTimeout(() => { uploadStatus.textContent = ''; }, 2000);
-        }
-
-    } catch (error) {
-        console.error('Upload failed:', error);
-        if (uploadStatus) {
-            uploadStatus.textContent = 'Upload failed: ' + error.message;
-            uploadStatus.className = 'quest-upload-status error';
-        }
-    }
+    return getQuestAssetUploader().upload(file);
 }
 
-// Convert image to WebP format for quest assets
-function convertQuestImageToWebP(file) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            // Preserve original dimensions for quest backgrounds
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(blob => {
-                if (blob) resolve(blob);
-                else reject(new Error('WebP conversion failed'));
-            }, 'image/webp', 0.9);
-        };
-        img.onerror = reject;
-        img.src = URL.createObjectURL(file);
+function getQuestAssetUploader() {
+    if (questAssetUploader) return questAssetUploader;
+    questAssetUploader = new AssetGallery({
+        uploadEndpoint: '/api/uploadQuestAsset',
+        resizeMode: 'original',
+        quality: 0.9,
+        buildUploadBody: ({ base64Data, file }) => ({
+            imageData: base64Data,
+            filename: file.name.replace(/\.[^/.]+$/, '.webp')
+        }),
+        onUploadStart: () => {
+            const uploadStatus = document.getElementById('questAssetUploadStatus');
+            if (uploadStatus) uploadStatus.textContent = 'Uploading...';
+        },
+        onUploaded: ({ result }) => {
+            console.log('✅ Quest asset uploaded:', result);
+            getSharedQuestAssets().push({ id: result.assetId, url: result.url });
+            if (typeof notifyGlobalDataChange === 'function') {
+                notifyGlobalDataChange('questAssets', GlobalData.questAssets);
+            }
+            populateQuestAssetGallery();
+            selectQuestAsset(result.assetId, result.url);
+            const uploadStatus = document.getElementById('questAssetUploadStatus');
+            if (uploadStatus) {
+                uploadStatus.textContent = 'Upload complete!';
+                setTimeout(() => { uploadStatus.textContent = ''; }, 2000);
+            }
+        },
+        onUploadError: ({ error }) => {
+            console.error('Upload failed:', error);
+            const uploadStatus = document.getElementById('questAssetUploadStatus');
+            if (uploadStatus) {
+                uploadStatus.textContent = 'Upload failed: ' + error.message;
+                uploadStatus.className = 'quest-upload-status error';
+            }
+        }
     });
+    return questAssetUploader;
 }
 
 // ==================== POPULATE DROPDOWNS FROM GLOBALDATA ====================
@@ -3065,9 +3030,13 @@ async function saveQuest() {
         questState.deletedQuestIds = [];
         questState.deletedOptionIds = [];
 
-        // Refresh shared global quest caches so other designers (e.g. expedition)
-        // can immediately see newly created/updated quests without page reload.
-        if (typeof window.loadQuestsData === 'function') {
+        if (typeof window.syncAfterSave === 'function') {
+            try {
+                await window.syncAfterSave(['quests']);
+            } catch (refreshError) {
+                console.warn('Quest save succeeded, but shared quest cache refresh failed:', refreshError);
+            }
+        } else if (typeof window.loadQuestsData === 'function') {
             try {
                 await window.loadQuestsData({ forceReload: true });
             } catch (refreshError) {

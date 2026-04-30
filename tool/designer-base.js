@@ -84,6 +84,7 @@ class AssetGallery {
             width: 128,
             height: 128,
             quality: 0.8,
+            resizeMode: 'stretch',
             ...config
         };
         this.bind();
@@ -256,13 +257,13 @@ class AssetGallery {
             alert('File size should be less than 10MB');
             return null;
         }
-        if (!this.config.uploadEndpoint || typeof this.config.getNextAssetID !== 'function') {
+        if (!this.config.uploadEndpoint) {
             if (typeof this.config.onFileSelect === 'function') return this.config.onFileSelect(file, this);
             return null;
         }
 
         try {
-            const assetID = this.config.getNextAssetID();
+            const assetID = typeof this.config.getNextAssetID === 'function' ? this.config.getNextAssetID() : undefined;
             const webpBlob = await this.convertImageToWebP(file);
             const base64Data = await this.blobToBase64(webpBlob);
             if (typeof this.config.onUploadStart === 'function') {
@@ -275,17 +276,21 @@ class AssetGallery {
                 return null;
             }
 
+            const uploadBody = typeof this.config.buildUploadBody === 'function'
+                ? this.config.buildUploadBody({ assetID, base64Data, file, gallery: this })
+                : {
+                    ...(assetID !== undefined ? { assetID } : {}),
+                    imageData: base64Data,
+                    contentType: 'image/webp'
+                };
+
             const response = await fetch(this.config.uploadEndpoint, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    assetID,
-                    imageData: base64Data,
-                    contentType: 'image/webp'
-                })
+                body: JSON.stringify(uploadBody)
             });
             const result = await response.json();
 
@@ -316,14 +321,25 @@ class AssetGallery {
     }
 
     convertImageToWebP(file) {
-        const { width, height, quality } = this.config;
+        const { width, height, quality, resizeMode } = this.config;
         return new Promise((resolve, reject) => {
             const img = new Image();
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             img.onload = () => {
-                canvas.width = width;
-                canvas.height = height || width;
+                if (resizeMode === 'original') {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                } else if (resizeMode === 'contain') {
+                    const maxWidth = width;
+                    const maxHeight = height || width;
+                    const scale = Math.min(maxWidth / img.width, maxHeight / img.height, 1);
+                    canvas.width = Math.max(1, Math.round(img.width * scale));
+                    canvas.height = Math.max(1, Math.round(img.height * scale));
+                } else {
+                    canvas.width = width;
+                    canvas.height = height || width;
+                }
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 canvas.toBlob(blob => {

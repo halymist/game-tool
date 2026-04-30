@@ -1009,21 +1009,21 @@ function getCosmeticAssets() {
 // === PRELOAD REGISTRY ===
 
 const GLOBAL_DATA_LOADERS = {
-    effects:          () => loadEffectsData(),
-    enemies:          () => loadEnemiesData(),
-    perks:            () => loadPerksData(),
-    items:            () => loadItemsData(),
-    npcs:             () => loadNpcsData(),
-    perkAssets:       () => loadPerkAssets(),
-    itemAssets:       () => loadItemAssets(),
-    enemyAssets:      () => loadEnemyAssets(),
-    settlements:      () => loadSettlementsData(),
-    quests:           () => loadQuestsData(),
-    settlementAssets: () => loadSettlementAssetsData(),
-    questAssets:      () => loadQuestAssetsData(),
-    expeditionMapAssets: () => loadExpeditionMapAssetsData(),
-    cosmetics:        () => loadCosmeticsData(),
-    cosmeticAssets:   () => loadCosmeticAssets()
+    effects:          (options) => loadEffectsData(options),
+    enemies:          (options) => loadEnemiesData(options),
+    perks:            (options) => loadPerksData(options),
+    items:            (options) => loadItemsData(options),
+    npcs:             (options) => loadNpcsData(options),
+    perkAssets:       (options) => loadPerkAssets(options),
+    itemAssets:       (options) => loadItemAssets(options),
+    enemyAssets:      (options) => loadEnemyAssets(options),
+    settlements:      (options) => loadSettlementsData(options),
+    quests:           (options) => loadQuestsData(options),
+    settlementAssets: (options) => loadSettlementAssetsData(options),
+    questAssets:      (options) => loadQuestAssetsData(options),
+    expeditionMapAssets: (options) => loadExpeditionMapAssetsData(options),
+    cosmetics:        (options) => loadCosmeticsData(options),
+    cosmeticAssets:   (options) => loadCosmeticAssets(options)
 };
 
 async function preloadGlobalData(keys = []) {
@@ -1069,6 +1069,23 @@ async function preloadGlobalData(keys = []) {
         console.log(`🖼️ Asset galleries — ${assetEntries.join(', ')}`);
         console.log(`${GLOBAL_DATA_LOG_PREFIX} preload complete`, summary);
     });
+}
+
+async function syncAfterSave(keys = [], options = {}) {
+    const uniqueKeys = Array.from(new Set((Array.isArray(keys) ? keys : [keys]).filter(Boolean)));
+    if (uniqueKeys.length === 0) return [];
+
+    const loaderOptions = { forceReload: true, ...options };
+    console.log(`${GLOBAL_DATA_LOG_PREFIX} syncAfterSave`, { keys: uniqueKeys });
+
+    return Promise.all(uniqueKeys.map(async (key) => {
+        const loader = GLOBAL_DATA_LOADERS[key];
+        if (typeof loader !== 'function') {
+            console.warn(`No global data loader for "${key}"`);
+            return null;
+        }
+        return loader(loaderOptions);
+    }));
 }
 
 // === DATA ACCESS FUNCTIONS ===
