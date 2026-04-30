@@ -1562,10 +1562,11 @@ async function saveSettlement() {
         }
 
         const saveBtn = document.getElementById('saveSettlementBtn');
-        const origHTML = saveBtn?.innerHTML;
+        const origLabel = saveBtn?.textContent;
         if (saveBtn) {
-            saveBtn.classList.add('saving');
-            saveBtn.innerHTML = '<span class="btn-spinner"></span> Saving';
+            saveBtn.classList.add('is-saving');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving';
         }
 
         const response = await fetch('/api/saveSettlement', {
@@ -1595,23 +1596,24 @@ async function saveSettlement() {
 
             // Show save success animation inside button
             if (saveBtn) {
-                saveBtn.classList.remove('saving');
-                saveBtn.classList.add('saved');
-                saveBtn.innerHTML = '<span class="btn-check">✓</span> Saved';
+                saveBtn.classList.remove('is-saving');
+                saveBtn.classList.add('is-saved');
+                saveBtn.textContent = '✓ Saved';
                 setTimeout(() => {
-                    saveBtn.classList.remove('saved');
-                    saveBtn.innerHTML = origHTML;
+                    saveBtn.classList.remove('is-saved');
+                    saveBtn.textContent = origLabel || 'Save';
+                    saveBtn.disabled = false;
                 }, 1500);
             }
         } else {
-            if (saveBtn) { saveBtn.classList.remove('saving'); saveBtn.innerHTML = origHTML; }
+            if (saveBtn) { saveBtn.classList.remove('is-saving'); saveBtn.disabled = false; saveBtn.textContent = origLabel || 'Save'; }
             const error = await response.text();
             alert('Failed to save settlement: ' + error);
         }
 
     } catch (error) {
         const saveBtn2 = document.getElementById('saveSettlementBtn');
-        if (saveBtn2) { saveBtn2.classList.remove('saving', 'saved'); }
+        if (saveBtn2) { saveBtn2.classList.remove('is-saving', 'is-saved'); saveBtn2.disabled = false; saveBtn2.textContent = 'Save'; }
         console.error('Error saving settlement:', error);
         alert('Error saving settlement: ' + error.message);
     }

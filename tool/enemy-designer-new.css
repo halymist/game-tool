@@ -345,20 +345,10 @@
     padding-top: 0.875rem; border-top: 1px solid var(--border-subtle);
 }
 
-.enemy-form-actions .btn-save, .enemy-form-actions .btn-cancel {
-    padding: 0.6rem 1.5rem; border: none; border-radius: var(--radius-sm);
+.enemy-form-actions .btn-cancel {
+    padding: 0.6rem 1.5rem; border-radius: var(--radius-sm);
     font-weight: 600; font-size: 0.875rem; cursor: pointer;
     transition: all 0.15s ease; font-family: inherit;
-}
-.enemy-form-actions .btn-save { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
-.enemy-form-actions .btn-save:hover { background: var(--accent-hover); }
-
-.enemy-form-actions .btn-save:disabled,
-.enemy-form-actions .btn-save.btn-disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-.enemy-form-actions .btn-cancel {
     background: var(--bg-elevated); color: var(--text-secondary);
     border: 1px solid var(--border-default);
 }

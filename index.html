@@ -924,7 +924,7 @@
                         <!-- Buttons -->
                         <div class="item-form-buttons">
                             <button type="button" id="itemCancelBtn" class="btn-cancel-item">Cancel</button>
-                            <button type="submit" class="btn-save-item" disabled>Save Item</button>
+                            <button type="submit" class="btn-save" disabled>Save Item</button>
                         </div>
                     </form>
                 </div>
@@ -1027,7 +1027,7 @@
                         <!-- Buttons -->
                         <div class="perk-form-buttons">
                             <button type="button" id="perkCancelBtn" class="btn-cancel-perk">Cancel</button>
-                            <button type="submit" class="btn-save-perk" disabled>Save Perk</button>
+                            <button type="submit" class="btn-save" disabled>Save Perk</button>
                         </div>
                     </form>
                 </div>
@@ -1061,7 +1061,7 @@
                     <div class="toolbar-right">
                         <button id="expeditionUploadMapBtn" class="btn-secondary" type="button">Upload Map</button>
                         <button id="expeditionDiscardBtn" class="btn-secondary" type="button">Discard</button>
-                        <button id="expeditionSaveBtn" class="btn-success" type="button">Save</button>
+                        <button id="expeditionSaveBtn" class="btn-save" type="button" disabled>Save</button>
                         <input type="file" id="expeditionMapFileInput" accept="image/*" style="display:none;">
                     </div>
                 </div>
@@ -1208,7 +1208,7 @@
                         <button id="dismissSettlementBtn" class="btn-dismiss-settlement" style="display: none;">
                             Dismiss Changes
                         </button>
-                        <button id="saveSettlementBtn" class="btn-save-settlement">
+                        <button id="saveSettlementBtn" class="btn-save" disabled>
                             Save
                         </button>
                         <button id="deleteSettlementBtn" class="btn-delete-settlement" style="display: none;">
@@ -1552,7 +1552,7 @@
                     <h2>🧭 World Concept</h2>
                     <div class="concept-actions">
                         <span id="conceptStatus" class="concept-status"></span>
-                        <button id="conceptSaveBtn" class="concept-save-btn">Save Changes</button>
+                        <button id="conceptSaveBtn" class="btn-save" disabled>Save Changes</button>
                     </div>
                 </div>
 
@@ -1958,7 +1958,7 @@
                             <div class="builds-editor-head">
                                 <input type="text" id="buildName" class="builds-name-input" placeholder="Build name…">
                                 <div class="builds-editor-actions">
-                                    <button type="button" id="buildsSaveBtn" class="builds-btn-save">Save</button>
+                                    <button type="button" id="buildsSaveBtn" class="btn-save">Save</button>
                                     <button type="button" id="buildsDeleteBtn" class="builds-btn-delete">Delete</button>
                                 </div>
                             </div>

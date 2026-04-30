@@ -333,30 +333,6 @@
     border-top: 1px solid var(--border-subtle);
 }
 
-.talent-form-actions .btn-save {
-    padding: 0.5rem 1.25rem;
-    background: var(--accent);
-    border: none;
-    border-radius: var(--radius-sm);
-    color: #fff;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    font-family: inherit;
-    transition: background 0.15s;
-}
-
-.talent-form-actions .btn-save:hover {
-    background: var(--accent-hover);
-}
-
-.talent-form-actions .btn-save.btn-disabled,
-.talent-form-actions .btn-save:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
 .talent-form-actions .btn-cancel {
     padding: 0.5rem 1.25rem;
     background: var(--bg-elevated);

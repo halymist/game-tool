@@ -262,6 +262,67 @@ body {
     to { transform: rotate(360deg); }
 }
 
+/* ── Canonical Save Button ──────────────────────────────
+   Used everywhere a designer persists changes. State is driven by
+   `SaveButton` controller in designer-base.js: toggles `[disabled]`,
+   `.is-saving`, `.is-saved`. Visuals must stay consistent across all
+   designers; per-designer overrides should be avoided. */
+
+.btn-save {
+    padding: 0.55rem 1.25rem;
+    background: var(--accent);
+    color: #fff;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: background 0.15s ease, opacity 0.15s ease, filter 0.15s ease;
+    position: relative;
+}
+
+.btn-save:hover:not(:disabled):not(.is-saving):not(.is-saved) {
+    background: var(--accent-hover);
+}
+
+.btn-save:disabled,
+.btn-save.btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-save.is-saving {
+    pointer-events: none;
+    padding-left: 2rem;
+}
+
+.btn-save.is-saving::before {
+    content: '';
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+.btn-save.is-saved {
+    background: var(--success);
+    border-color: var(--success);
+    pointer-events: none;
+}
+
 /* Combobox */
 
 .combobox-wrapper {

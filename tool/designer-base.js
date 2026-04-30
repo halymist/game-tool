@@ -2,6 +2,75 @@
 // Shared functionality for Item, Perk, and Enemy designers
 
 /**
+ * SaveButton — canonical save-button state controller.
+ *
+ * Targets the shared `.btn-save` element. Drives:
+ *   - `[disabled]`        — locked / not yet dirty
+ *   - `.is-saving`        — spinner + suppressed clicks
+ *   - `.is-saved`         — temporary green "saved" flash
+ *
+ * Usage:
+ *   const sb = new SaveButton('saveQuestBtn');         // by element id
+ *   const sb = new SaveButton(domNode);                // or by node
+ *   sb.setDirty(true);     // user edited something
+ *   sb.setSaving(true);    // request in flight
+ *   sb.setSaving(false);   // request finished
+ *   sb.flashSaved(900);    // optional success indication
+ *   sb.setLabel('Save Changes (3)');  // dynamic text (cosmetic / count)
+ *
+ * The controller never owns the click handler — designers continue to
+ * attach their own. It only manages visual state. This keeps migration
+ * incremental: existing save flows can adopt the controller field by field.
+ */
+class SaveButton {
+    constructor(target, opts = {}) {
+        this.btn = typeof target === 'string' ? document.getElementById(target) : target;
+        this.baseLabel = opts.baseLabel ?? (this.btn ? this.btn.textContent.trim() : '');
+        this.dirty = false;
+        this.saving = false;
+        this._savedTimer = null;
+        if (this.btn && !this.btn.classList.contains('btn-save')) {
+            this.btn.classList.add('btn-save');
+        }
+    }
+    setDirty(dirty) {
+        this.dirty = !!dirty;
+        if (!this.btn || this.saving) return;
+        this.btn.disabled = !this.dirty;
+    }
+    setSaving(saving) {
+        this.saving = !!saving;
+        if (!this.btn) return;
+        this.btn.classList.toggle('is-saving', this.saving);
+        if (this.saving) {
+            this.btn.classList.remove('is-saved');
+            this.btn.disabled = true;
+        } else {
+            this.btn.disabled = !this.dirty;
+        }
+    }
+    setDisabled(disabled) {
+        if (!this.btn) return;
+        this.btn.disabled = !!disabled;
+    }
+    setLabel(text) {
+        if (!this.btn) return;
+        // Preserve spinner pseudo-element by only changing text-bearing children.
+        this.btn.textContent = text;
+    }
+    flashSaved(durationMs = 900) {
+        if (!this.btn) return;
+        clearTimeout(this._savedTimer);
+        this.btn.classList.add('is-saved');
+        this._savedTimer = setTimeout(() => {
+            this.btn?.classList.remove('is-saved');
+        }, durationMs);
+    }
+}
+// Expose globally so non-module designer scripts can use it.
+window.SaveButton = SaveButton;
+
+/**
  * Show a small confirm popup. Returns a Promise<boolean>.
  */
 function showConfirm(message) {

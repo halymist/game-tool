@@ -201,19 +201,10 @@ input[type="number"] { -moz-appearance: textfield; }
 /* ── Form Buttons ───────────────────────────────────── */
 .perk-form-buttons { display: flex; gap: 0.75rem; justify-content: flex-end; }
 
-.btn-save-perk, .btn-cancel-perk {
+.btn-cancel-perk {
     padding: 0.6rem 1.5rem; border: none; border-radius: var(--radius-sm);
     font-weight: 600; font-size: 0.875rem; cursor: pointer;
     transition: all 0.15s ease; font-family: inherit;
-}
-.btn-save-perk { background: var(--accent); color: #fff; }
-.btn-save-perk:hover { background: var(--accent-hover); }
-.btn-save-perk.btn-disabled,
-.btn-save-perk:disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-}
-.btn-cancel-perk {
     background: rgba(239,68,68,0.1); color: var(--danger);
     border: 1px solid rgba(239,68,68,0.2);
 }

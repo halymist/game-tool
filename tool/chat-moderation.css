@@ -56,22 +56,6 @@
     color: #e2e8f0;
 }
 
-.moderation-panel .btn-save {
-    padding: 8px 14px;
-    border: none;
-    border-radius: 8px;
-    background: linear-gradient(145deg, #2563eb, #1d4ed8);
-    color: #fff;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.moderation-panel .btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.3);
-}
-
 .moderation-status {
     min-height: 20px;
     margin-bottom: 8px;

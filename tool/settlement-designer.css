@@ -245,10 +245,8 @@
     align-items: center;
 }
 
-.btn-new-settlement,
-.btn-save-settlement {
+.btn-new-settlement {
     padding: 8px 14px;
-    border: none;
     border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-weight: 600;
@@ -259,9 +257,6 @@
     gap: 6px;
     white-space: nowrap;
     font-family: inherit;
-}
-
-.btn-new-settlement {
     background: rgba(34, 197, 94, 0.1);
     border: 1px solid rgba(34, 197, 94, 0.25);
     color: var(--success);
@@ -270,20 +265,6 @@
 .btn-new-settlement:hover {
     background: rgba(34, 197, 94, 0.18);
     border-color: var(--success);
-}
-
-.btn-save-settlement {
-    background: var(--accent);
-    color: #fff;
-}
-
-.btn-save-settlement:hover {
-    background: var(--accent-hover);
-}
-
-.btn-save-settlement:disabled {
-    opacity: 0.35;
-    pointer-events: none;
 }
 
 .btn-dismiss-settlement {
@@ -306,43 +287,6 @@
 .btn-dismiss-settlement:hover {
     background: rgba(239, 68, 68, 0.16);
     border-color: #ef4444;
-}
-
-.btn-save-settlement.saving {
-    pointer-events: none;
-    opacity: 0.8;
-}
-
-.btn-save-settlement.saved {
-    background: var(--success, #22c55e);
-    pointer-events: none;
-    transition: background 0.4s ease;
-}
-
-.btn-spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: btn-spin 0.6s linear infinite;
-    vertical-align: middle;
-}
-
-.btn-check {
-    display: inline-block;
-    animation: btn-pop 0.3s ease;
-}
-
-@keyframes btn-spin {
-    to { transform: rotate(360deg); }
-}
-
-@keyframes btn-pop {
-    0% { transform: scale(0); opacity: 0; }
-    60% { transform: scale(1.3); }
-    100% { transform: scale(1); opacity: 1; }
 }
 
 /* ── Utility Type Cards ─────────────────────────────── */

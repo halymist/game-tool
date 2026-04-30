@@ -984,20 +984,6 @@
     color: #fff;
 }
 
-.btn-save {
-    padding: 10px 20px;
-    background: rgba(78, 205, 196, 0.2);
-    border: 1px solid #4ecdc4;
-    border-radius: 6px;
-    color: #4ecdc4;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-save:hover {
-    background: rgba(78, 205, 196, 0.3);
-}
-
 /* Asset Modal */
 .questchain-asset-modal-content {
     min-width: 600px;

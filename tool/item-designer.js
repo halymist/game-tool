@@ -630,7 +630,7 @@ function setFormLocked(locked) {
     });
     
     // Hide/show save button
-    const saveBtn = form.querySelector('.btn-save-item');
+    const saveBtn = form.querySelector('.btn-save');
     if (saveBtn) {
         saveBtn.style.display = locked ? 'none' : 'block';
     }
@@ -962,7 +962,7 @@ function isItemFormDirty() {
 }
 
 function checkItemSaveConditions() {
-    const btn = document.querySelector('.btn-save-item');
+    const btn = document.querySelector('#itemForm .btn-save');
     if (!btn) return;
 
     const errors = getItemValidationErrors();

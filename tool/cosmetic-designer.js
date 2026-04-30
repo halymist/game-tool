@@ -391,7 +391,7 @@ function renderCosmeticGallery() {
             <span class="cosmetic-gallery-count">${items.length} items</span>
             <span id="cosmeticStatus" class="cosmetic-status"></span>
             <button id="cosmeticDismissBtn" class="cosmetic-dismiss-btn" onclick="dismissCosmeticChanges()" disabled>Dismiss</button>
-            <button id="cosmeticSaveBtn" class="cosmetic-save-btn" onclick="saveAllCosmeticChanges()" disabled>Save Changes</button>
+            <button id="cosmeticSaveBtn" class="btn-save" onclick="saveAllCosmeticChanges()" disabled>Save Changes</button>
         </div>
         <div class="cosmetic-gallery-grid">
             <div class="cosmetic-gallery-item cosmetic-add-card" onclick="openCosmeticUploadDialog()">

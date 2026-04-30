@@ -450,7 +450,7 @@ function setPerkFormLocked(locked) {
         input.disabled = locked;
     });
     
-    const saveBtn = form.querySelector('.btn-save-perk');
+    const saveBtn = form.querySelector('.btn-save');
     if (saveBtn) {
         saveBtn.style.display = locked ? 'none' : 'block';
     }
@@ -602,7 +602,7 @@ function isPerkFormDirty() {
 }
 
 function checkPerkSaveConditions() {
-    const btn = document.querySelector('.btn-save-perk');
+    const btn = document.querySelector('#perkForm .btn-save');
     if (!btn) return;
 
     const errors = getPerkValidationErrors();

@@ -48,28 +48,6 @@
     min-height: 0;
 }
 
-.cosmetic-save-btn {
-    padding: 0.3rem 0.75rem;
-    background: var(--accent);
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    color: #fff;
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s ease;
-}
-
-.cosmetic-save-btn:hover:not(:disabled) {
-    filter: brightness(1.1);
-}
-
-.cosmetic-save-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
 .cosmetic-dismiss-btn {
     padding: 0.3rem 0.75rem;
     background: transparent;

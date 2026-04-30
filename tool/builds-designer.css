@@ -57,7 +57,6 @@
 }
 
 .builds-btn-new,
-.builds-btn-save,
 .builds-btn-delete,
 .builds-btn-run {
     background: var(--accent, #6366f1);
@@ -71,7 +70,6 @@
     transition: transform 0.14s ease, filter 0.14s ease, box-shadow 0.18s ease;
 }
 .builds-btn-new:hover,
-.builds-btn-save:hover,
 .builds-btn-run:hover {
     filter: brightness(1.15);
     box-shadow: 0 8px 18px rgba(99, 102, 241, 0.22);
@@ -86,7 +84,6 @@
     transform: translateY(-1px);
 }
 .builds-btn-new:active,
-.builds-btn-save:active,
 .builds-btn-delete:active,
 .builds-btn-run:active {
     transform: translateY(0) scale(0.98);
