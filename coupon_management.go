@@ -36,11 +36,6 @@ type DeleteCouponRequest struct {
 }
 
 func handleGetCoupons(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -96,11 +91,6 @@ func handleGetCoupons(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -114,7 +104,7 @@ func handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateCouponRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(CouponResponse{Success: false, Message: "Invalid request body"})
 		return
 	}
@@ -171,11 +161,6 @@ func handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteCoupon(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -189,7 +174,7 @@ func handleDeleteCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req DeleteCouponRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(CouponResponse{Success: false, Message: "Invalid request body"})
 		return
 	}

@@ -20,10 +20,6 @@ func handleGetRecentEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
@@ -60,17 +56,13 @@ func handleSaveRecentEvent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
 	}
 
 	var req RecentEvent
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -114,10 +106,6 @@ func handleDeleteRecentEvent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
@@ -126,7 +114,7 @@ func handleDeleteRecentEvent(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		EventID int `json:"event_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}

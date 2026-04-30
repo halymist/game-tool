@@ -15,11 +15,6 @@ func handleGenerateQuestAi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if OPENAI_API_KEY == "" {
 		http.Error(w, "OpenAI API key not configured", http.StatusInternalServerError)
 		return

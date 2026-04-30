@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -49,11 +50,6 @@ type CreateServerRequest struct {
 
 func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET SERVERS REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -113,11 +109,6 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 func handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== CREATE SERVER REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -134,7 +125,7 @@ func handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateServerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(ServerResponse{Success: false, Message: "Invalid request body"})
 		return
 	}
@@ -361,89 +352,79 @@ func generateServerContent(serverID int) error {
 		day += duration
 	}
 
-	// 3. Write everything in a transaction
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
-	// Insert world plan rows
-	worldStmt, err := tx.Prepare(`
-		INSERT INTO public.world
-			(server_id, server_day, faction, settlement_id,
-			 blacksmith, alchemist, enchanter, trainer, church,
-			 blessing1, blessing2, blessing3)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-	`)
-	if err != nil {
-		return fmt.Errorf("prepare world: %w", err)
-	}
-	defer worldStmt.Close()
-
-	vendorStmt, err := tx.Prepare(`
-		INSERT INTO public.vendor (server_id, server_day, settlement_id, item_id)
-		VALUES ($1,$2,$3,$4)
-	`)
-	if err != nil {
-		return fmt.Errorf("prepare vendor: %w", err)
-	}
-	defer vendorStmt.Close()
-
-	enchanterStmt, err := tx.Prepare(`
-		INSERT INTO public.enchanter (server_id, server_day, settlement_id, effect_id, factor)
-		VALUES ($1,$2,$3,$4,$5)
-	`)
-	if err != nil {
-		return fmt.Errorf("prepare enchanter: %w", err)
-	}
-	defer enchanterStmt.Close()
-
-	// Load effect factors for enchanter lookups
 	effectFactors, err := loadEffectFactors()
 	if err != nil {
 		return fmt.Errorf("load effect factors: %w", err)
 	}
 
-	for _, entry := range plan {
-		s := entry.settlement
-		faction := 0
-		if s.Faction != nil {
-			faction = *s.Faction
+	if err := withTx(func(tx *sql.Tx) error {
+		worldStmt, err := tx.Prepare(`
+			INSERT INTO public.world
+				(server_id, server_day, faction, settlement_id,
+				 blacksmith, alchemist, enchanter, trainer, church,
+				 blessing1, blessing2, blessing3)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		`)
+		if err != nil {
+			return fmt.Errorf("prepare world: %w", err)
 		}
+		defer worldStmt.Close()
 
-		if _, err := worldStmt.Exec(
-			serverID, entry.day, faction, s.SettlementID,
-			s.Blacksmith, s.Alchemist, s.Enchanter, s.Trainer, s.Church,
-			s.Blessing1, s.Blessing2, s.Blessing3,
-		); err != nil {
-			return fmt.Errorf("insert world day %d: %w", entry.day, err)
+		vendorStmt, err := tx.Prepare(`
+			INSERT INTO public.vendor (server_id, server_day, settlement_id, item_id)
+			VALUES ($1,$2,$3,$4)
+		`)
+		if err != nil {
+			return fmt.Errorf("prepare vendor: %w", err)
 		}
+		defer vendorStmt.Close()
 
-		// Vendor: 8 random items from the settlement's vendor inventory
-		if len(s.VendorItems) > 0 {
-			picked := pickRandom(s.VendorItems, 8)
-			for _, itemID := range picked {
-				if _, err := vendorStmt.Exec(serverID, entry.day, s.SettlementID, itemID); err != nil {
-					return fmt.Errorf("insert vendor day %d item %d: %w", entry.day, itemID, err)
+		enchanterStmt, err := tx.Prepare(`
+			INSERT INTO public.enchanter (server_id, server_day, settlement_id, effect_id, factor)
+			VALUES ($1,$2,$3,$4,$5)
+		`)
+		if err != nil {
+			return fmt.Errorf("prepare enchanter: %w", err)
+		}
+		defer enchanterStmt.Close()
+
+		for _, entry := range plan {
+			s := entry.settlement
+			faction := 0
+			if s.Faction != nil {
+				faction = *s.Faction
+			}
+
+			if _, err := worldStmt.Exec(
+				serverID, entry.day, faction, s.SettlementID,
+				s.Blacksmith, s.Alchemist, s.Enchanter, s.Trainer, s.Church,
+				s.Blessing1, s.Blessing2, s.Blessing3,
+			); err != nil {
+				return fmt.Errorf("insert world day %d: %w", entry.day, err)
+			}
+
+			if len(s.VendorItems) > 0 {
+				picked := pickRandom(s.VendorItems, 8)
+				for _, itemID := range picked {
+					if _, err := vendorStmt.Exec(serverID, entry.day, s.SettlementID, itemID); err != nil {
+						return fmt.Errorf("insert vendor day %d item %d: %w", entry.day, itemID, err)
+					}
+				}
+			}
+
+			if s.Enchanter && len(s.EnchanterFX) > 0 {
+				picked := pickRandom(s.EnchanterFX, 4)
+				for _, effectID := range picked {
+					factor := effectFactors[effectID]
+					if _, err := enchanterStmt.Exec(serverID, entry.day, s.SettlementID, effectID, factor); err != nil {
+						return fmt.Errorf("insert enchanter day %d effect %d: %w", entry.day, effectID, err)
+					}
 				}
 			}
 		}
-
-		// Enchanter: 4 random effects (only if settlement has enchanter)
-		if s.Enchanter && len(s.EnchanterFX) > 0 {
-			picked := pickRandom(s.EnchanterFX, 4)
-			for _, effectID := range picked {
-				factor := effectFactors[effectID]
-				if _, err := enchanterStmt.Exec(serverID, entry.day, s.SettlementID, effectID, factor); err != nil {
-					return fmt.Errorf("insert enchanter day %d effect %d: %w", entry.day, effectID, err)
-				}
-			}
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit: %w", err)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	log.Printf("Generated content for server %d: %d day entries", serverID, len(plan))

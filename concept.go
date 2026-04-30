@@ -36,11 +36,6 @@ func handleGetConcept(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	var payload json.RawMessage
@@ -82,11 +77,6 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	var req struct {
@@ -98,7 +88,7 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 		QuestUpdatePrompt       json.RawMessage `json:"questUpdatePrompt"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(ConceptResponse{Success: false, Message: "Invalid request body"})
 		return
 	}

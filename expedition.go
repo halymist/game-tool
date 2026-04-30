@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -70,11 +71,6 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	settlementIDStr := r.URL.Query().Get("settlementId")
 	settlementID, err := strconv.Atoi(settlementIDStr)
 	if err != nil || settlementID <= 0 {
@@ -82,75 +78,65 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("getExpedition: begin tx: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	expeditionID, mapAssetID, err := ensureExpeditionRow(tx, settlementID)
-	if err != nil {
-		log.Printf("getExpedition: ensure row: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-
-	nodeRows, err := tx.Query(`SELECT node_id, quest_id, is_start, pos_x, pos_y, label
-		FROM tooling.expedition_nodes WHERE expedition_id = $1 ORDER BY node_id`, expeditionID)
-	if err != nil {
-		log.Printf("getExpedition: query nodes: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-	defer nodeRows.Close()
-
+	var expeditionID int
+	var mapAssetID *int
 	nodes := []expeditionNode{}
-	for nodeRows.Next() {
-		var n expeditionNode
-		var questID sql.NullInt64
-		var label sql.NullString
-		if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
-			log.Printf("getExpedition: scan node: %v", err)
-			continue
-		}
-		if questID.Valid {
-			v := int(questID.Int64)
-			n.QuestID = &v
-		}
-		if label.Valid {
-			s := label.String
-			n.Label = &s
-		}
-		// Use server node_id as the client_id when the UI re-loads.
-		n.ClientID = n.NodeID
-		nodes = append(nodes, n)
-	}
-
-	edgeRows, err := tx.Query(`SELECT edge_id, node_a, node_b
-		FROM tooling.expedition_edges WHERE expedition_id = $1 ORDER BY edge_id`, expeditionID)
-	if err != nil {
-		log.Printf("getExpedition: query edges: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-	defer edgeRows.Close()
-
 	edges := []expeditionEdge{}
-	for edgeRows.Next() {
-		var e expeditionEdge
-		if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID); err != nil {
-			log.Printf("getExpedition: scan edge: %v", err)
-			continue
-		}
-		e.AClientID = e.NodeAID
-		e.BClientID = e.NodeBID
-		edges = append(edges, e)
-	}
 
-	if err := tx.Commit(); err != nil {
-		log.Printf("getExpedition: commit: %v", err)
+	if err := withTx(func(tx *sql.Tx) error {
+		var err error
+		expeditionID, mapAssetID, err = ensureExpeditionRow(tx, settlementID)
+		if err != nil {
+			return fmt.Errorf("ensure row: %w", err)
+		}
+
+		nodeRows, err := tx.Query(`SELECT node_id, quest_id, is_start, pos_x, pos_y, label
+			FROM tooling.expedition_nodes WHERE expedition_id = $1 ORDER BY node_id`, expeditionID)
+		if err != nil {
+			return fmt.Errorf("query nodes: %w", err)
+		}
+		defer nodeRows.Close()
+
+		for nodeRows.Next() {
+			var n expeditionNode
+			var questID sql.NullInt64
+			var label sql.NullString
+			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
+				log.Printf("getExpedition: scan node: %v", err)
+				continue
+			}
+			if questID.Valid {
+				v := int(questID.Int64)
+				n.QuestID = &v
+			}
+			if label.Valid {
+				s := label.String
+				n.Label = &s
+			}
+			n.ClientID = n.NodeID
+			nodes = append(nodes, n)
+		}
+
+		edgeRows, err := tx.Query(`SELECT edge_id, node_a, node_b
+			FROM tooling.expedition_edges WHERE expedition_id = $1 ORDER BY edge_id`, expeditionID)
+		if err != nil {
+			return fmt.Errorf("query edges: %w", err)
+		}
+		defer edgeRows.Close()
+
+		for edgeRows.Next() {
+			var e expeditionEdge
+			if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID); err != nil {
+				log.Printf("getExpedition: scan edge: %v", err)
+				continue
+			}
+			e.AClientID = e.NodeAID
+			e.BClientID = e.NodeBID
+			edges = append(edges, e)
+		}
+		return nil
+	}); err != nil {
+		log.Printf("getExpedition: %v", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
 		return
 	}
@@ -174,13 +160,8 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	var in expeditionPayload
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+	if err := decodeJSON(r, &in); err != nil {
 		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -188,99 +169,81 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "settlement_id required", http.StatusBadRequest)
 		return
 	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("saveExpedition: begin tx: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	expeditionID, _, err := ensureExpeditionRow(tx, in.SettlementID)
-	if err != nil {
-		log.Printf("saveExpedition: ensure row: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-
-	// Update header (map asset).
-	if _, err := tx.Exec(`UPDATE tooling.expeditions SET map_asset_id = $1, updated_at = now() WHERE expedition_id = $2`,
-		in.MapAssetID, expeditionID); err != nil {
-		log.Printf("saveExpedition: update header: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-
-	// Replace whole graph: delete edges first (FK), then nodes.
-	if _, err := tx.Exec(`DELETE FROM tooling.expedition_edges WHERE expedition_id = $1`, expeditionID); err != nil {
-		log.Printf("saveExpedition: delete edges: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-	if _, err := tx.Exec(`DELETE FROM tooling.expedition_nodes WHERE expedition_id = $1`, expeditionID); err != nil {
-		log.Printf("saveExpedition: delete nodes: %v", err)
-		http.Error(w, "DB error", http.StatusInternalServerError)
-		return
-	}
-
-	// Insert nodes; build client_id -> new node_id map.
-	clientToDB := map[int]int{}
-	outNodes := make([]expeditionNode, 0, len(in.Nodes))
 	for _, n := range in.Nodes {
 		if n.ClientID == 0 {
 			http.Error(w, "node missing client_id", http.StatusBadRequest)
 			return
 		}
-		var newID int
-		err := tx.QueryRow(`INSERT INTO tooling.expedition_nodes
+	}
+
+	var expeditionID int
+	outNodes := make([]expeditionNode, 0, len(in.Nodes))
+	outEdges := make([]expeditionEdge, 0, len(in.Edges))
+
+	if err := withTx(func(tx *sql.Tx) error {
+		var err error
+		expeditionID, _, err = ensureExpeditionRow(tx, in.SettlementID)
+		if err != nil {
+			return fmt.Errorf("ensure row: %w", err)
+		}
+
+		if _, err := tx.Exec(`UPDATE tooling.expeditions SET map_asset_id = $1, updated_at = now() WHERE expedition_id = $2`,
+			in.MapAssetID, expeditionID); err != nil {
+			return fmt.Errorf("update header: %w", err)
+		}
+
+		if _, err := tx.Exec(`DELETE FROM tooling.expedition_edges WHERE expedition_id = $1`, expeditionID); err != nil {
+			return fmt.Errorf("delete edges: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM tooling.expedition_nodes WHERE expedition_id = $1`, expeditionID); err != nil {
+			return fmt.Errorf("delete nodes: %w", err)
+		}
+
+		clientToDB := map[int]int{}
+		for _, n := range in.Nodes {
+			var newID int
+			err := tx.QueryRow(`INSERT INTO tooling.expedition_nodes
 			(expedition_id, quest_id, is_start, pos_x, pos_y, label)
 			VALUES ($1, $2, $3, $4, $5, $6) RETURNING node_id`,
-			expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&newID)
-		if err != nil {
-			log.Printf("saveExpedition: insert node: %v", err)
-			http.Error(w, "DB error", http.StatusInternalServerError)
-			return
+				expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&newID)
+			if err != nil {
+				return fmt.Errorf("insert node: %w", err)
+			}
+			clientToDB[n.ClientID] = newID
+			n.NodeID = newID
+			outNodes = append(outNodes, n)
 		}
-		clientToDB[n.ClientID] = newID
-		n.NodeID = newID
-		outNodes = append(outNodes, n)
-	}
 
-	// Insert edges, resolving client ids.
-	outEdges := make([]expeditionEdge, 0, len(in.Edges))
-	seenPair := map[[2]int]bool{}
-	for _, e := range in.Edges {
-		a, okA := clientToDB[e.AClientID]
-		b, okB := clientToDB[e.BClientID]
-		if !okA || !okB || a == b {
-			continue
-		}
-		key := [2]int{a, b}
-		if a > b {
-			key = [2]int{b, a}
-		}
-		if seenPair[key] {
-			continue
-		}
-		seenPair[key] = true
-		var newID int
-		err := tx.QueryRow(`INSERT INTO tooling.expedition_edges
+		seenPair := map[[2]int]bool{}
+		for _, e := range in.Edges {
+			a, okA := clientToDB[e.AClientID]
+			b, okB := clientToDB[e.BClientID]
+			if !okA || !okB || a == b {
+				continue
+			}
+			key := [2]int{a, b}
+			if a > b {
+				key = [2]int{b, a}
+			}
+			if seenPair[key] {
+				continue
+			}
+			seenPair[key] = true
+			var newID int
+			err := tx.QueryRow(`INSERT INTO tooling.expedition_edges
 			(expedition_id, node_a, node_b) VALUES ($1, $2, $3) RETURNING edge_id`,
-			expeditionID, a, b).Scan(&newID)
-		if err != nil {
-			log.Printf("saveExpedition: insert edge: %v", err)
-			http.Error(w, "DB error", http.StatusInternalServerError)
-			return
+				expeditionID, a, b).Scan(&newID)
+			if err != nil {
+				return fmt.Errorf("insert edge: %w", err)
+			}
+			outEdges = append(outEdges, expeditionEdge{
+				EdgeID: newID, NodeAID: a, NodeBID: b,
+				AClientID: a, BClientID: b,
+			})
 		}
-		outEdges = append(outEdges, expeditionEdge{
-			EdgeID: newID, NodeAID: a, NodeBID: b,
-			AClientID: a, BClientID: b,
-		})
-	}
-
-	if err := tx.Commit(); err != nil {
-		log.Printf("saveExpedition: commit: %v", err)
+		return nil
+	}); err != nil {
+		log.Printf("saveExpedition: %v", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
 		return
 	}
@@ -308,11 +271,6 @@ func handleGetQuestsLite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	settlementIDStr := r.URL.Query().Get("settlementId")
 	settlementID, err := strconv.Atoi(settlementIDStr)
 	if err != nil || settlementID <= 0 {

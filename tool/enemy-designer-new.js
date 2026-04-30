@@ -203,15 +203,11 @@ async function loadEnemyDesignerData(options = {}) {
 // ==================== LIST RENDERING ====================
 
 function renderEnemyList() {
-    const list = document.getElementById('enemyList');
-    if (!list) return;
-    
-    if (filteredEnemies.length === 0) {
-        list.innerHTML = '<p class="loading-text">No enemies found</p>';
-        return;
-    }
-    
-    list.innerHTML = filteredEnemies.map(enemy => `
+    DesignerBase.renderSidebarList({
+        listId: 'enemyList',
+        items: filteredEnemies,
+        emptyHtml: '<p class="loading-text">No enemies found</p>',
+        renderItem: enemy => `
         <div class="enemy-list-item ${enemy.enemyId === selectedEnemyId && enemyActiveTab === 'game' ? 'selected' : ''}"
              data-id="${enemy.enemyId}" onclick="selectEnemy(${enemy.enemyId})">
             <div class="enemy-list-icon">
@@ -222,26 +218,23 @@ function renderEnemyList() {
                 <span class="enemy-stats">STR:${enemy.strength} STA:${enemy.stamina} AGI:${enemy.agility}</span>
             </div>
         </div>
-    `).join('');
+    `
+    });
 }
 
 function renderPendingEnemyList() {
-    const list = document.getElementById('pendingEnemyList');
-    if (!list) return;
-    
-    // Update merge button enabled state
-    const mergeBtn = document.getElementById('mergeEnemiesBtn');
-    if (mergeBtn) mergeBtn.disabled = !allPendingEnemies.some(e => e.approved);
-    
-    if (filteredPendingEnemies.length === 0) {
-        list.innerHTML = '<p class="loading-text">No pending enemies</p>';
-        return;
-    }
-    
-    list.innerHTML = filteredPendingEnemies.map(enemy => {
-        const asset = enemyAssets.find(a => a.assetID === enemy.assetId);
-        const iconUrl = enemy.icon || (asset ? asset.icon : null);
-        return `
+    DesignerBase.renderSidebarList({
+        listId: 'pendingEnemyList',
+        items: filteredPendingEnemies,
+        emptyHtml: '<p class="loading-text">No pending enemies</p>',
+        beforeRender: () => {
+            const mergeBtn = document.getElementById('mergeEnemiesBtn');
+            if (mergeBtn) mergeBtn.disabled = !allPendingEnemies.some(e => e.approved);
+        },
+        renderItem: enemy => {
+            const asset = enemyAssets.find(a => a.assetID === enemy.assetId);
+            const iconUrl = enemy.icon || (asset ? asset.icon : null);
+            return `
         <div class="enemy-list-item pending-enemy ${enemy.toolingId === selectedEnemyId && enemyActiveTab === 'pending' ? 'selected' : ''}"
              data-id="${enemy.toolingId}" onclick="selectPendingEnemy(${enemy.toolingId})">
             <div class="enemy-list-icon">
@@ -267,14 +260,15 @@ function renderPendingEnemyList() {
                 </div>
             </div>
         </div>
-    `}).join('');
+    `;
+        }
+    });
 }
 
 function filterEnemies() {
     const searchTerm = document.getElementById('enemySearch')?.value.toLowerCase() || '';
-    
-    filteredEnemies = allEnemies.filter(e => e.enemyName.toLowerCase().includes(searchTerm));
-    filteredPendingEnemies = allPendingEnemies.filter(e => e.enemyName.toLowerCase().includes(searchTerm));
+    filteredEnemies = DesignerBase.filterSidebarItems(allEnemies, searchTerm, enemy => enemy.enemyName);
+    filteredPendingEnemies = DesignerBase.filterSidebarItems(allPendingEnemies, searchTerm, enemy => enemy.enemyName);
     
     renderEnemyList();
     renderPendingEnemyList();
@@ -291,28 +285,14 @@ function switchEnemyTab(tab) {
     clearEnemyForm();
     clearTalentTree();
     
-    const gameTab = document.getElementById('gameEnemiesTab');
-    const pendingTab = document.getElementById('pendingEnemiesTab');
-    const gameList = document.getElementById('enemyList');
-    const pendingList = document.getElementById('pendingEnemyList');
-    const newBtn = document.getElementById('newEnemyBtn');
-    const mergeBtn = document.getElementById('mergeEnemiesBtn');
-    
-    if (tab === 'game') {
-        gameTab?.classList.add('active');
-        pendingTab?.classList.remove('active');
-        if (gameList) gameList.style.display = 'block';
-        if (pendingList) pendingList.style.display = 'none';
-        if (newBtn) newBtn.style.display = 'block';
-        if (mergeBtn) mergeBtn.style.display = 'none';
-    } else {
-        gameTab?.classList.remove('active');
-        pendingTab?.classList.add('active');
-        if (gameList) gameList.style.display = 'none';
-        if (pendingList) pendingList.style.display = 'block';
-        if (newBtn) newBtn.style.display = 'none';
-        if (mergeBtn) mergeBtn.style.display = 'block';
-    }
+    DesignerBase.switchTab(tab, {
+        gameTabId: 'gameEnemiesTab',
+        pendingTabId: 'pendingEnemiesTab',
+        gameListId: 'enemyList',
+        pendingListId: 'pendingEnemyList',
+        newBtnId: 'newEnemyBtn',
+        mergeBtnId: 'mergeEnemiesBtn'
+    });
     
     renderEnemyList();
     renderPendingEnemyList();

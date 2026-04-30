@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -75,13 +72,6 @@ type ItemsResponse struct {
 // handleGetItems handles GET requests to retrieve all items with signed URLs
 func handleGetItems(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET ITEMS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to get items")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -288,13 +278,6 @@ var validItemTypes = map[string]bool{
 func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== CREATE ITEM REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to create item")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -311,17 +294,8 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
 	var req CreateItemRequest
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -379,7 +353,7 @@ func handleCreateItem(w http.ResponseWriter, r *http.Request) {
 	`
 
 	var toolingID int
-	err = db.QueryRow(
+	err := db.QueryRow(
 		query,
 		gameID,
 		action,
@@ -506,13 +480,6 @@ func getPendingItems() ([]PendingItem, error) {
 func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== TOGGLE APPROVE ITEM REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to toggle item approval")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -529,19 +496,10 @@ func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	// Parse JSON
 	var req struct {
 		ToolingID int `json:"toolingId"`
 	}
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -556,7 +514,7 @@ func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Call tooling.toggle_approve_item function
-	_, err = db.Exec(`SELECT tooling.toggle_approve_item($1)`, req.ToolingID)
+	_, err := db.Exec(`SELECT tooling.toggle_approve_item($1)`, req.ToolingID)
 	if err != nil {
 		log.Printf("Error calling tooling.toggle_approve_item: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to toggle approval: %v", err), http.StatusInternalServerError)
@@ -583,13 +541,6 @@ func handleToggleApproveItem(w http.ResponseWriter, r *http.Request) {
 // handleMergeItems handles POST requests to merge approved items into game.items
 func handleMergeItems(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== MERGE ITEMS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to merge items")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -648,13 +599,6 @@ type ItemAsset struct {
 // handleGetItemAssets handles GET requests to list available item assets from S3
 func handleGetItemAssets(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET ITEM ASSETS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to get item assets")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -761,13 +705,6 @@ func listItemAssets() ([]ItemAsset, error) {
 func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPLOAD ITEM ASSET REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to upload item asset")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -797,14 +734,7 @@ func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 		ContentType string `json:"contentType"`
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -813,7 +743,7 @@ func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Uploading item asset with ID: %d", req.AssetID)
 
 	// Upload to S3 using custom key for items
-	s3Key, err := uploadItemAssetToS3(req.ImageData, req.ContentType, req.AssetID)
+	s3Key, err := UploadAssetToS3("items", req.AssetID, req.ImageData, req.ContentType)
 	if err != nil {
 		log.Printf("Error uploading to S3: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
@@ -838,49 +768,6 @@ func handleUploadItemAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✅ UPLOAD ITEM ASSET RESPONSE SENT - Asset ID: %d", req.AssetID)
-}
-
-// uploadItemAssetToS3 uploads an item asset to the items folder in S3
-func uploadItemAssetToS3(imageData, contentType string, assetID int) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized")
-	}
-
-	log.Printf("Uploading item asset to S3 with asset ID: %d", assetID)
-
-	// Decode base64 image data
-	// Remove data URL prefix if present (data:image/png;base64,...)
-	if strings.Contains(imageData, ",") {
-		parts := strings.Split(imageData, ",")
-		if len(parts) == 2 {
-			imageData = parts[1]
-		}
-	}
-
-	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64 image: %v", err)
-	}
-
-	// Use asset ID as filename in the items folder
-	filename := fmt.Sprintf("images/items/%d.webp", assetID)
-
-	// Create S3 upload input
-	uploadInput := &s3.PutObjectInput{
-		Bucket:      aws.String(S3_BUCKET_NAME),
-		Key:         aws.String(filename),
-		Body:        bytes.NewReader(imageBytes),
-		ContentType: aws.String(contentType),
-	}
-
-	// Upload to S3
-	_, err = s3Client.PutObject(context.TODO(), uploadInput)
-	if err != nil {
-		return "", fmt.Errorf("failed to upload to S3: %v", err)
-	}
-
-	log.Printf("Item asset uploaded to S3: %s", filename)
-	return filename, nil
 }
 
 // getNextItemAssetID returns the next available asset ID for items

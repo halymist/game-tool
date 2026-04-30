@@ -29,11 +29,6 @@ type CosmeticResponse struct {
 
 // handleGetCosmetics returns all cosmetics from game.cosmetics
 func handleGetCosmetics(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "GET" {
@@ -64,11 +59,6 @@ func handleGetCosmetics(w http.ResponseWriter, r *http.Request) {
 
 // handleSaveCosmetic creates or updates a cosmetic in game.cosmetics
 func handleSaveCosmetic(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "POST" {
@@ -77,7 +67,7 @@ func handleSaveCosmetic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req Cosmetic
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: "Invalid request"})
 		return
 	}
@@ -108,11 +98,6 @@ func handleSaveCosmetic(w http.ResponseWriter, r *http.Request) {
 
 // handleDeleteCosmetic deletes a cosmetic from game.cosmetics
 func handleDeleteCosmetic(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "POST" {
@@ -123,7 +108,7 @@ func handleDeleteCosmetic(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID int `json:"id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ID == 0 {
+	if err := decodeJSON(r, &req); err != nil || req.ID == 0 {
 		json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: "Invalid request"})
 		return
 	}
@@ -139,11 +124,6 @@ func handleDeleteCosmetic(w http.ResponseWriter, r *http.Request) {
 
 // handleUploadCosmetic creates a new cosmetic record (or updates existing) and uploads image to R2.
 func handleUploadCosmetic(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "POST" {
@@ -158,7 +138,7 @@ func handleUploadCosmetic(w http.ResponseWriter, r *http.Request) {
 		ImageData   string `json:"imageData"`
 		ContentType string `json:"contentType"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(CosmeticResponse{Success: false, Message: "Invalid request"})
 		return
 	}
@@ -200,11 +180,6 @@ func handleUploadCosmetic(w http.ResponseWriter, r *http.Request) {
 // handleGetCosmeticsVersioned returns cosmetics newer than client version.
 // Query param: ?version=N (returns rows where version > N, plus the current max version)
 func handleGetCosmeticsVersioned(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != "GET" {

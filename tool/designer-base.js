@@ -439,6 +439,27 @@ const DesignerBase = {
             config.onTabSwitch(tab);
         }
     },
+
+    renderSidebarList({ listId, items = [], emptyHtml = '<p class="loading-text">No entries found</p>', renderItem, beforeRender }) {
+        const list = document.getElementById(listId);
+        if (!list || typeof renderItem !== 'function') return;
+        if (typeof beforeRender === 'function') beforeRender(list);
+        if (!items.length) {
+            list.innerHTML = emptyHtml;
+            return;
+        }
+        list.innerHTML = items.map(renderItem).join('');
+    },
+
+    filterSidebarItems(items = [], searchTerm = '', getSearchText, extraFilter) {
+        const search = String(searchTerm || '').trim().toLowerCase();
+        return items.filter(item => {
+            const text = typeof getSearchText === 'function' ? String(getSearchText(item) || '').toLowerCase() : '';
+            const matchesSearch = !search || text.includes(search);
+            const matchesExtra = typeof extraFilter === 'function' ? extraFilter(item) : true;
+            return matchesSearch && matchesExtra;
+        });
+    },
     
     // ==================== FORM LOCKING ====================
     

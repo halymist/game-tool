@@ -75,7 +75,7 @@ func handleAddBannedWord(w http.ResponseWriter, r *http.Request) {
 		Severity *int   `json:"severity"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(BannedWordResponse{Success: false, Message: "Invalid request body"})
 		return
 	}
@@ -118,7 +118,7 @@ func handleDeleteBannedWord(w http.ResponseWriter, r *http.Request) {
 		ID int `json:"id"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(BannedWordResponse{Success: false, Message: "Invalid request body"})
 		return
 	}

@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -75,13 +72,6 @@ type PerkAsset struct {
 // getPerksHandler handles GET requests to retrieve all perks with signed URLs
 func getPerksHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET PERKS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to get perks")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set CORS headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -324,13 +314,6 @@ func getPendingPerks() ([]PendingPerk, error) {
 func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== CREATE PERK REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to create perk")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -360,14 +343,7 @@ func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 		IsBlessing  bool    `json:"is_blessing"`
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -386,7 +362,7 @@ func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 
 	// Call tooling.create_perk function
 	var toolingID int
-	err = db.QueryRow(`
+	err := db.QueryRow(`
 		SELECT tooling.create_perk(
 			$1::smallint,
 			$2::text,
@@ -430,13 +406,6 @@ func handleCreatePerk(w http.ResponseWriter, r *http.Request) {
 func handleToggleApprovePerk(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== TOGGLE APPROVE PERK REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to toggle perk approval")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -458,14 +427,7 @@ func handleToggleApprovePerk(w http.ResponseWriter, r *http.Request) {
 		ToolingID int `json:"toolingId"`
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -474,7 +436,7 @@ func handleToggleApprovePerk(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Toggle approval for perk tooling_id: %d", req.ToolingID)
 
 	// Call tooling.toggle_approve_perk function
-	_, err = db.Exec(`SELECT tooling.toggle_approve_perk($1)`, req.ToolingID)
+	_, err := db.Exec(`SELECT tooling.toggle_approve_perk($1)`, req.ToolingID)
 	if err != nil {
 		log.Printf("Error calling tooling.toggle_approve_perk: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to toggle approval: %v", err), http.StatusInternalServerError)
@@ -500,13 +462,6 @@ func handleToggleApprovePerk(w http.ResponseWriter, r *http.Request) {
 // handleMergePerks handles POST requests to merge approved perks into game.perks_info
 func handleMergePerks(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== MERGE PERKS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to merge perks")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -552,13 +507,6 @@ func handleMergePerks(w http.ResponseWriter, r *http.Request) {
 // handleGetPerkAssets handles GET requests to list available perk assets from S3
 func handleGetPerkAssets(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET PERK ASSETS REQUEST ===")
-
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to get perk assets")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -664,13 +612,6 @@ func listPerkAssets() ([]PerkAsset, error) {
 func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPLOAD PERK ASSET REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to upload perk asset")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -700,14 +641,7 @@ func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 		ContentType string `json:"contentType"`
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -716,7 +650,7 @@ func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Uploading perk asset with ID: %d", req.AssetID)
 
 	// Upload to S3
-	s3Key, err := uploadPerkAssetToS3(req.ImageData, req.ContentType, req.AssetID)
+	s3Key, err := UploadAssetToS3("perks", req.AssetID, req.ImageData, req.ContentType)
 	if err != nil {
 		log.Printf("Error uploading to S3: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
@@ -741,46 +675,4 @@ func handleUploadPerkAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("✅ UPLOAD PERK ASSET RESPONSE SENT - Asset ID: %d", req.AssetID)
-}
-
-// uploadPerkAssetToS3 uploads a perk asset to the perks folder in S3
-func uploadPerkAssetToS3(imageData, contentType string, assetID int) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized")
-	}
-
-	log.Printf("Uploading perk asset to S3 with asset ID: %d", assetID)
-
-	// Decode base64 image data
-	if strings.Contains(imageData, ",") {
-		parts := strings.Split(imageData, ",")
-		if len(parts) == 2 {
-			imageData = parts[1]
-		}
-	}
-
-	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64 image: %v", err)
-	}
-
-	// Use asset ID as filename in the perks folder
-	filename := fmt.Sprintf("images/perks/%d.webp", assetID)
-
-	// Create S3 upload input
-	uploadInput := &s3.PutObjectInput{
-		Bucket:      aws.String(S3_BUCKET_NAME),
-		Key:         aws.String(filename),
-		Body:        bytes.NewReader(imageBytes),
-		ContentType: aws.String(contentType),
-	}
-
-	// Upload to S3
-	_, err = s3Client.PutObject(context.TODO(), uploadInput)
-	if err != nil {
-		return "", fmt.Errorf("failed to upload to S3: %v", err)
-	}
-
-	log.Printf("Perk asset uploaded to S3: %s", filename)
-	return filename, nil
 }

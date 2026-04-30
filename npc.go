@@ -40,11 +40,6 @@ type NpcRequest struct {
 func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET NPCS REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -92,11 +87,6 @@ func handleGetNpcs(w http.ResponseWriter, r *http.Request) {
 func handleCreateNpc(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== CREATE NPC REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -113,7 +103,7 @@ func handleCreateNpc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req NpcRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(NpcResponse{Success: false, Message: "Invalid request body"})
 		return
 	}
@@ -150,11 +140,6 @@ func handleCreateNpc(w http.ResponseWriter, r *http.Request) {
 func handleUpdateNpc(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPDATE NPC REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -171,7 +156,7 @@ func handleUpdateNpc(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req NpcRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(NpcResponse{Success: false, Message: "Invalid request body"})
 		return
 	}
@@ -212,11 +197,6 @@ func handleUpdateNpc(w http.ResponseWriter, r *http.Request) {
 
 func handleDeleteNpc(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== DELETE NPC REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "DELETE, OPTIONS")

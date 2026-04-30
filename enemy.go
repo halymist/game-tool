@@ -1,9 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -124,12 +124,6 @@ type CreateEnemyRequest struct {
 func handleGetEnemies(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET ENEMIES REQUEST ===")
 
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to get enemies")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -217,12 +211,6 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
 
-	if !isAuthenticated(r) {
-		log.Printf("GET EFFECTS DENIED - no auth")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	effects, err := getAllEffects()
 	if err != nil {
 		log.Printf("ERROR: Failed to get effects: %v", err)
@@ -245,12 +233,6 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== CREATE ENEMY REQUEST ===")
 
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to create enemy")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -266,15 +248,8 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
 	var req CreateEnemyRequest
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -305,36 +280,29 @@ func handleCreateEnemy(w http.ResponseWriter, r *http.Request) {
 
 // createPendingEnemy writes to tooling.enemies and tooling.enemy_talents directly, matching the lean schema.
 func createPendingEnemy(req CreateEnemyRequest, action string) (int, error) {
-	tx, err := db.Begin()
-	if err != nil {
-		return 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
 	var toolingID int
-	if err := tx.QueryRow(`
-		INSERT INTO tooling.enemies (game_id, action, approved, enemy_name, strength, stamina, agility, luck,
-		                             armor, min_damage, max_damage, asset_id, description)
-		VALUES ($1,$2,FALSE,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-		RETURNING tooling_id
-	`, req.GameID, action, req.EnemyName, req.Strength, req.Stamina, req.Agility, req.Luck, req.Armor,
-		req.MinDamage, req.MaxDamage, req.AssetID, req.Description).Scan(&toolingID); err != nil {
-		return 0, fmt.Errorf("insert pending enemy: %w", err)
-	}
+	if err := withTx(func(tx *sql.Tx) error {
+		if err := tx.QueryRow(`
+			INSERT INTO tooling.enemies (game_id, action, approved, enemy_name, strength, stamina, agility, luck,
+			                             armor, min_damage, max_damage, asset_id, description)
+			VALUES ($1,$2,FALSE,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+			RETURNING tooling_id
+		`, req.GameID, action, req.EnemyName, req.Strength, req.Stamina, req.Agility, req.Luck, req.Armor,
+			req.MinDamage, req.MaxDamage, req.AssetID, req.Description).Scan(&toolingID); err != nil {
+			return fmt.Errorf("insert pending enemy: %w", err)
+		}
 
-	if len(req.Talents) > 0 {
 		for _, t := range req.Talents {
 			if _, err := tx.Exec(`
 				INSERT INTO tooling.enemy_talents (enemy_id, talent_id, points, talent_order, perk_id, action, approved)
 				VALUES ($1, $2, $3, $4, $5, $6, FALSE)
 			`, toolingID, t.TalentID, t.Points, t.TalentOrder, t.PerkID, action); err != nil {
-				return 0, fmt.Errorf("insert pending talent %d: %w", t.TalentID, err)
+				return fmt.Errorf("insert pending talent %d: %w", t.TalentID, err)
 			}
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit pending enemy: %w", err)
+		return nil
+	}); err != nil {
+		return 0, err
 	}
 
 	return toolingID, nil
@@ -343,11 +311,6 @@ func createPendingEnemy(req CreateEnemyRequest, action string) (int, error) {
 // handleToggleApproveEnemy toggles approval for a pending enemy
 func handleToggleApproveEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== TOGGLE APPROVE ENEMY REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -365,8 +328,7 @@ func handleToggleApproveEnemy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req ToggleApproveRequest
-	body, _ := io.ReadAll(r.Body)
-	json.Unmarshal(body, &req)
+	_ = decodeJSON(r, &req)
 
 	log.Printf("Toggle approve enemy: toolingId=%d", req.ToolingID)
 
@@ -384,11 +346,6 @@ func handleToggleApproveEnemy(w http.ResponseWriter, r *http.Request) {
 // handleMergeEnemies merges approved enemies into game schema
 func handleMergeEnemies(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== MERGE ENEMIES REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -493,84 +450,75 @@ func mergeEnemies() error {
 		trows.Close()
 	}
 
-	// Now do all writes in a single transaction with no open result sets
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
+	if err := withTx(func(tx *sql.Tx) error {
+		toolingToGameID := make(map[int]int)
 
-	// Map toolingID -> gameEnemyID for talent inserts
-	toolingToGameID := make(map[int]int)
-
-	for _, p := range enemies {
-		var targetID int
-		switch strings.ToLower(p.action) {
-		case "insert":
-			err := tx.QueryRow(`
+		for _, p := range enemies {
+			var targetID int
+			switch strings.ToLower(p.action) {
+			case "insert":
+				err := tx.QueryRow(`
 				INSERT INTO game.enemies (enemy_name, strength, stamina, agility, luck, armor,
 					min_damage, max_damage, asset_id, description, version)
 				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1)
 				RETURNING enemy_id
 			`, p.name, p.strength, p.stamina, p.agility, p.luck, p.armor,
-				p.minDamage, p.maxDamage, p.assetID, p.description).Scan(&targetID)
-			if err != nil {
-				return fmt.Errorf("insert enemy %s: %w", p.name, err)
-			}
+					p.minDamage, p.maxDamage, p.assetID, p.description).Scan(&targetID)
+				if err != nil {
+					return fmt.Errorf("insert enemy %s: %w", p.name, err)
+				}
 
-		case "update":
-			if p.gameID == nil {
-				return fmt.Errorf("pending enemy %d marked update without game_id", p.toolingID)
-			}
-			targetID = *p.gameID
-			_, err := tx.Exec(`
+			case "update":
+				if p.gameID == nil {
+					return fmt.Errorf("pending enemy %d marked update without game_id", p.toolingID)
+				}
+				targetID = *p.gameID
+				_, err := tx.Exec(`
 				UPDATE game.enemies
 				SET enemy_name=$1, strength=$2, stamina=$3, agility=$4, luck=$5, armor=$6,
 				    min_damage=$7, max_damage=$8, asset_id=$9, description=$10,
 				    version = COALESCE(version,1) + 1
 				WHERE enemy_id=$11
 			`, p.name, p.strength, p.stamina, p.agility, p.luck, p.armor,
-				p.minDamage, p.maxDamage, p.assetID, p.description, targetID)
-			if err != nil {
-				return fmt.Errorf("update enemy %d: %w", targetID, err)
-			}
-			_, err = tx.Exec(`DELETE FROM game.enemy_talents WHERE enemy_id = $1`, targetID)
-			if err != nil {
-				return fmt.Errorf("clear talents for enemy %d: %w", targetID, err)
-			}
+					p.minDamage, p.maxDamage, p.assetID, p.description, targetID)
+				if err != nil {
+					return fmt.Errorf("update enemy %d: %w", targetID, err)
+				}
+				_, err = tx.Exec(`DELETE FROM game.enemy_talents WHERE enemy_id = $1`, targetID)
+				if err != nil {
+					return fmt.Errorf("clear talents for enemy %d: %w", targetID, err)
+				}
 
-		default:
-			return fmt.Errorf("unsupported action '%s' for pending enemy %d", p.action, p.toolingID)
+			default:
+				return fmt.Errorf("unsupported action '%s' for pending enemy %d", p.action, p.toolingID)
+			}
+			toolingToGameID[p.toolingID] = targetID
 		}
-		toolingToGameID[p.toolingID] = targetID
-	}
 
-	// Insert talents
-	for _, t := range talents {
-		targetID := toolingToGameID[t.enemyToolingID]
-		_, err := tx.Exec(`
+		for _, t := range talents {
+			targetID := toolingToGameID[t.enemyToolingID]
+			_, err := tx.Exec(`
 			INSERT INTO game.enemy_talents (enemy_id, talent_id, points, talent_order, perk_id)
 			VALUES ($1, $2, $3, $4, $5)
 		`, targetID, t.talentID, t.points, t.talentOrder, t.perkID)
-		if err != nil {
-			return fmt.Errorf("insert talent %d for enemy %d: %w", t.talentID, targetID, err)
+			if err != nil {
+				return fmt.Errorf("insert talent %d for enemy %d: %w", t.talentID, targetID, err)
+			}
 		}
-	}
 
-	// Cleanup tooling tables
-	for _, p := range enemies {
-		_, err := tx.Exec(`DELETE FROM tooling.enemy_talents WHERE enemy_id = $1`, p.toolingID)
-		if err != nil {
-			return fmt.Errorf("cleanup pending talents for %d: %w", p.toolingID, err)
+		for _, p := range enemies {
+			_, err := tx.Exec(`DELETE FROM tooling.enemy_talents WHERE enemy_id = $1`, p.toolingID)
+			if err != nil {
+				return fmt.Errorf("cleanup pending talents for %d: %w", p.toolingID, err)
+			}
+			_, err = tx.Exec(`DELETE FROM tooling.enemies WHERE tooling_id = $1`, p.toolingID)
+			if err != nil {
+				return fmt.Errorf("cleanup pending enemy %d: %w", p.toolingID, err)
+			}
 		}
-		_, err = tx.Exec(`DELETE FROM tooling.enemies WHERE tooling_id = $1`, p.toolingID)
-		if err != nil {
-			return fmt.Errorf("cleanup pending enemy %d: %w", p.toolingID, err)
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit merge: %w", err)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -579,11 +527,6 @@ func mergeEnemies() error {
 // handleRemovePendingEnemy removes a pending enemy
 func handleRemovePendingEnemy(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== REMOVE PENDING ENEMY REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -601,8 +544,7 @@ func handleRemovePendingEnemy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req RemovePendingRequest
-	body, _ := io.ReadAll(r.Body)
-	json.Unmarshal(body, &req)
+	_ = decodeJSON(r, &req)
 
 	log.Printf("Remove pending enemy: toolingId=%d", req.ToolingID)
 

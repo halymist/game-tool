@@ -245,37 +245,30 @@ async function loadItemsAndEffects(options = {}) {
 }
 
 function renderItemList() {
-    const itemList = document.getElementById('itemList');
-    if (!itemList) return;
-    
-    if (filteredItems.length === 0) {
-        itemList.innerHTML = '<p class="loading-text">No items found</p>';
-        return;
-    }
-    
-    itemList.innerHTML = filteredItems.map(item => `
+    DesignerBase.renderSidebarList({
+        listId: 'itemList',
+        items: filteredItems,
+        emptyHtml: '<p class="loading-text">No items found</p>',
+        renderItem: item => `
         <div class="item-list-item ${item.id === selectedItemId && activeTab === 'game' ? 'selected' : ''}" 
              data-id="${item.id}" onclick="selectItem(${item.id})">
             <div class="item-name">${escapeHtml(item.name)}</div>
             <div class="item-type">${item.type || 'Unknown'}</div>
         </div>
-    `).join('');
+    `
+    });
 }
 
 function renderPendingItemList() {
-    const pendingList = document.getElementById('pendingItemList');
-    if (!pendingList) return;
-    
-    // Update merge button enabled state
-    const mergeBtn = document.getElementById('mergeItemsBtn');
-    if (mergeBtn) mergeBtn.disabled = !allPendingItems.some(i => i.approved);
-    
-    if (filteredPendingItems.length === 0) {
-        pendingList.innerHTML = '<p class="loading-text">No pending items</p>';
-        return;
-    }
-    
-    pendingList.innerHTML = filteredPendingItems.map(item => `
+    DesignerBase.renderSidebarList({
+        listId: 'pendingItemList',
+        items: filteredPendingItems,
+        emptyHtml: '<p class="loading-text">No pending items</p>',
+        beforeRender: () => {
+            const mergeBtn = document.getElementById('mergeItemsBtn');
+            if (mergeBtn) mergeBtn.disabled = !allPendingItems.some(i => i.approved);
+        },
+        renderItem: item => `
         <div class="item-list-item pending-item ${item.toolingId === selectedItemId && activeTab === 'pending' ? 'selected' : ''}" 
              data-id="${item.toolingId}" onclick="selectPendingItem(${item.toolingId})">
             <div class="pending-item-header">
@@ -298,24 +291,16 @@ function renderPendingItemList() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `
+    });
 }
 
 function filterItems() {
     const searchTerm = document.getElementById('itemSearch')?.value.toLowerCase() || '';
     const typeFilter = document.getElementById('itemTypeFilter')?.value || '';
-    
-    filteredItems = allItems.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm);
-        const matchesType = !typeFilter || item.type === typeFilter;
-        return matchesSearch && matchesType;
-    });
-    
-    filteredPendingItems = allPendingItems.filter(item => {
-        const matchesSearch = item.name.toLowerCase().includes(searchTerm);
-        const matchesType = !typeFilter || item.type === typeFilter;
-        return matchesSearch && matchesType;
-    });
+    const matchesType = item => !typeFilter || item.type === typeFilter;
+    filteredItems = DesignerBase.filterSidebarItems(allItems, searchTerm, item => item.name, matchesType);
+    filteredPendingItems = DesignerBase.filterSidebarItems(allPendingItems, searchTerm, item => item.name, matchesType);
     
     renderItemList();
     renderPendingItemList();
@@ -455,24 +440,14 @@ async function mergeApprovedItems() {
 
 function switchTab(tab) {
     activeTab = tab;
-    
-    // Update tab buttons
-    const gameTab = document.getElementById('gameItemsTab');
-    const pendingTab = document.getElementById('pendingItemsTab');
-    if (gameTab) gameTab.classList.toggle('active', tab === 'game');
-    if (pendingTab) pendingTab.classList.toggle('active', tab === 'pending');
-    
-    // Show/hide lists
-    const itemList = document.getElementById('itemList');
-    const pendingList = document.getElementById('pendingItemList');
-    if (itemList) itemList.style.display = tab === 'game' ? 'block' : 'none';
-    if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
-    
-    // Show/hide buttons based on tab
-    const newItemBtn = document.getElementById('newItemBtn');
-    const mergeItemsBtn = document.getElementById('mergeItemsBtn');
-    if (newItemBtn) newItemBtn.style.display = tab === 'game' ? 'block' : 'none';
-    if (mergeItemsBtn) mergeItemsBtn.style.display = tab === 'pending' ? 'block' : 'none';
+    DesignerBase.switchTab(tab, {
+        gameTabId: 'gameItemsTab',
+        pendingTabId: 'pendingItemsTab',
+        gameListId: 'itemList',
+        pendingListId: 'pendingItemList',
+        newBtnId: 'newItemBtn',
+        mergeBtnId: 'mergeItemsBtn'
+    });
     
     // Clear selection when switching tabs
     selectedItemId = null;

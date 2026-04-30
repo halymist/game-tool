@@ -121,16 +121,13 @@ func ListAssetsFromS3(folder string) ([]AssetInfo, error) {
 	return assets, nil
 }
 
-// UploadAssetToS3 uploads an asset to a specific S3 folder
-func UploadAssetToS3(folder string, assetID int, imageData, contentType string) (string, error) {
+func UploadAssetToS3Key(s3Key, imageData, contentType string) (string, error) {
 	if s3Client == nil {
 		return "", fmt.Errorf("S3 client not initialized")
 	}
 
-	log.Printf("Uploading asset to S3 folder %s with ID: %d", folder, assetID)
+	log.Printf("Uploading asset to S3 key: %s", s3Key)
 
-	// Decode base64 image data
-	// Remove data URL prefix if present (data:image/png;base64,...)
 	if strings.Contains(imageData, ",") {
 		parts := strings.Split(imageData, ",")
 		if len(parts) == 2 {
@@ -143,18 +140,6 @@ func UploadAssetToS3(folder string, assetID int, imageData, contentType string) 
 		return "", fmt.Errorf("failed to decode base64 image: %v", err)
 	}
 
-	// Determine file extension based on content type
-	ext := ".webp"
-	if strings.Contains(contentType, "png") {
-		ext = ".png"
-	} else if strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "jpg") {
-		ext = ".jpg"
-	}
-
-	// Create S3 key
-	s3Key := fmt.Sprintf("images/%s/%d%s", folder, assetID, ext)
-
-	// Upload to S3
 	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket:      aws.String(S3_BUCKET_NAME),
 		Key:         aws.String(s3Key),
@@ -170,18 +155,24 @@ func UploadAssetToS3(folder string, assetID int, imageData, contentType string) 
 	return s3Key, nil
 }
 
+// UploadAssetToS3 uploads an asset to a specific S3 folder.
+func UploadAssetToS3(folder string, assetID int, imageData, contentType string) (string, error) {
+	ext := ".webp"
+	if strings.Contains(contentType, "png") {
+		ext = ".png"
+	} else if strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "jpg") {
+		ext = ".jpg"
+	}
+
+	return UploadAssetToS3Key(fmt.Sprintf("images/%s/%d%s", folder, assetID, ext), imageData, contentType)
+}
+
 // ==================== GENERIC ASSET HANDLERS ====================
 
 // CreateGetAssetsHandler creates a handler for getting assets from a specific folder
 func CreateGetAssetsHandler(folder string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("=== GET %s ASSETS REQUEST ===", strings.ToUpper(folder))
-
-		if !isAuthenticated(r) {
-			log.Println("Unauthorized request")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -221,12 +212,6 @@ func CreateUploadAssetHandler(folder string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("=== UPLOAD %s ASSET REQUEST ===", strings.ToUpper(folder))
 
-		if !isAuthenticated(r) {
-			log.Println("Unauthorized request")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -248,16 +233,8 @@ func CreateUploadAssetHandler(folder string) http.HandlerFunc {
 			return
 		}
 
-		// Parse request body
 		var req UploadAssetRequest
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("Error reading request body: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		if err := json.Unmarshal(body, &req); err != nil {
+		if err := decodeJSON(r, &req); err != nil {
 			log.Printf("Error parsing request JSON: %v", err)
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
@@ -290,12 +267,6 @@ func CreateUploadAssetHandler(folder string) http.HandlerFunc {
 // handleGenericUploadAsset handles multipart form uploads to any folder
 func handleGenericUploadAsset(w http.ResponseWriter, r *http.Request) {
 	log.Printf("=== GENERIC UPLOAD ASSET REQUEST ===")
-
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -406,12 +377,6 @@ func CreateToggleApproveHandler(functionName string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("=== TOGGLE APPROVE REQUEST (using %s) ===", functionName)
 
-		if !isAuthenticated(r) {
-			log.Println("Unauthorized request")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -428,14 +393,7 @@ func CreateToggleApproveHandler(functionName string) http.HandlerFunc {
 		}
 
 		var req ToggleApproveRequest
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("Error reading request body: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		if err := json.Unmarshal(body, &req); err != nil {
+		if err := decodeJSON(r, &req); err != nil {
 			log.Printf("Error parsing request JSON: %v", err)
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
@@ -445,7 +403,7 @@ func CreateToggleApproveHandler(functionName string) http.HandlerFunc {
 
 		// Call the stored procedure
 		query := fmt.Sprintf("SELECT %s($1, $2)", functionName)
-		_, err = db.Exec(query, req.ToolingID, req.Approved)
+		_, err := db.Exec(query, req.ToolingID, req.Approved)
 		if err != nil {
 			log.Printf("Error toggling approval: %v", err)
 			json.NewEncoder(w).Encode(ToolingResponse{
@@ -469,12 +427,6 @@ func CreateToggleApproveHandler(functionName string) http.HandlerFunc {
 func CreateMergeHandler(functionName string, entityName string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("=== MERGE %s REQUEST (using %s) ===", strings.ToUpper(entityName), functionName)
-
-		if !isAuthenticated(r) {
-			log.Println("Unauthorized request")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -532,12 +484,6 @@ func CreateRemovePendingHandler(functionName string, entityName string) http.Han
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("=== REMOVE PENDING %s REQUEST (using %s) ===", strings.ToUpper(entityName), functionName)
 
-		if !isAuthenticated(r) {
-			log.Println("Unauthorized request")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -554,14 +500,7 @@ func CreateRemovePendingHandler(functionName string, entityName string) http.Han
 		}
 
 		var req RemovePendingRequest
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			log.Printf("Error reading request body: %v", err)
-			http.Error(w, "Bad request", http.StatusBadRequest)
-			return
-		}
-
-		if err := json.Unmarshal(body, &req); err != nil {
+		if err := decodeJSON(r, &req); err != nil {
 			log.Printf("Error parsing request JSON: %v", err)
 			http.Error(w, "Invalid JSON", http.StatusBadRequest)
 			return
@@ -571,7 +510,7 @@ func CreateRemovePendingHandler(functionName string, entityName string) http.Han
 
 		// Call the stored procedure
 		query := fmt.Sprintf("SELECT %s($1)", functionName)
-		_, err = db.Exec(query, req.ToolingID)
+		_, err := db.Exec(query, req.ToolingID)
 		if err != nil {
 			log.Printf("Error removing pending %s: %v", entityName, err)
 			json.NewEncoder(w).Encode(ToolingResponse{

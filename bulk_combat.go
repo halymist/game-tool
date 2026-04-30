@@ -112,10 +112,6 @@ var bulkProgressMap sync.Map // map[int64]*bulkProgressTracker
 // ── Handlers ────────────────────────────────────────────────────────────────
 
 func handleStartBulkCombat(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -126,7 +122,7 @@ func handleStartBulkCombat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req StartBulkRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -249,10 +245,6 @@ func handleStartBulkCombat(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetBulkCombatRuns(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -296,10 +288,6 @@ func handleGetBulkCombatRuns(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetBulkCombatRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -366,10 +354,6 @@ func handleGetBulkCombatRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteBulkCombatRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -381,7 +365,7 @@ func handleDeleteBulkCombatRun(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		RunID int64 `json:"runId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(r, &body); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}

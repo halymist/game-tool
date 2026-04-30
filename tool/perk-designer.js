@@ -248,36 +248,29 @@ function createPerkAssetGallery() {
 }
 
 function renderPerkList() {
-    const perkList = document.getElementById('perkList');
-    if (!perkList) return;
-    
-    if (filteredPerks.length === 0) {
-        perkList.innerHTML = '<p class="loading-text">No perks found</p>';
-        return;
-    }
-    
-    perkList.innerHTML = filteredPerks.map(perk => `
+    DesignerBase.renderSidebarList({
+        listId: 'perkList',
+        items: filteredPerks,
+        emptyHtml: '<p class="loading-text">No perks found</p>',
+        renderItem: perk => `
         <div class="perk-list-item ${perk.id === selectedPerkId && perkActiveTab === 'game' ? 'selected' : ''}" 
              data-id="${perk.id}" onclick="selectPerk(${perk.id})">
             <div class="perk-name">${escapeHtml(perk.name)}</div>
         </div>
-    `).join('');
+    `
+    });
 }
 
 function renderPendingPerkList() {
-    const pendingList = document.getElementById('pendingPerkList');
-    if (!pendingList) return;
-    
-    // Update merge button enabled state
-    const mergeBtn = document.getElementById('mergePerksBtn');
-    if (mergeBtn) mergeBtn.disabled = !allPendingPerks.some(p => p.approved);
-    
-    if (filteredPendingPerks.length === 0) {
-        pendingList.innerHTML = '<p class="loading-text">No pending perks</p>';
-        return;
-    }
-    
-    pendingList.innerHTML = filteredPendingPerks.map(perk => `
+    DesignerBase.renderSidebarList({
+        listId: 'pendingPerkList',
+        items: filteredPendingPerks,
+        emptyHtml: '<p class="loading-text">No pending perks</p>',
+        beforeRender: () => {
+            const mergeBtn = document.getElementById('mergePerksBtn');
+            if (mergeBtn) mergeBtn.disabled = !allPendingPerks.some(p => p.approved);
+        },
+        renderItem: perk => `
         <div class="perk-list-item pending-perk ${perk.toolingId === selectedPerkId && perkActiveTab === 'pending' ? 'selected' : ''}" 
              data-id="${perk.toolingId}" onclick="selectPendingPerk(${perk.toolingId})">
             <div class="pending-perk-header">
@@ -299,19 +292,14 @@ function renderPendingPerkList() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `
+    });
 }
 
 function filterPerks() {
     const searchTerm = document.getElementById('perkSearch')?.value.toLowerCase() || '';
-    
-    filteredPerks = allPerks.filter(perk => {
-        return perk.name.toLowerCase().includes(searchTerm);
-    });
-    
-    filteredPendingPerks = allPendingPerks.filter(perk => {
-        return perk.name.toLowerCase().includes(searchTerm);
-    });
+    filteredPerks = DesignerBase.filterSidebarItems(allPerks, searchTerm, perk => perk.name);
+    filteredPendingPerks = DesignerBase.filterSidebarItems(allPendingPerks, searchTerm, perk => perk.name);
     
     renderPerkList();
     renderPendingPerkList();
@@ -319,22 +307,14 @@ function filterPerks() {
 
 function switchPerkTab(tab) {
     perkActiveTab = tab;
-    
-    const gameTab = document.getElementById('gamePerksTab');
-    const pendingTab = document.getElementById('pendingPerksTab');
-    if (gameTab) gameTab.classList.toggle('active', tab === 'game');
-    if (pendingTab) pendingTab.classList.toggle('active', tab === 'pending');
-    
-    const perkList = document.getElementById('perkList');
-    const pendingList = document.getElementById('pendingPerkList');
-    if (perkList) perkList.style.display = tab === 'game' ? 'block' : 'none';
-    if (pendingList) pendingList.style.display = tab === 'pending' ? 'block' : 'none';
-    
-    // Show/hide buttons based on tab
-    const newPerkBtn = document.getElementById('newPerkBtn');
-    const mergePerksBtn = document.getElementById('mergePerksBtn');
-    if (newPerkBtn) newPerkBtn.style.display = tab === 'game' ? 'block' : 'none';
-    if (mergePerksBtn) mergePerksBtn.style.display = tab === 'pending' ? 'block' : 'none';
+    DesignerBase.switchTab(tab, {
+        gameTabId: 'gamePerksTab',
+        pendingTabId: 'pendingPerksTab',
+        gameListId: 'perkList',
+        pendingListId: 'pendingPerkList',
+        newBtnId: 'newPerkBtn',
+        mergeBtnId: 'mergePerksBtn'
+    });
     
     selectedPerkId = null;
     isViewingPendingPerk = false;

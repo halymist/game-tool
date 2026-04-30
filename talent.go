@@ -33,11 +33,6 @@ type UpdateTalentInfoRequest struct {
 func handleGetTalentsInfo(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET TALENTS INFO REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -68,11 +63,6 @@ func handleGetTalentsInfo(w http.ResponseWriter, r *http.Request) {
 func handleUpdateTalentInfo(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPDATE TALENT INFO REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -89,7 +79,7 @@ func handleUpdateTalentInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateTalentInfoRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		json.NewEncoder(w).Encode(TalentInfoResponse{Success: false, Message: "Invalid request body"})
 		return
 	}

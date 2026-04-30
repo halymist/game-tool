@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -91,11 +89,6 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	settlementIDStr := r.URL.Query().Get("settlementId")
 	var settlementID *int
 	if settlementIDStr != "" {
@@ -256,13 +249,8 @@ func handleCreateQuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	var req CreateQuestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -440,13 +428,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	var req SaveQuestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("SaveQuest decode error: %v", err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -455,162 +438,133 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 	log.Printf("SaveQuest: IsNewChain=%v, QuestchainID=%d, NewQuests=%d, QuestUpdates=%d, NewOptions=%d, OptionUpdates=%d, PendingReqs=%d",
 		req.IsNewChain, req.QuestchainID, len(req.NewQuests), len(req.QuestUpdates), len(req.NewOptions), len(req.OptionUpdates), len(req.PendingRequirements))
 
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("Error starting transaction: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
 	questchainID := req.QuestchainID
 	questID := req.QuestID
 	questMapping := make(map[int]int)
-
-	// ---- Create or update chain ----
-	if req.IsNewChain {
-		if err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id, event_id)
-			VALUES ($1, $2, $3, $4) RETURNING questchain_id`,
-			req.ChainName, req.ChainContext, req.SettlementID, req.EventID).Scan(&questchainID); err != nil {
-			log.Printf("Error creating chain: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Created new chain: %d", questchainID)
-	} else if questchainID > 0 && req.ChainName != "" {
-		if _, err := tx.Exec(`UPDATE game.questchain SET name = $1, context = $2, event_id = $3 WHERE questchain_id = $4`,
-			req.ChainName, req.ChainContext, req.EventID, questchainID); err != nil {
-			log.Printf("Error updating chain: %v", err)
-		}
-	}
-
-	// ---- Bulk insert new quests ----
-	if len(req.NewQuests) > 0 {
-		inserted, err := bulkInsertQuests(tx, req.NewQuests, questchainID)
-		if err != nil {
-			log.Printf("Error bulk inserting quests: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		for localID, serverID := range inserted {
-			questMapping[localID] = serverID
-		}
-		log.Printf("Bulk inserted %d quests", len(inserted))
-	}
-
-	// ---- Bulk update existing quests ----
-	if len(req.QuestUpdates) > 0 {
-		if err := bulkUpdateQuests(tx, req.QuestUpdates); err != nil {
-			log.Printf("Error bulk updating quests: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Bulk updated %d quests", len(req.QuestUpdates))
-	}
-
-	// ---- Bulk delete options (before quests, FK order) ----
-	if len(req.DeletedOptionIds) > 0 {
-		if err := bulkDeleteQuestOptions(tx, req.DeletedOptionIds); err != nil {
-			log.Printf("Error bulk deleting options: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Bulk deleted %d options", len(req.DeletedOptionIds))
-	}
-
-	// ---- Bulk delete quests ----
-	if len(req.DeletedQuestIds) > 0 {
-		if err := bulkDeleteQuests(tx, req.DeletedQuestIds); err != nil {
-			log.Printf("Error bulk deleting quests: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		log.Printf("Bulk deleted %d quests", len(req.DeletedQuestIds))
-	}
-
-	// ---- Legacy single-quest handling ----
-	if req.IsNewQuest && questID == 0 {
-		if err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, asset_id, default_entry, pos_x, pos_y)
-			VALUES ($1, $2, $3, true, 50, 100) RETURNING quest_id`,
-			req.QuestName, questchainID, req.AssetID).Scan(&questID); err != nil {
-			log.Printf("Error creating legacy quest: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-	} else if questID > 0 {
-		if req.AssetID != nil {
-			tx.Exec(`UPDATE game.quests SET asset_id = $1 WHERE quest_id = $2`, *req.AssetID, questID)
-		}
-		if req.QuestName != "" {
-			tx.Exec(`UPDATE game.quests SET quest_name = $1 WHERE quest_id = $2`, req.QuestName, questID)
-		}
-	}
-
-	// ---- Resolve quest IDs for new options ----
-	questCounter := len(req.NewQuests) + 1
-	for i := range req.NewOptions {
-		if serverID, ok := questMapping[req.NewOptions[i].QuestID]; ok {
-			req.NewOptions[i].QuestID = serverID
-		} else if req.NewOptions[i].QuestID == 0 && questID > 0 {
-			req.NewOptions[i].QuestID = questID
-		} else if req.NewOptions[i].QuestID <= 0 {
-			var newQuestID int
-			if err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, default_entry, pos_x, pos_y)
-				VALUES ($1, $2, true, 50, 100) RETURNING quest_id`,
-				fmt.Sprintf("Quest %d", questCounter), questchainID).Scan(&newQuestID); err != nil {
-				log.Printf("Error creating fallback quest: %v", err)
-				http.Error(w, "Database error", http.StatusInternalServerError)
-				return
-			}
-			questMapping[req.NewOptions[i].QuestID] = newQuestID
-			req.NewOptions[i].QuestID = newQuestID
-			questCounter++
-		}
-	}
-
-	// ---- Bulk insert new options ----
 	optionMapping := make(map[int]int)
-	if len(req.NewOptions) > 0 {
-		inserted, err := bulkInsertQuestOptions(tx, req.NewOptions)
-		if err != nil {
-			log.Printf("Error bulk inserting options: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
-		}
-		for localID, serverID := range inserted {
-			optionMapping[localID] = serverID
-		}
-		log.Printf("Bulk inserted %d options", len(inserted))
-	}
 
-	// ---- Bulk update existing options ----
-	if len(req.OptionUpdates) > 0 {
-		if err := bulkUpdateQuestOptions(tx, req.OptionUpdates); err != nil {
-			log.Printf("Error bulk updating options: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
+	if err := withTx(func(tx *sql.Tx) error {
+		// ---- Create or update chain ----
+		if req.IsNewChain {
+			if err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id, event_id)
+			VALUES ($1, $2, $3, $4) RETURNING questchain_id`,
+				req.ChainName, req.ChainContext, req.SettlementID, req.EventID).Scan(&questchainID); err != nil {
+				return fmt.Errorf("creating chain: %w", err)
+			}
+			log.Printf("Created new chain: %d", questchainID)
+		} else if questchainID > 0 && req.ChainName != "" {
+			if _, err := tx.Exec(`UPDATE game.questchain SET name = $1, context = $2, event_id = $3 WHERE questchain_id = $4`,
+				req.ChainName, req.ChainContext, req.EventID, questchainID); err != nil {
+				log.Printf("Error updating chain: %v", err)
+			}
 		}
-		log.Printf("Bulk updated %d options", len(req.OptionUpdates))
-	}
 
-	// ---- Bulk insert requirements ----
-	if err := bulkInsertQuestRequirements(tx, req.NewRequirements, req.PendingRequirements, optionMapping); err != nil {
-		log.Printf("Error inserting requirements: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-
-	// ---- Bulk update quest requisites ----
-	if len(req.QuestRequisites) > 0 {
-		if err := bulkUpdateQuestRequisites(tx, req.QuestRequisites, optionMapping, questMapping); err != nil {
-			log.Printf("Error updating quest requisites: %v", err)
-			http.Error(w, "Database error", http.StatusInternalServerError)
-			return
+		// ---- Bulk insert new quests ----
+		if len(req.NewQuests) > 0 {
+			inserted, err := bulkInsertQuests(tx, req.NewQuests, questchainID)
+			if err != nil {
+				return fmt.Errorf("bulk inserting quests: %w", err)
+			}
+			for localID, serverID := range inserted {
+				questMapping[localID] = serverID
+			}
+			log.Printf("Bulk inserted %d quests", len(inserted))
 		}
-	}
 
-	if err := tx.Commit(); err != nil {
-		log.Printf("Error committing: %v", err)
+		// ---- Bulk update existing quests ----
+		if len(req.QuestUpdates) > 0 {
+			if err := bulkUpdateQuests(tx, req.QuestUpdates); err != nil {
+				return fmt.Errorf("bulk updating quests: %w", err)
+			}
+			log.Printf("Bulk updated %d quests", len(req.QuestUpdates))
+		}
+
+		// ---- Bulk delete options (before quests, FK order) ----
+		if len(req.DeletedOptionIds) > 0 {
+			if err := bulkDeleteQuestOptions(tx, req.DeletedOptionIds); err != nil {
+				return fmt.Errorf("bulk deleting options: %w", err)
+			}
+			log.Printf("Bulk deleted %d options", len(req.DeletedOptionIds))
+		}
+
+		// ---- Bulk delete quests ----
+		if len(req.DeletedQuestIds) > 0 {
+			if err := bulkDeleteQuests(tx, req.DeletedQuestIds); err != nil {
+				return fmt.Errorf("bulk deleting quests: %w", err)
+			}
+			log.Printf("Bulk deleted %d quests", len(req.DeletedQuestIds))
+		}
+
+		// ---- Legacy single-quest handling ----
+		if req.IsNewQuest && questID == 0 {
+			if err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, asset_id, default_entry, pos_x, pos_y)
+			VALUES ($1, $2, $3, true, 50, 100) RETURNING quest_id`,
+				req.QuestName, questchainID, req.AssetID).Scan(&questID); err != nil {
+				return fmt.Errorf("creating legacy quest: %w", err)
+			}
+		} else if questID > 0 {
+			if req.AssetID != nil {
+				tx.Exec(`UPDATE game.quests SET asset_id = $1 WHERE quest_id = $2`, *req.AssetID, questID)
+			}
+			if req.QuestName != "" {
+				tx.Exec(`UPDATE game.quests SET quest_name = $1 WHERE quest_id = $2`, req.QuestName, questID)
+			}
+		}
+
+		// ---- Resolve quest IDs for new options ----
+		questCounter := len(req.NewQuests) + 1
+		for i := range req.NewOptions {
+			if serverID, ok := questMapping[req.NewOptions[i].QuestID]; ok {
+				req.NewOptions[i].QuestID = serverID
+			} else if req.NewOptions[i].QuestID == 0 && questID > 0 {
+				req.NewOptions[i].QuestID = questID
+			} else if req.NewOptions[i].QuestID <= 0 {
+				var newQuestID int
+				if err := tx.QueryRow(`INSERT INTO game.quests (quest_name, questchain_id, default_entry, pos_x, pos_y)
+				VALUES ($1, $2, true, 50, 100) RETURNING quest_id`,
+					fmt.Sprintf("Quest %d", questCounter), questchainID).Scan(&newQuestID); err != nil {
+					return fmt.Errorf("creating fallback quest: %w", err)
+				}
+				questMapping[req.NewOptions[i].QuestID] = newQuestID
+				req.NewOptions[i].QuestID = newQuestID
+				questCounter++
+			}
+		}
+
+		// ---- Bulk insert new options ----
+		if len(req.NewOptions) > 0 {
+			inserted, err := bulkInsertQuestOptions(tx, req.NewOptions)
+			if err != nil {
+				return fmt.Errorf("bulk inserting options: %w", err)
+			}
+			for localID, serverID := range inserted {
+				optionMapping[localID] = serverID
+			}
+			log.Printf("Bulk inserted %d options", len(inserted))
+		}
+
+		// ---- Bulk update existing options ----
+		if len(req.OptionUpdates) > 0 {
+			if err := bulkUpdateQuestOptions(tx, req.OptionUpdates); err != nil {
+				return fmt.Errorf("bulk updating options: %w", err)
+			}
+			log.Printf("Bulk updated %d options", len(req.OptionUpdates))
+		}
+
+		// ---- Bulk insert requirements ----
+		if err := bulkInsertQuestRequirements(tx, req.NewRequirements, req.PendingRequirements, optionMapping); err != nil {
+			return fmt.Errorf("inserting requirements: %w", err)
+		}
+
+		// ---- Bulk update quest requisites ----
+		if len(req.QuestRequisites) > 0 {
+			if err := bulkUpdateQuestRequisites(tx, req.QuestRequisites, optionMapping, questMapping); err != nil {
+				return fmt.Errorf("updating quest requisites: %w", err)
+			}
+		}
+		return nil
+	}); err != nil {
+		log.Printf("SaveQuest transaction failed: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -656,13 +610,24 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		sortOrders[i] = int64(q.SortOrder)
 	}
 
-	rows, err := tx.Query(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "quest_name", Cast: "text", Values: names},
+		{Name: "start_text", Cast: "text", Values: startTexts},
+		{Name: "travel_text", Cast: "text", Values: travelTexts},
+		{Name: "failure_text", Cast: "text", Values: failureTexts},
+		{Name: "summary", Cast: "text", Values: summaries},
+		{Name: "questchain_id", Cast: "int", Values: chainIDs},
+		{Name: "asset_id", Cast: "int", Values: assetIDs},
+		{Name: "default_entry", Cast: "bool", Values: defaults},
+		{Name: "pos_x", Cast: "float8", Values: posXs},
+		{Name: "pos_y", Cast: "float8", Values: posYs},
+		{Name: "sort_order", Cast: "int", Values: sortOrders},
+	})
+	rows, err := tx.Query(fmt.Sprintf(`
 		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, asset_id, default_entry, pos_x, pos_y, sort_order)
-		SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[], $7::int[], $8::bool[], $9::float8[], $10::float8[], $11::int[])
+		%s
 		RETURNING quest_id
-	`, pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts), pq.Array(summaries),
-		pq.Array(chainIDs), pq.Array(assetIDs), pq.Array(defaults),
-		pq.Array(posXs), pq.Array(posYs), pq.Array(sortOrders))
+	`, selectSQL), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -707,7 +672,19 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		sortOrders[i] = int64(u.SortOrder)
 	}
 
-	_, err := tx.Exec(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "quest_id", Cast: "int", Values: ids},
+		{Name: "quest_name", Cast: "text", Values: names},
+		{Name: "start_text", Cast: "text", Values: startTexts},
+		{Name: "travel_text", Cast: "text", Values: travelTexts},
+		{Name: "failure_text", Cast: "text", Values: failureTexts},
+		{Name: "summary", Cast: "text", Values: summaries},
+		{Name: "asset_id", Cast: "int", Values: assetIDs},
+		{Name: "pos_x", Cast: "float8", Values: posXs},
+		{Name: "pos_y", Cast: "float8", Values: posYs},
+		{Name: "sort_order", Cast: "int", Values: sortOrders},
+	})
+	_, err := tx.Exec(fmt.Sprintf(`
 		UPDATE game.quests AS q SET
 			quest_name   = v.quest_name,
 			start_text   = v.start_text,
@@ -718,13 +695,9 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 			pos_x        = v.pos_x,
 			pos_y        = v.pos_y,
 			sort_order   = v.sort_order
-		FROM (
-			SELECT * FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::float8[], $9::float8[], $10::int[])
-			AS t(quest_id, quest_name, start_text, travel_text, failure_text, summary, asset_id, pos_x, pos_y, sort_order)
-		) AS v
+		FROM (%s) AS v
 		WHERE q.quest_id = v.quest_id
-	`, pq.Array(ids), pq.Array(names), pq.Array(startTexts), pq.Array(travelTexts), pq.Array(failureTexts), pq.Array(summaries),
-		pq.Array(assetIDs), pq.Array(posXs), pq.Array(posYs), pq.Array(sortOrders))
+	`, selectSQL), args...)
 	return err
 }
 
@@ -823,7 +796,33 @@ func bulkInsertQuestOptions(tx *sql.Tx, opts []NewQuestOption) (map[int]int, err
 		posYs[i] = o.Y
 	}
 
-	dbRows, err := tx.Query(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "quest_id", Cast: "int", Values: questIDs},
+		{Name: "node_text", Cast: "text", Values: nodeTexts},
+		{Name: "option_text", Cast: "text", Values: optionTexts},
+		{Name: "start", Cast: "bool", Values: starts},
+		{Name: "stat_type", Cast: "text", Values: statTypes},
+		{Name: "stat_required", Cast: "int", Values: statReqs},
+		{Name: "effect_id", Cast: "int", Values: effectIDs},
+		{Name: "effect_amount", Cast: "int", Values: effectAmts},
+		{Name: "option_effect_id", Cast: "int", Values: optEffectIDs},
+		{Name: "option_effect_factor", Cast: "int", Values: optEffectFactors},
+		{Name: "faction_required", Cast: "int", Values: factionReqs},
+		{Name: "silver_required", Cast: "int", Values: silverReqs},
+		{Name: "enemy_id", Cast: "int", Values: enemyIDs},
+		{Name: "quest_end", Cast: "bool", Values: questEnds},
+		{Name: "reward_stat_type", Cast: "text", Values: rewardStatTypes},
+		{Name: "reward_stat_amount", Cast: "int", Values: rewardStatAmts},
+		{Name: "reward_talent", Cast: "bool", Values: rewardTalents},
+		{Name: "reward_item", Cast: "int", Values: rewardItems},
+		{Name: "reward_perk", Cast: "int", Values: rewardPerks},
+		{Name: "reward_blessing", Cast: "int", Values: rewardBlessings},
+		{Name: "reward_potion", Cast: "int", Values: rewardPotions},
+		{Name: "reward_silver", Cast: "int", Values: rewardSilvers},
+		{Name: "pos_x", Cast: "float8", Values: posXs},
+		{Name: "pos_y", Cast: "float8", Values: posYs},
+	})
+	dbRows, err := tx.Query(fmt.Sprintf(`
 		INSERT INTO game.quest_options (
 			quest_id, node_text, option_text, start,
 			stat_type, stat_required, effect_id, effect_amount, option_effect_id, option_effect_factor,
@@ -831,21 +830,9 @@ func bulkInsertQuestOptions(tx *sql.Tx, opts []NewQuestOption) (map[int]int, err
 			reward_stat_type, reward_stat_amount, reward_talent, reward_item, reward_perk,
 			reward_blessing, reward_potion, reward_silver, pos_x, pos_y
 		)
-		SELECT * FROM unnest(
-			$1::int[], $2::text[], $3::text[], $4::bool[],
-			$5::text[], $6::int[], $7::int[], $8::int[], $9::int[], $10::int[],
-			$11::int[], $12::int[], $13::int[], $14::bool[],
-			$15::text[], $16::int[], $17::bool[], $18::int[], $19::int[],
-			$20::int[], $21::int[], $22::int[], $23::float8[], $24::float8[]
-		)
+		%s
 		RETURNING option_id
-	`,
-		pq.Array(questIDs), pq.Array(nodeTexts), pq.Array(optionTexts), pq.Array(starts),
-		pq.Array(statTypes), pq.Array(statReqs), pq.Array(effectIDs), pq.Array(effectAmts), pq.Array(optEffectIDs), pq.Array(optEffectFactors),
-		pq.Array(factionReqs), pq.Array(silverReqs), pq.Array(enemyIDs), pq.Array(questEnds),
-		pq.Array(rewardStatTypes), pq.Array(rewardStatAmts), pq.Array(rewardTalents), pq.Array(rewardItems), pq.Array(rewardPerks),
-		pq.Array(rewardBlessings), pq.Array(rewardPotions), pq.Array(rewardSilvers), pq.Array(posXs), pq.Array(posYs),
-	)
+	`, selectSQL), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -918,7 +905,33 @@ func bulkUpdateQuestOptions(tx *sql.Tx, updates []QuestOptionUpdate) error {
 		posYs[i] = u.Y
 	}
 
-	_, err := tx.Exec(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "option_id", Cast: "int", Values: ids},
+		{Name: "node_text", Cast: "text", Values: nodeTexts},
+		{Name: "option_text", Cast: "text", Values: optionTexts},
+		{Name: "start", Cast: "bool", Values: starts},
+		{Name: "stat_type", Cast: "text", Values: statTypes},
+		{Name: "stat_required", Cast: "int", Values: statReqs},
+		{Name: "effect_id", Cast: "int", Values: effectIDs},
+		{Name: "effect_amount", Cast: "int", Values: effectAmts},
+		{Name: "option_effect_id", Cast: "int", Values: optEffectIDs},
+		{Name: "option_effect_factor", Cast: "int", Values: optEffectFactors},
+		{Name: "faction_required", Cast: "int", Values: factionReqs},
+		{Name: "silver_required", Cast: "int", Values: silverReqs},
+		{Name: "enemy_id", Cast: "int", Values: enemyIDs},
+		{Name: "quest_end", Cast: "bool", Values: questEnds},
+		{Name: "reward_stat_type", Cast: "text", Values: rewardStatTypes},
+		{Name: "reward_stat_amount", Cast: "int", Values: rewardStatAmts},
+		{Name: "reward_talent", Cast: "bool", Values: rewardTalents},
+		{Name: "reward_item", Cast: "int", Values: rewardItems},
+		{Name: "reward_perk", Cast: "int", Values: rewardPerks},
+		{Name: "reward_blessing", Cast: "int", Values: rewardBlessings},
+		{Name: "reward_potion", Cast: "int", Values: rewardPotions},
+		{Name: "reward_silver", Cast: "int", Values: rewardSilvers},
+		{Name: "pos_x", Cast: "float8", Values: posXs},
+		{Name: "pos_y", Cast: "float8", Values: posYs},
+	})
+	_, err := tx.Exec(fmt.Sprintf(`
 		UPDATE game.quest_options AS o SET
 			node_text            = v.node_text,
 			option_text          = v.option_text,
@@ -943,27 +956,9 @@ func bulkUpdateQuestOptions(tx *sql.Tx, updates []QuestOptionUpdate) error {
 			reward_silver        = v.reward_silver,
 			pos_x                = v.pos_x,
 			pos_y                = v.pos_y
-		FROM (
-			SELECT * FROM unnest(
-				$1::int[], $2::text[], $3::text[], $4::bool[],
-				$5::text[], $6::int[], $7::int[], $8::int[], $9::int[], $10::int[],
-				$11::int[], $12::int[], $13::int[], $14::bool[],
-				$15::text[], $16::int[], $17::bool[], $18::int[], $19::int[],
-				$20::int[], $21::int[], $22::int[], $23::float8[], $24::float8[]
-			) AS t(option_id, node_text, option_text, start,
-			       stat_type, stat_required, effect_id, effect_amount, option_effect_id, option_effect_factor,
-			       faction_required, silver_required, enemy_id, quest_end,
-			       reward_stat_type, reward_stat_amount, reward_talent, reward_item, reward_perk,
-			       reward_blessing, reward_potion, reward_silver, pos_x, pos_y)
-		) AS v
+		FROM (%s) AS v
 		WHERE o.option_id = v.option_id
-	`,
-		pq.Array(ids), pq.Array(nodeTexts), pq.Array(optionTexts), pq.Array(starts),
-		pq.Array(statTypes), pq.Array(statReqs), pq.Array(effectIDs), pq.Array(effectAmts), pq.Array(optEffectIDs), pq.Array(optEffectFactors),
-		pq.Array(factionReqs), pq.Array(silverReqs), pq.Array(enemyIDs), pq.Array(questEnds),
-		pq.Array(rewardStatTypes), pq.Array(rewardStatAmts), pq.Array(rewardTalents), pq.Array(rewardItems), pq.Array(rewardPerks),
-		pq.Array(rewardBlessings), pq.Array(rewardPotions), pq.Array(rewardSilvers), pq.Array(posXs), pq.Array(posYs),
-	)
+	`, selectSQL), args...)
 	return err
 }
 
@@ -1002,11 +997,15 @@ func bulkInsertQuestRequirements(tx *sql.Tx, newReqs []QuestOptionRequirement, p
 		return nil
 	}
 
-	_, err := tx.Exec(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "option_id", Cast: "int", Values: optionIDs},
+		{Name: "required_option_id", Cast: "int", Values: requiredIDs},
+	})
+	_, err := tx.Exec(fmt.Sprintf(`
 		INSERT INTO game.quest_option_requirements (option_id, required_option_id)
-		SELECT * FROM unnest($1::int[], $2::int[])
+		%s
 		ON CONFLICT DO NOTHING
-	`, pq.Array(optionIDs), pq.Array(requiredIDs))
+	`, selectSQL), args...)
 	return err
 }
 
@@ -1034,12 +1033,16 @@ func bulkUpdateQuestRequisites(tx *sql.Tx, requisites []QuestRequisiteMapping, o
 		return nil
 	}
 
-	_, err := tx.Exec(`
+	selectSQL, args := bulkUnnestSelect([]bulkColumn{
+		{Name: "quest_id", Cast: "int", Values: questIDs},
+		{Name: "option_id", Cast: "int", Values: optionIDs},
+	})
+	_, err := tx.Exec(fmt.Sprintf(`
 		UPDATE game.quests AS q
 		SET requisite_option_id = v.option_id
-		FROM (SELECT * FROM unnest($1::int[], $2::int[]) AS t(quest_id, option_id)) AS v
+		FROM (%s) AS v
 		WHERE q.quest_id = v.quest_id
-	`, pq.Array(questIDs), pq.Array(optionIDs))
+	`, selectSQL), args...)
 	return err
 }
 
@@ -1055,47 +1058,23 @@ func handleDeleteQuestOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	var req DeleteQuestOptionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		log.Printf("Error starting transaction: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
-	// Delete requirements first
-	_, err = tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id = $1 OR required_option_id = $1`, req.OptionID)
-	if err != nil {
-		log.Printf("Error deleting requirements: %v", err)
-	}
-
-	// Null out any quest that references this option as a requisite
-	_, err = tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE requisite_option_id = $1`, req.OptionID)
-	if err != nil {
-		log.Printf("Error clearing requisite_option_id: %v", err)
-	}
-
-	// Delete the option
-	_, err = tx.Exec(`DELETE FROM game.quest_options WHERE option_id = $1`, req.OptionID)
-	if err != nil {
+	if err := withTx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id = $1 OR required_option_id = $1`, req.OptionID); err != nil {
+			log.Printf("Error deleting requirements: %v", err)
+		}
+		if _, err := tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE requisite_option_id = $1`, req.OptionID); err != nil {
+			log.Printf("Error clearing requisite_option_id: %v", err)
+		}
+		_, err := tx.Exec(`DELETE FROM game.quest_options WHERE option_id = $1`, req.OptionID)
+		return err
+	}); err != nil {
 		log.Printf("Error deleting option: %v", err)
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-
-	if err := tx.Commit(); err != nil {
-		log.Printf("Error committing transaction: %v", err)
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -1119,11 +1098,6 @@ type QuestAsset struct {
 // handleGetQuestAssets returns all quest assets from S3
 func handleGetQuestAssets(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== GET QUEST ASSETS REQUEST ===")
-
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -1200,11 +1174,6 @@ func listQuestAssets() ([]QuestAsset, error) {
 func handleUploadQuestAsset(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPLOAD QUEST ASSET REQUEST ===")
 
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	if r.Method != http.MethodPost {
@@ -1222,7 +1191,7 @@ func handleUploadQuestAsset(w http.ResponseWriter, r *http.Request) {
 		Filename  string `json:"filename"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -1247,7 +1216,7 @@ func handleUploadQuestAsset(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Uploading quest asset with new ID: %d", newAssetID)
 
 	// Upload to S3
-	s3Key, err := uploadQuestAssetToS3(req.ImageData, newAssetID)
+	s3Key, err := UploadAssetToS3("quests", newAssetID, req.ImageData, "image/webp")
 	if err != nil {
 		log.Printf("Error uploading to S3: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
@@ -1266,46 +1235,3 @@ func handleUploadQuestAsset(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 	log.Printf("✅ UPLOAD QUEST ASSET SUCCESS - Asset ID: %d, URL: %s", newAssetID, publicURL)
 }
-
-// uploadQuestAssetToS3 uploads a quest asset as webp
-func uploadQuestAssetToS3(imageData string, assetID int) (string, error) {
-	if s3Client == nil {
-		return "", fmt.Errorf("S3 client not initialized")
-	}
-
-	// Remove data URL prefix if present
-	if strings.Contains(imageData, ",") {
-		parts := strings.Split(imageData, ",")
-		if len(parts) == 2 {
-			imageData = parts[1]
-		}
-	}
-
-	// Decode base64
-	imageBytes, err := base64.StdEncoding.DecodeString(imageData)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64: %v", err)
-	}
-
-	// S3 key: images/quests/{assetID}.webp
-	s3Key := fmt.Sprintf("images/quests/%d.webp", assetID)
-
-	log.Printf("Uploading quest asset to S3: %s", s3Key)
-
-	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:      aws.String(S3_BUCKET_NAME),
-		Key:         aws.String(s3Key),
-		Body:        bytes.NewReader(imageBytes),
-		ContentType: aws.String("image/webp"),
-	})
-
-	if err != nil {
-		return "", fmt.Errorf("failed to upload to S3: %v", err)
-	}
-
-	log.Printf("Quest asset uploaded to S3: %s", s3Key)
-	return s3Key, nil
-}
-
-// Placeholder for unused import
-var _ = sql.ErrNoRows

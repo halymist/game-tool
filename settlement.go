@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -155,11 +152,6 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
@@ -273,11 +265,6 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if s3Client == nil {
 		http.Error(w, "S3 client not initialized", http.StatusInternalServerError)
 		return
@@ -337,13 +324,6 @@ func handleGetSettlementAssets(w http.ResponseWriter, r *http.Request) {
 func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 	log.Println("=== UPLOAD SETTLEMENT ASSET REQUEST ===")
 
-	// Check authentication
-	if !isAuthenticated(r) {
-		log.Println("Unauthorized request to upload settlement asset")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// Set headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -366,21 +346,13 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request body
 	var req struct {
 		AssetID     int    `json:"assetID"`
 		ImageData   string `json:"imageData"`
 		ContentType string `json:"contentType"`
 	}
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		log.Printf("Error parsing request JSON: %v", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -391,39 +363,21 @@ func handleUploadSettlementAsset(w http.ResponseWriter, r *http.Request) {
 	// Get next asset ID if not provided
 	assetID := req.AssetID
 	if assetID == 0 {
-		assetID, err = getNextSettlementAssetID()
-		if err != nil {
-			log.Printf("Failed to get next asset ID: %v", err)
+		nextAssetID, nextAssetErr := getNextSettlementAssetID()
+		if nextAssetErr != nil {
+			log.Printf("Failed to get next asset ID: %v", nextAssetErr)
 			assetID = 1
+		} else {
+			assetID = nextAssetID
 		}
 	}
 
-	// Decode base64 image data
-	imageData := req.ImageData
-	if strings.Contains(imageData, ",") {
-		parts := strings.Split(imageData, ",")
-		if len(parts) == 2 {
-			imageData = parts[1]
-		}
+	contentType := req.ContentType
+	if contentType == "" {
+		contentType = "image/webp"
 	}
 
-	data, err := base64.StdEncoding.DecodeString(imageData)
-	if err != nil {
-		log.Printf("Error decoding base64: %v", err)
-		http.Error(w, "Invalid base64 data", http.StatusBadRequest)
-		return
-	}
-
-	// Use asset ID as filename with .webp extension in settlements folder
-	key := fmt.Sprintf("images/settlements/%d.webp", assetID)
-
-	// Upload to S3 as webp
-	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket:      aws.String(S3_BUCKET_NAME),
-		Key:         aws.String(key),
-		Body:        bytes.NewReader(data),
-		ContentType: aws.String("image/webp"),
-	})
+	key, err := UploadAssetToS3("settlements", assetID, req.ImageData, contentType)
 	if err != nil {
 		log.Printf("Error uploading to S3: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to upload: %v", err), http.StatusInternalServerError)
@@ -498,18 +452,13 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
 	}
 
 	var req SaveSettlementRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
@@ -705,11 +654,6 @@ func handleDeleteSettlement(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify authentication
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	if db == nil {
 		http.Error(w, "Database not connected", http.StatusInternalServerError)
 		return
@@ -718,7 +662,7 @@ func handleDeleteSettlement(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		SettlementID int `json:"settlementId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}

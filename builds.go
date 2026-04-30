@@ -255,10 +255,6 @@ type SaveBuildRequest struct {
 }
 
 func handleSaveBuild(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -268,7 +264,7 @@ func handleSaveBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req SaveBuildRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r, &req); err != nil {
 		http.Error(w, "Invalid body: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -280,61 +276,48 @@ func handleSaveBuild(w http.ResponseWriter, r *http.Request) {
 		req.Stamina = 1
 	}
 
-	tx, err := db.Begin()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer tx.Rollback()
-
 	var buildID int64
-	if req.BuildID != nil {
-		buildID = *req.BuildID
-		_, err = tx.Exec(`
-			UPDATE tooling.builds
-			SET build_name=$1, description=$2, strength=$3, stamina=$4, agility=$5,
-			    luck=$6, armor=$7, min_damage=$8, max_damage=$9, updated_at=NOW()
-			WHERE build_id=$10`,
-			req.BuildName, req.Description, req.Strength, req.Stamina, req.Agility,
-			req.Luck, req.Armor, req.MinDamage, req.MaxDamage, buildID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+	if err := withTx(func(tx *sql.Tx) error {
+		if req.BuildID != nil {
+			buildID = *req.BuildID
+			if _, err := tx.Exec(`
+				UPDATE tooling.builds
+				SET build_name=$1, description=$2, strength=$3, stamina=$4, agility=$5,
+				    luck=$6, armor=$7, min_damage=$8, max_damage=$9, updated_at=NOW()
+				WHERE build_id=$10`,
+				req.BuildName, req.Description, req.Strength, req.Stamina, req.Agility,
+				req.Luck, req.Armor, req.MinDamage, req.MaxDamage, buildID); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(`DELETE FROM tooling.build_talents WHERE build_id=$1`, buildID); err != nil {
+				return err
+			}
+		} else {
+			if err := tx.QueryRow(`
+				INSERT INTO tooling.builds
+				  (build_name, description, strength, stamina, agility, luck, armor, min_damage, max_damage)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+				RETURNING build_id`,
+				req.BuildName, req.Description, req.Strength, req.Stamina, req.Agility,
+				req.Luck, req.Armor, req.MinDamage, req.MaxDamage,
+			).Scan(&buildID); err != nil {
+				return err
+			}
 		}
-		if _, err := tx.Exec(`DELETE FROM tooling.build_talents WHERE build_id=$1`, buildID); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else {
-		err = tx.QueryRow(`
-			INSERT INTO tooling.builds
-			  (build_name, description, strength, stamina, agility, luck, armor, min_damage, max_damage)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-			RETURNING build_id`,
-			req.BuildName, req.Description, req.Strength, req.Stamina, req.Agility,
-			req.Luck, req.Armor, req.MinDamage, req.MaxDamage,
-		).Scan(&buildID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
 
-	for _, bt := range req.Talents {
-		if bt.Points < 1 {
-			continue
+		for _, bt := range req.Talents {
+			if bt.Points < 1 {
+				continue
+			}
+			if _, err := tx.Exec(`
+				INSERT INTO tooling.build_talents (build_id, talent_id, points, talent_order, perk_id)
+				VALUES ($1,$2,$3,$4,$5)`,
+				buildID, bt.TalentID, bt.Points, bt.TalentOrder, bt.PerkID); err != nil {
+				return fmt.Errorf("talent insert: %w", err)
+			}
 		}
-		_, err = tx.Exec(`
-			INSERT INTO tooling.build_talents (build_id, talent_id, points, talent_order, perk_id)
-			VALUES ($1,$2,$3,$4,$5)`,
-			buildID, bt.TalentID, bt.Points, bt.TalentOrder, bt.PerkID)
-		if err != nil {
-			http.Error(w, "talent insert: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if err := tx.Commit(); err != nil {
+		return nil
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -344,10 +327,6 @@ func handleSaveBuild(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetBuilds(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -362,10 +341,6 @@ func handleGetBuilds(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetBuild(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -386,10 +361,6 @@ func handleGetBuild(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteBuild(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -401,7 +372,7 @@ func handleDeleteBuild(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		BuildID int64 `json:"buildId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(r, &body); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
@@ -526,10 +497,6 @@ func loadBuildLookups() (map[int]TalentInfo, map[int]Effect, map[int]Perk, error
 // ── Tournament runner ───────────────────────────────────────────────────────
 
 func handleStartBuildRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -540,7 +507,7 @@ func handleStartBuildRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req StartBuildRunRequest
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	_ = decodeJSON(r, &req)
 
 	if len(req.Milestones) == 0 {
 		req.Milestones = []int{1, 10, 20, 30, 40, 50, 60, 70}
@@ -800,10 +767,6 @@ func flushBuildProgress(runID int64, day int, standings []*buildStanding, tracke
 // ── Run query handlers ──────────────────────────────────────────────────────
 
 func handleGetBuildRuns(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -847,10 +810,6 @@ func handleGetBuildRuns(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGetBuildRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if db == nil {
 		http.Error(w, "Database not available", http.StatusServiceUnavailable)
 		return
@@ -914,10 +873,6 @@ func handleGetBuildRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDeleteBuildRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -929,7 +884,7 @@ func handleDeleteBuildRun(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		RunID int64 `json:"runId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(r, &body); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
@@ -951,10 +906,6 @@ type AddBuildToRunRequest struct {
 }
 
 func handleAddBuildToRun(w http.ResponseWriter, r *http.Request) {
-	if !isAuthenticated(r) {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -964,7 +915,7 @@ func handleAddBuildToRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body AddBuildToRunRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSON(r, &body); err != nil {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
