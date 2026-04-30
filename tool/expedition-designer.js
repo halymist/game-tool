@@ -649,11 +649,13 @@ console.log('📦 expedition-designer.js LOADED');
         const pop = $('expeditionNodePopover');
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
-        if (!pop || !labelEl || !questEl) return;
+        const isStartEl = $('expeditionNodeIsStart');
+        if (!pop || !labelEl || !questEl || !isStartEl) return;
         labelEl.value = node.label || '';
         questEl.innerHTML = '<option value="">— Unassigned —</option>' +
             state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
         questEl.value = node.quest_id ? String(node.quest_id) : '';
+        isStartEl.checked = !!node.is_start;
 
         pop.style.display = 'block';
         pop.dataset.clientId = String(node.client_id);
@@ -684,12 +686,15 @@ console.log('📦 expedition-designer.js LOADED');
         const nextQuestID = questVal ? parseInt(questVal, 10) : null;
         const lbl = $('expeditionNodeLabel').value.trim();
         const nextLabel = lbl || null;
+        const isStartEl = $('expeditionNodeIsStart');
+        const nextIsStart = !!(isStartEl && isStartEl.checked);
 
-        const changed = node.quest_id !== nextQuestID || node.label !== nextLabel;
+        const changed = node.quest_id !== nextQuestID || node.label !== nextLabel || !!node.is_start !== nextIsStart;
         if (!changed) return;
 
         node.quest_id = nextQuestID;
         node.label = nextLabel;
+        node.is_start = nextIsStart;
         markDirty();
         renderNodes();
     }
@@ -857,8 +862,10 @@ console.log('📦 expedition-designer.js LOADED');
 
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
+        const isStartEl = $('expeditionNodeIsStart');
         if (labelEl) labelEl.addEventListener('input', applyPopoverFieldsLive);
         if (questEl) questEl.addEventListener('change', applyPopoverFieldsLive);
+        if (isStartEl) isStartEl.addEventListener('change', applyPopoverFieldsLive);
 
         // Click outside popover closes it (but keep clicks on nodes/popover alive).
         document.addEventListener('mousedown', (e) => {
