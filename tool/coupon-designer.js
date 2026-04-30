@@ -71,30 +71,6 @@
         return out.join('');
     }
 
-    async function apiFetch(url, opts = {}) {
-        const token = await getCurrentAccessToken();
-        if (!token) throw new Error('Auth required');
-        const headers = {
-            'Authorization': `Bearer ${token}`,
-            ...(opts.headers || {}),
-        };
-        const response = await fetch(url, { ...opts, headers });
-        let payload = null;
-        try {
-            payload = await response.json();
-        } catch {
-            payload = null;
-        }
-        if (!response.ok) {
-            const msg = payload?.message || `HTTP ${response.status}`;
-            throw new Error(msg);
-        }
-        if (!payload?.success) {
-            throw new Error(payload?.message || 'Request failed');
-        }
-        return payload;
-    }
-
     function renderCouponTable() {
         const body = qs('couponTableBody');
         if (!body) return;
@@ -141,7 +117,7 @@
 
     async function loadCouponData() {
         try {
-            const payload = await apiFetch('/api/getCoupons');
+            const payload = await getAuthenticatedJson('/api/getCoupons', { expectSuccess: true });
             state.coupons = Array.isArray(payload.coupons) ? payload.coupons : [];
             renderCouponTable();
         } catch (err) {
@@ -176,11 +152,7 @@
         createBtn.disabled = true;
         setStatus('Creating coupon…');
         try {
-            await apiFetch('/api/createCoupon', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
+            await postAuthenticatedJson('/api/createCoupon', payload, { expectSuccess: true });
             setStatus('Coupon created.', 'success');
             codeInput.value = '';
             await loadCouponData();
@@ -196,11 +168,7 @@
 
         setStatus('Removing coupon…');
         try {
-            await apiFetch('/api/deleteCoupon', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id }),
-            });
+            await postAuthenticatedJson('/api/deleteCoupon', { id }, { expectSuccess: true });
             setStatus('Coupon removed.', 'success');
             await loadCouponData();
         } catch (err) {

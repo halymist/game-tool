@@ -4,6 +4,7 @@ let serverState = {
     servers: [],
     selectedServerId: null
 };
+let serverDataSubscription = null;
 
 function registerServerDesigner() {
     if (!document.getElementById('servers-content')) return;
@@ -20,6 +21,7 @@ if (document.readyState === 'loading') {
 async function initServerManager() {
     console.log('🖥️ Initializing Server Manager...');
     setupServerListeners();
+    setupServerSubscriptions();
     await loadServerData();
     console.log('✅ Server Manager initialized');
 }
@@ -32,30 +34,34 @@ function setupServerListeners() {
 
 async function loadServerData() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/getServers', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (!data.success) {
-            setServerStatus(data.message || 'Failed to load servers', true);
-            return;
-        }
-
-        serverState.servers = data.servers || [];
-        window.servers = serverState.servers;
-        if (!serverState.selectedServerId && serverState.servers.length) {
-            serverState.selectedServerId = serverState.servers[0].id;
-        }
-        renderServerTable();
-        const selected = serverState.servers.find(s => s.id === serverState.selectedServerId);
-        renderServerPlanDetails(selected || null);
+        await loadServersData();
     } catch (error) {
         console.error('Error loading servers:', error);
         setServerStatus('Failed to load servers', true);
     }
+}
+
+function setupServerSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') {
+        return;
+    }
+
+    if (typeof serverDataSubscription === 'function') {
+        serverDataSubscription();
+    }
+
+    serverDataSubscription = subscribeToGlobalData('servers', (servers) => {
+        serverState.servers = Array.isArray(servers) ? servers : [];
+        window.servers = serverState.servers;
+
+        if (!serverState.selectedServerId || !serverState.servers.some((server) => server.id === serverState.selectedServerId)) {
+            serverState.selectedServerId = serverState.servers[0]?.id ?? null;
+        }
+
+        renderServerTable();
+        const selected = serverState.servers.find((server) => server.id === serverState.selectedServerId);
+        renderServerPlanDetails(selected || null);
+    });
 }
 
 function renderServerTable() {
@@ -224,31 +230,17 @@ async function createServer() {
     }
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
+        const data = await postAuthenticatedJson('/api/createServer', {
+            name: name || null,
+            startsAt: startsAt || null
+        }, { expectSuccess: true });
 
-        const response = await fetch('/api/createServer', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: name || null,
-                startsAt: startsAt || null
-            })
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            setServerStatus(data.message || 'Create failed', true);
-            return;
-        }
-
-        serverState.servers.unshift(data.server);
         serverState.selectedServerId = data.server?.id ?? serverState.selectedServerId;
-        renderServerTable();
-        renderServerPlanDetails(data.server);
+        if (typeof syncAfterSave === 'function') {
+            await syncAfterSave('servers');
+        } else {
+            await loadServersData({ forceReload: true });
+        }
         closeCreateServerModal();
         const statusMsg = data.message ? `Server created (${data.message})` : 'Server created';
         setServerStatus(statusMsg, !!data.message);

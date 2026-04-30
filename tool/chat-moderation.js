@@ -5,6 +5,7 @@ let moderationState = {
     filter: '',
     servers: []
 };
+let moderationServerSubscription = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('moderation-content')) {
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initModerationManager() {
     console.log('🛡️ Initializing Chat Moderation...');
     setupModerationListeners();
+    setupModerationSubscriptions();
     await loadModerationData();
     console.log('✅ Chat Moderation initialized');
 }
@@ -35,17 +37,10 @@ function setupModerationListeners() {
 
 async function loadModerationData() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/getBannedWords', {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const data = await getAuthenticatedJson('/api/getBannedWords', {
+            expectSuccess: true,
+            headers: { 'Content-Type': 'application/json' }
         });
-        const data = await response.json();
-        if (!data.success) {
-            setModerationStatus(data.message || 'Failed to load banned words', true);
-            return;
-        }
 
         moderationState.words = data.words || [];
         renderBannedWords();
@@ -54,6 +49,22 @@ async function loadModerationData() {
         console.error('Error loading banned words:', error);
         setModerationStatus('Failed to load banned words', true);
     }
+}
+
+function setupModerationSubscriptions() {
+    if (typeof subscribeToGlobalData !== 'function') {
+        return;
+    }
+
+    if (typeof moderationServerSubscription === 'function') {
+        moderationServerSubscription();
+    }
+
+    moderationServerSubscription = subscribeToGlobalData('servers', (servers) => {
+        moderationState.servers = Array.isArray(servers) ? servers : [];
+        window.servers = moderationState.servers;
+        renderActiveServers();
+    });
 }
 
 function renderBannedWords() {
@@ -82,21 +93,7 @@ async function loadActiveServers() {
     if (!serverSelect) return;
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/getServers', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        if (!data.success) {
-            renderServerSelect([]);
-            return;
-        }
-
-        moderationState.servers = data.servers || [];
-        window.servers = moderationState.servers;
-        renderActiveServers();
+        await loadServersData();
     } catch (error) {
         console.error('Error loading servers:', error);
         renderServerSelect([]);
@@ -159,23 +156,7 @@ async function addBannedWord(e) {
     }
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/addBannedWord', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ word, severity })
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            setModerationStatus(data.message || 'Failed to add word', true);
-            return;
-        }
+        const data = await postAuthenticatedJson('/api/addBannedWord', { word, severity }, { expectSuccess: true });
 
         moderationState.words.unshift(data.word);
         renderBannedWords();
@@ -192,23 +173,7 @@ async function deleteBannedWord(id) {
     if (!id) return;
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/deleteBannedWord', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ id })
-        });
-
-        const data = await response.json();
-        if (!data.success) {
-            setModerationStatus(data.message || 'Failed to delete word', true);
-            return;
-        }
+        await postAuthenticatedJson('/api/deleteBannedWord', { id }, { expectSuccess: true });
 
         moderationState.words = moderationState.words.filter(w => w.id !== id);
         renderBannedWords();

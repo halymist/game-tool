@@ -260,6 +260,11 @@ function setupQuestDataSubscriptions() {
         populateQuestSettlementSelect();
     }));
 
+    questDataSubscriptions.push(subscribeToGlobalData('recentEvents', (events) => {
+        questState.recentEvents = Array.isArray(events) ? events : [];
+        populateQuestEventDropdown();
+    }));
+
     questDataSubscriptions.push(subscribeToGlobalData('questAssets', () => {
         if (isQuestAssetGalleryOpen()) {
             const filterValue = document.getElementById('questAssetFilter')?.value || '';
@@ -271,15 +276,7 @@ function setupQuestDataSubscriptions() {
 // ==================== RECENT EVENTS ====================
 async function loadRecentEvents() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        const response = await fetch('/api/getRecentEvents', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch recent events');
-        const data = await response.json();
-        questState.recentEvents = data.events || [];
-        populateQuestEventDropdown();
+        await loadRecentEventsData();
     } catch (error) {
         console.error('Failed to load recent events:', error);
     }

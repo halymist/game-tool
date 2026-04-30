@@ -5,6 +5,8 @@ let conceptState = {
     expeditionSchema: {},
     snapshot: null
 };
+let conceptRecentEventsSubscription = null;
+let conceptSaveButton = null;
 
 const defaultPromptPayload = {
     instructions: {},
@@ -31,9 +33,10 @@ if (document.readyState === 'loading') {
 }
 
 async function initConceptManager() {
+    conceptSaveButton = conceptSaveButton || new SaveButton('conceptSaveBtn');
     setupConceptListeners();
-    await loadConceptData();
-    await loadConceptRecentEvents();
+    setupConceptRecentEventsSubscription();
+    await Promise.all([loadConceptData(), loadConceptRecentEvents()]);
 }
 
 function setupConceptListeners() {
@@ -56,17 +59,10 @@ function setupConceptListeners() {
 
 async function loadConceptData() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/getConcept', {
-            headers: { 'Authorization': `Bearer ${token}` }
+        const data = await getAuthenticatedJson('/api/getConcept', {
+            expectSuccess: true,
+            headers: { 'Content-Type': 'application/json' }
         });
-        const data = await response.json();
-        if (!data.success) {
-            setConceptStatus(data.message || 'Failed to load concept', true);
-            return;
-        }
 
         conceptState.payload = data.payload || {};
         conceptState.expeditionSchema = getSchemaObject(data.expeditionJsonSchema);
@@ -130,10 +126,8 @@ async function saveConcept() {
 
     conceptState.expeditionSchema = parsedExpedition;
 
+    conceptSaveButton?.setSaving(true);
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
         const systemPromptJson = systemPrompt?.value || '';
         const wildsPromptJson = wildsPrompt?.value || '';
         const expeditionClusterPromptJson = expeditionClusterPrompt?.value || '';
@@ -142,26 +136,16 @@ async function saveConcept() {
         const schemaPayload = parsed;
         const promptPayload = buildPromptPayload(schemaPayload, systemPromptJson, wildsPromptJson);
 
-        const response = await fetch('/api/saveConcept', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                payload: promptPayload,
-                systemPrompt: systemPromptJson,
-                wildsPrompt: wildsPromptJson,
-                expeditionClusterPrompt: expeditionClusterPromptJson,
-                expeditionJsonSchema: parsedExpedition,
-                questUpdatePrompt: questUpdatePromptJson
-            })
+        const data = await postAuthenticatedJson('/api/saveConcept', {
+            payload: promptPayload,
+            systemPrompt: systemPromptJson,
+            wildsPrompt: wildsPromptJson,
+            expeditionClusterPrompt: expeditionClusterPromptJson,
+            expeditionJsonSchema: parsedExpedition,
+            questUpdatePrompt: questUpdatePromptJson
+        }, {
+            expectSuccess: true
         });
-        const data = await response.json();
-        if (!data.success) {
-            setConceptStatus(data.message || 'Save failed', true);
-            return;
-        }
 
         conceptState.payload = data.payload || promptPayload;
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt ?? systemPromptJson);
@@ -173,8 +157,11 @@ async function saveConcept() {
         renderExpeditionConceptJson();
         snapshotConceptFields();
         checkConceptSaveConditions();
+        conceptSaveButton?.setSaving(false);
+        conceptSaveButton?.flashSaved();
         setConceptStatus('Saved', false);
     } catch (error) {
+        conceptSaveButton?.setSaving(false);
         console.error('Error saving concept:', error);
         setConceptStatus('Save failed', true);
     }
@@ -264,7 +251,11 @@ function checkConceptSaveConditions() {
     const btn = document.getElementById('conceptSaveBtn');
     if (!btn) return;
     const dirty = isConceptDirty();
-    btn.disabled = !dirty;
+    if (conceptSaveButton) {
+        conceptSaveButton.setDirty(dirty);
+    } else {
+        btn.disabled = !dirty;
+    }
     btn.classList.toggle('btn-disabled', !dirty);
     btn.title = dirty ? 'Save changes' : 'No changes to save';
 }
@@ -286,17 +277,24 @@ function setConceptStatus(message, isError) {
 
 let conceptRecentEvents = [];
 
+function setupConceptRecentEventsSubscription() {
+    if (typeof subscribeToGlobalData !== 'function') {
+        return;
+    }
+
+    if (typeof conceptRecentEventsSubscription === 'function') {
+        conceptRecentEventsSubscription();
+    }
+
+    conceptRecentEventsSubscription = subscribeToGlobalData('recentEvents', (events) => {
+        conceptRecentEvents = Array.isArray(events) ? events : [];
+        renderConceptEvents();
+    });
+}
+
 async function loadConceptRecentEvents() {
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        const response = await fetch('/api/getRecentEvents', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) throw new Error('Failed to fetch');
-        const data = await response.json();
-        conceptRecentEvents = data.events || [];
-        renderConceptEvents();
+        await loadRecentEventsData();
     } catch (error) {
         console.error('Failed to load recent events:', error);
     }
@@ -331,24 +329,18 @@ async function addConceptEvent() {
     const description = descInput?.value.trim() || null;
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        const response = await fetch('/api/saveRecentEvent', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ event_name: name, description: description })
-        });
-        if (!response.ok) throw new Error('Failed to save');
-        const data = await response.json();
-        if (data.success) {
-            if (nameInput) nameInput.value = '';
-            if (descInput) descInput.value = '';
-            await loadConceptRecentEvents();
-            setConceptStatus('Event added', false);
+        await postAuthenticatedJson('/api/saveRecentEvent', {
+            event_name: name,
+            description: description
+        }, { expectSuccess: true });
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+        if (typeof syncAfterSave === 'function') {
+            await syncAfterSave('recentEvents');
+        } else {
+            await loadRecentEventsData({ forceReload: true });
         }
+        setConceptStatus('Event added', false);
     } catch (error) {
         console.error('Failed to add event:', error);
         setConceptStatus('Failed to add event', true);
@@ -359,22 +351,13 @@ async function deleteConceptEvent(eventId) {
     if (!confirm('Delete this event? Quest chains linked to it will become "Default".')) return;
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-        const response = await fetch('/api/deleteRecentEvent', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ event_id: eventId })
-        });
-        if (!response.ok) throw new Error('Failed to delete');
-        const data = await response.json();
-        if (data.success) {
-            await loadConceptRecentEvents();
-            setConceptStatus('Event deleted', false);
+        await postAuthenticatedJson('/api/deleteRecentEvent', { event_id: eventId }, { expectSuccess: true });
+        if (typeof syncAfterSave === 'function') {
+            await syncAfterSave('recentEvents');
+        } else {
+            await loadRecentEventsData({ forceReload: true });
         }
+        setConceptStatus('Event deleted', false);
     } catch (error) {
         console.error('Failed to delete event:', error);
         setConceptStatus('Failed to delete event', true);

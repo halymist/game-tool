@@ -23,6 +23,7 @@ let settlementState = {
 };
 let settlementAssetUploader = null;
 let locationTextureUploader = null;
+let settlementSaveButton = null;
 
 const SETTLEMENT_FALLBACK_ITEM_ICON = buildSettlementEmojiDataUri('🎒');
 
@@ -80,6 +81,7 @@ if (document.readyState === 'loading') {
 
 function initSettlementDesigner() {
     console.log('🏘️ Initializing Settlement Designer...');
+    settlementSaveButton = settlementSaveButton || new SaveButton('saveSettlementBtn');
     setupSettlementEventListeners();
     console.log('✅ Settlement Designer initialized');
 }
@@ -1469,65 +1471,27 @@ async function saveSettlement() {
         settlement.settlement_id = settlementState.selectedSettlementId;
     }
 
+    settlementSaveButton?.setSaving(true);
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) {
-            alert('Authentication required');
-            return;
+        const result = await postAuthenticatedJson('/api/saveSettlement', settlement, { expectSuccess: true });
+        console.log('✅ Settlement saved:', result);
+
+        await syncAfterSave('settlements');
+        settlementState.settlements = GlobalData.settlements;
+
+        // Repopulate UI
+        populateSettlementEditorSelect();
+
+        // Select the saved settlement
+        if (result.settlementId) {
+            selectSettlement(result.settlementId);
         }
 
-        const saveBtn = document.getElementById('saveSettlementBtn');
-        const origLabel = saveBtn?.textContent;
-        if (saveBtn) {
-            saveBtn.classList.add('is-saving');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving';
-        }
-
-        const response = await fetch('/api/saveSettlement', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(settlement)
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            console.log('✅ Settlement saved:', result);
-
-            await syncAfterSave('settlements');
-            settlementState.settlements = GlobalData.settlements;
-            
-            // Repopulate UI
-            populateSettlementEditorSelect();
-
-            // Select the saved settlement
-            if (result.settlementId) {
-                selectSettlement(result.settlementId);
-            }
-
-            // Show save success animation inside button
-            if (saveBtn) {
-                saveBtn.classList.remove('is-saving');
-                saveBtn.classList.add('is-saved');
-                saveBtn.textContent = '✓ Saved';
-                setTimeout(() => {
-                    saveBtn.classList.remove('is-saved');
-                    saveBtn.textContent = origLabel || 'Save';
-                    saveBtn.disabled = false;
-                }, 1500);
-            }
-        } else {
-            if (saveBtn) { saveBtn.classList.remove('is-saving'); saveBtn.disabled = false; saveBtn.textContent = origLabel || 'Save'; }
-            const error = await response.text();
-            alert('Failed to save settlement: ' + error);
-        }
-
+        checkSettlementSaveConditions();
+        settlementSaveButton?.setSaving(false);
+        settlementSaveButton?.flashSaved(1500);
     } catch (error) {
-        const saveBtn2 = document.getElementById('saveSettlementBtn');
-        if (saveBtn2) { saveBtn2.classList.remove('is-saving', 'is-saved'); saveBtn2.disabled = false; saveBtn2.textContent = 'Save'; }
+        settlementSaveButton?.setSaving(false);
         console.error('Error saving settlement:', error);
         alert('Error saving settlement: ' + error.message);
     }
@@ -1659,7 +1623,11 @@ function checkSettlementSaveConditions() {
         canSave = !!isDirty;
     }
 
-    btn.disabled = !canSave;
+    if (settlementSaveButton) {
+        settlementSaveButton.setDirty(canSave);
+    } else {
+        btn.disabled = !canSave;
+    }
     btn.classList.toggle('btn-disabled', !canSave);
 
     const dismissBtn = document.getElementById('dismissSettlementBtn');

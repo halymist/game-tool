@@ -15,6 +15,8 @@ const GlobalData = {
     pendingItems: [],      // Array of pending items from tooling.items
     itemAssets: [],        // Array of available item assets from S3
     npcs: [],              // Array of all NPCs from game.npcs
+    servers: [],           // Array of all server records from management.servers
+    recentEvents: [],      // Array of all global recent events from game.recent_events
     settlements: [],       // Array of all settlements from game.world_info
     quests: [],            // Array of all quests from game.quests (all settlements)
     questChains: [],       // Array of all quest chains from game.questchain (all settlements)
@@ -36,6 +38,53 @@ function getAssetPublicBaseUrl() {
 function buildPublicAssetUrl(path) {
     if (!path) return '';
     return `${ASSET_PUBLIC_BASE_URL}/${String(path).replace(/^\/+/, '')}`;
+}
+
+async function fetchAuthenticatedJson(url, options = {}) {
+    const { jsonBody, headers = {}, expectSuccess = false, ...fetchOptions } = options;
+    const token = await getCurrentAccessToken();
+    if (!token) throw new Error('Authentication required');
+
+    const requestHeaders = {
+        'Authorization': `Bearer ${token}`,
+        ...(jsonBody !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
+    };
+
+    const response = await fetch(url, {
+        ...fetchOptions,
+        headers: requestHeaders,
+        body: jsonBody !== undefined ? JSON.stringify(jsonBody) : fetchOptions.body,
+    });
+
+    const rawBody = await response.text();
+    let payload = null;
+    if (rawBody) {
+        try {
+            payload = JSON.parse(rawBody);
+        } catch {
+            payload = null;
+        }
+    }
+
+    if (!response.ok) {
+        const message = payload?.message || rawBody || `HTTP ${response.status}`;
+        throw new Error(message);
+    }
+
+    if (expectSuccess && payload?.success === false) {
+        throw new Error(payload.message || 'Request failed');
+    }
+
+    return payload;
+}
+
+function getAuthenticatedJson(url, options = {}) {
+    return fetchAuthenticatedJson(url, { ...options, method: options.method || 'GET' });
+}
+
+function postAuthenticatedJson(url, jsonBody, options = {}) {
+    return fetchAuthenticatedJson(url, { ...options, method: options.method || 'POST', jsonBody });
 }
 
 const globalDataSubscribers = new Map();
@@ -177,6 +226,8 @@ function buildGlobalDataSummary() {
         perks: GlobalData.perks.length,
         items: GlobalData.items.length,
         npcs: GlobalData.npcs.length,
+        servers: GlobalData.servers.length,
+        recentEvents: GlobalData.recentEvents.length,
         settlements: GlobalData.settlements.length,
         quests: GlobalData.quests.length,
         questChains: GlobalData.questChains.length,
@@ -249,10 +300,17 @@ if (typeof window !== 'undefined') {
     window.GlobalData = GlobalData;
     window.subscribeToGlobalData = subscribeToGlobalData;
     window.notifyGlobalDataChange = notifyGlobalDataChange;
+    window.fetchAuthenticatedJson = fetchAuthenticatedJson;
+    window.getAuthenticatedJson = getAuthenticatedJson;
+    window.postAuthenticatedJson = postAuthenticatedJson;
     window.preloadGlobalData = preloadGlobalData;
     window.getGlobalDataSummary = buildGlobalDataSummary;
     window.getAssetPublicBaseUrl = getAssetPublicBaseUrl;
     window.buildPublicAssetUrl = buildPublicAssetUrl;
+    window.loadServersData = loadServersData;
+    window.getServersData = getServersData;
+    window.loadRecentEventsData = loadRecentEventsData;
+    window.getRecentEventsData = getRecentEventsData;
     window.loadSettlementsData = loadSettlementsData;
     window.getSettlements = getSettlements;
     window.loadQuestAssetsData = loadQuestAssetsData;
@@ -330,6 +388,8 @@ let settlementAssetsLoadingPromise = null;
 let expeditionMapAssetsLoadingPromise = null;
 let enemyAssetsLoadingPromise = null;
 let npcsLoadingPromise = null;
+let serversLoadingPromise = null;
+let recentEventsLoadingPromise = null;
 let cosmeticsLoadingPromise = null;
 let cosmeticAssetsLoadingPromise = null;
 
@@ -930,6 +990,66 @@ function getNpcs() {
     return GlobalData.npcs;
 }
 
+// --- Servers ---
+async function loadServersData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.servers.length > 0) {
+        return GlobalData.servers;
+    }
+    if (serversLoadingPromise) return serversLoadingPromise;
+
+    serversLoadingPromise = (async () => {
+        try {
+            const data = await getAuthenticatedJson('/api/getServers', {
+                expectSuccess: true,
+                headers: { 'Content-Type': 'application/json' }
+            });
+            setGlobalArray('servers', Array.isArray(data?.servers) ? data.servers : []);
+            return GlobalData.servers;
+        } catch (error) {
+            console.error('Error loading servers:', error);
+            throw error;
+        } finally {
+            serversLoadingPromise = null;
+        }
+    })();
+    return serversLoadingPromise;
+}
+
+function getServersData() {
+    return GlobalData.servers;
+}
+
+// --- Recent Events ---
+async function loadRecentEventsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.recentEvents.length > 0) {
+        return GlobalData.recentEvents;
+    }
+    if (recentEventsLoadingPromise) return recentEventsLoadingPromise;
+
+    recentEventsLoadingPromise = (async () => {
+        try {
+            const data = await getAuthenticatedJson('/api/getRecentEvents', {
+                expectSuccess: true,
+                headers: { 'Content-Type': 'application/json' }
+            });
+            setGlobalArray('recentEvents', Array.isArray(data?.events) ? data.events : []);
+            return GlobalData.recentEvents;
+        } catch (error) {
+            console.error('Error loading recent events:', error);
+            throw error;
+        } finally {
+            recentEventsLoadingPromise = null;
+        }
+    })();
+    return recentEventsLoadingPromise;
+}
+
+function getRecentEventsData() {
+    return GlobalData.recentEvents;
+}
+
 // --- Cosmetics ---
 async function loadCosmeticsData(options = {}) {
     const forceReload = options?.forceReload === true;
@@ -1014,6 +1134,8 @@ const GLOBAL_DATA_LOADERS = {
     perks:            (options) => loadPerksData(options),
     items:            (options) => loadItemsData(options),
     npcs:             (options) => loadNpcsData(options),
+    servers:          (options) => loadServersData(options),
+    recentEvents:     (options) => loadRecentEventsData(options),
     perkAssets:       (options) => loadPerkAssets(options),
     itemAssets:       (options) => loadItemAssets(options),
     enemyAssets:      (options) => loadEnemyAssets(options),
@@ -1052,6 +1174,8 @@ async function preloadGlobalData(keys = []) {
             `${GlobalData.items.length} items`,
             `${GlobalData.talents.length} talents`,
             `${GlobalData.npcs.length} npcs`,
+            `${GlobalData.servers.length} servers`,
+            `${GlobalData.recentEvents.length} recent events`,
             `${GlobalData.settlements.length} settlements`,
             `${GlobalData.quests.length} quests`,
             `${GlobalData.cosmetics.length} cosmetics`
