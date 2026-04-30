@@ -758,6 +758,21 @@ function questStartConnection(type, id, side, e) {
 }
 
 function addConnection(fromType, fromId, toType, toId) {
+    // Quest -> option means this option is a start option for that quest.
+    // Keep a single quest owner for each option by replacing any previous quest->option link.
+    if (fromType === 'quest' && toType === 'option') {
+        questState.connections = questState.connections.filter(c =>
+            !(c.fromType === 'quest' && c.toType === 'option' && c.toId === toId)
+        );
+
+        const option = questState.options.get(toId);
+        if (option) {
+            option.questId = fromId;
+            option.isStart = true;
+            renderOption(option);
+        }
+    }
+
     // Check if connection already exists
     const exists = questState.connections.some(c => 
         c.fromType === fromType && c.fromId === fromId && 
@@ -872,7 +887,21 @@ function questRenderConnections() {
         path.addEventListener('click', (e) => {
             e.stopPropagation();
             if (confirm('Delete this connection?')) {
+                const removed = questState.connections[idx];
                 questState.connections.splice(idx, 1);
+
+                // If a quest->option start link is removed, clear start flag when no other start link remains.
+                if (removed?.fromType === 'quest' && removed?.toType === 'option') {
+                    const option = questState.options.get(removed.toId);
+                    const stillStartLinked = questState.connections.some(c =>
+                        c.fromType === 'quest' && c.toType === 'option' && c.toId === removed.toId
+                    );
+                    if (option && !stillStartLinked) {
+                        option.isStart = false;
+                        renderOption(option);
+                    }
+                }
+
                 questRenderConnections();
                 checkQuestSaveConditions();
             }
@@ -2871,11 +2900,13 @@ async function saveQuest() {
             }
         });
         
-        // Build a map of option -> quest from quest->option connections
+        // Build maps from quest->option connections
         const optionToQuestMap = new Map();
+        const startOptionIds = new Set();
         questState.connections.forEach(conn => {
             if (conn.fromType === 'quest' && conn.toType === 'option') {
                 optionToQuestMap.set(conn.toId, conn.fromId);
+                startOptionIds.add(conn.toId);
             }
         });
         
@@ -2889,7 +2920,8 @@ async function saveQuest() {
                 questId: resolvedQuestId,
                 nodeText: option.nodeText || '',
                 optionText: option.optionText || '',
-                isStart: option.isStart || false,
+                // Persist start-state from actual quest->option links (with legacy fallback).
+                isStart: startOptionIds.has(id) || option.isStart || false,
                 x: option.x,
                 y: option.y,
                 questEnd: option.type === 'end' ? true : null,
