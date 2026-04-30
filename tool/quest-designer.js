@@ -3044,11 +3044,19 @@ async function saveQuest() {
             });
         }
         
-        alert('✅ Quest chain saved successfully!');
-        
         // Clear deletion arrays after successful save
         questState.deletedQuestIds = [];
         questState.deletedOptionIds = [];
+
+        // Refresh shared global quest caches so other designers (e.g. expedition)
+        // can immediately see newly created/updated quests without page reload.
+        if (typeof window.loadQuestsData === 'function') {
+            try {
+                await window.loadQuestsData({ forceReload: true });
+            } catch (refreshError) {
+                console.warn('Quest save succeeded, but shared quest cache refresh failed:', refreshError);
+            }
+        }
         
         // Reload to get fresh data
         if (questState.selectedChain) {

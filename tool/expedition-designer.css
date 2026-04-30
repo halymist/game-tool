@@ -184,18 +184,6 @@
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
-.expedition-node.has-quest::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    right: -4px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fbbf24;
-    border: 2px solid #1f2937;
-}
-
 .expedition-node.selected {
     outline: 3px solid #f59e0b;
     outline-offset: 2px;
@@ -235,21 +223,48 @@
 
 .expedition-popover-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.expedition-popover-quest-select {
+    flex: 1;
+    min-width: 0;
+    background: #0f1623;
+    color: #e2e8f0;
+    border: 1px solid #2a3142;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.expedition-popover-delete {
+    border: 1px solid #ef4444;
+    background: #7f1d1d;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.expedition-popover-delete:hover {
+    background: #991b1b;
 }
 
 .expedition-popover-close {
-    background: transparent;
-    border: none;
-    color: #889;
-    font-size: 1rem;
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    line-height: 1;
     cursor: pointer;
-    padding: 2px 6px;
+    padding: 6px 9px;
+    border-radius: 6px;
 }
 
 .expedition-popover-close:hover {
+    background: #2b364a;
     color: #fff;
 }
 
@@ -273,14 +288,6 @@
     border-radius: 6px;
     padding: 6px 8px;
     box-sizing: border-box;
-}
-
-.expedition-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    color: #e2e8f0;
 }
 
 .expedition-node-popover .modal-buttons {

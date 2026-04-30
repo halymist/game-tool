@@ -538,15 +538,13 @@ console.log('📦 expedition-designer.js LOADED');
             const el = document.createElement('div');
             el.className = 'expedition-node';
             if (node.is_start) el.classList.add('is-start');
-            if (node.quest_id) el.classList.add('has-quest');
             if (state.selectedNodeId === node.client_id) el.classList.add('selected');
             if (state.edgeSourceId === node.client_id) el.classList.add('edge-source');
             el.style.left = (node.pos_x * 100) + '%';
             el.style.top = (node.pos_y * 100) + '%';
             el.dataset.clientId = String(node.client_id);
             const quest = state.quests.find(q => q.quest_id === node.quest_id);
-            const initial = (node.label || (quest && quest.quest_name) || '').trim();
-            el.textContent = initial ? initial.charAt(0).toUpperCase() : '·';
+            el.textContent = '';
             el.title = (quest ? quest.quest_name : '(no quest)') + (node.is_start ? ' [start]' : '');
             if (node.label) {
                 const labelEl = document.createElement('div');
@@ -643,7 +641,6 @@ console.log('📦 expedition-designer.js LOADED');
             state.edgeSourceId = node.client_id;
             state.selectedNodeId = node.client_id;
             renderNodes();
-            setStatus('Connection source selected. Click another node to connect/disconnect. Right-click a node to edit.');
             return;
         }
         if (state.edgeSourceId === node.client_id) {
@@ -679,10 +676,11 @@ console.log('📦 expedition-designer.js LOADED');
         const y = (e.clientY - rect.top) / rect.height;
         if (x < 0 || x > 1 || y < 0 || y > 1) return;
         const id = state.nextClientId--;
+        const hasStartNode = Array.from(state.nodes.values()).some((n) => !!n.is_start);
         state.nodes.set(id, {
             client_id: id,
             quest_id: null,
-            is_start: false,
+            is_start: !hasStartNode,
             pos_x: x,
             pos_y: y,
             label: null,
@@ -696,11 +694,9 @@ console.log('📦 expedition-designer.js LOADED');
         const pop = $('expeditionNodePopover');
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
-        const startEl = $('expeditionNodeIsStart');
-        if (!pop || !labelEl || !questEl || !startEl) return;
+        if (!pop || !labelEl || !questEl) return;
         labelEl.value = node.label || '';
-        startEl.checked = !!node.is_start;
-        questEl.innerHTML = '<option value="">— No quest —</option>' +
+        questEl.innerHTML = '<option value="">— Unassigned —</option>' +
             state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
         questEl.value = node.quest_id ? String(node.quest_id) : '';
 
@@ -731,15 +727,13 @@ console.log('📦 expedition-designer.js LOADED');
         if (!node) return;
         const questVal = $('expeditionNodeQuest').value;
         const nextQuestID = questVal ? parseInt(questVal, 10) : null;
-        const nextIsStart = $('expeditionNodeIsStart').checked;
         const lbl = $('expeditionNodeLabel').value.trim();
         const nextLabel = lbl || null;
 
-        const changed = node.quest_id !== nextQuestID || node.is_start !== nextIsStart || node.label !== nextLabel;
+        const changed = node.quest_id !== nextQuestID || node.label !== nextLabel;
         if (!changed) return;
 
         node.quest_id = nextQuestID;
-        node.is_start = nextIsStart;
         node.label = nextLabel;
         markDirty();
         renderNodes();
@@ -750,14 +744,36 @@ console.log('📦 expedition-designer.js LOADED');
         if (!pop) return;
         const cid = parseInt(pop.dataset.clientId, 10);
         if (!state.nodes.has(cid)) return closeNodePopover();
+        const removedNode = state.nodes.get(cid);
         state.nodes.delete(cid);
         // Drop edges touching this node.
         for (const [key, edge] of state.edges) {
             if (edge.a_client_id === cid || edge.b_client_id === cid) state.edges.delete(key);
         }
+
+        if (removedNode?.is_start) {
+            const firstRemaining = state.nodes.values().next().value;
+            if (firstRemaining) {
+                firstRemaining.is_start = true;
+            }
+        }
+
         markDirty();
         closeNodePopover();
         renderMap();
+    }
+
+    function refreshOpenNodePopoverQuestOptions() {
+        const pop = $('expeditionNodePopover');
+        const questEl = $('expeditionNodeQuest');
+        if (!pop || !questEl || pop.style.display === 'none') return;
+        const cid = parseInt(pop.dataset.clientId, 10);
+        const node = state.nodes.get(cid);
+        if (!node) return;
+
+        questEl.innerHTML = '<option value="">— Unassigned —</option>' +
+            state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
+        questEl.value = node.quest_id ? String(node.quest_id) : '';
     }
 
     // ---------- Wiring ----------
@@ -886,10 +902,8 @@ console.log('📦 expedition-designer.js LOADED');
 
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
-        const startEl = $('expeditionNodeIsStart');
         if (labelEl) labelEl.addEventListener('input', applyPopoverFieldsLive);
         if (questEl) questEl.addEventListener('change', applyPopoverFieldsLive);
-        if (startEl) startEl.addEventListener('change', applyPopoverFieldsLive);
 
         // Click outside popover closes it (but keep clicks on nodes/popover alive).
         document.addEventListener('mousedown', (e) => {
@@ -964,6 +978,7 @@ console.log('📦 expedition-designer.js LOADED');
             const settlementId = state.settlementId || getSelectedSettlementFromDom();
             syncGlobalCaches(settlementId, 'quests subscription');
             renderNodes();
+            refreshOpenNodePopoverQuestOptions();
             log('Quests subscription fired', buildGlobalSnapshot(settlementId));
         });
 

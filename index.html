@@ -1082,27 +1082,14 @@
             <!-- Node popover -->
             <div id="expeditionNodePopover" class="expedition-node-popover" style="display:none;">
                 <div class="expedition-popover-header">
-                    <strong>Node</strong>
+                    <select id="expeditionNodeQuest" class="expedition-popover-quest-select">
+                        <option value="">— Unassigned —</option>
+                    </select>
+                    <button class="btn-delete expedition-popover-delete" type="button" data-action="delete">Delete</button>
                     <button class="expedition-popover-close" type="button" data-action="close">✕</button>
                 </div>
                 <div class="modal-field">
-                    <label>Label (optional)</label>
-                    <input type="text" id="expeditionNodeLabel" placeholder="Display label">
-                </div>
-                <div class="modal-field">
-                    <label>Quest</label>
-                    <select id="expeditionNodeQuest">
-                        <option value="">— No quest —</option>
-                    </select>
-                </div>
-                <div class="modal-field">
-                    <label class="expedition-checkbox">
-                        <input type="checkbox" id="expeditionNodeIsStart">
-                        <span>Starting area (visible from settlement)</span>
-                    </label>
-                </div>
-                <div class="modal-buttons">
-                    <button class="btn-delete" type="button" data-action="delete">Delete</button>
+                    <input type="text" id="expeditionNodeLabel" placeholder="Describe this spot...">
                 </div>
             </div>
         </div>
