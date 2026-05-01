@@ -3988,6 +3988,10 @@ async function generateQuestPreview() {
         });
 
         const data = await response.json();
+        if (!response.ok) {
+            const apiMessage = data?.error?.message || data?.message || `Request failed with status ${response.status}`;
+            throw new Error(apiMessage);
+        }
         console.log('Quest generate response:', data);
 
         let content = data?.choices?.[0]?.message?.content;
@@ -4258,6 +4262,10 @@ async function updateQuestWithAi() {
         });
 
         const data = await response.json();
+        if (!response.ok) {
+            const apiMessage = data?.error?.message || data?.message || `Request failed with status ${response.status}`;
+            throw new Error(apiMessage);
+        }
         console.log('Quest update response:', data);
 
         let content = data?.choices?.[0]?.message?.content;
