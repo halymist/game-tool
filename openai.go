@@ -41,6 +41,7 @@ func handleGenerateQuestAi(w http.ResponseWriter, r *http.Request) {
 		modelsToTry = modelsForOpenAIRequest(payload)
 	}
 
+	logOpenAIQuestPhaseContextPreview(payload)
 	logOpenAIRequestPreview(body)
 
 	client := &http.Client{Timeout: 300 * time.Second}
@@ -233,6 +234,139 @@ func logOpenAIRequestPreview(body []byte) {
 		text = prettyBody.String()
 	}
 	log.Printf("OpenAI proxy request preview (%d bytes): %s", len(body), truncateForLog([]byte(text), openAILogPreviewLimitBytes))
+}
+
+func logOpenAIQuestPhaseContextPreview(payload map[string]interface{}) {
+	phase := extractOpenAIQuestPhase(payload)
+	if phase == "" {
+		return
+	}
+
+	content := extractOpenAIUserContent(payload)
+	preview := formatOpenAIContextPreview(content)
+	if strings.TrimSpace(preview) == "" {
+		log.Printf("OpenAI quest phase context: phase=%s content=<empty>", phase)
+		return
+	}
+
+	log.Printf("OpenAI quest phase context: phase=%s content=%s", phase, truncateForLog([]byte(preview), openAILogPreviewLimitBytes))
+}
+
+func extractOpenAIQuestPhase(payload map[string]interface{}) string {
+	if payload == nil {
+		return ""
+	}
+
+	if metadata, ok := payload["metadata"].(map[string]interface{}); ok {
+		for _, key := range []string{"quest_generation_phase", "questPhase", "phase"} {
+			if value, ok := metadata[key]; ok {
+				if text := strings.TrimSpace(asString(value)); text != "" {
+					return text
+				}
+			}
+		}
+	}
+
+	content := extractOpenAIUserContent(payload)
+	switch v := content.(type) {
+	case map[string]interface{}:
+		if phase, ok := v["phase"]; ok {
+			return strings.TrimSpace(asString(phase))
+		}
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return ""
+		}
+		var parsed map[string]interface{}
+		if err := json.Unmarshal([]byte(trimmed), &parsed); err == nil {
+			if phase, ok := parsed["phase"]; ok {
+				return strings.TrimSpace(asString(phase))
+			}
+		}
+	}
+
+	return ""
+}
+
+func extractOpenAIUserContent(payload map[string]interface{}) interface{} {
+	if payload == nil {
+		return nil
+	}
+
+	rawInput, ok := payload["input"]
+	if !ok {
+		rawInput = payload["messages"]
+	}
+
+	messages, ok := rawInput.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg, ok := messages[i].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		role := strings.TrimSpace(asString(msg["role"]))
+		if role != "user" {
+			continue
+		}
+		if content, exists := msg["content"]; exists {
+			return content
+		}
+	}
+
+	return nil
+}
+
+func formatOpenAIContextPreview(content interface{}) string {
+	if content == nil {
+		return ""
+	}
+
+	switch v := content.(type) {
+	case string:
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			return ""
+		}
+		var parsed interface{}
+		if err := json.Unmarshal([]byte(trimmed), &parsed); err == nil {
+			if body, marshalErr := json.MarshalIndent(parsed, "", "  "); marshalErr == nil {
+				return string(body)
+			}
+		}
+		return trimmed
+	case map[string]interface{}, []interface{}:
+		if body, err := json.MarshalIndent(v, "", "  "); err == nil {
+			return string(body)
+		}
+		if body, err := json.Marshal(v); err == nil {
+			return string(body)
+		}
+		return ""
+	default:
+		if body, err := json.Marshal(v); err == nil {
+			return string(body)
+		}
+		return ""
+	}
+}
+
+func asString(value interface{}) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		if body, err := json.Marshal(v); err == nil {
+			return string(body)
+		}
+		return ""
+	}
 }
 
 func truncateForLog(content []byte, limit int) string {

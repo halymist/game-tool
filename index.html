@@ -506,6 +506,15 @@
                                             <textarea id="questGeneratePrompt" placeholder="What kind of quest do you want?"></textarea>
                                         </div>
                                         <div class="quest-generate-actions">
+                                            <div id="questGeneratePhaseStatus" class="quest-generate-phase-status" style="display:none;">
+                                                <div class="quest-generate-phase-status-label">Pipeline</div>
+                                                <div class="quest-generate-phase-list">
+                                                    <span id="questGeneratePhaseOutline" class="quest-generate-phase-pill">1. Outline (gpt-4o)</span>
+                                                    <span id="questGeneratePhaseGraph" class="quest-generate-phase-pill">2. Graph (o3)</span>
+                                                    <span id="questGeneratePhaseWrite" class="quest-generate-phase-pill">3. Write (gpt-4o)</span>
+                                                </div>
+                                                <div id="questGeneratePhaseMessage" class="quest-generate-phase-message"></div>
+                                            </div>
                                             <button id="questGenerateRun" class="btn-primary btn-generate">Generate</button>
                                         </div>
                                     </div>
@@ -1576,6 +1585,25 @@
                         <label for="conceptQuestUpdatePrompt">Quest Update Prompt</label>
                         <textarea id="conceptQuestUpdatePrompt" placeholder="Enter quest update/adjustment system prompt..."></textarea>
                     </div>
+                </div>
+
+                <div class="concept-row">
+                    <div class="concept-section concept-section-half">
+                        <label for="conceptQuestPlanPrompt">Quest Outline Prompt (Phase 1)</label>
+                        <textarea id="conceptQuestPlanPrompt" placeholder="Enter phase 1 prompt for narrative outline and branch story beats..."></textarea>
+                    </div>
+                    <div class="concept-section concept-section-half">
+                        <label for="conceptQuestValidatePrompt">Quest Graph Prompt (Phase 2)</label>
+                        <textarea id="conceptQuestValidatePrompt" placeholder="Enter phase 2 prompt for converting outline into a coherent quest graph..."></textarea>
+                    </div>
+                </div>
+
+                <div class="concept-row">
+                    <div class="concept-section concept-section-half">
+                        <label for="conceptQuestWritePrompt">Quest Write Prompt (Phase 3)</label>
+                        <textarea id="conceptQuestWritePrompt" placeholder="Enter phase 3 prompt for natural quest writing and final reward/effect assignment..."></textarea>
+                    </div>
+                    <div class="concept-section concept-section-half concept-section-empty"></div>
                 </div>
 
                 <div class="concept-row">

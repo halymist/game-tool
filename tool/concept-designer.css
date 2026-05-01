@@ -98,8 +98,12 @@
     min-height: 280px;
 }
 
-/* System & Expedition Cluster prompts */
+/* System and phase prompts */
 #conceptSystemPrompt,
+#conceptQuestUpdatePrompt,
+#conceptQuestPlanPrompt,
+#conceptQuestValidatePrompt,
+#conceptQuestWritePrompt,
 #conceptExpeditionClusterPrompt {
     min-height: 220px;
 }

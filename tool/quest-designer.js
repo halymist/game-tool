@@ -3373,6 +3373,52 @@ const questGenerateState = {
     rewardBlessings: [],
 };
 
+const questGenerationPhases = [
+    { key: 'outline', label: 'Outline', model: 'gpt-4o', pillId: 'questGeneratePhaseOutline' },
+    { key: 'graph', label: 'Graph', model: 'o3', pillId: 'questGeneratePhaseGraph' },
+    { key: 'write', label: 'Write', model: 'gpt-4o', pillId: 'questGeneratePhaseWrite' }
+];
+
+const questGenerationDefaultPhasePrompts = {
+    outline: 'Create a Wilds quest outline with early investigation or setup beats, routes that imply at least 6 player selections before endings, multiple approaches to shared obstacles, later reconvergence, and no first-choice-only ending commitment. Return strict JSON only.',
+    graph: 'Convert the outline into a coherent quest graph with stable IDs, 6+ selections per route, interconnectivity, different immediate outcome nodes for alternate approaches, no long gated-only stretches, and at every progression step at least one forward dialogue or combat option alongside any gated routes. Include layout hints. Return strict JSON only.',
+    write: 'Write final Wilds quest JSON that preserves interconnectivity, 6+ selection routes, non-linear starts, distinct follow-up nodes for alternate approaches, combat followed by dialogue resolution, and usable pos_x/pos_y coordinates while using only provided catalog IDs. Ensure gated routes never replace all forward dialogue or combat options. Return strict JSON only.'
+};
+
+function resetQuestGeneratePhaseStatus() {
+    const statusEl = document.getElementById('questGeneratePhaseStatus');
+    const messageEl = document.getElementById('questGeneratePhaseMessage');
+    if (statusEl) statusEl.style.display = 'none';
+    if (messageEl) messageEl.textContent = '';
+    questGenerationPhases.forEach(phase => {
+        const pill = document.getElementById(phase.pillId);
+        if (pill) {
+            pill.classList.remove('is-active', 'is-done', 'is-error');
+        }
+    });
+}
+
+function setQuestGeneratePhaseStatus(phaseKey, state, message = '') {
+    const statusEl = document.getElementById('questGeneratePhaseStatus');
+    const messageEl = document.getElementById('questGeneratePhaseMessage');
+    if (statusEl) statusEl.style.display = 'flex';
+
+    const phase = questGenerationPhases.find(item => item.key === phaseKey);
+    if (phase) {
+        const pill = document.getElementById(phase.pillId);
+        if (pill) {
+            pill.classList.remove('is-active', 'is-done', 'is-error');
+            if (state === 'active') pill.classList.add('is-active');
+            if (state === 'done') pill.classList.add('is-done');
+            if (state === 'error') pill.classList.add('is-error');
+        }
+    }
+
+    if (messageEl) {
+        messageEl.textContent = message || '';
+    }
+}
+
 function setupQuestGeneratePanel() {
     document.getElementById('questGenerateBtn')?.addEventListener('click', toggleQuestGeneratePanel);
     document.getElementById('questGenerateClose')?.addEventListener('click', toggleQuestGeneratePanel);
@@ -3412,6 +3458,7 @@ function toggleQuestGeneratePanel() {
     const isOpen = overlay.style.display === 'flex';
     overlay.style.display = isOpen ? 'none' : 'flex';
     if (!isOpen) {
+        resetQuestGeneratePhaseStatus();
         populateQuestGeneratePanel();
     }
 }
@@ -3723,7 +3770,10 @@ function buildQuestAiRequestContext({
     selectedItemIds = [],
     selectedPerkIds = [],
     selectedPotionIds = [],
-    selectedBlessingIds = []
+    selectedBlessingIds = [],
+    includeRewards = true,
+    includeEffects = true,
+    includeOutputStruct = true
 } = {}) {
     const schemaSource = conceptPayload?.json_schema ?? conceptPayload ?? {};
     const settlements = GlobalData?.settlements || [];
@@ -3835,8 +3885,7 @@ function buildQuestAiRequestContext({
         }
         : null;
 
-    return {
-        output_struct: schemaSource,
+    const context = {
         world_wilds_prompt: conceptWildsPrompt,
         local_context: {
             settlement: settlementPayload,
@@ -3853,10 +3902,21 @@ function buildQuestAiRequestContext({
             available: allEnemyList,
             forced: enemies.length ? enemies : undefined
         },
-        effects: {
+        relevant_quests: quests
+    };
+
+    if (includeOutputStruct) {
+        context.output_struct = schemaSource;
+    }
+
+    if (includeEffects) {
+        context.effects = {
             available: allEffectsList
-        },
-        rewards: {
+        };
+    }
+
+    if (includeRewards) {
+        context.rewards = {
             available_items: allItemsList,
             available_perks: allPerksList,
             available_potions: allPotionsList,
@@ -3868,114 +3928,470 @@ function buildQuestAiRequestContext({
             possible_stat_rewards: ['strength', 'stamina', 'agility', 'luck', 'armor'],
             reward_silver: true,
             reward_talent: true
-        },
-        relevant_quests: quests
-    };
+        };
+    }
+
+    return context;
 }
 
-async function generateQuestPreview() {
-    const locationId = document.getElementById('questGenerateLocation')?.value || '';
-    const prompt = document.getElementById('questGeneratePrompt')?.value || '';
-    const selectedNpcIds = collectMultiSelectValues('questGenerateNpcs').map(id => parseInt(id, 10));
-    const selectedEnemyIds = collectMultiSelectValues('questGenerateEnemies').map(id => parseInt(id, 10));
-    const selectedQuestIds = collectMultiSelectValues('questGenerateQuests').map(id => parseInt(id, 10));
-    const selectedItemIds = collectMultiSelectValues('questGenerateRewardItems').map(id => parseInt(id, 10));
-    const selectedPerkIds = collectMultiSelectValues('questGenerateRewardPerks').map(id => parseInt(id, 10));
-    const selectedPotionIds = collectMultiSelectValues('questGenerateRewardPotions').map(id => parseInt(id, 10));
-    const selectedBlessingIds = collectMultiSelectValues('questGenerateRewardBlessings').map(id => parseInt(id, 10));
-    let conceptPayload = {};
-    let conceptSystemPrompt = '';
-    let conceptWildsPrompt = '';
+function collectNumericMultiSelectValues(selectId) {
+    return collectMultiSelectValues(selectId)
+        .map((id) => parseInt(id, 10))
+        .filter((id) => Number.isFinite(id));
+}
+
+function extractOpenAIResponseText(data) {
+    let content = data?.choices?.[0]?.message?.content;
+    if (content) return content;
+    if (Array.isArray(data?.output)) {
+        const message = data.output.find(item => item.type === 'message');
+        const outputText = message?.content?.find(part => part.type === 'output_text');
+        if (outputText?.text) return outputText.text;
+    }
+    return '';
+}
+
+function parseOpenAIJsonResponse(data, phaseLabel) {
+    const content = extractOpenAIResponseText(data);
+    if (!content) {
+        throw new Error(`${phaseLabel} phase returned no content`);
+    }
+
     try {
-        const token = await getCurrentAccessToken();
-        if (token) {
-            const response = await fetch('/api/getConcept', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            const data = await response.json();
-            if (data?.success) {
-                conceptPayload = data.payload || {};
-                conceptSystemPrompt = toPromptText(data.systemPrompt);
-                conceptWildsPrompt = toPromptText(data.wildsPrompt);
-            }
-        }
+        return JSON.parse(content);
     } catch (error) {
-        console.error('Failed to load concept for generator:', error);
+        throw new Error(`${phaseLabel} phase returned invalid JSON`);
     }
+}
 
-    const settlements = GlobalData?.settlements || [];
-    let settlement = null;
-    let location = null;
-    if (locationId) {
-        settlements.some(s => {
-            const found = (s.locations || []).find(loc => String(loc.location_id || loc.id) === String(locationId));
-            if (found) {
-                location = found;
-                settlement = s;
-                return true;
-            }
-            return false;
-        });
-    }
-    if (!settlement && questState.selectedSettlementId) {
-        settlement = settlements.find(s => String(s.settlement_id || s.id) === String(questState.selectedSettlementId)) || null;
-    }
-    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
-    if (location) {
-        console.log('Quest generator location context', {
-            locationId: location.location_id ?? location.id ?? null,
-            locationName: location.name ?? '',
-            textureId: selectedLocationTextureId
-        });
-    } else {
-        console.log('Quest generator location context', {
-            locationId,
-            locationName: null,
-            textureId: selectedLocationTextureId
-        });
-    }
-
-    const userContent = {
-        ...buildQuestAiRequestContext({
-            conceptPayload,
-            conceptWildsPrompt,
-            locationId,
-            selectedNpcIds,
-            selectedEnemyIds,
-            selectedQuestIds,
-            selectedItemIds,
-            selectedPerkIds,
-            selectedPotionIds,
-            selectedBlessingIds
-        }),
-        prompt
+function getQuestGenerationPhasePrompt(conceptData, phaseKey) {
+    const systemFallback = normalizePromptText(conceptData?.systemPrompt);
+    const promptMap = {
+        outline: normalizePromptText(conceptData?.questPlanPrompt),
+        graph: normalizePromptText(conceptData?.questValidatePrompt),
+        write: normalizePromptText(conceptData?.questWritePrompt),
     };
 
+    return promptMap[phaseKey] || systemFallback || questGenerationDefaultPhasePrompts[phaseKey] || '';
+}
+
+function getOptionReferenceKey(option, index) {
+    return String(option?.option_id ?? option?.optionId ?? option?.id ?? index);
+}
+
+function mergeQuestRewardPatchIntoWrittenDraft(writtenDraft, rewardPatch) {
+    if (!writtenDraft || typeof writtenDraft !== 'object') return writtenDraft;
+    if (!rewardPatch || typeof rewardPatch !== 'object') return writtenDraft;
+
+    const mergedDraft = JSON.parse(JSON.stringify(writtenDraft));
+    const draftOptions = Array.isArray(mergedDraft.options) ? mergedDraft.options : [];
+    const patchOptionsRaw = rewardPatch.options || rewardPatch.option_patches || rewardPatch.optionPatches || [];
+    const patchOptions = normalizeGeneratedOptions(Array.isArray(patchOptionsRaw) ? patchOptionsRaw : []);
+    if (!draftOptions.length || !patchOptions.length) {
+        return mergedDraft;
+    }
+
+    const draftOptionMap = new Map();
+    draftOptions.forEach((option, index) => {
+        draftOptionMap.set(getOptionReferenceKey(option, index), option);
+    });
+
+    const rewardFields = [
+        'reward_item',
+        'reward_perk',
+        'reward_potion',
+        'reward_blessing',
+        'reward_talent',
+        'reward_stat_type',
+        'reward_stat_amount',
+        'reward_silver',
+        'effect_id',
+        'effect_amount',
+        'option_effect_id',
+        'option_effect_factor'
+    ];
+
+    patchOptions.forEach((patchOption, index) => {
+        const optionKey = getOptionReferenceKey(patchOption, index);
+        const target = draftOptionMap.get(optionKey);
+        if (!target) return;
+
+        rewardFields.forEach((field) => {
+            if (patchOption[field] !== undefined) {
+                target[field] = patchOption[field];
+            }
+        });
+    });
+
+    return mergedDraft;
+}
+
+function validateQuestPhaseObject(phaseLabel, payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error(`${phaseLabel} phase did not return a JSON object`);
+    }
+    if (Object.keys(payload).length === 0) {
+        throw new Error(`${phaseLabel} phase returned an empty object`);
+    }
+}
+
+function resolveQuestPlanPayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+    if (payload.quest_plan || payload.planned_options || payload.starts) return payload;
+    if (payload.validated_plan && typeof payload.validated_plan === 'object') return payload.validated_plan;
+    if (payload.corrected_plan && typeof payload.corrected_plan === 'object') return payload.corrected_plan;
+    return payload;
+}
+
+function resolveQuestOutlinePayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+    if (payload.quest_outline && typeof payload.quest_outline === 'object') return payload.quest_outline;
+    if (payload.outline && typeof payload.outline === 'object') return payload.outline;
+    return payload;
+}
+
+function resolveQuestGraphPayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+    if (payload.quest_graph && typeof payload.quest_graph === 'object') return payload.quest_graph;
+    if (payload.graph && typeof payload.graph === 'object') return payload.graph;
+    return resolveQuestPlanPayload(payload);
+}
+
+function detectQuestPlanCycle(adjacency, nodeIds) {
+    const visited = new Set();
+    const visiting = new Set();
+
+    const visit = (nodeId) => {
+        if (visiting.has(nodeId)) return true;
+        if (visited.has(nodeId)) return false;
+
+        visiting.add(nodeId);
+        const next = adjacency.get(nodeId) || new Set();
+        for (const targetId of next) {
+            if (visit(targetId)) return true;
+        }
+
+        visiting.delete(nodeId);
+        visited.add(nodeId);
+        return false;
+    };
+
+    for (const nodeId of nodeIds) {
+        if (visit(nodeId)) return true;
+    }
+    return false;
+}
+
+function collectQuestPlanStructuralIssues(planPayload) {
+    const issues = [];
+    const resolvedPayload = resolveQuestPlanPayload(planPayload);
+    const root = (resolvedPayload && typeof resolvedPayload.quest_plan === 'object') ? resolvedPayload.quest_plan : resolvedPayload;
+    if (!root || typeof root !== 'object' || Array.isArray(root)) {
+        issues.push({ code: 'invalid_plan_payload', message: 'Plan payload is not a valid object' });
+        return issues;
+    }
+
+    const plannedOptionsRaw = root.planned_options || root.options || [];
+    if (!Array.isArray(plannedOptionsRaw) || plannedOptionsRaw.length === 0) {
+        issues.push({ code: 'missing_planned_options', message: 'Plan has no planned options' });
+        return issues;
+    }
+
+    const optionMap = new Map();
+    const optionTypeMap = new Map();
+    const endingSet = new Set();
+    const invalidOptionIds = [];
+
+    plannedOptionsRaw.forEach((option, index) => {
+        const optionId = option?.option_id ?? option?.optionId ?? option?.id;
+        if (optionId === null || optionId === undefined || optionId === '') {
+            invalidOptionIds.push(`index:${index}`);
+            return;
+        }
+        const key = String(optionId);
+        optionMap.set(key, option);
+        optionTypeMap.set(key, String(option?.option_type || '').toLowerCase());
+
+        const isEndingRole = String(option?.role || '').toLowerCase() === 'ending';
+        if (option?.quest_end === true || isEndingRole) {
+            endingSet.add(key);
+        }
+    });
+
+    if (invalidOptionIds.length > 0) {
+        issues.push({
+            code: 'missing_option_ids',
+            message: `Plan has options without IDs: ${invalidOptionIds.slice(0, 5).join(', ')}`
+        });
+    }
+
+    const nodeIds = Array.from(optionMap.keys());
+    if (nodeIds.length === 0) {
+        issues.push({ code: 'no_valid_option_ids', message: 'Plan has no valid option IDs' });
+        return issues;
+    }
+
+    const adjacency = new Map(nodeIds.map((id) => [id, new Set()]));
+    const reverseAdjacency = new Map(nodeIds.map((id) => [id, new Set()]));
+
+    const addEdge = (fromId, toId) => {
+        const fromKey = String(fromId);
+        const toKey = String(toId);
+        if (!adjacency.has(fromKey) || !adjacency.has(toKey)) return;
+        adjacency.get(fromKey).add(toKey);
+        reverseAdjacency.get(toKey).add(fromKey);
+    };
+
+    plannedOptionsRaw.forEach((option) => {
+        const optionId = option?.option_id ?? option?.optionId ?? option?.id;
+        if (optionId === null || optionId === undefined || optionId === '') return;
+
+        if (Array.isArray(option?.unlocks)) {
+            option.unlocks.forEach((targetId) => {
+                if (targetId === null || targetId === undefined || targetId === '') return;
+                addEdge(optionId, targetId);
+            });
+        }
+
+        if (Array.isArray(option?.requirements)) {
+            option.requirements.forEach((required) => {
+                if (required === null || required === undefined || required === '') return;
+                if (typeof required === 'object') {
+                    const reqId = required.requiredOptionId ?? required.required_option_id ?? required.option_id ?? required.id;
+                    if (reqId !== null && reqId !== undefined && reqId !== '') {
+                        addEdge(reqId, optionId);
+                    }
+                    return;
+                }
+                addEdge(required, optionId);
+            });
+        }
+    });
+
+    const requirementLinks = root.planned_requirements || root.requirements || [];
+    if (Array.isArray(requirementLinks)) {
+        requirementLinks.forEach((req) => {
+            const optionId = req?.optionId ?? req?.option_id;
+            const requiredId = req?.requiredOptionId ?? req?.required_option_id;
+            if (optionId === null || optionId === undefined || optionId === '') return;
+            if (requiredId === null || requiredId === undefined || requiredId === '') return;
+            addEdge(requiredId, optionId);
+        });
+    }
+
+    const startsRaw = Array.isArray(root.starts) ? root.starts : [];
+    let startIds = startsRaw
+        .filter((id) => id !== null && id !== undefined && id !== '')
+        .map((id) => String(id))
+        .filter((id) => optionMap.has(id));
+    if (startIds.length === 0) {
+        startIds = nodeIds.filter((id) => {
+            const option = optionMap.get(id);
+            return option?.start === true || String(option?.role || '').toLowerCase() === 'start';
+        });
+    }
+
+    if (startIds.length === 0) {
+        issues.push({ code: 'missing_starts', message: 'Plan has no valid start options' });
+    }
+
+    if (endingSet.size === 0) {
+        issues.push({ code: 'missing_endings', message: 'Plan has no ending options' });
+    }
+
+    const reachable = new Set();
+    const queue = [...startIds];
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (!current || reachable.has(current)) continue;
+        reachable.add(current);
+        const next = adjacency.get(current) || new Set();
+        next.forEach((targetId) => {
+            if (!reachable.has(targetId)) queue.push(targetId);
+        });
+    }
+
+    const unreachable = nodeIds.filter((id) => !reachable.has(id));
+    if (unreachable.length > 0) {
+        issues.push({
+            code: 'unreachable_options',
+            message: `Unreachable options from starts: ${unreachable.slice(0, 8).join(', ')}`,
+            option_ids: unreachable
+        });
+    }
+
+    const canReachEnding = new Set();
+    const reverseQueue = Array.from(endingSet);
+    while (reverseQueue.length > 0) {
+        const current = reverseQueue.shift();
+        if (!current || canReachEnding.has(current)) continue;
+        canReachEnding.add(current);
+        const prev = reverseAdjacency.get(current) || new Set();
+        prev.forEach((sourceId) => {
+            if (!canReachEnding.has(sourceId)) reverseQueue.push(sourceId);
+        });
+    }
+
+    const noPathToEnding = nodeIds.filter((id) => !endingSet.has(id) && !canReachEnding.has(id));
+    if (noPathToEnding.length > 0) {
+        issues.push({
+            code: 'no_path_to_ending',
+            message: `Non-ending options with no path to an ending: ${noPathToEnding.slice(0, 8).join(', ')}`,
+            option_ids: noPathToEnding
+        });
+    }
+
+    const nonEndingLeaves = nodeIds.filter((id) => {
+        if (endingSet.has(id)) return false;
+        const next = adjacency.get(id);
+        return !next || next.size === 0;
+    });
+    if (nonEndingLeaves.length > 0) {
+        issues.push({
+            code: 'non_ending_leaves',
+            message: `Non-ending leaf options found: ${nonEndingLeaves.slice(0, 8).join(', ')}`,
+            option_ids: nonEndingLeaves
+        });
+    }
+
+    const gateTypes = new Set(['stat', 'faction', 'silver', 'effect']);
+    const progressionTypes = new Set(['dialogue', 'combat']);
+    const gateOnlyParents = [];
+    nodeIds.forEach((id) => {
+        const children = Array.from(adjacency.get(id) || []);
+        if (children.length === 0) return;
+        const childTypes = children.map((childId) => optionTypeMap.get(childId) || '');
+        const hasProgressionChild = childTypes.some((type) => progressionTypes.has(type));
+        const hasOnlyGateChildren = !hasProgressionChild && childTypes.every((type) => gateTypes.has(type));
+        if (hasOnlyGateChildren) {
+            gateOnlyParents.push(id);
+        }
+    });
+
+    if (gateOnlyParents.length > 0) {
+        issues.push({
+            code: 'gate_only_forward_choices',
+            message: `Parents with only gated immediate forwards: ${gateOnlyParents.slice(0, 8).join(', ')}`,
+            option_ids: gateOnlyParents
+        });
+    }
+
+    const startTypes = startIds.map((id) => optionTypeMap.get(id) || '');
+    if (startTypes.length > 0) {
+        const startHasProgression = startTypes.some((type) => progressionTypes.has(type));
+        if (!startHasProgression) {
+            issues.push({
+                code: 'gate_only_starts',
+                message: 'All start options are gated types; at least one dialogue/combat start path is required',
+                option_ids: startIds
+            });
+        }
+    }
+
+    if (detectQuestPlanCycle(adjacency, nodeIds)) {
+        issues.push({ code: 'circular_requirements', message: 'Plan contains a circular unlock/requirement dependency' });
+    }
+
+    return issues;
+}
+
+function summarizeQuestPlanIssues(issues, maxItems = 5) {
+    if (!Array.isArray(issues) || issues.length === 0) return 'none';
+    return issues
+        .slice(0, maxItems)
+        .map((issue) => issue.message || issue.code || 'unknown_issue')
+        .join(' | ');
+}
+
+function validateRewardPatchIds(rewardPatch, rewardContext) {
+    if (!rewardPatch || typeof rewardPatch !== 'object') {
+        throw new Error('Rewards phase did not return a JSON object');
+    }
+
+    const optionCandidates = rewardPatch.options || rewardPatch.option_patches || rewardPatch.optionPatches || [];
+    const options = normalizeGeneratedOptions(Array.isArray(optionCandidates) ? optionCandidates : []);
+    if (!options.length) {
+        return;
+    }
+
+    const rewardPool = rewardContext?.rewards || {};
+    const effectPool = rewardContext?.effects || {};
+    const itemIds = new Set((rewardPool.available_items || []).map((item) => String(item.id)));
+    const perkIds = new Set((rewardPool.available_perks || []).map((perk) => String(perk.id)));
+    const potionIds = new Set((rewardPool.available_potions || []).map((potion) => String(potion.id)));
+    const blessingIds = new Set((rewardPool.available_blessings || []).map((blessing) => String(blessing.id)));
+    const effectIds = new Set((effectPool.available || []).map((effect) => String(effect.id)));
+    const statRewards = new Set((rewardPool.possible_stat_rewards || []).map((stat) => String(stat).toLowerCase()));
+
+    options.forEach((option) => {
+        if (option.reward_item !== null && option.reward_item !== undefined && !itemIds.has(String(option.reward_item))) {
+            throw new Error(`Rewards phase used unknown item reward id ${option.reward_item}`);
+        }
+        if (option.reward_perk !== null && option.reward_perk !== undefined && !perkIds.has(String(option.reward_perk))) {
+            throw new Error(`Rewards phase used unknown perk reward id ${option.reward_perk}`);
+        }
+        if (option.reward_potion !== null && option.reward_potion !== undefined && !potionIds.has(String(option.reward_potion))) {
+            throw new Error(`Rewards phase used unknown potion reward id ${option.reward_potion}`);
+        }
+        if (option.reward_blessing !== null && option.reward_blessing !== undefined && !blessingIds.has(String(option.reward_blessing))) {
+            throw new Error(`Rewards phase used unknown blessing reward id ${option.reward_blessing}`);
+        }
+        if (option.effect_id !== null && option.effect_id !== undefined && !effectIds.has(String(option.effect_id))) {
+            throw new Error(`Rewards phase used unknown effect id ${option.effect_id}`);
+        }
+        if (option.reward_stat_type) {
+            const statType = String(option.reward_stat_type).toLowerCase();
+            if (!statRewards.has(statType)) {
+                throw new Error(`Rewards phase used unknown reward stat type ${option.reward_stat_type}`);
+            }
+        }
+    });
+}
+
+function validateFinalGeneratedQuestPayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+        throw new Error('Final write phase did not return an object');
+    }
+    if (!Array.isArray(payload.quests) || payload.quests.length === 0) {
+        throw new Error('Final write phase did not return any quests');
+    }
+    if (!Array.isArray(payload.options) || payload.options.length === 0) {
+        throw new Error('Final write phase did not return any options');
+    }
+    if (payload.requirements !== undefined && !Array.isArray(payload.requirements)) {
+        throw new Error('Final write phase returned invalid requirements');
+    }
+}
+
+async function callQuestGenerationPhase({ phase, systemPrompt, userContent }) {
     const payload = {
-        model: 'o3',
+        model: phase.model,
+        metadata: {
+            quest_generation_phase: phase.key,
+            quest_generation_label: phase.label
+        },
         response_format: { type: 'json_object' },
         messages: [
             {
                 role: 'system',
-                content: conceptSystemPrompt
+                content: systemPrompt
             },
             {
                 role: 'user',
-                content: JSON.stringify(userContent)
+                content: JSON.stringify({
+                    phase: phase.key,
+                    ...userContent
+                })
             }
         ]
     };
 
-    console.log('Quest generate payload:', JSON.stringify(payload, null, 2));
-    console.log('Valid quest JSON template:', JSON.stringify(getValidQuestJsonTemplate(), null, 2));
+    console.log(`Quest generation ${phase.key} payload:`, JSON.stringify(payload, null, 2));
 
-    try {
-        setQuestGenerateLoading(true, 'Generating quest...');
+    const requestPhase = async () => {
         const token = await getCurrentAccessToken();
         if (!token) {
-            alert('Not authenticated');
-            setQuestGenerateLoading(false);
-            return;
+            throw new Error('Authentication required');
         }
 
         const response = await fetch('/api/generateQuestAi', {
@@ -3987,51 +4403,244 @@ async function generateQuestPreview() {
             body: JSON.stringify(payload)
         });
 
-        const data = await response.json();
-        if (!response.ok) {
-            const apiMessage = data?.error?.message || data?.message || `Request failed with status ${response.status}`;
-            throw new Error(apiMessage);
-        }
-        console.log('Quest generate response:', data);
-
-        let content = data?.choices?.[0]?.message?.content;
-        if (!content && Array.isArray(data?.output)) {
-            const message = data.output.find(item => item.type === 'message');
-            const outputText = message?.content?.find(part => part.type === 'output_text');
-            content = outputText?.text || '';
-        }
-        if (content) {
+        const rawBody = await response.text();
+        let data = null;
+        if (rawBody) {
             try {
-                const parsed = JSON.parse(content);
-                console.log('Quest generate JSON:', parsed);
-                if (settlement?.settlement_id || settlement?.id) {
-                    const targetId = String(settlement.settlement_id || settlement.id);
-                    const settlementSelect = document.getElementById('questSettlementSelect');
-                    if (settlementSelect) settlementSelect.value = targetId;
-                    if (typeof window.onQuestSettlementChange === 'function') {
-                        await window.onQuestSettlementChange();
-                    }
-                }
-
-                const chainSelect = document.getElementById('questSelect');
-                if (chainSelect) chainSelect.value = 'new';
-                if (typeof window.onQuestChange === 'function') await window.onQuestChange();
-                applyGeneratedQuest(parsed, selectedLocationTextureId);
-                toggleQuestGeneratePanel();
-            } catch (err) {
-                console.warn('Failed to parse quest JSON:', err, content);
-                setQuestGenerateLoading(false, 'Failed to parse response.');
-                return;
+                data = JSON.parse(rawBody);
+            } catch {
+                data = null;
             }
         }
-    } catch (error) {
-        console.error('Quest generate failed:', error);
-        alert(`❌ Quest generation failed: ${error.message || error}`);
-        setQuestGenerateLoading(false, 'Generation failed.');
-        return;
+
+        return { response, data, rawBody };
+    };
+
+    let result = await requestPhase();
+    if (!result.response.ok && (result.response.status === 401 || result.response.status === 403)) {
+        console.warn(`Quest generation ${phase.key} request was unauthorized (${result.response.status}); retrying once with a refreshed token.`);
+        result = await requestPhase();
     }
 
-    setQuestGenerateLoading(false);
+    const { response, data, rawBody } = result;
+    if (!response.ok) {
+        const apiMessage = data?.error?.message || data?.message || rawBody || `${phase.label} phase failed with status ${response.status}`;
+        throw new Error(apiMessage);
+    }
+    if (!data || typeof data !== 'object') {
+        throw new Error(`${phase.label} phase returned invalid JSON`);
+    }
+
+    const modelUsed = response.headers.get('X-OpenAI-Model-Used');
+    console.log(`Quest generation ${phase.key} response:`, {
+        modelRequested: phase.model,
+        modelUsed: modelUsed || phase.model,
+        data
+    });
+
+    const parsed = parseOpenAIJsonResponse(data, phase.label);
+    return {
+        parsed,
+        modelUsed: modelUsed || phase.model
+    };
+}
+
+async function generateQuestPreview() {
+    const locationId = document.getElementById('questGenerateLocation')?.value || '';
+    const prompt = document.getElementById('questGeneratePrompt')?.value || '';
+    const selectedNpcIds = collectNumericMultiSelectValues('questGenerateNpcs');
+    const selectedEnemyIds = collectNumericMultiSelectValues('questGenerateEnemies');
+    const selectedQuestIds = collectNumericMultiSelectValues('questGenerateQuests');
+    const selectedItemIds = collectNumericMultiSelectValues('questGenerateRewardItems');
+    const selectedPerkIds = collectNumericMultiSelectValues('questGenerateRewardPerks');
+    const selectedPotionIds = collectNumericMultiSelectValues('questGenerateRewardPotions');
+    const selectedBlessingIds = collectNumericMultiSelectValues('questGenerateRewardBlessings');
+
+    const settlements = GlobalData?.settlements || [];
+    let settlement = null;
+    let location = null;
+    if (locationId) {
+        settlements.some((item) => {
+            const found = (item.locations || []).find((loc) => String(loc.location_id || loc.id) === String(locationId));
+            if (!found) return false;
+            location = found;
+            settlement = item;
+            return true;
+        });
+    }
+    if (!settlement && questState.selectedSettlementId) {
+        settlement = settlements.find(s => String(s.settlement_id || s.id) === String(questState.selectedSettlementId)) || null;
+    }
+
+    const selectedLocationTextureId = normalizeNumericId(location?.texture_id ?? location?.textureId ?? null);
+    console.log('Quest generator location context', {
+        locationId: (location?.location_id ?? location?.id ?? locationId) || null,
+        locationName: location?.name ?? null,
+        textureId: selectedLocationTextureId
+    });
+
+    let activePhaseKey = '';
+
+    try {
+        setQuestGenerateLoading(true, 'Preparing context...');
+        resetQuestGeneratePhaseStatus();
+
+        const token = await getCurrentAccessToken();
+        if (!token) {
+            alert('Not authenticated');
+            setQuestGenerateLoading(false);
+            return;
+        }
+
+        let conceptData = null;
+        try {
+            const conceptResp = await fetch('/api/getConcept', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            conceptData = await conceptResp.json();
+        } catch (error) {
+            console.warn('Failed to load concept for quest generator:', error);
+        }
+
+        const conceptPayload = conceptData?.success ? (conceptData.payload || {}) : {};
+        const conceptWildsPrompt = conceptData?.success ? toPromptText(conceptData.wildsPrompt) : '';
+        const phasePrompts = {
+            outline: getQuestGenerationPhasePrompt(conceptData, 'outline'),
+            graph: getQuestGenerationPhasePrompt(conceptData, 'graph'),
+            write: getQuestGenerationPhasePrompt(conceptData, 'write'),
+        };
+
+        const outlineContext = buildQuestAiRequestContext({
+            conceptPayload,
+            conceptWildsPrompt,
+            locationId,
+            selectedNpcIds,
+            selectedEnemyIds,
+            selectedQuestIds,
+            selectedItemIds,
+            selectedPerkIds,
+            selectedPotionIds,
+            selectedBlessingIds,
+            includeRewards: false,
+            includeEffects: false,
+            includeOutputStruct: false
+        });
+
+        const writeContext = buildQuestAiRequestContext({
+            conceptPayload,
+            conceptWildsPrompt,
+            locationId,
+            selectedNpcIds,
+            selectedEnemyIds,
+            selectedQuestIds,
+            selectedItemIds,
+            selectedPerkIds,
+            selectedPotionIds,
+            selectedBlessingIds,
+            includeRewards: true,
+            includeEffects: true,
+            includeOutputStruct: true
+        });
+
+        const outlinePhase = questGenerationPhases.find((phase) => phase.key === 'outline');
+        const graphPhase = questGenerationPhases.find((phase) => phase.key === 'graph');
+        const writePhase = questGenerationPhases.find((phase) => phase.key === 'write');
+        if (!outlinePhase || !graphPhase || !writePhase) {
+            throw new Error('Quest generation phase configuration is invalid');
+        }
+
+        activePhaseKey = 'outline';
+        setQuestGenerateLoading(true, 'Phase 1/3: Outlining...');
+        setQuestGeneratePhaseStatus('outline', 'active', 'Phase 1/3: Building narrative outline and branch beats');
+        const outlineResult = await callQuestGenerationPhase({
+            phase: outlinePhase,
+            systemPrompt: phasePrompts.outline,
+            userContent: {
+                ...outlineContext,
+                prompt,
+                outline_rules: {
+                    focus_on_story_beats: true,
+                    focus_on_branch_narrative_intent: true,
+                    avoid_option_type_assignment: true,
+                    avoid_final_schema_output: true
+                }
+            }
+        });
+        validateQuestPhaseObject('Outline', outlineResult.parsed);
+        const outlinePayload = resolveQuestOutlinePayload(outlineResult.parsed);
+        setQuestGeneratePhaseStatus('outline', 'done', `Phase 1 complete (model: ${outlineResult.modelUsed})`);
+
+        activePhaseKey = 'graph';
+        setQuestGenerateLoading(true, 'Phase 2/3: Building graph...');
+        setQuestGeneratePhaseStatus('graph', 'active', 'Phase 2/3: Converting outline into a coherent quest graph');
+        const graphResult = await callQuestGenerationPhase({
+            phase: graphPhase,
+            systemPrompt: phasePrompts.graph,
+            userContent: {
+                ...outlineContext,
+                prompt,
+                quest_outline: outlinePayload,
+                graph_rules: {
+                    enforce_logical_tree_coherence: true,
+                    preserve_outline_branch_intent: true,
+                    assign_option_types_and_requirements: true,
+                    output_focus: 'graph_only'
+                }
+            }
+        });
+        validateQuestPhaseObject('Graph', graphResult.parsed);
+        const graphPayload = resolveQuestGraphPayload(graphResult.parsed);
+        setQuestGeneratePhaseStatus('graph', 'done', `Phase 2 complete (model: ${graphResult.modelUsed})`);
+
+        activePhaseKey = 'write';
+        setQuestGenerateLoading(true, 'Phase 3/3: Writing...');
+        setQuestGeneratePhaseStatus('write', 'active', 'Phase 3/3: Writing natural quest text and final rewards');
+        const writeResult = await callQuestGenerationPhase({
+            phase: writePhase,
+            systemPrompt: phasePrompts.write,
+            userContent: {
+                ...writeContext,
+                prompt,
+                quest_outline: outlinePayload,
+                quest_graph: graphPayload,
+                quest_json_template: getValidQuestJsonTemplate(),
+                writing_rules: {
+                    preserve_graph_ids_and_dependencies: true,
+                    include_rewards_and_effects: true,
+                    return_final_schema_only: true
+                }
+            }
+        });
+        validateFinalGeneratedQuestPayload(writeResult.parsed);
+        setQuestGeneratePhaseStatus('write', 'done', `Phase 3 complete (model: ${writeResult.modelUsed})`);
+
+        if (settlement?.settlement_id || settlement?.id) {
+            const targetId = String(settlement.settlement_id || settlement.id);
+            const settlementSelect = document.getElementById('questSettlementSelect');
+            if (settlementSelect) settlementSelect.value = targetId;
+            if (typeof window.onQuestSettlementChange === 'function') {
+                await window.onQuestSettlementChange();
+            }
+        }
+
+        const chainSelect = document.getElementById('questSelect');
+        if (chainSelect) chainSelect.value = 'new';
+        if (typeof window.onQuestChange === 'function') {
+            await window.onQuestChange();
+        }
+
+        console.log('Quest generation final JSON:', writeResult.parsed);
+        applyGeneratedQuest(writeResult.parsed, selectedLocationTextureId);
+        setQuestGenerateLoading(false);
+        toggleQuestGeneratePanel();
+    } catch (error) {
+        console.error('Quest generate failed:', error);
+        if (activePhaseKey) {
+            setQuestGeneratePhaseStatus(activePhaseKey, 'error', error.message || 'Phase failed');
+        }
+        alert(`❌ Quest generation failed: ${error.message || error}`);
+        setQuestGenerateLoading(false, 'Generation failed.');
+    }
 }
 
 // ==================== QUEST UPDATER ====================
@@ -4268,25 +4877,18 @@ async function updateQuestWithAi() {
         }
         console.log('Quest update response:', data);
 
-        let content = data?.choices?.[0]?.message?.content;
-        if (!content && Array.isArray(data?.output)) {
-            const message = data.output.find(item => item.type === 'message');
-            const outputText = message?.content?.find(part => part.type === 'output_text');
-            content = outputText?.text || '';
+        let parsed;
+        try {
+            parsed = parseOpenAIJsonResponse(data, 'Update');
+        } catch (err) {
+            console.warn('Failed to parse quest update JSON:', err);
+            setQuestUpdateLoading(false, 'Failed to parse response.');
+            return;
         }
 
-        if (content) {
-            try {
-                const parsed = JSON.parse(content);
-                console.log('Quest update JSON:', parsed);
-                applyUpdatedQuest(questId, parsed);
-                toggleQuestUpdatePanel();
-            } catch (err) {
-                console.warn('Failed to parse quest update JSON:', err, content);
-                setQuestUpdateLoading(false, 'Failed to parse response.');
-                return;
-            }
-        }
+        console.log('Quest update JSON:', parsed);
+        applyUpdatedQuest(questId, parsed);
+        toggleQuestUpdatePanel();
     } catch (error) {
         console.error('Quest update failed:', error);
         alert(`Quest update failed: ${error.message || error}`);
@@ -4743,6 +5345,11 @@ function toPromptText(value) {
         return JSON.stringify(value, null, 2);
     }
     return String(value);
+}
+
+function normalizePromptText(value) {
+    const text = toPromptText(value).trim();
+    return text === '{}' || text === '[]' ? '' : text;
 }
 
 // Export for window

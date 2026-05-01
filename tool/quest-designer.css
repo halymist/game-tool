@@ -222,6 +222,68 @@
     gap: 10px;
 }
 
+.quest-generate-phase-status {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: rgba(15, 23, 42, 0.35);
+}
+
+.quest-generate-phase-status-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.quest-generate-phase-list {
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quest-generate-phase-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-default);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.quest-generate-phase-pill.is-active {
+    border-color: rgba(59, 130, 246, 0.7);
+    background: rgba(59, 130, 246, 0.2);
+    color: var(--text-primary);
+}
+
+.quest-generate-phase-pill.is-done {
+    border-color: rgba(34, 197, 94, 0.6);
+    background: rgba(34, 197, 94, 0.2);
+    color: #dcfce7;
+}
+
+.quest-generate-phase-pill.is-error {
+    border-color: rgba(239, 68, 68, 0.7);
+    background: rgba(239, 68, 68, 0.2);
+    color: #fecaca;
+}
+
+.quest-generate-phase-message {
+    min-height: 18px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
 /* Quest Update Dialog */
 .quest-update-info {
     padding: 8px 12px;

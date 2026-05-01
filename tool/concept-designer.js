@@ -51,7 +51,17 @@ function setupConceptListeners() {
         if (e.key === 'Enter') addConceptEvent();
     });
 
-    const fieldIds = ['conceptSystemPrompt', 'conceptWildsPrompt', 'conceptJson', 'conceptExpeditionJson', 'conceptExpeditionClusterPrompt', 'conceptQuestUpdatePrompt'];
+    const fieldIds = [
+        'conceptSystemPrompt',
+        'conceptWildsPrompt',
+        'conceptQuestPlanPrompt',
+        'conceptQuestValidatePrompt',
+        'conceptQuestWritePrompt',
+        'conceptJson',
+        'conceptExpeditionJson',
+        'conceptExpeditionClusterPrompt',
+        'conceptQuestUpdatePrompt'
+    ];
     fieldIds.forEach(id => {
         document.getElementById(id)?.addEventListener('input', checkConceptSaveConditions);
     });
@@ -70,6 +80,12 @@ async function loadConceptData() {
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt);
         const wildsPrompt = document.getElementById('conceptWildsPrompt');
         if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt);
+        const questPlanPrompt = document.getElementById('conceptQuestPlanPrompt');
+        if (questPlanPrompt) questPlanPrompt.value = jsonbToText(data.questPlanPrompt);
+        const questValidatePrompt = document.getElementById('conceptQuestValidatePrompt');
+        if (questValidatePrompt) questValidatePrompt.value = jsonbToText(data.questValidatePrompt);
+        const questWritePrompt = document.getElementById('conceptQuestWritePrompt');
+        if (questWritePrompt) questWritePrompt.value = jsonbToText(data.questWritePrompt);
         const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
         if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt);
         const questUpdatePrompt = document.getElementById('conceptQuestUpdatePrompt');
@@ -102,6 +118,9 @@ async function saveConcept() {
     const expeditionTextarea = document.getElementById('conceptExpeditionJson');
     const systemPrompt = document.getElementById('conceptSystemPrompt');
     const wildsPrompt = document.getElementById('conceptWildsPrompt');
+    const questPlanPrompt = document.getElementById('conceptQuestPlanPrompt');
+    const questValidatePrompt = document.getElementById('conceptQuestValidatePrompt');
+    const questWritePrompt = document.getElementById('conceptQuestWritePrompt');
     const expeditionClusterPrompt = document.getElementById('conceptExpeditionClusterPrompt');
     const questUpdatePrompt = document.getElementById('conceptQuestUpdatePrompt');
     if (!textarea) return;
@@ -130,6 +149,9 @@ async function saveConcept() {
     try {
         const systemPromptJson = systemPrompt?.value || '';
         const wildsPromptJson = wildsPrompt?.value || '';
+        const questPlanPromptJson = questPlanPrompt?.value || '';
+        const questValidatePromptJson = questValidatePrompt?.value || '';
+        const questWritePromptJson = questWritePrompt?.value || '';
         const expeditionClusterPromptJson = expeditionClusterPrompt?.value || '';
         const questUpdatePromptJson = questUpdatePrompt?.value || '';
 
@@ -140,6 +162,9 @@ async function saveConcept() {
             payload: promptPayload,
             systemPrompt: systemPromptJson,
             wildsPrompt: wildsPromptJson,
+            questPlanPrompt: questPlanPromptJson,
+            questValidatePrompt: questValidatePromptJson,
+            questWritePrompt: questWritePromptJson,
             expeditionClusterPrompt: expeditionClusterPromptJson,
             expeditionJsonSchema: parsedExpedition,
             questUpdatePrompt: questUpdatePromptJson
@@ -150,6 +175,9 @@ async function saveConcept() {
         conceptState.payload = data.payload || promptPayload;
         if (systemPrompt) systemPrompt.value = jsonbToText(data.systemPrompt ?? systemPromptJson);
         if (wildsPrompt) wildsPrompt.value = jsonbToText(data.wildsPrompt ?? wildsPromptJson);
+        if (questPlanPrompt) questPlanPrompt.value = jsonbToText(data.questPlanPrompt ?? questPlanPromptJson);
+        if (questValidatePrompt) questValidatePrompt.value = jsonbToText(data.questValidatePrompt ?? questValidatePromptJson);
+        if (questWritePrompt) questWritePrompt.value = jsonbToText(data.questWritePrompt ?? questWritePromptJson);
         if (expeditionClusterPrompt) expeditionClusterPrompt.value = jsonbToText(data.expeditionClusterPrompt ?? expeditionClusterPromptJson);
         if (questUpdatePrompt) questUpdatePrompt.value = jsonbToText(data.questUpdatePrompt ?? questUpdatePromptJson);
         renderConceptJson();
@@ -227,6 +255,9 @@ function snapshotConceptFields() {
     conceptState.snapshot = {
         systemPrompt: document.getElementById('conceptSystemPrompt')?.value ?? '',
         wildsPrompt: document.getElementById('conceptWildsPrompt')?.value ?? '',
+        questPlanPrompt: document.getElementById('conceptQuestPlanPrompt')?.value ?? '',
+        questValidatePrompt: document.getElementById('conceptQuestValidatePrompt')?.value ?? '',
+        questWritePrompt: document.getElementById('conceptQuestWritePrompt')?.value ?? '',
         conceptJson: document.getElementById('conceptJson')?.value ?? '',
         expeditionJson: document.getElementById('conceptExpeditionJson')?.value ?? '',
         expeditionClusterPrompt: document.getElementById('conceptExpeditionClusterPrompt')?.value ?? '',
@@ -240,6 +271,9 @@ function isConceptDirty() {
     return (
         (document.getElementById('conceptSystemPrompt')?.value ?? '') !== s.systemPrompt ||
         (document.getElementById('conceptWildsPrompt')?.value ?? '') !== s.wildsPrompt ||
+        (document.getElementById('conceptQuestPlanPrompt')?.value ?? '') !== s.questPlanPrompt ||
+        (document.getElementById('conceptQuestValidatePrompt')?.value ?? '') !== s.questValidatePrompt ||
+        (document.getElementById('conceptQuestWritePrompt')?.value ?? '') !== s.questWritePrompt ||
         (document.getElementById('conceptJson')?.value ?? '') !== s.conceptJson ||
         (document.getElementById('conceptExpeditionJson')?.value ?? '') !== s.expeditionJson ||
         (document.getElementById('conceptExpeditionClusterPrompt')?.value ?? '') !== s.expeditionClusterPrompt ||

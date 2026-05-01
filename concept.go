@@ -14,6 +14,11 @@ type ConceptRecord struct {
 	Payload                 json.RawMessage `json:"payload"`
 	SystemPrompt            json.RawMessage `json:"system_prompt"`
 	WildsPrompt             json.RawMessage `json:"wilds_prompt"`
+	QuestPlanPrompt         json.RawMessage `json:"quest_plan_prompt"`
+	QuestValidatePrompt     json.RawMessage `json:"quest_validate_prompt"`
+	QuestWritePrompt        json.RawMessage `json:"quest_write_prompt"`
+	QuestRewardPrompt       json.RawMessage `json:"quest_reward_prompt"`
+	QuestPolishPrompt       json.RawMessage `json:"quest_polish_prompt"`
 	ExpeditionClusterPrompt json.RawMessage `json:"expedition_cluster_prompt"`
 	ExpeditionJsonSchema    json.RawMessage `json:"expedition_json_schema"`
 	QuestUpdatePrompt       json.RawMessage `json:"quest_update_prompt"`
@@ -26,6 +31,11 @@ type ConceptResponse struct {
 	Payload                 json.RawMessage `json:"payload,omitempty"`
 	SystemPrompt            json.RawMessage `json:"systemPrompt,omitempty"`
 	WildsPrompt             json.RawMessage `json:"wildsPrompt,omitempty"`
+	QuestPlanPrompt         json.RawMessage `json:"questPlanPrompt,omitempty"`
+	QuestValidatePrompt     json.RawMessage `json:"questValidatePrompt,omitempty"`
+	QuestWritePrompt        json.RawMessage `json:"questWritePrompt,omitempty"`
+	QuestRewardPrompt       json.RawMessage `json:"questRewardPrompt,omitempty"`
+	QuestPolishPrompt       json.RawMessage `json:"questPolishPrompt,omitempty"`
 	ExpeditionClusterPrompt json.RawMessage `json:"expeditionClusterPrompt,omitempty"`
 	ExpeditionJsonSchema    json.RawMessage `json:"expeditionJsonSchema,omitempty"`
 	QuestUpdatePrompt       json.RawMessage `json:"questUpdatePrompt,omitempty"`
@@ -41,20 +51,46 @@ func handleGetConcept(w http.ResponseWriter, r *http.Request) {
 	var payload json.RawMessage
 	var systemPrompt json.RawMessage
 	var wildsPrompt json.RawMessage
+	var questPlanPrompt sql.NullString
+	var questValidatePrompt sql.NullString
+	var questWritePrompt sql.NullString
+	var questRewardPrompt sql.NullString
+	var questPolishPrompt sql.NullString
 	var expeditionClusterPrompt sql.NullString
 	var expeditionJsonSchema sql.NullString
 	var questUpdatePrompt sql.NullString
-	err := db.QueryRow(`SELECT payload, system_prompt, wilds_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt FROM game.concept ORDER BY id LIMIT 1`).Scan(&payload, &systemPrompt, &wildsPrompt, &expeditionClusterPrompt, &expeditionJsonSchema, &questUpdatePrompt)
+	err := db.QueryRow(`SELECT payload, system_prompt, wilds_prompt, quest_plan_prompt, quest_validate_prompt, quest_write_prompt, quest_reward_prompt, quest_polish_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt FROM game.concept ORDER BY id LIMIT 1`).Scan(&payload, &systemPrompt, &wildsPrompt, &questPlanPrompt, &questValidatePrompt, &questWritePrompt, &questRewardPrompt, &questPolishPrompt, &expeditionClusterPrompt, &expeditionJsonSchema, &questUpdatePrompt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Return empty payload if not found
 			empty := json.RawMessage([]byte("{}"))
-			json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty, ExpeditionClusterPrompt: empty, ExpeditionJsonSchema: empty, QuestUpdatePrompt: empty})
+			json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: empty, SystemPrompt: empty, WildsPrompt: empty, QuestPlanPrompt: empty, QuestValidatePrompt: empty, QuestWritePrompt: empty, QuestRewardPrompt: empty, QuestPolishPrompt: empty, ExpeditionClusterPrompt: empty, ExpeditionJsonSchema: empty, QuestUpdatePrompt: empty})
 			return
 		}
 		log.Printf("Error loading concept: %v", err)
 		json.NewEncoder(w).Encode(ConceptResponse{Success: false, Message: "Failed to load concept"})
 		return
+	}
+
+	planPrompt := json.RawMessage([]byte("{}"))
+	if questPlanPrompt.Valid {
+		planPrompt = json.RawMessage([]byte(questPlanPrompt.String))
+	}
+	validatePrompt := json.RawMessage([]byte("{}"))
+	if questValidatePrompt.Valid {
+		validatePrompt = json.RawMessage([]byte(questValidatePrompt.String))
+	}
+	writePrompt := json.RawMessage([]byte("{}"))
+	if questWritePrompt.Valid {
+		writePrompt = json.RawMessage([]byte(questWritePrompt.String))
+	}
+	rewardPrompt := json.RawMessage([]byte("{}"))
+	if questRewardPrompt.Valid {
+		rewardPrompt = json.RawMessage([]byte(questRewardPrompt.String))
+	}
+	polishPrompt := json.RawMessage([]byte("{}"))
+	if questPolishPrompt.Valid {
+		polishPrompt = json.RawMessage([]byte(questPolishPrompt.String))
 	}
 
 	clusterPrompt := json.RawMessage([]byte("{}"))
@@ -69,7 +105,7 @@ func handleGetConcept(w http.ResponseWriter, r *http.Request) {
 	if questUpdatePrompt.Valid {
 		updatePrompt = json.RawMessage([]byte(questUpdatePrompt.String))
 	}
-	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: clusterPrompt, ExpeditionJsonSchema: expeditionSchema, QuestUpdatePrompt: updatePrompt})
+	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, QuestPlanPrompt: planPrompt, QuestValidatePrompt: validatePrompt, QuestWritePrompt: writePrompt, QuestRewardPrompt: rewardPrompt, QuestPolishPrompt: polishPrompt, ExpeditionClusterPrompt: clusterPrompt, ExpeditionJsonSchema: expeditionSchema, QuestUpdatePrompt: updatePrompt})
 }
 
 func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +119,11 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 		Payload                 json.RawMessage `json:"payload"`
 		SystemPrompt            json.RawMessage `json:"systemPrompt"`
 		WildsPrompt             json.RawMessage `json:"wildsPrompt"`
+		QuestPlanPrompt         json.RawMessage `json:"questPlanPrompt"`
+		QuestValidatePrompt     json.RawMessage `json:"questValidatePrompt"`
+		QuestWritePrompt        json.RawMessage `json:"questWritePrompt"`
+		QuestRewardPrompt       json.RawMessage `json:"questRewardPrompt"`
+		QuestPolishPrompt       json.RawMessage `json:"questPolishPrompt"`
 		ExpeditionClusterPrompt json.RawMessage `json:"expeditionClusterPrompt"`
 		ExpeditionJsonSchema    json.RawMessage `json:"expeditionJsonSchema"`
 		QuestUpdatePrompt       json.RawMessage `json:"questUpdatePrompt"`
@@ -103,6 +144,21 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 	if len(req.WildsPrompt) == 0 {
 		req.WildsPrompt = json.RawMessage([]byte("{}"))
 	}
+	if len(req.QuestPlanPrompt) == 0 {
+		req.QuestPlanPrompt = json.RawMessage([]byte("{}"))
+	}
+	if len(req.QuestValidatePrompt) == 0 {
+		req.QuestValidatePrompt = json.RawMessage([]byte("{}"))
+	}
+	if len(req.QuestWritePrompt) == 0 {
+		req.QuestWritePrompt = json.RawMessage([]byte("{}"))
+	}
+	if len(req.QuestRewardPrompt) == 0 {
+		req.QuestRewardPrompt = json.RawMessage([]byte("{}"))
+	}
+	if len(req.QuestPolishPrompt) == 0 {
+		req.QuestPolishPrompt = json.RawMessage([]byte("{}"))
+	}
 	if len(req.ExpeditionClusterPrompt) == 0 {
 		req.ExpeditionClusterPrompt = json.RawMessage([]byte("{}"))
 	}
@@ -116,22 +172,32 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 	var payload json.RawMessage
 	var systemPrompt json.RawMessage
 	var wildsPrompt json.RawMessage
+	var questPlanPrompt json.RawMessage
+	var questValidatePrompt json.RawMessage
+	var questWritePrompt json.RawMessage
+	var questRewardPrompt json.RawMessage
+	var questPolishPrompt json.RawMessage
 	var expeditionClusterPrompt json.RawMessage
 	var expeditionJsonSchema json.RawMessage
 	var questUpdatePrompt json.RawMessage
 	err := db.QueryRow(`
-		INSERT INTO game.concept (id, payload, system_prompt, wilds_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt, updated_at)
-		VALUES (1, $1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO game.concept (id, payload, system_prompt, wilds_prompt, quest_plan_prompt, quest_validate_prompt, quest_write_prompt, quest_reward_prompt, quest_polish_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt, updated_at)
+		VALUES (1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
 		ON CONFLICT (id) DO UPDATE
 		SET payload = EXCLUDED.payload,
 			system_prompt = EXCLUDED.system_prompt,
 			wilds_prompt = EXCLUDED.wilds_prompt,
+			quest_plan_prompt = EXCLUDED.quest_plan_prompt,
+			quest_validate_prompt = EXCLUDED.quest_validate_prompt,
+			quest_write_prompt = EXCLUDED.quest_write_prompt,
+			quest_reward_prompt = EXCLUDED.quest_reward_prompt,
+			quest_polish_prompt = EXCLUDED.quest_polish_prompt,
 			expedition_cluster_prompt = EXCLUDED.expedition_cluster_prompt,
 			expedition_json_schema = EXCLUDED.expedition_json_schema,
 			quest_update_prompt = EXCLUDED.quest_update_prompt,
 			updated_at = NOW()
-		RETURNING payload, system_prompt, wilds_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt
-	`, req.Payload, req.SystemPrompt, req.WildsPrompt, req.ExpeditionClusterPrompt, req.ExpeditionJsonSchema, req.QuestUpdatePrompt).Scan(&payload, &systemPrompt, &wildsPrompt, &expeditionClusterPrompt, &expeditionJsonSchema, &questUpdatePrompt)
+		RETURNING payload, system_prompt, wilds_prompt, quest_plan_prompt, quest_validate_prompt, quest_write_prompt, quest_reward_prompt, quest_polish_prompt, expedition_cluster_prompt, expedition_json_schema, quest_update_prompt
+	`, req.Payload, req.SystemPrompt, req.WildsPrompt, req.QuestPlanPrompt, req.QuestValidatePrompt, req.QuestWritePrompt, req.QuestRewardPrompt, req.QuestPolishPrompt, req.ExpeditionClusterPrompt, req.ExpeditionJsonSchema, req.QuestUpdatePrompt).Scan(&payload, &systemPrompt, &wildsPrompt, &questPlanPrompt, &questValidatePrompt, &questWritePrompt, &questRewardPrompt, &questPolishPrompt, &expeditionClusterPrompt, &expeditionJsonSchema, &questUpdatePrompt)
 
 	if err != nil {
 		log.Printf("Error saving concept: %v", err)
@@ -139,5 +205,5 @@ func handleSaveConcept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, ExpeditionClusterPrompt: expeditionClusterPrompt, ExpeditionJsonSchema: expeditionJsonSchema, QuestUpdatePrompt: questUpdatePrompt})
+	json.NewEncoder(w).Encode(ConceptResponse{Success: true, Payload: payload, SystemPrompt: systemPrompt, WildsPrompt: wildsPrompt, QuestPlanPrompt: questPlanPrompt, QuestValidatePrompt: questValidatePrompt, QuestWritePrompt: questWritePrompt, QuestRewardPrompt: questRewardPrompt, QuestPolishPrompt: questPolishPrompt, ExpeditionClusterPrompt: expeditionClusterPrompt, ExpeditionJsonSchema: expeditionJsonSchema, QuestUpdatePrompt: questUpdatePrompt})
 }
