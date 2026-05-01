@@ -3380,9 +3380,9 @@ const questGenerationPhases = [
 ];
 
 const questGenerationDefaultPhasePrompts = {
-    outline: 'Create a Wilds quest outline with early investigation or setup beats, routes that imply at least 6 player selections before endings, multiple approaches to shared obstacles, later reconvergence, and no first-choice-only ending commitment. Return strict JSON only.',
-    graph: 'Convert the outline into a coherent quest graph with stable IDs, 6+ selections per route, interconnectivity, different immediate outcome nodes for alternate approaches, no long gated-only stretches, and at every progression step at least one forward dialogue or combat option alongside any gated routes. Include layout hints. Return strict JSON only.',
-    write: 'Write final Wilds quest JSON that preserves interconnectivity, 6+ selection routes, non-linear starts, distinct follow-up nodes for alternate approaches, combat followed by dialogue resolution, and usable pos_x/pos_y coordinates while using only provided catalog IDs. Ensure gated routes never replace all forward dialogue or combat options. Return strict JSON only.'
+    outline: 'Create a Wilds quest outline with early investigation or setup beats, routes that imply at least 6 player selections before endings, multiple approaches to shared obstacles, later reconvergence, and late decisive turns rather than first-choice commitment. Most beats should be dialogue-driven, with gated checks kept sparse. Return strict JSON only.',
+    graph: 'Convert the outline into a coherent quest graph with stable IDs, 6+ selections per route, interconnectivity, different immediate outcome nodes for alternate approaches, and no long gated-only stretches. Dialogue should be the default. Keep gated checks sparse, prefer stat gates only for clearly physical actions, and use effect-gated options only in near-zero cases when a specific temporary condition is central. Include layout hints. Return strict JSON only.',
+    write: 'Write final Wilds quest JSON that preserves interconnectivity, 6+ selection routes, non-linear starts, distinct follow-up nodes for alternate approaches, combat followed by dialogue resolution, and usable pos_x/pos_y coordinates while using only provided catalog IDs. Keep most options as dialogue, use stat checks rarely for clearly physical actions, and avoid effect-gated options except in exceptional explicitly fitting cases. Return strict JSON only.'
 };
 
 function resetQuestGeneratePhaseStatus() {

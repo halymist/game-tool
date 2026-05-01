@@ -50,6 +50,7 @@ NARRATIVE EXPECTATIONS:
 - Branches must differ in method, risk, or ethics.
 - Avoid cosmetic branch differences.
 - Different approaches may still lead to the same eventual result, but only through different immediate fallout, costs, or exposure.
+- Most beats should resolve through dialogue, observation, or ordinary action; reserve explicit gated checks for rare, clearly justified moments.
 - Keep outcomes believable within local settlement constraints.
 - Include enough intermediate beats that later graphing will not collapse into a short route.
 - Prefer interwoven routes, shared bottlenecks, and later reconvergence over isolated linear lanes.
@@ -136,9 +137,23 @@ ACCESSIBILITY AND FLOW REQUIREMENTS:
 - Immediate forward progress should always include at least one dialogue/combat path.
 - Whenever gated stat, faction, silver, or effect options appear at a progression step, include at least one sibling dialogue or combat option that remains immediately selectable without an additional gate.
 - Stat, faction, silver, and effect options may supplement a stage but must never be the only forward choices.
+- Mechanical gates should be sparse overall; most progression options should be dialogue, with only occasional combat or rare gated checks.
 - Do not create long runs where the only forward options are gated checks.
 - No more than 2 consecutive depth layers should collapse to a single forward selectable option.
 - If sibling options represent alternate solutions to the same obstacle, they must unlock different immediate outcome nodes and remain distinct for at least one later depth before convergence.
+
+TYPE SELECTION REQUIREMENTS:
+- Dialogue is the default option type and should carry most investigation, persuasion, negotiation, deception, interpretation, caution, observation, and planning.
+- If an option is mainly about spotting, noticing, asking, persuading, calming, bluffing, reading intent, interpreting evidence, or choosing a careful approach, make it dialogue rather than a gated mechanic.
+- Stat checks should be rare and used only when direct physical capability or bodily resilience is the real deciding factor.
+- Prefer agility for climbing, jumping, balancing, quick movement, slipping through danger, or precise traversal.
+- Prefer strength for hauling, forcing, lifting, dragging, or holding against strain.
+- Prefer stamina for endurance, breath, exposure, pain tolerance, or sustained exertion.
+- Prefer armor only for bracing through obvious physical punishment; prefer luck very sparingly.
+- Effect-gated options should be extremely rare for now, preferably zero in a typical quest unless the obstacle is explicitly about a temporary condition or tactical state that clearly matches the provided effects list.
+- Never use effect-gated options for spotting, negotiating, persuading, inspecting, remembering, interpreting, or other ordinary dialogue actions.
+- Never use an effect gate when dialogue or an appropriate stat check better matches the fiction.
+- If uncertain about option type, use dialogue.
 
 LAYOUT PLANNING REQUIREMENTS:
 - Build the graph with visual readability in mind for a node editor.
@@ -222,6 +237,16 @@ WRITING REQUIREMENTS:
 - Preserve the Wilds voice: local stakes, maintenance pressures, pragmatic people, specific material realities, and place-rooted strangeness.
 - Let the writing acknowledge infrastructure, labor, scarcity, politics, factional interpretation, or settlement know-how where relevant.
 - Avoid generic fantasy phrasing, grand destiny language, or detached mythic tone.
+
+TYPE MAPPING REQUIREMENTS:
+- Dialogue should be the dominant option type across the quest.
+- Mechanical gates should be sparse overall; most options should not consume stat, faction, silver, or effect fields.
+- If option_text describes spotting, negotiating, persuading, questioning, calming, deceiving, inspecting, interpreting, or otherwise handling something through words, attention, or judgment, keep it as dialogue with null stat/effect gate fields.
+- If option_text describes a clearly physical maneuver such as climbing quickly, balancing, hauling, forcing, enduring strain, or bracing through danger, prefer the appropriate stat check instead of an effect gate.
+- Effect-gated options should be extremely rare for now, preferably zero unless the obstacle is explicitly about already having a specific temporary condition or tactical state from the provided effect list.
+- Use effect_id and effect_amount only when the option is truly an effect-gated route, not as a substitute for dialogue or stats.
+- If an option applies a condition after selection, option_effect_id may be used separately, but ordinary social or investigative actions must still remain dialogue.
+- If uncertain whether an option should be dialogue, stat, or effect, choose dialogue.
 
 FINAL STRUCTURE REQUIREMENTS:
 - Exactly one chain and one quest in output.
