@@ -781,6 +781,9 @@ function addConnection(fromType, fromId, toType, toId) {
     
     if (!exists) {
         questState.connections.push({ fromType, fromId, toType, toId });
+        if (fromType === 'quest' && toType === 'option') {
+            syncQuestStartConnections(fromId);
+        }
         console.log('Connection added:', fromType, fromId, '->', toType, toId);
         checkQuestSaveConditions();
     }
@@ -834,6 +837,7 @@ function questRenderConnections() {
     if (!svg || !canvas) return;
     
     const rect = canvas.getBoundingClientRect();
+    syncQuestStartConnections();
     
     // Remove old paths except preview
     svg.querySelectorAll('path:not(#questConnectionPreview)').forEach(p => p.remove());
@@ -909,6 +913,8 @@ function questRenderConnections() {
         
         svg.insertBefore(path, svg.firstChild);
     });
+
+    checkQuestSaveConditions();
 }
 
 // ==================== DELETE FUNCTIONS ====================
@@ -1163,6 +1169,7 @@ function updateSidebar(optionId) {
     
     updateSidebarRewardFields(reward.type || '');
     
+    checkQuestSaveConditions();
     // Populate reward-specific fields
     const rewardStatType = document.getElementById('sidebarRewardStatType');
     if (rewardStatType) rewardStatType.value = reward.statType || 'strength';
@@ -1979,7 +1986,7 @@ async function loadQuestChainData(chainId) {
                 nodeText: o.node_text || '',
                 x: o.x || o.pos_x || 0,
                 y: o.y || o.pos_y || 0,
-                isStart: o.start || false,
+                isStart: isQuestStartValue(o.start),
                 type: determineOptionType({ ...o, factionRequired: factionKey }),
                 questEnd: !!o.quest_end,
                 statType: o.stat_type,
@@ -2105,6 +2112,61 @@ function determineOptionType(o) {
     return 'dialogue';
 }
 
+function isQuestStartValue(value) {
+    if (value === true || value === 1) return true;
+    const normalized = String(value ?? '').trim().toLowerCase();
+    return normalized === 'true' || normalized === '1' || normalized === 't' || normalized === 'yes';
+}
+
+function isQuestStartOption(option) {
+    if (!option) return false;
+    return isQuestStartValue(option.isStart ?? option.start)
+        || String(option.role || '').trim().toLowerCase() === 'start';
+}
+
+function syncQuestStartConnections(targetQuestIds = null) {
+    const questIdList = targetQuestIds === null || targetQuestIds === undefined
+        ? null
+        : (Array.isArray(targetQuestIds) ? targetQuestIds : [targetQuestIds]);
+    const questIdSet = questIdList
+        ? new Set(
+            questIdList
+                .filter((id) => id !== null && id !== undefined && id !== '')
+                .map((id) => String(id))
+        )
+        : null;
+
+    const nextConnections = questState.connections.filter((conn) => {
+        if (!(conn.fromType === 'quest' && conn.toType === 'option')) {
+            return true;
+        }
+        if (!questIdSet) {
+            return false;
+        }
+        return !questIdSet.has(String(conn.fromId));
+    });
+
+    const seen = new Set();
+    questState.options.forEach((option) => {
+        if (!isQuestStartOption(option)) return;
+        if (option.questId === null || option.questId === undefined || option.questId === '') return;
+        if (!questState.quests.has(option.questId)) return;
+        if (questIdSet && !questIdSet.has(String(option.questId))) return;
+
+        const key = `${option.questId}:${option.optionId}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        nextConnections.push({
+            fromType: 'quest',
+            fromId: option.questId,
+            toType: 'option',
+            toId: option.optionId
+        });
+    });
+
+    questState.connections = nextConnections;
+}
+
 // Extract reward object from option data
 function extractReward(o) {
     // Normalize a reward field: AI may return {id, name} objects; extract just the numeric id
@@ -2140,19 +2202,6 @@ function buildConnectionsFromData(quests, options, requirements) {
     questState.connections = [];
     const optionIds = new Set(options.map((option) => String(option.option_id ?? option.optionId ?? '')));
     
-    // For each quest, connect to its START options only
-    quests.forEach(quest => {
-        const startOptions = options.filter(o => o.quest_id === quest.quest_id && o.start);
-        startOptions.forEach(opt => {
-            questState.connections.push({
-                fromType: 'quest',
-                fromId: quest.quest_id,
-                toType: 'option',
-                toId: opt.option_id
-            });
-        });
-    });
-    
     // Option -> Option connections from requirements
     // In requirements: option_id requires required_option_id
     // This means required_option_id leads TO option_id
@@ -2183,6 +2232,8 @@ function buildConnectionsFromData(quests, options, requirements) {
             });
         }
     });
+
+    syncQuestStartConnections(quests.map((quest) => quest.quest_id));
     
     console.log(`Built ${questState.connections.length} connections`);
 }
@@ -2442,7 +2493,9 @@ function setupSidebarEventListeners() {
             const option = questState.options.get(questState.selectedOption);
             if (option) {
                 option.isStart = e.target.checked;
+                syncQuestStartConnections(option.questId);
                 renderOption(option);
+                questRenderConnections();
                 checkQuestSaveConditions();
             }
         });
@@ -2712,6 +2765,8 @@ window.deleteSelectedOption = deleteSelectedOption;
 function getQuestValidationErrors() {
     const errors = [];
 
+    syncQuestStartConnections();
+
     if (!questState.selectedSettlementId) {
         errors.push('Settlement must be selected');
     }
@@ -2741,11 +2796,13 @@ function getQuestValidationErrors() {
     const outgoingOptions = new Set();  // optionIds that have at least one connection leading from them
 
     questState.connections.forEach(conn => {
+        const normalizedFromId = normalizeNumericId(conn.fromId) ?? conn.fromId;
+        const normalizedToId = normalizeNumericId(conn.toId) ?? conn.toId;
         if (conn.toType === 'option') {
-            incomingOptions.add(conn.toId);
+            incomingOptions.add(normalizedToId);
         }
         if (conn.fromType === 'option') {
-            outgoingOptions.add(conn.fromId);
+            outgoingOptions.add(normalizedFromId);
         }
     });
 
@@ -2760,17 +2817,18 @@ function getQuestValidationErrors() {
 
     // Check each option has proper connections
     questState.options.forEach((option, optionId) => {
+        const normalizedOptionId = normalizeNumericId(optionId) ?? optionId;
         const label = option.optionText || option.nodeText || `Option #${optionId}`;
         const quest = questState.quests.get(option.questId);
         const branchName = quest?.name || 'Unnamed';
 
         // Starting options don't need incoming connections
-        if (!option.isStart && !incomingOptions.has(optionId)) {
+        if (!isQuestStartOption(option) && !incomingOptions.has(normalizedOptionId)) {
             errors.push(`"${label}" in "${branchName}" has no incoming connection`);
         }
 
         // Ending options don't need outgoing connections
-        if (option.type !== 'end' && !outgoingOptions.has(optionId)) {
+        if (option.type !== 'end' && !outgoingOptions.has(normalizedOptionId)) {
             errors.push(`"${label}" in "${branchName}" has no outgoing connection`);
         }
     });
@@ -4180,7 +4238,7 @@ function collectQuestPlanStructuralIssues(planPayload) {
     if (startIds.length === 0) {
         startIds = nodeIds.filter((id) => {
             const option = optionMap.get(id);
-            return option?.start === true || String(option?.role || '').toLowerCase() === 'start';
+            return isQuestStartOption(option);
         });
     }
 
@@ -4982,7 +5040,7 @@ function applyUpdatedQuest(questId, parsed) {
             nodeText: opt.node_text || '',
             x: opt.x || 0,
             y: opt.y || 0,
-            isStart: opt.start === true || false,
+            isStart: isQuestStartOption(opt),
             type: determineOptionType(opt),
             questEnd: !!opt.quest_end,
             statType: opt.stat_type,
@@ -5007,18 +5065,7 @@ function applyUpdatedQuest(questId, parsed) {
         if (first) first.isStart = true;
     }
 
-    // --- Add quest -> start option connections ---
-    normalizedOptions.forEach((opt, index) => {
-        const localOptionId = optionMapping.get(opt.option_id ?? index);
-        if (localOptionId && (opt.start === true || (!hasStart && index === 0))) {
-            questState.connections.push({
-                fromType: 'quest',
-                fromId: questId,
-                toType: 'option',
-                toId: localOptionId
-            });
-        }
-    });
+    syncQuestStartConnections(questId);
 
     // --- Add option -> option requirement connections ---
     updatedRequirements.forEach(req => {
@@ -5124,13 +5171,13 @@ function normalizeGeneratedOptions(options = []) {
         option_text: opt.option_text ?? opt.optionText ?? '',
         node_text: opt.node_text ?? opt.nodeText ?? '',
         quest_end: opt.quest_end ?? opt.questEnd ?? false,
-        start: opt.start ?? null,
+        start: isQuestStartOption(opt),
         stat_type: opt.stat_type ?? opt.statType ?? null,
         stat_required: opt.stat_required ?? opt.statRequired ?? null,
         effect_id: opt.effect_id ?? opt.effectId ?? null,
         effect_amount: opt.effect_amount ?? opt.effectAmount ?? null,
-        option_effect_id: opt.option_effect_id ?? opt.optionEffectId ?? null,
-        option_effect_factor: opt.option_effect_factor ?? opt.optionEffectFactor ?? null,
+        option_effect_id: null,
+        option_effect_factor: null,
         faction_required: opt.faction_required ?? opt.factionRequired ?? null,
         silver_required: opt.silver_required ?? opt.silverRequired ?? null,
         enemy_id: opt.enemy_id ?? opt.enemyId ?? null,
@@ -5139,8 +5186,8 @@ function normalizeGeneratedOptions(options = []) {
         reward_potion: opt.reward_potion ?? opt.rewardPotion ?? null,
         reward_blessing: opt.reward_blessing ?? opt.rewardBlessing ?? null,
         reward_talent: opt.reward_talent ?? opt.rewardTalent ?? null,
-        reward_stat_type: opt.reward_stat_type ?? opt.rewardStatType ?? null,
-        reward_stat_amount: opt.reward_stat_amount ?? opt.rewardStatAmount ?? null,
+        reward_stat_type: null,
+        reward_stat_amount: null,
         reward_silver: opt.reward_silver ?? opt.rewardSilver ?? null,
         x: opt.x ?? opt.pos_x ?? 0,
         y: opt.y ?? opt.pos_y ?? 0
@@ -5150,8 +5197,8 @@ function normalizeGeneratedOptions(options = []) {
 function normalizeGeneratedRequirements(requirements = []) {
     return requirements
         .map((req) => ({
-            optionId: req?.optionId ?? req?.option_id ?? req?.optionID ?? null,
-            requiredOptionId: req?.requiredOptionId ?? req?.required_option_id ?? req?.requiredOptionID ?? null
+            optionId: normalizeNumericId(req?.optionId ?? req?.option_id ?? req?.optionID ?? null),
+            requiredOptionId: normalizeNumericId(req?.requiredOptionId ?? req?.required_option_id ?? req?.requiredOptionID ?? null)
         }))
         .filter((req) => req.optionId !== null && req.optionId !== undefined && req.optionId !== ''
             && req.requiredOptionId !== null && req.requiredOptionId !== undefined && req.requiredOptionId !== '');
@@ -5223,7 +5270,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
             nodeText: opt.node_text || '',
             x: opt.x || 0,
             y: opt.y || 0,
-            isStart: opt.start === true || false,
+            isStart: isQuestStartOption(opt),
             type: determineOptionType(opt),
             questEnd: !!opt.quest_end,
             statType: opt.stat_type,
@@ -5248,18 +5295,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         if (first) first.isStart = true;
     }
 
-    // Add connections
-    normalizedOptions.forEach((opt, index) => {
-        const localOptionId = optionMapping.get(opt.option_id ?? index);
-        if (localOptionId && (opt.start === true || (!hasStart && index === 0))) {
-            questState.connections.push({
-                fromType: 'quest',
-                fromId: localQuestId,
-                toType: 'option',
-                toId: localOptionId
-            });
-        }
-    });
+    syncQuestStartConnections(localQuestId);
 
     normalizedRequirements.forEach((req) => {
         const toId = optionMapping.get(String(req.optionId));

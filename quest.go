@@ -435,8 +435,8 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("SaveQuest: IsNewChain=%v, QuestchainID=%d, NewQuests=%d, QuestUpdates=%d, NewOptions=%d, OptionUpdates=%d, PendingReqs=%d",
-		req.IsNewChain, req.QuestchainID, len(req.NewQuests), len(req.QuestUpdates), len(req.NewOptions), len(req.OptionUpdates), len(req.PendingRequirements))
+	log.Printf("SaveQuest: IsNewChain=%v, QuestchainID=%d, NewQuests=%d, QuestUpdates=%d, NewOptions=%d, OptionUpdates=%d, NewReqs=%d, PendingReqs=%d, QuestRequisites=%d",
+		req.IsNewChain, req.QuestchainID, len(req.NewQuests), len(req.QuestUpdates), len(req.NewOptions), len(req.OptionUpdates), len(req.NewRequirements), len(req.PendingRequirements), len(req.QuestRequisites))
 
 	questchainID := req.QuestchainID
 	questID := req.QuestID
@@ -551,16 +551,14 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Bulk updated %d options", len(req.OptionUpdates))
 		}
 
-		// ---- Bulk insert requirements ----
-		if err := bulkInsertQuestRequirements(tx, req.NewRequirements, req.PendingRequirements, optionMapping); err != nil {
-			return fmt.Errorf("inserting requirements: %w", err)
+		// ---- Replace requirements with the current editor graph ----
+		if err := replaceQuestRequirements(tx, questchainID, questID, req.NewRequirements, req.PendingRequirements, optionMapping); err != nil {
+			return fmt.Errorf("replacing requirements: %w", err)
 		}
 
-		// ---- Bulk update quest requisites ----
-		if len(req.QuestRequisites) > 0 {
-			if err := bulkUpdateQuestRequisites(tx, req.QuestRequisites, optionMapping, questMapping); err != nil {
-				return fmt.Errorf("updating quest requisites: %w", err)
-			}
+		// ---- Replace quest requisites with the current editor graph ----
+		if err := replaceQuestRequisites(tx, questchainID, questID, req.QuestRequisites, optionMapping, questMapping); err != nil {
+			return fmt.Errorf("replacing quest requisites: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -1009,6 +1007,28 @@ func bulkInsertQuestRequirements(tx *sql.Tx, newReqs []QuestOptionRequirement, p
 	return err
 }
 
+func replaceQuestRequirements(tx *sql.Tx, questchainID, questID int, newReqs []QuestOptionRequirement, pendingReqs []PendingRequirement, optionMapping map[int]int) error {
+	if questchainID > 0 {
+		if _, err := tx.Exec(`
+			DELETE FROM game.quest_option_requirements
+			WHERE option_id IN (
+				SELECT qo.option_id
+				FROM game.quest_options qo
+				JOIN game.quests q ON q.quest_id = qo.quest_id
+				WHERE q.questchain_id = $1
+			)
+		`, questchainID); err != nil {
+			return err
+		}
+	} else if questID > 0 {
+		if _, err := tx.Exec(`DELETE FROM game.quest_option_requirements WHERE option_id IN (SELECT option_id FROM game.quest_options WHERE quest_id = $1)`, questID); err != nil {
+			return err
+		}
+	}
+
+	return bulkInsertQuestRequirements(tx, newReqs, pendingReqs, optionMapping)
+}
+
 func bulkUpdateQuestRequisites(tx *sql.Tx, requisites []QuestRequisiteMapping, optionMapping, questMapping map[int]int) error {
 	var questIDs, optionIDs []int64
 
@@ -1044,6 +1064,24 @@ func bulkUpdateQuestRequisites(tx *sql.Tx, requisites []QuestRequisiteMapping, o
 		WHERE q.quest_id = v.quest_id
 	`, selectSQL), args...)
 	return err
+}
+
+func replaceQuestRequisites(tx *sql.Tx, questchainID, questID int, requisites []QuestRequisiteMapping, optionMapping, questMapping map[int]int) error {
+	if questchainID > 0 {
+		if _, err := tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE questchain_id = $1`, questchainID); err != nil {
+			return err
+		}
+	} else if questID > 0 {
+		if _, err := tx.Exec(`UPDATE game.quests SET requisite_option_id = NULL WHERE quest_id = $1`, questID); err != nil {
+			return err
+		}
+	}
+
+	if len(requisites) == 0 {
+		return nil
+	}
+
+	return bulkUpdateQuestRequisites(tx, requisites, optionMapping, questMapping)
 }
 
 // DeleteQuestOptionRequest represents request to delete an option

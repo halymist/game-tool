@@ -167,11 +167,12 @@ TYPE SELECTION REQUIREMENTS:
 LAYOUT PLANNING REQUIREMENTS:
 - Build the tree with visual readability in mind for a node editor.
 - Include a depth index and lane index or equivalent layout hint for every planned option.
-- Start options should sit in the first option band around x 50.
+- Leave a clear root area for the quest slide on the far left.
+- The first start-option band should usually begin around x 450-550 so it does not overlap the quest slide.
 - Progression should move left-to-right.
 - Each deeper layer should usually increase x by roughly 450-550.
 - Parallel branches should occupy distinct vertical lanes with generous spacing.
-- Keep roughly 500-700 vertical spacing between nearby sibling lanes, and do not crowd 300px-wide cards.
+- Keep roughly 650-900 vertical spacing between nearby sibling lanes, and do not crowd 300px-wide cards.
 - Child nodes should usually sit to the right of their single parent.
 - Endings should appear in the rightmost depth band.
 - Avoid layouts that would stack many unrelated options on top of each other.
@@ -242,6 +243,9 @@ WRITING REQUIREMENTS:
 - option_text should read like actionable player choices.
 - node_text should usually be 2-5 sentences.
 - Some node_text entries may be primarily atmospheric, reflective, or sensory, as long as they still feel consequential to the route.
+- Favor vivid, colorful scene writing with concrete adjectives and precise sensory detail rather than flat functional summary.
+- Regularly describe sound, light, texture, movement, bodily feeling, weather, strain, smell, or visual oddity when those details help the scene land.
+- Let the reader feel the atmosphere of a place through echoes, creaking structure, damp air, glare, mist, vibration, grime, weight, nausea, dread, relief, awe, or other grounded sensations.
 - Let scenes breathe with place, material detail, sound, strain, memory, dread, or thought process instead of reducing every node to matter-of-fact action summary.
 - quest summary should be accurate to final branching.
 - summary should describe the major approaches, branch splits, endings, and notable gates or consequences that actually exist in the final tree.
@@ -259,7 +263,7 @@ TYPE MAPPING REQUIREMENTS:
 - If option_text describes a clearly physical maneuver such as climbing quickly, balancing, hauling, forcing, enduring strain, or bracing through danger, prefer the appropriate stat check instead of an effect gate.
 - Effect-gated options should be extremely rare for now, preferably zero unless the obstacle is explicitly about already having a specific temporary condition or tactical state from the provided effect list.
 - Use effect_id and effect_amount only when the option is truly an effect-gated route, not as a substitute for dialogue or stats.
-- If an option applies a condition after selection, option_effect_id may be used separately, but ordinary social or investigative actions must still remain dialogue.
+- Do not use option_effect_id or option_effect_factor in this phase; leave both null for every option.
 - If uncertain whether an option should be dialogue, stat, or effect, choose dialogue.
 - The node immediately before a combat choice should describe the threat, stakes, and why fighting is now on the table.
 - A combat option's own node_text is shown after victory, so write it as the successful combat resolution and immediate aftermath, not as pre-fight setup or instructions to fight.
@@ -290,10 +294,11 @@ FINAL STRUCTURE REQUIREMENTS:
 
 POSITIONING REQUIREMENTS:
 - Final options must include usable pos_x and pos_y values for visual editing.
-- Start options should usually begin in the first option band around x 50.
+- quest pos_x should usually be near 50 so the quest slide stays readable on the left edge.
+- Start options should usually begin in the first option band around x 450-550 so they do not overlap the quest slide.
 - Use left-to-right depth layout: deeper options should usually have larger pos_x.
 - As a rule of thumb, depth bands should be spaced roughly 450-550 apart on x.
-- Separate parallel lanes on y by roughly 500-700 to avoid overlap.
+- Separate parallel lanes on y by roughly 650-900 to avoid overlap, and use even more spacing when node_text is long.
 - Start options should be near the left side.
 - Mid-branch options should remain in their own vertical lanes.
 - Endings should be near the far-right side.
@@ -306,7 +311,12 @@ REWARD/EFFECT REQUIREMENTS:
 - At most one reward mode per option.
 - Use only valid IDs from provided catalogs.
 - If no reward on an option, leave reward fields null.
-- Keep rewards sparse and narratively justified.
+- Keep rewards very sparse and narratively justified.
+- Most options should have no reward at all.
+- Do not spread rewards across many branches just to make them feel distinct.
+- Stat rewards should not be used for now; leave reward_stat_type and reward_stat_amount null.
+- Leave option_effect_id and option_effect_factor null for every option.
+- Do not add post-selection option effects in this quest output.
 
 EXPECTED FINAL SHAPE:
 {
