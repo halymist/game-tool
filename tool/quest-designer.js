@@ -1930,11 +1930,11 @@ async function loadQuestChainData(chainId) {
         
         // Filter options to only those belonging to chain's quests
         const chainOptions = (data.options || []).filter(o => questIds.has(o.quest_id));
-        const optionIds = new Set(chainOptions.map(o => o.option_id));
+        const optionIds = new Set(chainOptions.map(o => String(o.option_id)));
         
         // Filter requirements
-        const chainRequirements = (data.requirements || []).filter(r => 
-            optionIds.has(r.optionId) || optionIds.has(r.requiredOptionId)
+        const chainRequirements = normalizeGeneratedRequirements(data.requirements || []).filter(r => 
+            optionIds.has(String(r.optionId)) || optionIds.has(String(r.requiredOptionId))
         );
         
         console.log(`Loading chain ${chainId}: ${chainQuests.length} quests, ${chainOptions.length} options, ${chainRequirements.length} requirements`);
@@ -2138,6 +2138,7 @@ function extractReward(o) {
 // - Option -> Option (from requirements table - option requires another option)
 function buildConnectionsFromData(quests, options, requirements) {
     questState.connections = [];
+    const optionIds = new Set(options.map((option) => String(option.option_id ?? option.optionId ?? '')));
     
     // For each quest, connect to its START options only
     quests.forEach(quest => {
@@ -2157,11 +2158,16 @@ function buildConnectionsFromData(quests, options, requirements) {
     // This means required_option_id leads TO option_id
     // So connection is: required_option_id -> option_id
     requirements.forEach(req => {
+        const requiredOptionId = req.requiredOptionId ?? req.required_option_id ?? req.requiredOptionID;
+        const optionId = req.optionId ?? req.option_id ?? req.optionID;
+        if (requiredOptionId === null || requiredOptionId === undefined || requiredOptionId === '') return;
+        if (optionId === null || optionId === undefined || optionId === '') return;
+        if (!optionIds.has(String(requiredOptionId)) || !optionIds.has(String(optionId))) return;
         questState.connections.push({
             fromType: 'option',
-            fromId: req.requiredOptionId,
+            fromId: requiredOptionId,
             toType: 'option',
-            toId: req.optionId
+            toId: optionId
         });
     });
     
@@ -3379,17 +3385,9 @@ const questGenerationPhases = [
     { key: 'write', label: 'Write', model: 'gpt-4o', pillId: 'questGeneratePhaseWrite' }
 ];
 
-const questGenerationDefaultPhasePrompts = {
-    outline: 'Create a Wilds quest outline with early investigation or setup beats, routes that imply at least 6 player selections before endings, multiple approaches to shared obstacles, later reconvergence, and late decisive turns rather than first-choice commitment. Most beats should be dialogue-driven, with gated checks kept sparse. Return strict JSON only.',
-    graph: 'Convert the outline into a coherent quest graph with stable IDs, 6+ selections per route, interconnectivity, different immediate outcome nodes for alternate approaches, and no long gated-only stretches. Dialogue should be the default. Keep gated checks sparse, prefer stat gates only for clearly physical actions, and use effect-gated options only in near-zero cases when a specific temporary condition is central. Include layout hints. Return strict JSON only.',
-    write: 'Write final Wilds quest JSON that preserves interconnectivity, 6+ selection routes, non-linear starts, distinct follow-up nodes for alternate approaches, combat followed by dialogue resolution, and usable pos_x/pos_y coordinates while using only provided catalog IDs. Keep most options as dialogue, use stat checks rarely for clearly physical actions, and avoid effect-gated options except in exceptional explicitly fitting cases. Return strict JSON only.'
-};
-
 function resetQuestGeneratePhaseStatus() {
     const statusEl = document.getElementById('questGeneratePhaseStatus');
-    const messageEl = document.getElementById('questGeneratePhaseMessage');
     if (statusEl) statusEl.style.display = 'none';
-    if (messageEl) messageEl.textContent = '';
     questGenerationPhases.forEach(phase => {
         const pill = document.getElementById(phase.pillId);
         if (pill) {
@@ -3400,7 +3398,6 @@ function resetQuestGeneratePhaseStatus() {
 
 function setQuestGeneratePhaseStatus(phaseKey, state, message = '') {
     const statusEl = document.getElementById('questGeneratePhaseStatus');
-    const messageEl = document.getElementById('questGeneratePhaseMessage');
     if (statusEl) statusEl.style.display = 'flex';
 
     const phase = questGenerationPhases.find(item => item.key === phaseKey);
@@ -3414,9 +3411,6 @@ function setQuestGeneratePhaseStatus(phaseKey, state, message = '') {
         }
     }
 
-    if (messageEl) {
-        messageEl.textContent = message || '';
-    }
 }
 
 function setupQuestGeneratePanel() {
@@ -3965,14 +3959,13 @@ function parseOpenAIJsonResponse(data, phaseLabel) {
 }
 
 function getQuestGenerationPhasePrompt(conceptData, phaseKey) {
-    const systemFallback = normalizePromptText(conceptData?.systemPrompt);
     const promptMap = {
         outline: normalizePromptText(conceptData?.questPlanPrompt),
         graph: normalizePromptText(conceptData?.questValidatePrompt),
         write: normalizePromptText(conceptData?.questWritePrompt),
     };
 
-    return promptMap[phaseKey] || systemFallback || questGenerationDefaultPhasePrompts[phaseKey] || '';
+    return promptMap[phaseKey] || '';
 }
 
 function getOptionReferenceKey(option, index) {
@@ -4509,6 +4502,12 @@ async function generateQuestPreview() {
             graph: getQuestGenerationPhasePrompt(conceptData, 'graph'),
             write: getQuestGenerationPhasePrompt(conceptData, 'write'),
         };
+        const missingPhasePrompts = questGenerationPhases
+            .filter((phase) => !phasePrompts[phase.key])
+            .map((phase) => phase.label);
+        if (missingPhasePrompts.length > 0) {
+            throw new Error(`Missing concept prompt configuration for: ${missingPhasePrompts.join(', ')}`);
+        }
 
         const outlineContext = buildQuestAiRequestContext({
             conceptPayload,
@@ -5148,6 +5147,16 @@ function normalizeGeneratedOptions(options = []) {
     }));
 }
 
+function normalizeGeneratedRequirements(requirements = []) {
+    return requirements
+        .map((req) => ({
+            optionId: req?.optionId ?? req?.option_id ?? req?.optionID ?? null,
+            requiredOptionId: req?.requiredOptionId ?? req?.required_option_id ?? req?.requiredOptionID ?? null
+        }))
+        .filter((req) => req.optionId !== null && req.optionId !== undefined && req.optionId !== ''
+            && req.requiredOptionId !== null && req.requiredOptionId !== undefined && req.requiredOptionId !== '');
+}
+
 function applyGeneratedQuest(data, locationTextureOverride = null) {
     if (!data || !Array.isArray(data.quests) || data.quests.length === 0) {
         console.warn('Generated quest missing quests array');
@@ -5198,10 +5207,11 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
 
     const optionMapping = new Map();
     const normalizedOptions = normalizeGeneratedOptions(data.options || []);
+    const normalizedRequirements = normalizeGeneratedRequirements(data.requirements || []);
 
     normalizedOptions.forEach((opt, index) => {
         const localOptionId = questState.nextOptionId++;
-        optionMapping.set(opt.option_id ?? index, localOptionId);
+        optionMapping.set(String(opt.option_id ?? index), localOptionId);
 
         const factionKey = questFactionCodeToKey(opt.faction_required ?? opt.factionRequired);
 
@@ -5251,9 +5261,9 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         }
     });
 
-    (data.requirements || []).forEach(req => {
-        const toId = optionMapping.get(req.optionId ?? req.option_id ?? req.optionID);
-        const fromId = optionMapping.get(req.requiredOptionId ?? req.required_option_id ?? req.requiredOptionID);
+    normalizedRequirements.forEach((req) => {
+        const toId = optionMapping.get(String(req.optionId));
+        const fromId = optionMapping.get(String(req.requiredOptionId));
         if (fromId && toId) {
             questState.connections.push({
                 fromType: 'option',

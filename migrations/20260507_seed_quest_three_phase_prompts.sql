@@ -34,8 +34,8 @@ OUTLINE REQUIREMENTS:
 - Every route must have a plausible ending direction.
 - No dead-end route concept.
 - Include hazards, escalation beats, and major decision points.
-- Include at least one shared obstacle that can be approached in multiple ways before routes later reconverge.
-- Include at least one convergence beat where routes rejoin.
+- Prefer a readable branching tree: routes may split, but they should usually not merge back together later.
+- If several routes face the same obstacle, treat them as parallel branches with different outcomes rather than forcing a later reconvergence.
 - Include persistent consequences that can affect later work.
 
 WILDS TONE REQUIREMENTS:
@@ -51,9 +51,12 @@ NARRATIVE EXPECTATIONS:
 - Avoid cosmetic branch differences.
 - Different approaches may still lead to the same eventual result, but only through different immediate fallout, costs, or exposure.
 - Most beats should resolve through dialogue, observation, or ordinary action; reserve explicit gated checks for rare, clearly justified moments.
+- Requirement-enabled approaches should usually buy something meaningful such as extra context, leverage, reduced later risk, altered trust, bonus reward opportunity, or access to optional lore.
+- Exact same results after a requirement check are acceptable occasionally, but should not be the dominant pattern.
+- Atmospheric beats are welcome; some moments may dwell on environment, dread, thought process, ritual, or local texture rather than only stating the next factual action.
 - Keep outcomes believable within local settlement constraints.
 - Include enough intermediate beats that later graphing will not collapse into a short route.
-- Prefer interwoven routes, shared bottlenecks, and later reconvergence over isolated linear lanes.
+- Prefer clear branch splits and readable tree structure over tangled re-merging or cross-branch cleverness.
 - For each branch, imply preparation, complication, discovery, escalation, and resolution phases.
 
 EXPECTED JSON SHAPE:
@@ -80,10 +83,10 @@ EXPECTED JSON SHAPE:
         "consequence": ""
       }
     ],
-    "convergence_points": [
+    "branch_points": [
       {
         "name": "",
-        "why_routes_merge": ""
+        "why_it_splits": ""
       }
     ],
     "ending_directions": [
@@ -104,7 +107,7 @@ $outline$::text),
     quest_validate_prompt = to_jsonb($graph$
 You are Phase 2: Quest Graph Builder for the game Wilds.
 
-You receive a narrative outline and must convert it into a logically coherent quest graph.
+You receive a narrative outline and must convert it into a logically coherent quest tree.
 
 OUTPUT RULES:
 - Output strict JSON only.
@@ -117,9 +120,11 @@ OUTPUT RULES:
 - Do not assign concrete reward IDs or effect IDs.
 
 GRAPH REQUIREMENTS:
-- Exactly one self-contained quest graph.
+- Exactly one self-contained quest tree.
 - At least 15 options.
 - Exactly 2-3 start options.
+- Build a tree, not a mesh: branches may split outward, but they should not merge back together later.
+- Every intended progression link must be represented explicitly in graph data rather than implied only by position or prose.
 - Early depths should usually focus on setup, investigation, leverage, or access rather than immediately locking the ending track.
 - Every path from any start to any reachable ending must require at least 6 selections.
 - Prefer 7-10 selections on major routes unless the outline strongly limits it.
@@ -128,19 +133,23 @@ GRAPH REQUIREMENTS:
 - Every option must be reachable from a start.
 - Every non-ending option must be able to reach an ending.
 - No circular dependencies.
-- At least one convergence option requiring 2+ distinct prior options.
+- Every non-start option must have exactly one parent option.
+- Every non-start option must appear exactly once as optionId in planned_requirements.
+- Start options must all appear in starts and must never appear as optionId in planned_requirements.
 - Max 2 combat options.
-- Avoid strictly linear progression.
-- Encourage interconnectivity through cross-branch requirements, shared bottlenecks, and later reconvergence.
+- Avoid a totally linear single path, but keep the overall structure a readable tree.
+- Do not use cross-branch requirements, shared bottlenecks that merge routes, or later reconvergence.
 
 ACCESSIBILITY AND FLOW REQUIREMENTS:
 - Immediate forward progress should always include at least one dialogue/combat path.
+- Start options must be explicit starts with no requirements leading into them.
 - Whenever gated stat, faction, silver, or effect options appear at a progression step, include at least one sibling dialogue or combat option that remains immediately selectable without an additional gate.
 - Stat, faction, silver, and effect options may supplement a stage but must never be the only forward choices.
 - Mechanical gates should be sparse overall; most progression options should be dialogue, with only occasional combat or rare gated checks.
 - Do not create long runs where the only forward options are gated checks.
 - No more than 2 consecutive depth layers should collapse to a single forward selectable option.
-- If sibling options represent alternate solutions to the same obstacle, they must unlock different immediate outcome nodes and remain distinct for at least one later depth before convergence.
+- If sibling options represent alternate solutions to the same obstacle, they should become separate child branches rather than quickly merging back into one branch.
+- Requirement routes should usually buy something meaningful such as extra context, leverage, reduced later risk, altered trust, or bonus reward opportunity.
 
 TYPE SELECTION REQUIREMENTS:
 - Dialogue is the default option type and should carry most investigation, persuasion, negotiation, deception, interpretation, caution, observation, and planning.
@@ -156,12 +165,14 @@ TYPE SELECTION REQUIREMENTS:
 - If uncertain about option type, use dialogue.
 
 LAYOUT PLANNING REQUIREMENTS:
-- Build the graph with visual readability in mind for a node editor.
+- Build the tree with visual readability in mind for a node editor.
 - Include a depth index and lane index or equivalent layout hint for every planned option.
-- Starts should sit at the leftmost depth.
-- Progression should generally move left-to-right.
-- Parallel branches should occupy distinct vertical lanes.
-- Convergences should move back toward center lanes where appropriate.
+- Start options should sit in the first option band around x 50.
+- Progression should move left-to-right.
+- Each deeper layer should usually increase x by roughly 450-550.
+- Parallel branches should occupy distinct vertical lanes with generous spacing.
+- Keep roughly 500-700 vertical spacing between nearby sibling lanes, and do not crowd 300px-wide cards.
+- Child nodes should usually sit to the right of their single parent.
 - Endings should appear in the rightmost depth band.
 - Avoid layouts that would stack many unrelated options on top of each other.
 
@@ -181,7 +192,7 @@ EXPECTED JSON SHAPE:
     "planned_options": [
       {
         "option_id": 1,
-        "role": "start | progression | convergence | ending",
+        "role": "start | progression | ending",
         "option_type": "dialogue | combat | stat | faction | silver | effect",
         "short_label": "",
         "purpose": "",
@@ -207,7 +218,6 @@ EXPECTED JSON SHAPE:
     "planned_requirements": [
       { "optionId": 4, "requiredOptionId": 1 }
     ],
-    "convergence_points": [],
     "ending_outcomes": []
   }
 }
@@ -231,9 +241,13 @@ WRITING REQUIREMENTS:
 - Natural, grounded prose with local specificity.
 - option_text should read like actionable player choices.
 - node_text should usually be 2-5 sentences.
+- Some node_text entries may be primarily atmospheric, reflective, or sensory, as long as they still feel consequential to the route.
+- Let scenes breathe with place, material detail, sound, strain, memory, dread, or thought process instead of reducing every node to matter-of-fact action summary.
 - quest summary should be accurate to final branching.
-- summary should describe the major approaches, shared obstacles, convergences, endings, and notable gates or consequences that actually exist in the final graph.
+- summary should describe the major approaches, branch splits, endings, and notable gates or consequences that actually exist in the final tree.
 - Keep branch differences meaningful through consequences.
+- Requirement-based routes should usually feel worthwhile by revealing extra context, creating bonus reward opportunity, reducing later danger, improving trust, or otherwise changing the texture of the route in a meaningful way.
+- Requirement-based routes should usually provide a meaningful short-term difference instead of being cosmetic.
 - Preserve the Wilds voice: local stakes, maintenance pressures, pragmatic people, specific material realities, and place-rooted strangeness.
 - Let the writing acknowledge infrastructure, labor, scarcity, politics, factional interpretation, or settlement know-how where relevant.
 - Avoid generic fantasy phrasing, grand destiny language, or detached mythic tone.
@@ -247,6 +261,12 @@ TYPE MAPPING REQUIREMENTS:
 - Use effect_id and effect_amount only when the option is truly an effect-gated route, not as a substitute for dialogue or stats.
 - If an option applies a condition after selection, option_effect_id may be used separately, but ordinary social or investigative actions must still remain dialogue.
 - If uncertain whether an option should be dialogue, stat, or effect, choose dialogue.
+- The node immediately before a combat choice should describe the threat, stakes, and why fighting is now on the table.
+- A combat option's own node_text is shown after victory, so write it as the successful combat resolution and immediate aftermath, not as pre-fight setup or instructions to fight.
+- Do not write combat node_text as "you must fight" or other pre-battle framing; that setup belongs on the preceding non-combat node.
+- Do not rely on spatial placement alone to express progression. Every non-start option must be connected through explicit requirements, and every start option must be flagged with start=true and have no requirements.
+- Every non-start option must have exactly one incoming requirement row.
+- Requirements must form a tree: one parent per non-start option, no merged branches, no cycles.
 
 FINAL STRUCTURE REQUIREMENTS:
 - Exactly one chain and one quest in output.
@@ -259,9 +279,10 @@ FINAL STRUCTURE REQUIREMENTS:
 - The first selected start option should rarely determine the ending by itself.
 - Every branch reaches at least one quest_end option.
 - No non-ending dead-end options.
+- Every non-start option must appear exactly once as optionId in requirements.
+- Start options must never appear as optionId in requirements.
 - Keep requirements logically consistent and acyclic.
-- Encourage interconnectivity through cross-branch requirements, shared bottlenecks, and later reconvergence instead of isolated linear lanes.
-- If sibling options solve the same obstacle, they must unlock different immediate outcome nodes and stay distinct for at least one more depth before convergence.
+- The requirements array must define a readable tree rather than a mesh or reconverging graph.
 - No more than 2 consecutive depth layers should collapse to a single forward selectable option.
 - Every stage that includes stat, faction, silver, or effect gates must also expose at least one immediately selectable dialogue or combat option.
 - Do not create stretches where gated options are the only forward choices.
@@ -269,14 +290,15 @@ FINAL STRUCTURE REQUIREMENTS:
 
 POSITIONING REQUIREMENTS:
 - Final options must include usable pos_x and pos_y values for visual editing.
+- Start options should usually begin in the first option band around x 50.
 - Use left-to-right depth layout: deeper options should usually have larger pos_x.
 - As a rule of thumb, depth bands should be spaced roughly 450-550 apart on x.
-- Separate parallel lanes on y by roughly 300-500 to avoid overlap.
+- Separate parallel lanes on y by roughly 500-700 to avoid overlap.
 - Start options should be near the left side.
 - Mid-branch options should remain in their own vertical lanes.
-- Convergence nodes should move closer to center lanes.
 - Endings should be near the far-right side.
 - Do not leave every node at 0,0 or collapse multiple unrelated branches onto the same coordinates.
+- Avoid positioning 300px-wide cards so tightly that they visually bury connection lines or appear disconnected.
 - If quest_graph provides layout_hint data, use it when assigning final coordinates.
 
 REWARD/EFFECT REQUIREMENTS:
