@@ -1736,6 +1736,7 @@ function selectQuestAsset(assetId, assetUrl) {
         quest.assetUrl = asset.url || assetUrl;
         quest.assetRemoteUrl = assetUrl;
         renderQuest(quest);
+        checkQuestSaveConditions();
     }
 
     closeQuestAssetModal();
@@ -2481,6 +2482,7 @@ function selectEnemyFromGrid(enemyId) {
         const option = questState.options.get(questState.selectedOption);
         if (option) {
             option.enemyId = enemyId;
+            checkQuestSaveConditions();
         }
     }
 }
@@ -2545,7 +2547,10 @@ function setupSidebarEventListeners() {
         statTypeSelect.addEventListener('change', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.statType = e.target.value || null;
+            if (option) {
+                option.statType = e.target.value || null;
+                checkQuestSaveConditions();
+            }
         });
     }
     
@@ -2557,6 +2562,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 const value = e.target.value;
                 option.statRequired = value === '' ? null : parseInt(value, 10);
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2567,7 +2573,10 @@ function setupSidebarEventListeners() {
         effectIdSelect.addEventListener('change', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.effectId = parseInt(e.target.value) || null;
+            if (option) {
+                option.effectId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
+            }
         });
     }
     
@@ -2576,7 +2585,10 @@ function setupSidebarEventListeners() {
         effectAmount.addEventListener('input', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.effectAmount = parseInt(e.target.value) || null;
+            if (option) {
+                option.effectAmount = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2585,7 +2597,10 @@ function setupSidebarEventListeners() {
         optionEffectId.addEventListener('change', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.optionEffectId = parseInt(e.target.value) || null;
+            if (option) {
+                option.optionEffectId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2594,7 +2609,10 @@ function setupSidebarEventListeners() {
         optionEffectFactor.addEventListener('input', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.optionEffectFactor = parseInt(e.target.value) || null;
+            if (option) {
+                option.optionEffectFactor = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2603,7 +2621,10 @@ function setupSidebarEventListeners() {
         factionRequired.addEventListener('change', (e) => {
             if (!questState.selectedOption) return;
             const option = questState.options.get(questState.selectedOption);
-            if (option) option.factionRequired = e.target.value || null;
+            if (option) {
+                option.factionRequired = e.target.value || null;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2615,6 +2636,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 const value = e.target.value;
                 option.silverRequired = value === '' ? null : parseInt(value, 10);
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2629,6 +2651,7 @@ function setupSidebarEventListeners() {
                 if (!option.reward) option.reward = {};
                 option.reward.type = e.target.value || null;
                 updateSidebarRewardFields(option.reward.type);
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2642,6 +2665,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.statType = e.target.value || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2655,6 +2679,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.amount = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2668,6 +2693,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.amount = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2681,6 +2707,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.itemId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2694,6 +2721,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.potionId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2707,6 +2735,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.perkId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2720,6 +2749,7 @@ function setupSidebarEventListeners() {
             if (option) {
                 if (!option.reward) option.reward = {};
                 option.reward.blessingId = parseInt(e.target.value) || null;
+                checkQuestSaveConditions();
             }
         });
     }
@@ -2730,7 +2760,10 @@ function setupSidebarEventListeners() {
         travelText.addEventListener('input', (e) => {
             if (!questState.selectedQuest) return;
             const quest = questState.quests.get(questState.selectedQuest);
-            if (quest) quest.travelText = e.target.value;
+            if (quest) {
+                quest.travelText = e.target.value;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2740,7 +2773,10 @@ function setupSidebarEventListeners() {
         failureText.addEventListener('input', (e) => {
             if (!questState.selectedQuest) return;
             const quest = questState.quests.get(questState.selectedQuest);
-            if (quest) quest.failureText = e.target.value;
+            if (quest) {
+                quest.failureText = e.target.value;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2750,7 +2786,10 @@ function setupSidebarEventListeners() {
         summaryText.addEventListener('input', (e) => {
             if (!questState.selectedQuest) return;
             const quest = questState.quests.get(questState.selectedQuest);
-            if (quest) quest.summary = e.target.value;
+            if (quest) {
+                quest.summary = e.target.value;
+                checkQuestSaveConditions();
+            }
         });
     }
 
@@ -2840,6 +2879,14 @@ function getQuestValidationErrors() {
         const label = option.optionText || option.nodeText || `Option #${optionId}`;
         const quest = questState.quests.get(option.questId);
         const branchName = quest?.name || 'Unnamed';
+
+        if (!(option.optionText || '').trim()) {
+            errors.push(`Option #${optionId} in "${branchName}" is missing option text`);
+        }
+
+        if (!(option.nodeText || '').trim()) {
+            errors.push(`Option #${optionId} in "${branchName}" is missing node text`);
+        }
 
         // Starting options don't need incoming connections
         if (!isQuestStartOption(option) && !incomingOptions.has(normalizedOptionId)) {
