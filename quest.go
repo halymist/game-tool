@@ -296,6 +296,7 @@ type SaveQuestRequest struct {
 	QuestchainID int    `json:"questchainId"`
 	ChainName    string `json:"chainName"`
 	ChainContext string `json:"chainContext"`
+	SaveMode     string `json:"saveMode"`
 	IsNewChain   bool   `json:"isNewChain"`
 	SettlementID *int   `json:"settlementId"`
 	EventID      *int   `json:"eventId"`
@@ -318,6 +319,12 @@ type SaveQuestRequest struct {
 	AssetID    *int   `json:"assetId"`
 	IsNewQuest bool   `json:"isNewQuest"`
 }
+
+const (
+	questSaveModeNew             = "new"
+	questSaveModeVersionedUpdate = "versioned_update"
+	questSaveModeUpdate          = "update"
+)
 
 // QuestRequisiteMapping maps an option to a quest (option leads to quest)
 type QuestRequisiteMapping struct {
@@ -435,15 +442,39 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("SaveQuest: IsNewChain=%v, QuestchainID=%d, NewQuests=%d, QuestUpdates=%d, NewOptions=%d, OptionUpdates=%d, NewReqs=%d, PendingReqs=%d, QuestRequisites=%d",
-		req.IsNewChain, req.QuestchainID, len(req.NewQuests), len(req.QuestUpdates), len(req.NewOptions), len(req.OptionUpdates), len(req.NewRequirements), len(req.PendingRequirements), len(req.QuestRequisites))
+	saveMode := strings.ToLower(strings.TrimSpace(req.SaveMode))
+	if saveMode == "" {
+		http.Error(w, "Missing saveMode (expected: new, versioned_update, update)", http.StatusBadRequest)
+		return
+	}
+
+	shouldBumpVersion := false
+	switch saveMode {
+	case questSaveModeNew, questSaveModeVersionedUpdate:
+		shouldBumpVersion = true
+	case questSaveModeUpdate:
+		shouldBumpVersion = false
+	default:
+		http.Error(w, "Invalid saveMode (expected: new, versioned_update, update)", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("SaveQuest: SaveMode=%s, IsNewChain=%v, QuestchainID=%d, NewQuests=%d, QuestUpdates=%d, NewOptions=%d, OptionUpdates=%d, NewReqs=%d, PendingReqs=%d, QuestRequisites=%d",
+		saveMode, req.IsNewChain, req.QuestchainID, len(req.NewQuests), len(req.QuestUpdates), len(req.NewOptions), len(req.OptionUpdates), len(req.NewRequirements), len(req.PendingRequirements), len(req.QuestRequisites))
 
 	questchainID := req.QuestchainID
 	questID := req.QuestID
 	questMapping := make(map[int]int)
 	optionMapping := make(map[int]int)
+	saveVersion := 0
 
 	if err := withTx(func(tx *sql.Tx) error {
+		if shouldBumpVersion {
+			if err := tx.QueryRow(`SELECT COALESCE(MAX(version), 0) + 1 FROM game.quests`).Scan(&saveVersion); err != nil {
+				return fmt.Errorf("computing quest version: %w", err)
+			}
+		}
+
 		// ---- Create or update chain ----
 		if req.IsNewChain {
 			if err := tx.QueryRow(`INSERT INTO game.questchain (name, context, settlement_id, event_id)
@@ -560,6 +591,18 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		if err := replaceQuestRequisites(tx, questchainID, questID, req.QuestRequisites, optionMapping, questMapping); err != nil {
 			return fmt.Errorf("replacing quest requisites: %w", err)
 		}
+
+		if shouldBumpVersion {
+			if questchainID > 0 {
+				if _, err := tx.Exec(`UPDATE game.quests SET version = $1 WHERE questchain_id = $2`, saveVersion, questchainID); err != nil {
+					return fmt.Errorf("bumping quest versions by chain: %w", err)
+				}
+			} else if questID > 0 {
+				if _, err := tx.Exec(`UPDATE game.quests SET version = $1 WHERE quest_id = $2`, saveVersion, questID); err != nil {
+					return fmt.Errorf("bumping quest version: %w", err)
+				}
+			}
+		}
 		return nil
 	}); err != nil {
 		log.Printf("SaveQuest transaction failed: %v", err)
@@ -571,6 +614,7 @@ func handleSaveQuest(w http.ResponseWriter, r *http.Request) {
 		"success":       true,
 		"questchainId":  questchainID,
 		"questId":       questID,
+		"version":       saveVersion,
 		"optionMapping": optionMapping,
 		"questMapping":  questMapping,
 	}

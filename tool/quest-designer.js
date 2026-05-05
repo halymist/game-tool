@@ -54,6 +54,8 @@ const questState = {
     deletedQuestIds: [],
     deletedOptionIds: [],
     isSaving: false,
+    lastSavedAnyFingerprint: '',
+    lastSavedGameplayFingerprint: '',
 };
 
 // Faction lookup: UI keeps string keys, backend expects integer codes (namespaced for quests)
@@ -229,6 +231,7 @@ function initQuestDesigner() {
     setupQuestDataSubscriptions();
     populateQuestSettlementSelect();
     loadRecentEvents();
+    captureQuestSavedState();
 }
 window.initQuestDesigner = initQuestDesigner;
 
@@ -454,6 +457,7 @@ function bindQuestEvents(el, quest) {
     const nameInput = el.querySelector('.quest-name-input');
     nameInput?.addEventListener('input', (e) => {
         quest.name = e.target.value;
+        checkQuestSaveConditions();
     });
     nameInput?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -461,6 +465,7 @@ function bindQuestEvents(el, quest) {
     const sortInput = el.querySelector('.quest-sort-input');
     sortInput?.addEventListener('input', (e) => {
         quest.sortOrder = parseInt(e.target.value) || 0;
+        checkQuestSaveConditions();
     });
     sortInput?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -468,6 +473,7 @@ function bindQuestEvents(el, quest) {
     const textArea = el.querySelector('.quest-text-input');
     textArea?.addEventListener('input', (e) => {
         quest.text = e.target.value;
+        checkQuestSaveConditions();
     });
     textArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -592,6 +598,7 @@ function bindOptionEvents(el, option) {
     const textInput = el.querySelector('.option-text-input');
     textInput?.addEventListener('input', (e) => {
         option.optionText = e.target.value;
+        checkQuestSaveConditions();
     });
     textInput?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -599,6 +606,7 @@ function bindOptionEvents(el, option) {
     const nodeTextArea = el.querySelector('.option-node-text-input');
     nodeTextArea?.addEventListener('input', (e) => {
         option.nodeText = e.target.value;
+        checkQuestSaveConditions();
     });
     nodeTextArea?.addEventListener('mousedown', (e) => e.stopPropagation());
     
@@ -1795,6 +1803,7 @@ function clearQuestCanvas() {
 
     const contextInput = document.getElementById('questChainContextInput');
     if (contextInput) contextInput.value = '';
+    captureQuestSavedState();
     checkQuestSaveConditions();
 }
 
@@ -1902,6 +1911,7 @@ window.updateChainName = updateChainName;
 
 function updateChainContext(value) {
     questState.chainContext = value;
+    checkQuestSaveConditions();
 }
 window.updateChainContext = updateChainContext;
 
@@ -2091,6 +2101,7 @@ async function loadQuestChainData(chainId) {
         questState.options.forEach(option => renderOption(option));
         questRenderConnections();
         updateCounter();
+        captureQuestSavedState();
         checkQuestSaveConditions();
         
         console.log(`✅ Loaded quest chain ${chainId}`);
@@ -2485,6 +2496,14 @@ function selectEnemyInGrid(enemyId) {
 
 // ==================== SIDEBAR EVENT LISTENERS ====================
 function setupSidebarEventListeners() {
+    const sidebarRoot = document.getElementById('questSidebar') || document.getElementById('sidebarContent');
+    if (sidebarRoot && !sidebarRoot.dataset.questDirtyListenerBound) {
+        const refreshSaveState = () => checkQuestSaveConditions();
+        sidebarRoot.addEventListener('input', refreshSaveState);
+        sidebarRoot.addEventListener('change', refreshSaveState);
+        sidebarRoot.dataset.questDirtyListenerBound = 'true';
+    }
+
     // Is Start checkbox
     const isStartCheckbox = document.getElementById('sidebarIsStart');
     if (isStartCheckbox) {
@@ -2841,15 +2860,142 @@ function checkQuestSaveConditions() {
     if (!btn) return;
     const errors = getQuestValidationErrors();
     const valid = errors.length === 0;
-    const canSave = valid && !questState.isSaving;
+    const hasChanges = hasQuestUnsavedChanges();
+    const canSave = valid && hasChanges && !questState.isSaving;
 
     btn.disabled = !canSave;
     btn.classList.toggle('btn-disabled', !canSave);
     if (questState.isSaving) {
         btn.title = 'Saving...';
+    } else if (!hasChanges) {
+        btn.title = 'No unsaved changes';
     } else {
         btn.title = valid ? 'Save quest chain' : `Cannot save yet:\n- ${errors.join('\n- ')}`;
     }
+}
+
+function questSnapshotChainName() {
+    const inputValue = document.getElementById('questChainNameInput')?.value;
+    return (inputValue ?? questState.chainName ?? '').trim();
+}
+
+function questSnapshotChainContext() {
+    const inputValue = document.getElementById('questChainContextInput')?.value;
+    return inputValue ?? questState.chainContext ?? '';
+}
+
+function buildQuestSnapshot(includeTooling) {
+    const quests = Array.from(questState.quests.values())
+        .map((quest) => {
+            const row = {
+                id: Number(quest.questId),
+                serverId: quest.serverId ? Number(quest.serverId) : null,
+                name: quest.name || '',
+                text: quest.text || '',
+                travelText: quest.travelText || '',
+                failureText: quest.failureText || '',
+                summary: quest.summary || '',
+                assetId: quest.assetId ?? null,
+                sortOrder: Number(quest.sortOrder || 0),
+                requisiteOptionId: quest.requisiteOptionId ?? null,
+            };
+            if (includeTooling) {
+                row.x = Number(quest.x || 0);
+                row.y = Number(quest.y || 0);
+            }
+            return row;
+        })
+        .sort((a, b) => a.id - b.id);
+
+    const options = Array.from(questState.options.values())
+        .map((option) => {
+            const reward = option.reward
+                ? {
+                    type: option.reward.type || null,
+                    statType: option.reward.statType || null,
+                    amount: option.reward.amount ?? null,
+                    itemId: option.reward.itemId ?? null,
+                    potionId: option.reward.potionId ?? null,
+                    perkId: option.reward.perkId ?? null,
+                    blessingId: option.reward.blessingId ?? null,
+                }
+                : null;
+
+            const row = {
+                id: Number(option.optionId),
+                serverId: option.serverId ? Number(option.serverId) : null,
+                questId: option.questId ?? null,
+                optionText: option.optionText || '',
+                nodeText: option.nodeText || '',
+                isStart: !!option.isStart,
+                type: option.type || 'dialogue',
+                questEnd: option.type === 'end' ? true : !!option.questEnd,
+                statType: option.statType || null,
+                statRequired: option.statRequired ?? null,
+                effectId: option.effectId ?? null,
+                effectAmount: option.effectAmount ?? null,
+                optionEffectId: option.optionEffectId ?? null,
+                optionEffectFactor: option.optionEffectFactor ?? null,
+                factionRequired: option.factionRequired || null,
+                silverRequired: option.silverRequired ?? null,
+                enemyId: option.enemyId ?? null,
+                reward,
+            };
+            if (includeTooling) {
+                row.x = Number(option.x || 0);
+                row.y = Number(option.y || 0);
+            }
+            return row;
+        })
+        .sort((a, b) => a.id - b.id);
+
+    const connections = questState.connections
+        .map((conn) => ({
+            fromType: conn.fromType,
+            fromId: Number(conn.fromId),
+            toType: conn.toType,
+            toId: Number(conn.toId),
+        }))
+        .sort((a, b) => {
+            if (a.fromType !== b.fromType) return a.fromType.localeCompare(b.fromType);
+            if (a.fromId !== b.fromId) return a.fromId - b.fromId;
+            if (a.toType !== b.toType) return a.toType.localeCompare(b.toType);
+            return a.toId - b.toId;
+        });
+
+    return {
+        selectedChain: questState.selectedChain ?? null,
+        selectedSettlementId: questState.selectedSettlementId ?? null,
+        selectedEventId: questState.selectedEventId ?? null,
+        chainName: questSnapshotChainName(),
+        chainContext: questSnapshotChainContext(),
+        deletedQuestIds: [...questState.deletedQuestIds].map(Number).sort((a, b) => a - b),
+        deletedOptionIds: [...questState.deletedOptionIds].map(Number).sort((a, b) => a - b),
+        quests,
+        options,
+        connections,
+    };
+}
+
+function computeQuestFingerprints() {
+    return {
+        any: JSON.stringify(buildQuestSnapshot(true)),
+        gameplay: JSON.stringify(buildQuestSnapshot(false)),
+    };
+}
+
+function captureQuestSavedState() {
+    const fingerprints = computeQuestFingerprints();
+    questState.lastSavedAnyFingerprint = fingerprints.any;
+    questState.lastSavedGameplayFingerprint = fingerprints.gameplay;
+}
+
+function hasQuestUnsavedChanges() {
+    return computeQuestFingerprints().any !== questState.lastSavedAnyFingerprint;
+}
+
+function hasQuestGameplayChanges() {
+    return computeQuestFingerprints().gameplay !== questState.lastSavedGameplayFingerprint;
 }
 
 function setQuestSaveButtonLoading(isLoading) {
@@ -2864,6 +3010,10 @@ function setQuestSaveButtonLoading(isLoading) {
 // ==================== SAVE ====================
 async function saveQuest() {
     console.log('💾 Saving quest data...');
+
+    if (!hasQuestUnsavedChanges()) {
+        return;
+    }
 
     const errors = getQuestValidationErrors();
     if (errors.length > 0) {
@@ -2892,6 +3042,7 @@ async function saveQuest() {
             questchainId: questState.selectedChain || 0,
             chainName: chainName,
             chainContext: chainContext,
+            saveMode: 'update',
             isNewChain: isNewChain,
             settlementId: questState.selectedSettlementId,
             eventId: questState.selectedEventId || null,
@@ -3035,6 +3186,19 @@ async function saveQuest() {
             }
             // Quest -> option connections are inferred from option's questId and isStart flag
         });
+
+        const hasStructuralChanges = isNewChain
+            || saveData.newQuests.length > 0
+            || saveData.newOptions.length > 0
+            || saveData.deletedQuestIds.length > 0
+            || saveData.deletedOptionIds.length > 0;
+        if (hasStructuralChanges) {
+            saveData.saveMode = 'new';
+        } else if (hasQuestGameplayChanges()) {
+            saveData.saveMode = 'versioned_update';
+        } else {
+            saveData.saveMode = 'update';
+        }
         
         console.log('Save data:', saveData);
         
@@ -3122,6 +3286,8 @@ async function saveQuest() {
                     selectQuest(reloadedId);
                 }
             }
+        } else {
+            captureQuestSavedState();
         }
         
     } catch (error) {
