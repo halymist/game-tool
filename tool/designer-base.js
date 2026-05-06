@@ -852,7 +852,36 @@ const DesignerBase = {
         }
         
         const effect = effects.find(e => e.id === effectId);
-        descSpan.textContent = effect?.description || 'No description available';
+        descSpan.textContent = this.formatEffectDescription(effect, null, {
+            defaultText: 'No description available',
+            appendPercentWhenNoPlaceholder: false
+        });
+    },
+
+    /**
+     * Build effect description text while rendering numeric factors as absolute values.
+     * This keeps gameplay sign semantics in data/math but avoids negative wording in UI.
+     */
+    formatEffectDescription(effect, factorValue, options = {}) {
+        if (!effect) return options.defaultText || '';
+
+        let text = effect.description || effect.effect_description || options.defaultText || '';
+        if (!text) return '';
+
+        const hasFactor = factorValue !== null && factorValue !== undefined && String(factorValue).trim() !== '';
+        if (!hasFactor) return text;
+
+        const raw = String(factorValue).trim();
+        const parsed = Number(raw);
+        const displayFactor = Number.isNaN(parsed) ? raw : String(Math.abs(parsed));
+
+        if (text.includes('*')) {
+            text = text.replace('*', displayFactor);
+        } else if (options.appendPercentWhenNoPlaceholder !== false) {
+            text = `${text} ${displayFactor}%`;
+        }
+
+        return text;
     },
 
     /**

@@ -755,7 +755,9 @@ function updateItemEffectDescription() {
     const effect = effects.find(e => e.id === effectId);
     let text = effect?.description || '';
     const factorVal = document.getElementById('itemEffectFactor')?.value || '';
-    if (text && factorVal && text.includes('*')) {
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+        text = DesignerBase.formatEffectDescription(effect, factorVal, { defaultText: '' });
+    } else if (text && factorVal && text.includes('*')) {
         text = text.replace('*', factorVal);
     } else if (text && factorVal) {
         text = text + ' ' + factorVal + '%';

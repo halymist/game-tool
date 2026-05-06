@@ -332,7 +332,12 @@ function updateEffectDescription(effectId) {
     const effect = (GlobalData.effects || []).find(e => String(e.id) === String(effectId));
     const factorVal = document.getElementById('talentFactor')?.value || '';
     let text = effect?.description || '';
-    if (text && factorVal) {
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+        text = DesignerBase.formatEffectDescription(effect, factorVal, {
+            defaultText: '',
+            appendPercentWhenNoPlaceholder: false
+        });
+    } else if (text && factorVal) {
         text = text.includes('*') ? text.replace('*', factorVal) : text + ' ' + factorVal;
     }
     descEl.textContent = text;

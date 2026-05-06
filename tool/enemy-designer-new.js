@@ -452,7 +452,14 @@ function getPerkEffectText(perk) {
         const eff = effects.find(e => e.id === perk.effect1_id);
         if (eff) {
             let desc = eff.description || eff.name;
-            if (desc.includes('*') && perk.factor1 != null) desc = desc.replace('*', String(perk.factor1));
+            if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+                desc = DesignerBase.formatEffectDescription(eff, perk.factor1, {
+                    defaultText: eff.name,
+                    appendPercentWhenNoPlaceholder: false
+                });
+            } else if (desc.includes('*') && perk.factor1 != null) {
+                desc = desc.replace('*', String(perk.factor1));
+            }
             lines.push(`${eff.name}: ${desc}`);
         }
     }
@@ -460,7 +467,14 @@ function getPerkEffectText(perk) {
         const eff = effects.find(e => e.id === perk.effect2_id);
         if (eff) {
             let desc = eff.description || eff.name;
-            if (desc.includes('*') && perk.factor2 != null) desc = desc.replace('*', String(perk.factor2));
+            if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+                desc = DesignerBase.formatEffectDescription(eff, perk.factor2, {
+                    defaultText: eff.name,
+                    appendPercentWhenNoPlaceholder: false
+                });
+            } else if (desc.includes('*') && perk.factor2 != null) {
+                desc = desc.replace('*', String(perk.factor2));
+            }
             lines.push(`${eff.name}: ${desc}`);
         }
     }
@@ -470,7 +484,12 @@ function getPerkEffectText(perk) {
 function getTalentTooltip(talent) {
     const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
     let descText = effect?.description || talent.description || '';
-    if (talent.factor && descText.includes('*')) {
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+        descText = DesignerBase.formatEffectDescription(effect || { description: descText }, talent.factor, {
+            defaultText: talent.description || '',
+            appendPercentWhenNoPlaceholder: false
+        });
+    } else if (talent.factor && descText.includes('*')) {
         descText = descText.replace('*', String(talent.factor));
     } else if (talent.factor && descText) {
         descText = `${descText} ${talent.factor}`;
@@ -607,7 +626,12 @@ function refreshTalentUpgradeModal(talent) {
     const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
     let descText = effect?.description || talent.description || '';
     const invested = current.points * (talent.factor || 0);
-    if (descText.includes('*')) {
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+        descText = DesignerBase.formatEffectDescription(effect || { description: descText }, invested, {
+            defaultText: talent.description || '',
+            appendPercentWhenNoPlaceholder: false
+        });
+    } else if (descText.includes('*')) {
         descText = descText.replace('*', String(invested));
     } else if (invested && descText) {
         descText = `${descText} ${invested}`;

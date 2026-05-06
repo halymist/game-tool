@@ -498,7 +498,11 @@ function updatePerkEffectDescription(effectNum) {
     const effect = effects.find(e => e.id === effectId);
     let text = effect?.description || 'No description available';
     const factorVal = document.getElementById(`perkFactor${effectNum}`)?.value || '';
-    if (text && factorVal && text.includes('*')) {
+    if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
+        text = DesignerBase.formatEffectDescription(effect, factorVal, {
+            defaultText: 'No description available'
+        });
+    } else if (text && factorVal && text.includes('*')) {
         text = text.replace('*', factorVal);
     } else if (text && factorVal) {
         text = text + ' ' + factorVal + '%';
