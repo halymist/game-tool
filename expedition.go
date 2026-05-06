@@ -13,7 +13,7 @@ import (
 // graph of nodes (each referencing a quest) connected by undirected edges.
 //
 // Schema lives in game.expeditions / expedition_nodes / expedition_edges
-// with versioned soft-deletes (see migrations/20260502_expeditions_game_versioned.sql).
+// with expedition-level versioning and soft-deletes (see migrations/20260502_expeditions_game_versioned.sql).
 
 type expeditionNode struct {
 	NodeID   int     `json:"node_id"`   // 0 for client-only (new) nodes
@@ -23,7 +23,6 @@ type expeditionNode struct {
 	PosX     float64 `json:"pos_x"`
 	PosY     float64 `json:"pos_y"`
 	Label    *string `json:"label"`
-	Version  int     `json:"version,omitempty"`
 }
 
 type expeditionEdge struct {
@@ -32,7 +31,6 @@ type expeditionEdge struct {
 	NodeBID   int `json:"node_b"`
 	AClientID int `json:"a_client_id"` // designer-side ids, used on save
 	BClientID int `json:"b_client_id"`
-	Version   int `json:"version,omitempty"`
 }
 
 type expeditionPayload struct {
@@ -54,11 +52,8 @@ func orderedNodePair(a, b int) (int, int) {
 func nextExpeditionVersion(tx *sql.Tx) (int, error) {
 	var next int
 	err := tx.QueryRow(`
-		SELECT GREATEST(
-			COALESCE((SELECT MAX(version) FROM game.expeditions), 0),
-			COALESCE((SELECT MAX(version) FROM game.expedition_nodes), 0),
-			COALESCE((SELECT MAX(version) FROM game.expedition_edges), 0)
-		) + 1
+		SELECT COALESCE(MAX(version), 0) + 1
+		FROM game.expeditions
 	`).Scan(&next)
 	if err != nil {
 		return 0, err
@@ -132,7 +127,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 
 		nodeRows, err := tx.Query(`
-			SELECT node_id, quest_id, is_start, pos_x, pos_y, label, COALESCE(version, 1)
+			SELECT node_id, quest_id, is_start, pos_x, pos_y, label
 			FROM game.expedition_nodes
 			WHERE expedition_id = $1 AND is_deleted = FALSE
 			ORDER BY node_id
@@ -146,7 +141,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 			var n expeditionNode
 			var questID sql.NullInt64
 			var label sql.NullString
-			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label, &n.Version); err != nil {
+			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
 				log.Printf("getExpedition: scan node: %v", err)
 				continue
 			}
@@ -163,7 +158,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 
 		edgeRows, err := tx.Query(`
-			SELECT edge_id, node_a, node_b, COALESCE(version, 1)
+			SELECT edge_id, node_a, node_b
 			FROM game.expedition_edges
 			WHERE expedition_id = $1 AND is_deleted = FALSE
 			ORDER BY edge_id
@@ -175,7 +170,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 		for edgeRows.Next() {
 			var e expeditionEdge
-			if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID, &e.Version); err != nil {
+			if err := edgeRows.Scan(&e.EdgeID, &e.NodeAID, &e.NodeBID); err != nil {
 				log.Printf("getExpedition: scan edge: %v", err)
 				continue
 			}
@@ -303,10 +298,9 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 						pos_x = $3,
 						pos_y = $4,
 						label = $5,
-						is_deleted = FALSE,
-						version = $6
-					WHERE node_id = $7 AND expedition_id = $8
-				`, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, saveVersion, n.NodeID, expeditionID)
+						is_deleted = FALSE
+					WHERE node_id = $6 AND expedition_id = $7
+				`, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, n.NodeID, expeditionID)
 				if err != nil {
 					return fmt.Errorf("update node %d: %w", n.NodeID, err)
 				}
@@ -319,10 +313,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			if resolvedNodeID == 0 {
 				err := tx.QueryRow(`
 					INSERT INTO game.expedition_nodes
-						(expedition_id, quest_id, is_start, pos_x, pos_y, label, version, is_deleted)
-					VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
+						(expedition_id, quest_id, is_start, pos_x, pos_y, label, is_deleted)
+					VALUES ($1, $2, $3, $4, $5, $6, FALSE)
 					RETURNING node_id
-				`, expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, saveVersion).Scan(&resolvedNodeID)
+				`, expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&resolvedNodeID)
 				if err != nil {
 					return fmt.Errorf("insert node: %w", err)
 				}
@@ -331,7 +325,6 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			clientToDB[n.ClientID] = resolvedNodeID
 			incomingNodeIDs[resolvedNodeID] = true
 			n.NodeID = resolvedNodeID
-			n.Version = saveVersion
 			outNodes = append(outNodes, n)
 		}
 
@@ -341,9 +334,9 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			}
 			if _, err := tx.Exec(`
 				UPDATE game.expedition_nodes
-				SET is_deleted = TRUE, version = $1
-				WHERE node_id = $2
-			`, saveVersion, nodeID); err != nil {
+				SET is_deleted = TRUE
+				WHERE node_id = $1
+			`, nodeID); err != nil {
 				return fmt.Errorf("mark node deleted %d: %w", nodeID, err)
 			}
 		}
@@ -392,19 +385,19 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			if exists {
 				if _, err := tx.Exec(`
 					UPDATE game.expedition_edges
-					SET is_deleted = FALSE, version = $1
-					WHERE edge_id = $2
-				`, saveVersion, existing.edgeID); err != nil {
+					SET is_deleted = FALSE
+					WHERE edge_id = $1
+				`, existing.edgeID); err != nil {
 					return fmt.Errorf("update edge %d: %w", existing.edgeID, err)
 				}
 				edgeID = existing.edgeID
 			} else {
 				err := tx.QueryRow(`
 					INSERT INTO game.expedition_edges
-						(expedition_id, node_a, node_b, version, is_deleted)
-					VALUES ($1, $2, $3, $4, FALSE)
+						(expedition_id, node_a, node_b, is_deleted)
+					VALUES ($1, $2, $3, FALSE)
 					RETURNING edge_id
-				`, expeditionID, a, b, saveVersion).Scan(&edgeID)
+				`, expeditionID, a, b).Scan(&edgeID)
 				if err != nil {
 					return fmt.Errorf("insert edge: %w", err)
 				}
@@ -413,7 +406,6 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			outEdges = append(outEdges, expeditionEdge{
 				EdgeID: edgeID, NodeAID: a, NodeBID: b,
 				AClientID: a, BClientID: b,
-				Version: saveVersion,
 			})
 		}
 
@@ -423,9 +415,9 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			}
 			if _, err := tx.Exec(`
 				UPDATE game.expedition_edges
-				SET is_deleted = TRUE, version = $1
-				WHERE edge_id = $2
-			`, saveVersion, existing.edgeID); err != nil {
+				SET is_deleted = TRUE
+				WHERE edge_id = $1
+			`, existing.edgeID); err != nil {
 				return fmt.Errorf("mark edge deleted %d: %w", existing.edgeID, err)
 			}
 		}
@@ -470,7 +462,7 @@ func handleGetExpeditionVersioned(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload []byte
-	err := db.QueryRow(`SELECT game.get_expedition_graph_delta($1)`, clientVersion).Scan(&payload)
+	err := db.QueryRow(`SELECT public.download_expedition($1)`, clientVersion).Scan(&payload)
 	if err != nil {
 		log.Printf("getExpeditionVersioned: query failed: %v", err)
 		http.Error(w, "DB error", http.StatusInternalServerError)
