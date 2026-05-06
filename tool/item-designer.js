@@ -10,8 +10,9 @@ const ITEM_TYPES = [
 const STATLESS_ITEM_TYPES = ['ration', 'scroll', 'hammer', 'potion', 'ingredient', 'ingredients'];
 
 // Weapon types that show damage fields
-const WEAPON_TYPES = ['weapon', 'hammer'];
+const WEAPON_TYPES = ['weapon'];
 const RATION_EFFECT_ID = 200;
+const HAMMER_EFFECT_ID = 201;
 
 // Current state
 let allItems = [];
@@ -665,6 +666,7 @@ function toggleWeaponStats() {
     // Also update effect dropdown based on type
     populateItemEffectDropdown();
     applyItemTypeRules();
+    updateItemEffectDescription();
 }
 
 function populateItemEffectDropdown() {
@@ -703,20 +705,40 @@ function populateItemEffectDropdown() {
         effectSelect.innerHTML = `<option value="${RATION_EFFECT_ID}">${label} (ID ${RATION_EFFECT_ID})</option>`;
         effectSelect.value = String(RATION_EFFECT_ID);
         effectSelect.disabled = true;
+        updateItemEffectDescription();
         return;
     }
 
+    if (selectedType === 'hammer') {
+        const hammerEffect = effects.find(e => e.id === HAMMER_EFFECT_ID);
+        const label = hammerEffect ? hammerEffect.name : `Effect ${HAMMER_EFFECT_ID}`;
+        effectSelect.innerHTML = `<option value="${HAMMER_EFFECT_ID}">${label} (ID ${HAMMER_EFFECT_ID})</option>`;
+        effectSelect.value = String(HAMMER_EFFECT_ID);
+        effectSelect.disabled = true;
+        updateItemEffectDescription();
+        return;
+    }
+
+    const filteredEffects = effects.filter(effect =>
+        effect.id !== RATION_EFFECT_ID && effect.id !== HAMMER_EFFECT_ID
+    );
+
     effectSelect.disabled = false;
     const optionsHTML = '<option value="">-- No Effect --</option>' +
-        effects.map(effect => `<option value="${effect.id}">${effect.name}</option>`).join('');
+        filteredEffects.map(effect => `<option value="${effect.id}">${effect.name}</option>`).join('');
     effectSelect.innerHTML = optionsHTML;
     console.log('populateItemEffectDropdown: options rendered', effectSelect.options.length);
     
     // Restore selection if still valid
     if (currentValue) {
         effectSelect.value = currentValue;
+        if (effectSelect.value !== currentValue) {
+            effectSelect.value = '';
+        }
         console.log('populateItemEffectDropdown: restored value', effectSelect.value);
     }
+
+    updateItemEffectDescription();
 }
 
 function updateItemEffectDescription() {
@@ -744,6 +766,7 @@ function updateItemEffectDescription() {
 function applyItemTypeRules() {
     const itemType = document.getElementById('itemType')?.value || '';
     const isRation = itemType === 'ration';
+    const isHammer = itemType === 'hammer';
     const isStatless = STATLESS_ITEM_TYPES.includes(itemType);
     const form = document.getElementById('itemForm');
     const isLocked = form?.classList.contains('form-locked');
@@ -757,6 +780,7 @@ function applyItemTypeRules() {
     const weaponIds = ['itemMinDamage', 'itemMaxDamage'];
     const socketInput = document.getElementById('itemSocket');
     const effectSelect = document.getElementById('itemEffect');
+    const effectFactorInput = document.getElementById('itemEffectFactor');
 
     const disableStats = isStatless;
     const clearStats = isRation;
@@ -792,6 +816,24 @@ function applyItemTypeRules() {
             effectSelect.value = String(RATION_EFFECT_ID);
             if (!isLocked) effectSelect.disabled = true;
         }
+        if (effectFactorInput && !isLocked) {
+            effectFactorInput.disabled = false;
+        }
+    } else if (isHammer) {
+        weaponIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = '';
+            if (!isLocked) el.disabled = true;
+        });
+        if (effectSelect) {
+            effectSelect.value = String(HAMMER_EFFECT_ID);
+            if (!isLocked) effectSelect.disabled = true;
+        }
+        if (effectFactorInput) {
+            effectFactorInput.value = '';
+            if (!isLocked) effectFactorInput.disabled = true;
+        }
     } else if (!isLocked) {
         weaponIds.forEach(id => {
             const el = document.getElementById(id);
@@ -800,7 +842,12 @@ function applyItemTypeRules() {
         if (effectSelect) {
             effectSelect.disabled = false;
         }
+        if (effectFactorInput) {
+            effectFactorInput.disabled = false;
+        }
     }
+
+    updateItemEffectDescription();
 }
 
 function getItemValidationErrors() {
@@ -940,6 +987,9 @@ async function saveItem(e) {
         itemData.effectID = RATION_EFFECT_ID;
         itemData.minDamage = null;
         itemData.maxDamage = null;
+    } else if (itemType === 'hammer') {
+        itemData.effectID = HAMMER_EFFECT_ID;
+        itemData.effectFactor = null;
     }
     
     console.log('Saving item:', itemData);

@@ -292,7 +292,7 @@ func main() {
 	http.HandleFunc("/api/deleteBuildRun", apiHandler(handleDeleteBuildRun))
 	http.HandleFunc("/api/addBuildToRun", apiHandler(handleAddBuildToRun))
 
-	port := envOrDefault("PORT", "3030")
+	port := "8080"
 	fmt.Printf("Server starting on :%s\n", port)
 	fmt.Println("Available endpoints:")
 	fmt.Println("  GET /login - Login page")
