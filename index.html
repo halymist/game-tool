@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/static/talent-designer.css">
     <link rel="stylesheet" href="/static/npc-designer.css">
     <link rel="stylesheet" href="/static/server-designer.css">
+    <link rel="stylesheet" href="/static/player-management.css">
     <link rel="stylesheet" href="/static/coupon-designer.css">
     <link rel="stylesheet" href="/static/chat-moderation.css">
     <link rel="stylesheet" href="/static/concept-designer.css">
@@ -1547,10 +1548,36 @@
 
         <!-- Player Management Section -->
         <div id="players-content" class="page-content" style="display: none;">
-            <div class="tool-header">
-                <div class="tool-icon">👤</div>
-                <h1>Player Management</h1>
-                <p>Monitor player activity, handle reports, and manage user accounts.</p>
+            <div class="player-manager-container">
+                <div class="player-manager-toolbar">
+                    <div class="player-server-select">
+                        <label for="playerServerSelect">Server</label>
+                        <select id="playerServerSelect"></select>
+                    </div>
+                    <div class="player-search-field">
+                        <label for="playerSearchInput">Search</label>
+                        <input type="search" id="playerSearchInput" placeholder="Character name...">
+                    </div>
+                    <div class="player-server-summary" id="playerServerSummary"></div>
+                    <button type="button" id="playerRefreshBtn" class="btn-secondary">Refresh</button>
+                    <span id="playerStatus" class="player-status"></span>
+                </div>
+
+                <div class="player-manager-layout">
+                    <section class="player-rankings-panel">
+                        <div class="player-panel-header">
+                            <h3>Rankings</h3>
+                            <span id="playerRankingCount" class="player-panel-count"></span>
+                        </div>
+                        <div id="playerRankingsList" class="player-rankings-list"></div>
+                    </section>
+
+                    <section class="player-character-panel">
+                        <div id="playerCharacterPanel" class="player-character-empty">
+                            Select a ranked character to inspect their stats, equipment, and bag.
+                        </div>
+                    </section>
+                </div>
             </div>
         </div>
 
@@ -2316,6 +2343,18 @@
                     }
                 }
 
+                // If showing player management, initialize or reload
+                if (pageName === 'players') {
+                    if (window.initPlayerManagement && !window.playerManagementInitialized) {
+                        console.log('Initializing player management...');
+                        window.initPlayerManagement();
+                        window.playerManagementInitialized = true;
+                    }
+                    if (window.loadPlayerManagementData) {
+                        window.loadPlayerManagementData();
+                    }
+                }
+
                 // If showing the coupon manager, initialize or reload
                 if (pageName === 'coupons') {
                     if (window.initCouponManager && !window.couponManagerInitialized) {
@@ -2465,6 +2504,7 @@
                 'talent-designer.js',
                 'npc-designer.js',
                 'server-designer.js',
+                'player-management.js',
                 'coupon-designer.js',
                 'chat-moderation.js',
                 'item-designer.js',

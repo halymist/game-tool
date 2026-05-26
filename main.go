@@ -246,6 +246,7 @@ func main() {
 	// Server management endpoints
 	http.HandleFunc("/api/getServers", apiHandler(handleGetServers))
 	http.HandleFunc("/api/createServer", apiHandler(handleCreateServer))
+	http.HandleFunc("/api/getPlayerManagement", apiHandler(handleGetPlayerManagement))
 	http.HandleFunc("/api/getCoupons", apiHandler(handleGetCoupons))
 	http.HandleFunc("/api/createCoupon", apiHandler(handleCreateCoupon))
 	http.HandleFunc("/api/deleteCoupon", apiHandler(handleDeleteCoupon))
