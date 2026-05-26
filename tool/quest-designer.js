@@ -325,6 +325,7 @@ function addQuest() {
         travelText: '',
         failureText: '',
         summary: '',
+        expeditionQuest: false,
         assetId: null,
         assetUrl: null,
         assetRemoteUrl: null,
@@ -1227,6 +1228,9 @@ function updateQuestSidebar(questId) {
     const failureInput = document.getElementById('sidebarFailureText');
     if (failureInput) failureInput.value = quest.failureText || '';
 
+    const expeditionQuestInput = document.getElementById('sidebarExpeditionQuest');
+    if (expeditionQuestInput) expeditionQuestInput.checked = !!quest.expeditionQuest;
+
     const summaryInput = document.getElementById('sidebarSummaryText');
     if (summaryInput) summaryInput.value = quest.summary || '';
 }
@@ -1973,6 +1977,7 @@ async function loadQuestChainData(chainId) {
                 travelText: q.travel_text || '',
                 failureText: q.failure_text || '',
                 summary: q.summary || '',
+                expeditionQuest: !!q.expedition_quest,
                 assetId: q.asset_id,
                 assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
                 assetRemoteUrl: remoteAssetUrl,
@@ -2793,6 +2798,18 @@ function setupSidebarEventListeners() {
         });
     }
 
+    const expeditionQuest = document.getElementById('sidebarExpeditionQuest');
+    if (expeditionQuest) {
+        expeditionQuest.addEventListener('change', (e) => {
+            if (!questState.selectedQuest) return;
+            const quest = questState.quests.get(questState.selectedQuest);
+            if (quest) {
+                quest.expeditionQuest = e.target.checked;
+                checkQuestSaveConditions();
+            }
+        });
+    }
+
     const questPreviewBtn = document.getElementById('sidebarQuestPreviewBtn');
     if (questPreviewBtn) {
         questPreviewBtn.addEventListener('click', () => {
@@ -2942,6 +2959,7 @@ function buildQuestSnapshot(includeTooling) {
                 travelText: quest.travelText || '',
                 failureText: quest.failureText || '',
                 summary: quest.summary || '',
+                expeditionQuest: !!quest.expeditionQuest,
                 assetId: quest.assetId ?? null,
                 sortOrder: Number(quest.sortOrder || 0),
                 requisiteOptionId: quest.requisiteOptionId ?? null,
@@ -3119,6 +3137,7 @@ async function saveQuest() {
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
                     summary: quest.summary || '',
+                    expeditionQuest: !!quest.expeditionQuest,
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -3133,6 +3152,7 @@ async function saveQuest() {
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
                     summary: quest.summary || '',
+                    expeditionQuest: !!quest.expeditionQuest,
                     assetId: quest.assetId || null,
                     posX: quest.x,
                     posY: quest.y,
@@ -3994,6 +4014,7 @@ function populateQuestGenerateQuests(filterText = '') {
     const search = filterText.trim().toLowerCase();
     quests
         .filter(quest => {
+            if (quest.expedition_quest || quest.expeditionQuest) return false;
             if (!search) return true;
             const name = (quest.quest_name || quest.name || '').toLowerCase();
             return name.includes(search);
@@ -5441,6 +5462,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         travelText: questRaw.travel_text || questRaw.travelText || '',
         failureText: questRaw.failure_text || questRaw.failureText || '',
         summary: questRaw.summary || '',
+        expeditionQuest: !!(questRaw.expedition_quest ?? questRaw.expeditionQuest),
         assetId: resolvedAssetId,
         assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
         assetRemoteUrl: remoteAssetUrl,

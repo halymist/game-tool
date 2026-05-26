@@ -224,6 +224,10 @@
                                     <label>Failure Text</label>
                                     <textarea id="sidebarFailureText" placeholder="Failure outcome text..."></textarea>
                                 </div>
+                                <label class="sidebar-checkbox sidebar-toggle-row">
+                                    <input type="checkbox" id="sidebarExpeditionQuest">
+                                    <span>Expedition quest</span>
+                                </label>
                                 <div class="sidebar-field">
                                     <label>Summary</label>
                                     <textarea id="sidebarSummaryText" placeholder="Comprehensive quest summary and branch overview..."></textarea>
@@ -448,7 +452,7 @@
                             <div class="quest-generate-body">
                                 <div class="generate-columns">
                                     <div class="generate-left">
-                                        <div class="quest-generate-field">
+                                        <div class="quest-generate-field quest-generate-location-field">
                                             <label>Location</label>
                                             <div class="combobox-wrapper" id="questGenerateLocationCombobox">
                                                 <input type="text" id="questGenerateLocationInput" class="combobox-input" placeholder="Search or select location..." autocomplete="off">
@@ -474,8 +478,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="quest-generate-section">
-                                            <h4>Rewards</h4>
+                                        <div class="quest-generate-section quest-generate-rewards">
                                             <div class="quest-generate-row">
                                                 <div class="quest-generate-field">
                                                     <label>Item Rewards</label>
@@ -1284,7 +1287,7 @@
 
                     <!-- Expedition Card -->
                     <div class="settlement-card-wrapper">
-                        <h3 class="settlement-card-title">Expedition <button class="responses-btn" onclick="openResponsesModal('expedition')">💬</button></h3>
+                        <h3 class="settlement-card-title">Expedition</h3>
                         <div class="settlement-card">
                             <div id="expeditionAssetArea" class="settlement-card-asset" data-asset-id="">
                                 <div class="no-asset">

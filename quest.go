@@ -39,6 +39,7 @@ type Quest struct {
 	DefaultEntry      bool    `json:"default_entry"`
 	SettlementID      *int    `json:"settlement_id"`
 	AssetID           *int    `json:"asset_id"`
+	ExpeditionQuest   bool    `json:"expedition_quest"`
 	PosX              float64 `json:"pos_x"`
 	PosY              float64 `json:"pos_y"`
 	SortOrder         int     `json:"sort_order"`
@@ -137,7 +138,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	// Get quests for these chains
 	var quests []Quest
 	if len(chainIDs) > 0 {
-		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, summary, requisite_option_id, ending, default_entry, settlement_id, asset_id,
+		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, summary, requisite_option_id, ending, default_entry, settlement_id, asset_id, COALESCE(expedition_quest, false),
 			COALESCE(pos_x, 50) as pos_x, COALESCE(pos_y, 100) as pos_y, COALESCE(sort_order, 0) as sort_order
 			FROM game.quests WHERE questchain_id = ANY($1) ORDER BY questchain_id, sort_order, quest_id`
 
@@ -151,7 +152,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 
 		for questRows.Next() {
 			var q Quest
-			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.Summary, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.PosX, &q.PosY, &q.SortOrder)
+			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.Summary, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.ExpeditionQuest, &q.PosX, &q.PosY, &q.SortOrder)
 			if err != nil {
 				log.Printf("Error scanning quest: %v", err)
 				continue
@@ -336,30 +337,32 @@ type QuestRequisiteMapping struct {
 
 // NewQuestData represents a new quest to create within a chain
 type NewQuestData struct {
-	LocalQuestID int     `json:"localQuestId"`
-	QuestName    string  `json:"questName"`
-	StartText    string  `json:"startText"`
-	TravelText   string  `json:"travelText"`
-	FailureText  string  `json:"failureText"`
-	Summary      string  `json:"summary"`
-	AssetID      *int    `json:"assetId"`
-	PosX         float64 `json:"posX"`
-	PosY         float64 `json:"posY"`
-	SortOrder    int     `json:"sortOrder"`
+	LocalQuestID    int     `json:"localQuestId"`
+	QuestName       string  `json:"questName"`
+	StartText       string  `json:"startText"`
+	TravelText      string  `json:"travelText"`
+	FailureText     string  `json:"failureText"`
+	Summary         string  `json:"summary"`
+	AssetID         *int    `json:"assetId"`
+	ExpeditionQuest bool    `json:"expeditionQuest"`
+	PosX            float64 `json:"posX"`
+	PosY            float64 `json:"posY"`
+	SortOrder       int     `json:"sortOrder"`
 }
 
 // QuestUpdateData represents an update to an existing quest
 type QuestUpdateData struct {
-	QuestID     int     `json:"questId"`
-	QuestName   string  `json:"questName"`
-	StartText   string  `json:"startText"`
-	TravelText  string  `json:"travelText"`
-	FailureText string  `json:"failureText"`
-	Summary     string  `json:"summary"`
-	AssetID     *int    `json:"assetId"`
-	PosX        float64 `json:"posX"`
-	PosY        float64 `json:"posY"`
-	SortOrder   int     `json:"sortOrder"`
+	QuestID         int     `json:"questId"`
+	QuestName       string  `json:"questName"`
+	StartText       string  `json:"startText"`
+	TravelText      string  `json:"travelText"`
+	FailureText     string  `json:"failureText"`
+	Summary         string  `json:"summary"`
+	AssetID         *int    `json:"assetId"`
+	ExpeditionQuest bool    `json:"expeditionQuest"`
+	PosX            float64 `json:"posX"`
+	PosY            float64 `json:"posY"`
+	SortOrder       int     `json:"sortOrder"`
 }
 
 // PendingRequirement represents a requirement between unsaved local options
@@ -633,6 +636,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 	summaries := make([]string, n)
 	chainIDs := make([]int64, n)
 	assetIDs := make([]sql.NullInt64, n)
+	expeditionQuests := make([]bool, n)
 	defaults := make([]bool, n)
 	posXs := make([]float64, n)
 	posYs := make([]float64, n)
@@ -646,6 +650,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		summaries[i] = q.Summary
 		chainIDs[i] = int64(questchainID)
 		assetIDs[i] = nullInt(q.AssetID)
+		expeditionQuests[i] = q.ExpeditionQuest
 		defaults[i] = true
 		posXs[i] = q.PosX
 		posYs[i] = q.PosY
@@ -660,13 +665,14 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		{Name: "summary", Cast: "text", Values: summaries},
 		{Name: "questchain_id", Cast: "int", Values: chainIDs},
 		{Name: "asset_id", Cast: "int", Values: assetIDs},
+		{Name: "expedition_quest", Cast: "bool", Values: expeditionQuests},
 		{Name: "default_entry", Cast: "bool", Values: defaults},
 		{Name: "pos_x", Cast: "float8", Values: posXs},
 		{Name: "pos_y", Cast: "float8", Values: posYs},
 		{Name: "sort_order", Cast: "int", Values: sortOrders},
 	})
 	rows, err := tx.Query(fmt.Sprintf(`
-		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, asset_id, default_entry, pos_x, pos_y, sort_order)
+		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, asset_id, expedition_quest, default_entry, pos_x, pos_y, sort_order)
 		%s
 		RETURNING quest_id
 	`, selectSQL), args...)
@@ -697,6 +703,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 	failureTexts := make([]string, n)
 	summaries := make([]string, n)
 	assetIDs := make([]sql.NullInt64, n)
+	expeditionQuests := make([]bool, n)
 	posXs := make([]float64, n)
 	posYs := make([]float64, n)
 	sortOrders := make([]int64, n)
@@ -709,6 +716,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		failureTexts[i] = u.FailureText
 		summaries[i] = u.Summary
 		assetIDs[i] = nullInt(u.AssetID)
+		expeditionQuests[i] = u.ExpeditionQuest
 		posXs[i] = u.PosX
 		posYs[i] = u.PosY
 		sortOrders[i] = int64(u.SortOrder)
@@ -722,6 +730,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		{Name: "failure_text", Cast: "text", Values: failureTexts},
 		{Name: "summary", Cast: "text", Values: summaries},
 		{Name: "asset_id", Cast: "int", Values: assetIDs},
+		{Name: "expedition_quest", Cast: "bool", Values: expeditionQuests},
 		{Name: "pos_x", Cast: "float8", Values: posXs},
 		{Name: "pos_y", Cast: "float8", Values: posYs},
 		{Name: "sort_order", Cast: "int", Values: sortOrders},
@@ -734,6 +743,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 			failure_text = v.failure_text,
 			summary      = v.summary,
 			asset_id     = v.asset_id,
+			expedition_quest = v.expedition_quest,
 			pos_x        = v.pos_x,
 			pos_y        = v.pos_y,
 			sort_order   = v.sort_order

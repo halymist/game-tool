@@ -487,7 +487,7 @@ func handleGetQuestsLite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Query(`SELECT quest_id, COALESCE(quest_name, ''), asset_id
+	rows, err := db.Query(`SELECT quest_id, COALESCE(quest_name, ''), asset_id, COALESCE(expedition_quest, false)
 		FROM game.quests WHERE settlement_id = $1 ORDER BY quest_name, quest_id`, settlementID)
 	if err != nil {
 		log.Printf("getQuestsLite: query: %v", err)
@@ -497,15 +497,16 @@ func handleGetQuestsLite(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type liteQuest struct {
-		QuestID   int    `json:"quest_id"`
-		QuestName string `json:"quest_name"`
-		AssetID   *int   `json:"asset_id"`
+		QuestID         int    `json:"quest_id"`
+		QuestName       string `json:"quest_name"`
+		AssetID         *int   `json:"asset_id"`
+		ExpeditionQuest bool   `json:"expedition_quest"`
 	}
 	out := []liteQuest{}
 	for rows.Next() {
 		var q liteQuest
 		var assetID sql.NullInt64
-		if err := rows.Scan(&q.QuestID, &q.QuestName, &assetID); err != nil {
+		if err := rows.Scan(&q.QuestID, &q.QuestName, &assetID, &q.ExpeditionQuest); err != nil {
 			log.Printf("getQuestsLite: scan: %v", err)
 			continue
 		}

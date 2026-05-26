@@ -49,7 +49,6 @@ type Settlement struct {
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
-	FailureTexts          *json.RawMessage `json:"failure_texts"`
 	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
 	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
 	VendorItems           []int            `json:"vendor_items"`
@@ -116,7 +115,6 @@ type SaveSettlementRequest struct {
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
-	FailureTexts          *json.RawMessage `json:"failure_texts"`
 	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
 	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
 	VendorItems           []int            `json:"vendor_items"`
@@ -170,7 +168,6 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		       expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 		       vendor_on_entered, vendor_on_sold, vendor_on_bought,
 		       utility_on_entered, utility_on_placed, utility_on_action,
-		       failure_texts,
 		       vendor_msg_rect, utility_msg_rect
 		FROM game.world_info
 		ORDER BY settlement_id
@@ -195,7 +192,6 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.ExpeditionAssetID, &s.ExpeditionDescription, &s.ExpeditionContext, &s.ArenaAssetID,
 			&s.VendorOnEntered, &s.VendorOnSold, &s.VendorOnBought,
 			&s.UtilityOnEntered, &s.UtilityOnPlaced, &s.UtilityOnAction,
-			&s.FailureTexts,
 			&s.VendorMsgRect, &s.UtilityMsgRect,
 		)
 		if err != nil {
@@ -478,10 +474,9 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				expedition_asset_id = $21, expedition_description = $22, expedition_context = $23, arena_asset_id = $24,
 				vendor_on_entered = $25, vendor_on_sold = $26, vendor_on_bought = $27,
 				utility_on_entered = $28, utility_on_placed = $29, utility_on_action = $30,
-				failure_texts = $31,
-				vendor_msg_rect = $32, utility_msg_rect = $33,
+				vendor_msg_rect = $31, utility_msg_rect = $32,
 				version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
-			WHERE settlement_id = $34
+			WHERE settlement_id = $33
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
@@ -491,7 +486,6 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
-			req.FailureTexts,
 			req.VendorMsgRect, req.UtilityMsgRect,
 			*req.SettlementID)
 
@@ -515,12 +509,11 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 				vendor_on_entered, vendor_on_sold, vendor_on_bought,
 				utility_on_entered, utility_on_placed, utility_on_action,
-				failure_texts,
 				vendor_msg_rect, utility_msg_rect,
 				version
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33,
+				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
 				(SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
@@ -532,7 +525,6 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
-			req.FailureTexts,
 			req.VendorMsgRect, req.UtilityMsgRect).Scan(&settlementID)
 
 		if err != nil {
