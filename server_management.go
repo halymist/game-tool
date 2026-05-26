@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -248,7 +249,7 @@ type settlementInfo struct {
 	Blessing2    *int
 	Blessing3    *int
 	VendorItems  []int
-	EnchanterFX  []int // effect_id list
+	EnchanterFX  map[string][]int // item slot -> effect_id list
 }
 
 // generateServerContent creates the 70-day world plan plus vendor/enchanter stock.
@@ -412,8 +413,11 @@ func generateServerContent(serverID int) error {
 				}
 			}
 
-			if s.Enchanter && len(s.EnchanterFX) > 0 {
-				picked := pickRandom(s.EnchanterFX, 4)
+			if s.Enchanter {
+				picked, err := pickEnchanterEffects(s.EnchanterFX)
+				if err != nil {
+					return fmt.Errorf("pick enchanter effects for settlement %d day %d: %w", s.SettlementID, entry.day, err)
+				}
 				for _, effectID := range picked {
 					factor := effectFactors[effectID]
 					if _, err := enchanterStmt.Exec(serverID, entry.day, s.SettlementID, effectID, factor); err != nil {
@@ -476,14 +480,28 @@ func loadSettlementsForGeneration() ([]settlementInfo, error) {
 
 	// Load enchanter effects per settlement
 	for i := range settlements {
-		eRows, err := db.Query(`SELECT effect_id FROM game.enchanter_inventory WHERE settlement_id = $1`, settlements[i].SettlementID)
+		eRows, err := db.Query(`
+			SELECT DISTINCT ei.effect_id, e.slot::text
+			FROM game.enchanter_inventory ei
+			JOIN game.effects e ON e.effect_id = ei.effect_id
+			WHERE ei.settlement_id = $1
+			  AND e.slot IS NOT NULL
+		`, settlements[i].SettlementID)
 		if err != nil {
 			continue
 		}
 		for eRows.Next() {
 			var id int
-			if eRows.Scan(&id) == nil {
-				settlements[i].EnchanterFX = append(settlements[i].EnchanterFX, id)
+			var slot string
+			if eRows.Scan(&id, &slot) == nil {
+				slot = strings.TrimSpace(slot)
+				if slot == "" {
+					continue
+				}
+				if settlements[i].EnchanterFX == nil {
+					settlements[i].EnchanterFX = make(map[string][]int)
+				}
+				settlements[i].EnchanterFX[slot] = append(settlements[i].EnchanterFX[slot], id)
 			}
 		}
 		eRows.Close()
@@ -511,7 +529,27 @@ func loadEffectFactors() (map[int]int, error) {
 	return m, nil
 }
 
-// pickRandom picks up to n random items from a slice (with replacement).
+// pickEnchanterEffects picks 4 unique item slots and 3 unique effects per slot.
+func pickEnchanterEffects(slotEffects map[string][]int) ([]int, error) {
+	eligibleSlots := make([]string, 0, len(slotEffects))
+	for slot, effects := range slotEffects {
+		if len(effects) >= 3 {
+			eligibleSlots = append(eligibleSlots, slot)
+		}
+	}
+	if len(eligibleSlots) < 4 {
+		return nil, fmt.Errorf("need at least 4 item slots with 3 effects each, found %d", len(eligibleSlots))
+	}
+
+	pickedSlots := pickRandomStrings(eligibleSlots, 4)
+	pickedEffects := make([]int, 0, 12)
+	for _, slot := range pickedSlots {
+		pickedEffects = append(pickedEffects, pickRandom(slotEffects[slot], 3)...)
+	}
+	return pickedEffects, nil
+}
+
+// pickRandom picks up to n unique random items from a slice.
 func pickRandom(pool []int, n int) []int {
 	if len(pool) == 0 {
 		return nil
@@ -525,6 +563,25 @@ func pickRandom(pool []int, n int) []int {
 	}
 	// Fisher-Yates partial shuffle for n unique picks
 	tmp := make([]int, len(pool))
+	copy(tmp, pool)
+	for i := 0; i < n; i++ {
+		j := i + rand.Intn(len(tmp)-i)
+		tmp[i], tmp[j] = tmp[j], tmp[i]
+	}
+	return tmp[:n]
+}
+
+func pickRandomStrings(pool []string, n int) []string {
+	if len(pool) == 0 {
+		return nil
+	}
+	if n >= len(pool) {
+		result := make([]string, len(pool))
+		copy(result, pool)
+		rand.Shuffle(len(result), func(i, j int) { result[i], result[j] = result[j], result[i] })
+		return result
+	}
+	tmp := make([]string, len(pool))
 	copy(tmp, pool)
 	for i := 0; i < n; i++ {
 		j := i + rand.Intn(len(tmp)-i)

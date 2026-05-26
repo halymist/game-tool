@@ -642,6 +642,25 @@
     flex-direction: column;
 }
 
+.select-list-group {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 0 10px;
+}
+
+.select-list-group + .select-list-group {
+    border-top: 1px solid var(--border-default);
+}
+
+.select-list-group-label {
+    padding: 0 12px 6px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
 .select-list-row {
     display: flex;
     align-items: center;
@@ -681,6 +700,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.select-list-slot {
+    color: var(--text-muted);
+    font-size: 0.82rem;
 }
 
 .select-list-desc {

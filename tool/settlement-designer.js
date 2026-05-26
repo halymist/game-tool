@@ -887,25 +887,35 @@ function showAddEffectDialog() {
     overlay.className = 'settlement-asset-gallery-overlay active';
     overlay.style.zIndex = '1001';
 
-    const effectsHtml = settlementState.effects.map(effect => {
-        const id = effect.effect_id || effect.id;
-        const name = effect.effect_name || effect.name || `Effect ${id}`;
-        let desc = effect.description || effect.effect_description || '';
-        if (desc && effect.factor != null) {
-            desc = desc.replace('*', Math.abs(effect.factor));
-        }
-        const isSelected = settlementState.enchanterEffects.includes(id);
-        
-        return `
-            <div class="select-list-row ${isSelected ? 'selected' : ''}" 
-                 data-effect-id="${id}" 
-                 data-search-name="${escapeSettlementHtml(name.toLowerCase())}"
-                 onclick="toggleEnchanterEffectSelection(${id})">
-                <div class="select-list-info">
-                    <span class="select-list-name">${escapeSettlementHtml(name)}</span>
-                    ${desc ? `<span class="select-list-desc">${escapeSettlementHtml(desc)}</span>` : ''}
+    const groupedEffects = groupEffectsForSelection(settlementState.effects);
+    const effectsHtml = groupedEffects.map(({ slotKey, slotLabel, effects }) => {
+        const rowsHtml = effects.map(effect => {
+            const id = effect.effect_id || effect.id;
+            const name = effect.effect_name || effect.name || `Effect ${id}`;
+            let desc = effect.description || effect.effect_description || '';
+            if (desc && effect.factor != null) {
+                desc = desc.replace('*', Math.abs(effect.factor));
+            }
+            const isSelected = settlementState.enchanterEffects.includes(id);
+
+            return `
+                <div class="select-list-row ${isSelected ? 'selected' : ''}" 
+                     data-effect-id="${id}" 
+                     data-search-name="${escapeSettlementHtml(`${name} ${slotLabel}`.toLowerCase())}"
+                     onclick="toggleEnchanterEffectSelection(${id})">
+                    <div class="select-list-info">
+                        <span class="select-list-name">${escapeSettlementHtml(name)} <span class="select-list-slot">(${escapeSettlementHtml(slotLabel)})</span></span>
+                        ${desc ? `<span class="select-list-desc">${escapeSettlementHtml(desc)}</span>` : ''}
+                    </div>
+                    <span class="select-list-check">${isSelected ? '\u2713' : ''}</span>
                 </div>
-                <span class="select-list-check">${isSelected ? '\u2713' : ''}</span>
+            `;
+        }).join('');
+
+        return `
+            <div class="select-list-group" data-slot-group="${escapeSettlementHtml(slotKey)}">
+                <div class="select-list-group-label">${escapeSettlementHtml(slotLabel)}</div>
+                ${rowsHtml}
             </div>
         `;
     }).join('');
@@ -913,7 +923,7 @@ function showAddEffectDialog() {
     overlay.innerHTML = `
         <div class="settlement-asset-gallery" style="max-width: 520px;">
             <div class="settlement-asset-gallery-header">
-                <input type="text" class="select-list-search" placeholder="Search effects..." oninput="filterSelectList(this, '#effectSelectOverlay')">
+                <input type="text" class="select-list-search" placeholder="Search effects..." oninput="filterEffectSelectList(this)">
                 <button class="settlement-asset-gallery-close" onclick="closeEffectSelectDialog()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -960,6 +970,58 @@ function toggleEnchanterEffectSelection(effectId) {
 function closeEffectSelectDialog() {
     const overlay = document.getElementById('effectSelectOverlay');
     if (overlay) overlay.remove();
+}
+
+function groupEffectsForSelection(effects) {
+    const groups = new Map();
+
+    effects.forEach(effect => {
+        const slotKey = String(effect.slot || effect.item_slot || effect.itemSlot || '').trim().toLowerCase();
+        const slotLabel = formatEffectSlotLabel(slotKey);
+        if (!groups.has(slotKey)) {
+            groups.set(slotKey, {
+                slotKey,
+                slotLabel,
+                effects: []
+            });
+        }
+        groups.get(slotKey).effects.push(effect);
+    });
+
+    return Array.from(groups.values())
+        .sort((a, b) => a.slotLabel.localeCompare(b.slotLabel))
+        .map(group => ({
+            ...group,
+            effects: group.effects.sort((a, b) => {
+                const aName = String(a.effect_name || a.name || `Effect ${a.effect_id || a.id}`);
+                const bName = String(b.effect_name || b.name || `Effect ${b.effect_id || b.id}`);
+                return aName.localeCompare(bName);
+            })
+        }));
+}
+
+function formatEffectSlotLabel(slot) {
+    if (!slot) return 'Unslotted';
+    return slot.charAt(0).toUpperCase() + slot.slice(1);
+}
+
+function filterEffectSelectList(input) {
+    const query = input.value.toLowerCase().trim();
+    const overlay = document.getElementById('effectSelectOverlay');
+    if (!overlay) return;
+
+    const groups = overlay.querySelectorAll('.select-list-group');
+    groups.forEach(group => {
+        let hasVisibleRows = false;
+        const rows = group.querySelectorAll('.select-list-row');
+        rows.forEach(row => {
+            const name = row.dataset.searchName || '';
+            const visible = name.includes(query);
+            row.style.display = visible ? '' : 'none';
+            if (visible) hasVisibleRows = true;
+        });
+        group.style.display = hasVisibleRows ? '' : 'none';
+    });
 }
 
 function filterSelectList(input, overlaySelector) {
@@ -1380,6 +1442,12 @@ async function saveSettlement() {
     }
 
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
+    const enchanterValidation = validateEnchanterInventoryForSave(utilityType);
+    if (!enchanterValidation.valid) {
+        alert(enchanterValidation.message);
+        return;
+    }
+
     const utilityAssetId = parseInt(document.getElementById('utilityAssetArea').dataset.assetId) || null;
     const vendorAssetId = parseInt(document.getElementById('vendorAssetArea').dataset.assetId) || null;
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
@@ -1612,15 +1680,16 @@ function checkSettlementSaveConditions() {
     const utilityAssetId = document.getElementById('utilityAssetArea')?.dataset.assetId || '';
 
     const allAssetsSet = settlementAssetId && arenaAssetId && expeditionAssetId && vendorAssetId && utilityAssetId;
+    const enchanterValidation = validateEnchanterInventoryForSave(utilityType);
 
     let canSave = false;
 
     if (settlementState.isNewSettlement) {
-        canSave = !!name && !!allAssetsSet && !!utilityType;
+        canSave = !!name && !!allAssetsSet && !!utilityType && enchanterValidation.valid;
     } else {
         const currentSnapshot = getSettlementFormSnapshot();
         const isDirty = settlementState._snapshot && currentSnapshot !== settlementState._snapshot;
-        canSave = !!isDirty;
+        canSave = !!isDirty && enchanterValidation.valid;
     }
 
     if (settlementSaveButton) {
@@ -1629,6 +1698,7 @@ function checkSettlementSaveConditions() {
         btn.disabled = !canSave;
     }
     btn.classList.toggle('btn-disabled', !canSave);
+    btn.title = enchanterValidation.valid ? '' : enchanterValidation.message;
 
     const dismissBtn = document.getElementById('dismissSettlementBtn');
     if (dismissBtn) {
@@ -1640,6 +1710,52 @@ function checkSettlementSaveConditions() {
             dismissBtn.style.display = 'none';
         }
     }
+}
+
+function validateEnchanterInventoryForSave(utilityType) {
+    if (utilityType !== 'enchanter') {
+        return { valid: true, message: '' };
+    }
+
+    const slotEffects = getSelectedEnchanterEffectsBySlot();
+    const validSlots = Object.entries(slotEffects)
+        .filter(([, effectIds]) => effectIds.size >= 6)
+        .map(([slot]) => slot);
+
+    if (validSlots.length >= 5) {
+        return { valid: true, message: '' };
+    }
+
+    const slotSummary = Object.entries(slotEffects)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([slot, effectIds]) => `${slot}: ${effectIds.size}`)
+        .join(', ');
+    const detail = slotSummary ? ` Current slot counts: ${slotSummary}.` : '';
+
+    return {
+        valid: false,
+        message: `Enchanter inventory must include effects for at least 5 unique item slots, with at least 6 unique effects in each slot.${detail}`
+    };
+}
+
+function getSelectedEnchanterEffectsBySlot() {
+    const effectsById = new Map();
+    settlementState.effects.forEach(effect => {
+        const id = Number(effect.effect_id ?? effect.id);
+        if (!Number.isFinite(id)) return;
+        effectsById.set(id, effect);
+    });
+
+    return settlementState.enchanterEffects.reduce((slotEffects, effectId) => {
+        const effect = effectsById.get(Number(effectId));
+        const slot = String(effect?.slot || effect?.item_slot || effect?.itemSlot || '').trim();
+        if (!slot) return slotEffects;
+        if (!slotEffects[slot]) {
+            slotEffects[slot] = new Set();
+        }
+        slotEffects[slot].add(Number(effectId));
+        return slotEffects;
+    }, {});
 }
 
 // ==================== LOCATIONS MANAGEMENT ====================
