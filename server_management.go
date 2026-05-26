@@ -252,6 +252,35 @@ type settlementInfo struct {
 	EnchanterFX  map[string][]int // item slot -> effect_id list
 }
 
+const serverQuestsPerSettlementDay = 5
+
+func chooseFactionSettlements(factionPools map[int][]settlementInfo) map[int]settlementInfo {
+	chosen := make(map[int]settlementInfo, len(factionPools))
+	for faction, pool := range factionPools {
+		if len(pool) == 0 {
+			continue
+		}
+		chosen[faction] = pool[rand.Intn(len(pool))]
+	}
+	return chosen
+}
+
+func takeSettlementQuests(questBanks map[int][]int, settlementID int, limit int) []int {
+	if limit <= 0 {
+		return nil
+	}
+	bank := questBanks[settlementID]
+	if len(bank) == 0 {
+		return nil
+	}
+	if limit > len(bank) {
+		limit = len(bank)
+	}
+	assigned := append([]int(nil), bank[:limit]...)
+	questBanks[settlementID] = bank[limit:]
+	return assigned
+}
+
 // generateServerContent creates the 70-day world plan plus vendor/enchanter stock.
 func generateServerContent(serverID int) error {
 	// 1. Load all settlements
@@ -273,6 +302,12 @@ func generateServerContent(serverID int) error {
 			factionPools[*s.Faction] = append(factionPools[*s.Faction], s)
 		}
 	}
+	factionSettlements := chooseFactionSettlements(factionPools)
+
+	questBanks, err := loadQuestBanksForGeneration()
+	if err != nil {
+		return fmt.Errorf("load quest banks: %w", err)
+	}
 
 	// 2. Build the day-by-day plan
 	const totalDays = 70
@@ -293,11 +328,10 @@ func generateServerContent(serverID int) error {
 			// Faction block: one settlement per faction, each with independent duration
 			maxDuration := 0
 			for _, f := range factions {
-				pool := factionPools[f]
-				if len(pool) == 0 {
+				pick, ok := factionSettlements[f]
+				if !ok {
 					continue
 				}
-				pick := pool[rand.Intn(len(pool))]
 
 				var duration int
 				if day <= 2 {
@@ -359,6 +393,15 @@ func generateServerContent(serverID int) error {
 	}
 
 	if err := withTx(func(tx *sql.Tx) error {
+		worldQuestStmt, err := tx.Prepare(`
+			INSERT INTO public.world_quests (server_id, server_day, settlement_id, quest_id)
+			VALUES ($1,$2,$3,$4)
+		`)
+		if err != nil {
+			return fmt.Errorf("prepare world quests: %w", err)
+		}
+		defer worldQuestStmt.Close()
+
 		worldStmt, err := tx.Prepare(`
 			INSERT INTO public.world
 				(server_id, server_day, faction, settlement_id,
@@ -402,6 +445,12 @@ func generateServerContent(serverID int) error {
 				s.Blessing1, s.Blessing2, s.Blessing3,
 			); err != nil {
 				return fmt.Errorf("insert world day %d: %w", entry.day, err)
+			}
+
+			for _, questID := range takeSettlementQuests(questBanks, s.SettlementID, serverQuestsPerSettlementDay) {
+				if _, err := worldQuestStmt.Exec(serverID, entry.day, s.SettlementID, questID); err != nil {
+					return fmt.Errorf("insert world quest day %d quest %d: %w", entry.day, questID, err)
+				}
 			}
 
 			if len(s.VendorItems) > 0 {
@@ -508,6 +557,41 @@ func loadSettlementsForGeneration() ([]settlementInfo, error) {
 	}
 
 	return settlements, nil
+}
+
+func loadQuestBanksForGeneration() (map[int][]int, error) {
+	rows, err := db.Query(`
+		SELECT qc.settlement_id, q.quest_id
+		FROM game.questchain qc
+		JOIN game.quests q ON q.questchain_id = qc.questchain_id
+		WHERE COALESCE(q.expedition_quest, FALSE) = FALSE
+		ORDER BY qc.settlement_id, qc.name, q.sort_order, q.quest_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	questBanks := make(map[int][]int)
+	for rows.Next() {
+		var settlementID int
+		var questID int
+		if err := rows.Scan(&settlementID, &questID); err != nil {
+			return nil, err
+		}
+		questBanks[settlementID] = append(questBanks[settlementID], questID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for settlementID := range questBanks {
+		rand.Shuffle(len(questBanks[settlementID]), func(i, j int) {
+			questBanks[settlementID][i], questBanks[settlementID][j] = questBanks[settlementID][j], questBanks[settlementID][i]
+		})
+	}
+
+	return questBanks, nil
 }
 
 // loadEffectFactors returns a map of effect_id -> factor from game.effects.
