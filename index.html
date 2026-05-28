@@ -6,6 +6,7 @@
     <title>Dashboard</title>
     <link rel="stylesheet" href="/static/shared-styles.css">
     <link rel="stylesheet" href="/static/enemy-designer-new.css">
+    <link rel="stylesheet" href="/static/effect-designer.css">
     <link rel="stylesheet" href="/static/item-designer.css">
     <link rel="stylesheet" href="/static/perk-designer.css">
     <link rel="stylesheet" href="/static/expedition-designer.css">
@@ -57,6 +58,10 @@
                     <a href="#" onclick="showPage('perks'); return false;" class="tool-card">
                         <span class="tool-card-icon">✨</span>
                         <span class="tool-card-title">Perks</span>
+                    </a>
+                    <a href="#" onclick="showPage('effects'); return false;" class="tool-card">
+                        <span class="tool-card-icon">✴️</span>
+                        <span class="tool-card-title">Effects</span>
                     </a>
                     <a href="#" onclick="showPage('enemies'); return false;" class="tool-card">
                         <span class="tool-card-icon">👹</span>
@@ -1047,6 +1052,119 @@
                     <div id="perkAssetGrid" class="perk-asset-grid custom-scrollbar">
                         <!-- Asset items will be populated by JavaScript -->
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Effect Designer Section -->
+        <div id="effects-content" class="page-content" style="display: none;">
+            <div class="effect-designer-container">
+                <aside class="effect-list-sidebar">
+                    <div class="effect-list-controls">
+                        <input type="text" id="effectSearch" placeholder="Search effects...">
+                        <select id="effectTriggerFilter">
+                            <option value="">All Triggers</option>
+                        </select>
+                    </div>
+                    <div id="effectList" class="effect-list custom-scrollbar"></div>
+                    <div class="effect-list-buttons">
+                        <button type="button" id="newEffectBtn">+ New Effect</button>
+                    </div>
+                </aside>
+
+                <section class="effect-editor-panel">
+                    <h2 id="effectEditorTitle">Create New Effect</h2>
+                    <form id="effectForm" class="effect-form">
+                        <div class="effect-header">
+                            <div class="effect-icon-column">
+                                <div class="effect-icon-box" id="effectIconUploadArea">
+                                    <div id="effectIconPreview"><span>Click to select icon</span></div>
+                                </div>
+                                <input type="file" id="effectIconFile" accept="image/*" style="display:none;">
+                            </div>
+
+                            <div class="effect-info">
+                                <div class="effect-row">
+                                    <div class="effect-field effect-field-small">
+                                        <label>ID</label>
+                                        <input type="number" id="effectId" readonly placeholder="New">
+                                    </div>
+                                    <div class="effect-field effect-field-grow">
+                                        <label>Name</label>
+                                        <input type="text" id="effectName" required placeholder="Effect name">
+                                    </div>
+                                    <div class="effect-field effect-field-wide">
+                                        <label>Slot</label>
+                                        <select id="effectSlot"></select>
+                                    </div>
+                                </div>
+                                <div class="effect-row">
+                                    <div class="effect-field effect-field-grow">
+                                        <label>Description</label>
+                                        <textarea id="effectDescription" rows="4" placeholder="Use * where the factor should appear."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="effect-section">
+                            <div class="effect-row">
+                                <div class="effect-field effect-field-grow">
+                                    <label>Core Effect</label>
+                                    <select id="effectCoreEffect"></select>
+                                    <span id="effectCoreHelp" class="effect-help"></span>
+                                </div>
+                                <div class="effect-field effect-field-wide">
+                                    <label>Trigger</label>
+                                    <select id="effectTriggerType"></select>
+                                </div>
+                                <div class="effect-field effect-field-wide">
+                                    <label>Factor Type</label>
+                                    <select id="effectFactorType"></select>
+                                </div>
+                                <div class="effect-field effect-field-small">
+                                    <label>Factor</label>
+                                    <input type="number" id="effectFactor" value="1" min="-9999" max="9999" step="1">
+                                </div>
+                            </div>
+                            <div class="effect-row">
+                                <label class="effect-check-label">
+                                    <input type="checkbox" id="effectTargetSelf">
+                                    <span>Target self</span>
+                                </label>
+                                <div class="effect-field effect-field-wide">
+                                    <label>Condition</label>
+                                    <select id="effectConditionType"></select>
+                                </div>
+                                <div class="effect-field effect-field-small">
+                                    <label>Condition Value</label>
+                                    <input type="number" id="effectConditionValue" min="-9999" max="9999" step="1">
+                                </div>
+                                <div class="effect-field effect-field-small">
+                                    <label>Duration</label>
+                                    <input type="number" id="effectDuration" min="0" max="999" step="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="effect-form-buttons">
+                            <button type="button" id="effectCancelBtn" class="effect-cancel-btn">Cancel</button>
+                            <button type="submit" id="effectSaveBtn" class="btn-save" disabled>Save Effect</button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+
+            <div id="effectAssetGalleryOverlay" class="effect-asset-gallery-overlay hidden">
+                <div class="effect-asset-gallery">
+                    <div class="effect-asset-gallery-header">
+                        <h3>Select Effect Asset</h3>
+                        <div class="effect-asset-gallery-actions">
+                            <button type="button" id="effectUploadNewBtn" class="effect-gallery-upload">Upload</button>
+                            <button type="button" id="effectAssetGalleryClose" class="effect-gallery-close">✕</button>
+                        </div>
+                    </div>
+                    <div id="effectAssetGrid" class="effect-asset-grid custom-scrollbar"></div>
                 </div>
             </div>
         </div>
@@ -2340,6 +2458,7 @@
             'talents': { title: 'Talents', element: 'talents-content' },
             'items': { title: 'Items', element: 'items-content' },
             'perks': { title: 'Perks', element: 'perks-content' },
+            'effects': { title: 'Effects', element: 'effects-content' },
             'dungeons': { title: 'Expeditions', element: 'dungeons-content' },
             'settlements': { title: 'Settlements', element: 'settlements-content' },
             'npcs': { title: 'NPCs', element: 'npcs-content' },
@@ -2461,6 +2580,18 @@
                         window.loadModerationData();
                     }
                 }
+
+                // If showing effects editor, initialize or reload
+                if (pageName === 'effects') {
+                    if (window.initEffectDesigner && !window.effectDesignerInitialized) {
+                        console.log('Initializing effect editor...');
+                        window.initEffectDesigner();
+                        window.effectDesignerInitialized = true;
+                    }
+                    if (window.loadEffectDesignerData) {
+                        window.loadEffectDesignerData();
+                    }
+                }
                 
                 // If showing the expedition designer, auto-load data
                 if (pageName === 'dungeons') {
@@ -2548,7 +2679,7 @@
                     await preloadGlobalData([
                         'settlements', 'quests', 'settlementAssets', 'questAssets', 'expeditionMapAssets',
                         'items', 'perks', 'npcs', 'servers', 'recentEvents',
-                        'itemAssets', 'perkAssets', 'enemyAssets',
+                        'itemAssets', 'perkAssets', 'enemyAssets', 'effectAssets',
                         'effects', 'enemies',
                         'cosmetics', 'cosmeticAssets'
                     ]);
@@ -2562,6 +2693,7 @@
             if (status) status.textContent = 'Loading tools…';
             const scripts = [
                 'designer-base.js',
+                'effect-designer.js',
                 'enemy-designer-new.js',
                 'talent-designer.js',
                 'npc-designer.js',

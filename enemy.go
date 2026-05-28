@@ -217,12 +217,23 @@ func handleGetEffects(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to load effects", http.StatusInternalServerError)
 		return
 	}
+	metadata, err := getEffectMetadata()
+	if err != nil {
+		log.Printf("ERROR: Failed to get effect metadata: %v", err)
+		http.Error(w, "Failed to load effect metadata", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	response := map[string]interface{}{
-		"success": true,
-		"effects": effects,
-		"count":   len(effects),
+		"success":        true,
+		"effects":        effects,
+		"coreEffects":    metadata.CoreEffects,
+		"slots":          metadata.Slots,
+		"triggerTypes":   metadata.TriggerTypes,
+		"factorTypes":    metadata.FactorTypes,
+		"conditionTypes": metadata.ConditionTypes,
+		"count":          len(effects),
 	}
 
 	json.NewEncoder(w).Encode(response)

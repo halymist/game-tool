@@ -4,6 +4,12 @@
 // === GLOBAL DATA STORAGE ===
 const GlobalData = {
     effects: [],           // Array of all effects from database
+    coreEffects: [],       // Array of core effect behavior definitions
+    effectSlots: [],       // Enum options for effect item slots
+    effectTriggerTypes: [], // Enum options for effect triggers
+    effectFactorTypes: [], // Enum options for effect factor interpretation
+    effectConditionTypes: [], // Enum options for optional effect conditions
+    effectAssets: [],      // Array of available effect assets from S3
     enemies: [],           // Array of all complete enemy data with signed URLs
     pendingEnemies: [],    // Array of pending enemies from tooling
     enemyAssets: [],       // Array of available enemy assets from S3
@@ -222,6 +228,7 @@ function getGlobalDataSnapshot(key) {
 function buildGlobalDataSummary() {
     return {
         effects: GlobalData.effects.length,
+        effectAssets: GlobalData.effectAssets.length,
         enemies: GlobalData.enemies.length,
         perks: GlobalData.perks.length,
         items: GlobalData.items.length,
@@ -311,6 +318,8 @@ if (typeof window !== 'undefined') {
     window.getServersData = getServersData;
     window.loadRecentEventsData = loadRecentEventsData;
     window.getRecentEventsData = getRecentEventsData;
+    window.loadEffectAssets = loadEffectAssets;
+    window.getEffectAssets = getEffectAssets;
     window.loadSettlementsData = loadSettlementsData;
     window.getSettlements = getSettlements;
     window.loadQuestAssetsData = loadQuestAssetsData;
@@ -376,6 +385,7 @@ const Item = {
 
 // Track loading state to prevent duplicate requests
 let effectsLoadingPromise = null;
+let effectAssetsLoadingPromise = null;
 let enemiesLoadingPromise = null;
 let perksLoadingPromise = null;
 let itemsLoadingPromise = null;
@@ -412,6 +422,11 @@ async function loadEffectsData(options = {}) {
             if (response.ok) {
                 const data = await response.json();
                 setGlobalArray('effects', data.effects || []);
+                setGlobalArray('coreEffects', data.coreEffects || []);
+                setGlobalArray('effectSlots', data.slots || []);
+                setGlobalArray('effectTriggerTypes', data.triggerTypes || []);
+                setGlobalArray('effectFactorTypes', data.factorTypes || []);
+                setGlobalArray('effectConditionTypes', data.conditionTypes || []);
                 return GlobalData.effects;
             } else {
                 throw new Error('Server error: ' + await response.text());
@@ -424,6 +439,55 @@ async function loadEffectsData(options = {}) {
         }
     })();
     return effectsLoadingPromise;
+}
+
+async function loadEffectAssets(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.effectAssets.length > 0) {
+        return GlobalData.effectAssets;
+    }
+    if (effectAssetsLoadingPromise) return effectAssetsLoadingPromise;
+
+    effectAssetsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const response = await fetch('/api/getEffectAssets', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const rawAssets = Array.isArray(data) ? data : (data.assets || []);
+                const normalizedAssets = rawAssets.map((asset) => ({
+                    ...asset,
+                    id: asset.id ?? asset.assetID,
+                    url: asset.url || asset.icon,
+                    remoteUrl: asset.remoteUrl || asset.url || asset.icon
+                }));
+                clearAssetCacheForType('effect');
+                await cacheAssetList('effect', normalizedAssets, {
+                    idKey: 'id',
+                    urlKey: 'url',
+                    remoteKey: 'remoteUrl'
+                });
+                setGlobalArray('effectAssets', normalizedAssets);
+                return GlobalData.effectAssets;
+            } else {
+                throw new Error('Server error: ' + await response.text());
+            }
+        } catch (error) {
+            console.error('Error loading effect assets:', error);
+            throw error;
+        } finally {
+            effectAssetsLoadingPromise = null;
+        }
+    })();
+    return effectAssetsLoadingPromise;
+}
+
+function getEffectAssets() {
+    return GlobalData.effectAssets;
 }
 
 // --- Enemies ---
@@ -1130,6 +1194,7 @@ function getCosmeticAssets() {
 
 const GLOBAL_DATA_LOADERS = {
     effects:          (options) => loadEffectsData(options),
+    effectAssets:     (options) => loadEffectAssets(options),
     enemies:          (options) => loadEnemiesData(options),
     perks:            (options) => loadPerksData(options),
     items:            (options) => loadItemsData(options),
@@ -1184,6 +1249,7 @@ async function preloadGlobalData(keys = []) {
             `${GlobalData.questAssets.length} quest`,
             `${GlobalData.settlementAssets.length} settlement`,
             `${GlobalData.expeditionMapAssets.length} expedition-map`,
+            `${GlobalData.effectAssets.length} effect`,
             `${GlobalData.perkAssets.length} perk`,
             `${GlobalData.itemAssets.length} item`,
             `${GlobalData.enemyAssets.length} enemy`,

@@ -37,9 +37,12 @@ var _ = sql.ErrNoRows
 type Effect struct {
 	ID             int     `json:"id" db:"effect_id"`
 	Name           string  `json:"name" db:"name"`
+	AssetID        *int    `json:"assetID,omitempty" db:"asset_id"`
+	Icon           string  `json:"icon,omitempty"`
 	Slot           *string `json:"slot" db:"slot"`
 	Factor         int     `json:"factor" db:"factor"`
 	Description    string  `json:"description" db:"description"`
+	CoreEffectID   *int    `json:"coreEffectID,omitempty"`
 	CoreEffectCode *string `json:"coreEffectCode,omitempty"`
 	TriggerType    *string `json:"triggerType,omitempty"`
 	FactorType     *string `json:"factorType,omitempty"`
@@ -78,8 +81,8 @@ func getAllEffects() ([]Effect, error) {
 		return nil, fmt.Errorf("database not available")
 	}
 
-	query := `SELECT e.effect_id, e.name, e.slot, e.factor, e.description,
-		ce.code, e.trigger_type, e.factor_type, e.target_self,
+	query := `SELECT e.effect_id, e.name, e.asset_id, e.slot, e.factor, e.description,
+		e.core_effect_id, ce.code, e.trigger_type, e.factor_type, e.target_self,
 		e.condition_type, e.condition_value, e.duration
 		FROM game.effects e
 		LEFT JOIN game.core_effects ce ON e.core_effect_id = ce.core_effect_id
@@ -95,8 +98,8 @@ func getAllEffects() ([]Effect, error) {
 		var effect Effect
 		var slot *string
 
-		err := rows.Scan(&effect.ID, &effect.Name, &slot, &effect.Factor, &effect.Description,
-			&effect.CoreEffectCode, &effect.TriggerType, &effect.FactorType, &effect.TargetSelf,
+		err := rows.Scan(&effect.ID, &effect.Name, &effect.AssetID, &slot, &effect.Factor, &effect.Description,
+			&effect.CoreEffectID, &effect.CoreEffectCode, &effect.TriggerType, &effect.FactorType, &effect.TargetSelf,
 			&effect.ConditionType, &effect.ConditionValue, &effect.Duration)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning effect row: %v", err)
@@ -104,6 +107,9 @@ func getAllEffects() ([]Effect, error) {
 
 		// Handle nullable slot
 		effect.Slot = slot
+		if effect.AssetID != nil && *effect.AssetID > 0 {
+			effect.Icon = GeneratePublicURL("perks", *effect.AssetID)
+		}
 
 		effects = append(effects, effect)
 	}

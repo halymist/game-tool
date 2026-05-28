@@ -181,6 +181,9 @@ func main() {
 
 	// Read-only endpoints (game schema)
 	http.HandleFunc("/api/getEffects", apiHandler(handleGetEffects))
+	http.HandleFunc("/api/saveEffect", apiHandler(handleSaveEffect))
+	http.HandleFunc("/api/getEffectAssets", apiHandler(CreateGetAssetsHandler("perks")))
+	http.HandleFunc("/api/uploadEffectAsset", apiHandler(CreateUploadAssetHandler("perks")))
 	http.HandleFunc("/api/getItems", apiHandler(handleGetItems))
 	http.HandleFunc("/api/getPerks", apiHandler(getPerksHandler))
 	http.HandleFunc("/api/generateQuestAi", apiHandler(handleGenerateQuestAi))
