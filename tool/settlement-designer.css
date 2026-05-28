@@ -335,12 +335,25 @@
 
 /* ── Cards Grid ─────────────────────────────────────── */
 .settlement-cards-grid {
+    position: relative;
     display: grid;
     grid-template-columns: repeat(4, minmax(180px, 1fr));
-    gap: 20px;
+    column-gap: 20px;
+    row-gap: 44px;
     min-height: 0;
     padding: 0 8px;
     align-items: stretch;
+}
+
+.settlement-cards-grid::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    top: 50%;
+    border-top: 1px solid var(--border-default);
+    opacity: 0.8;
+    pointer-events: none;
 }
 
 .settlement-card-wrapper {
@@ -1250,6 +1263,10 @@
     .settlement-cards-grid > .settlement-card-wrapper {
         grid-column: auto;
         grid-row: auto;
+    }
+
+    .settlement-cards-grid::before {
+        display: none;
     }
 }
 

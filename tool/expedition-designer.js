@@ -471,12 +471,14 @@ console.log('📦 expedition-designer.js LOADED');
             empty.style.display = 'block';
             empty.querySelector('p').textContent = 'Select a settlement to start editing its expedition.';
             inner.style.display = 'none';
+            updateNodeSidebar();
             return;
         }
         if (!state.mapImageUrl) {
             empty.style.display = 'block';
             empty.querySelector('p').textContent = 'No map uploaded for this settlement.';
             inner.style.display = 'none';
+            updateNodeSidebar();
             return;
         }
         empty.style.display = 'none';
@@ -486,6 +488,7 @@ console.log('📦 expedition-designer.js LOADED');
         }
         renderNodes();
         renderEdges();
+        updateNodeSidebar();
     }
 
     function renderNodes() {
@@ -547,7 +550,7 @@ console.log('📦 expedition-designer.js LOADED');
         el.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            openNodePopover(node, e.clientX, e.clientY);
+            onNodeRightClick(node);
         });
     }
 
@@ -593,17 +596,26 @@ console.log('📦 expedition-designer.js LOADED');
     function onNodeClick(e, node) {
         e.stopPropagation();
         if (state.dragging && state.dragging.moved) return; // suppress click after drag
-        // Left click is edge workflow by default:
-        // first click picks source, second click toggles edge.
+        state.edgeSourceId = null;
+        state.selectedNodeId = node.client_id;
+        setStatus('');
+        renderNodes();
+        updateNodeSidebar();
+    }
+
+    function onNodeRightClick(node) {
         if (state.edgeSourceId === null) {
             state.edgeSourceId = node.client_id;
             state.selectedNodeId = node.client_id;
             renderNodes();
+            updateNodeSidebar();
+            setStatus('Connection source selected.');
             return;
         }
         if (state.edgeSourceId === node.client_id) {
-            // Clicking the same node again opens editor.
-            openNodePopover(node, e.clientX, e.clientY);
+            state.edgeSourceId = null;
+            renderNodes();
+            setStatus('');
             return;
         }
         const key = pairKey(state.edgeSourceId, node.client_id);
@@ -620,6 +632,8 @@ console.log('📦 expedition-designer.js LOADED');
         markDirty();
         renderNodes();
         renderEdges();
+        updateNodeSidebar();
+        setStatus('');
     }
 
     // ---------- Add node by double-clicking the map ----------
@@ -640,47 +654,47 @@ console.log('📦 expedition-designer.js LOADED');
             pos_y: y,
             label: null,
         });
+        state.selectedNodeId = id;
+        state.edgeSourceId = null;
         markDirty();
         renderMap();
     }
 
-    // ---------- Popover ----------
-    function openNodePopover(node, anchorX, anchorY) {
-        const pop = $('expeditionNodePopover');
+    // ---------- Sidebar ----------
+    function updateNodeSidebar() {
+        const empty = $('expeditionSidebarEmpty');
+        const content = $('expeditionSidebarContent');
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
         const isStartEl = $('expeditionNodeIsStart');
-        if (!pop || !labelEl || !questEl || !isStartEl) return;
+        if (!empty || !content || !labelEl || !questEl || !isStartEl) return;
+        const node = state.nodes.get(state.selectedNodeId);
+        if (!node) {
+            empty.style.display = 'flex';
+            content.style.display = 'none';
+            labelEl.value = '';
+            questEl.innerHTML = '<option value="">-- Unassigned --</option>';
+            isStartEl.checked = false;
+            return;
+        }
+
+        empty.style.display = 'none';
+        content.style.display = 'flex';
         labelEl.value = node.label || '';
-        questEl.innerHTML = '<option value="">— Unassigned —</option>' +
+        questEl.innerHTML = '<option value="">-- Unassigned --</option>' +
             state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
         questEl.value = node.quest_id ? String(node.quest_id) : '';
         isStartEl.checked = !!node.is_start;
-
-        pop.style.display = 'block';
-        pop.dataset.clientId = String(node.client_id);
-        // Position roughly near click, clamp to viewport.
-        const rect = pop.getBoundingClientRect();
-        const px = Math.min(window.innerWidth - rect.width - 12, Math.max(12, anchorX + 12));
-        const py = Math.min(window.innerHeight - rect.height - 12, Math.max(12, anchorY + 12));
-        pop.style.left = px + 'px';
-        pop.style.top = py + 'px';
     }
 
-    function closeNodePopover() {
-        const pop = $('expeditionNodePopover');
-        if (!pop) return;
-        pop.style.display = 'none';
-        pop.dataset.clientId = '';
+    function clearNodeSelection() {
         state.selectedNodeId = null;
         renderNodes();
+        updateNodeSidebar();
     }
 
-    function applyPopoverFieldsLive() {
-        const pop = $('expeditionNodePopover');
-        if (!pop) return;
-        const cid = parseInt(pop.dataset.clientId, 10);
-        const node = state.nodes.get(cid);
+    function applySidebarFieldsLive() {
+        const node = state.nodes.get(state.selectedNodeId);
         if (!node) return;
         const questVal = $('expeditionNodeQuest').value;
         const nextQuestID = questVal ? parseInt(questVal, 10) : null;
@@ -695,15 +709,18 @@ console.log('📦 expedition-designer.js LOADED');
         node.quest_id = nextQuestID;
         node.label = nextLabel;
         node.is_start = nextIsStart;
+        if (nextIsStart) {
+            for (const other of state.nodes.values()) {
+                if (other.client_id !== node.client_id) other.is_start = false;
+            }
+        }
         markDirty();
         renderNodes();
     }
 
-    function deleteNodeFromPopover() {
-        const pop = $('expeditionNodePopover');
-        if (!pop) return;
-        const cid = parseInt(pop.dataset.clientId, 10);
-        if (!state.nodes.has(cid)) return closeNodePopover();
+    function deleteSelectedNode() {
+        const cid = state.selectedNodeId;
+        if (!state.nodes.has(cid)) return clearNodeSelection();
         const removedNode = state.nodes.get(cid);
         state.nodes.delete(cid);
         // Drop edges touching this node.
@@ -718,20 +735,19 @@ console.log('📦 expedition-designer.js LOADED');
             }
         }
 
+        state.selectedNodeId = null;
+        if (state.edgeSourceId === cid) state.edgeSourceId = null;
         markDirty();
-        closeNodePopover();
         renderMap();
     }
 
-    function refreshOpenNodePopoverQuestOptions() {
-        const pop = $('expeditionNodePopover');
+    function refreshNodeSidebarQuestOptions() {
         const questEl = $('expeditionNodeQuest');
-        if (!pop || !questEl || pop.style.display === 'none') return;
-        const cid = parseInt(pop.dataset.clientId, 10);
-        const node = state.nodes.get(cid);
+        if (!questEl) return;
+        const node = state.nodes.get(state.selectedNodeId);
         if (!node) return;
 
-        questEl.innerHTML = '<option value="">— Unassigned —</option>' +
+        questEl.innerHTML = '<option value="">-- Unassigned --</option>' +
             state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
         questEl.value = node.quest_id ? String(node.quest_id) : '';
     }
@@ -747,7 +763,8 @@ console.log('📦 expedition-designer.js LOADED');
             global: buildGlobalSnapshot(sid),
         });
         try {
-            closeNodePopover();
+            state.selectedNodeId = null;
+            updateNodeSidebar();
             state.settlementId = sid;
             syncGlobalCaches(sid, 'loadSettlementIntoEditor');
             await loadExpedition(sid);
@@ -808,6 +825,7 @@ console.log('📦 expedition-designer.js LOADED');
                 state.lastLoadedSettlementId = null;
                 updateSaveButton();
                 renderMap();
+                updateNodeSidebar();
                 return;
             }
             await loadSettlementIntoEditor(id);
@@ -851,30 +869,14 @@ console.log('📦 expedition-designer.js LOADED');
         const img = $('expeditionMapImage');
         if (img) img.addEventListener('load', () => renderEdges());
 
-        const pop = $('expeditionNodePopover');
-        if (pop) {
-            pop.addEventListener('click', (e) => {
-                const action = e.target && e.target.dataset && e.target.dataset.action;
-                if (action === 'close') closeNodePopover();
-                else if (action === 'delete') deleteNodeFromPopover();
-            });
-        }
-
         const labelEl = $('expeditionNodeLabel');
         const questEl = $('expeditionNodeQuest');
         const isStartEl = $('expeditionNodeIsStart');
-        if (labelEl) labelEl.addEventListener('input', applyPopoverFieldsLive);
-        if (questEl) questEl.addEventListener('change', applyPopoverFieldsLive);
-        if (isStartEl) isStartEl.addEventListener('change', applyPopoverFieldsLive);
-
-        // Click outside popover closes it (but keep clicks on nodes/popover alive).
-        document.addEventListener('mousedown', (e) => {
-            const pop = $('expeditionNodePopover');
-            if (!pop || pop.style.display === 'none') return;
-            if (pop.contains(e.target)) return;
-            if (e.target.closest && e.target.closest('.expedition-node')) return;
-            closeNodePopover();
-        });
+        const deleteBtn = $('expeditionDeleteNodeBtn');
+        if (labelEl) labelEl.addEventListener('input', applySidebarFieldsLive);
+        if (questEl) questEl.addEventListener('change', applySidebarFieldsLive);
+        if (isStartEl) isStartEl.addEventListener('change', applySidebarFieldsLive);
+        if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedNode);
     }
 
     // ---------- Init ----------
@@ -940,7 +942,7 @@ console.log('📦 expedition-designer.js LOADED');
             const settlementId = state.settlementId || getSelectedSettlementFromDom();
             syncGlobalCaches(settlementId, 'quests subscription');
             renderNodes();
-            refreshOpenNodePopoverQuestOptions();
+            refreshNodeSidebarQuestOptions();
             log('Quests subscription fired', buildGlobalSnapshot(settlementId));
         });
 

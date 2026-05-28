@@ -1070,36 +1070,44 @@
                     </div>
                 </div>
 
-                <div id="expeditionMapStage" class="expedition-map-stage">
-                    <div id="expeditionMapEmpty" class="expedition-map-empty">
-                        <p>No map uploaded for this settlement.</p>
-                        <p class="expedition-map-empty-hint">Click <strong>Upload Map</strong> to add an exploration map image. Double-click map to place nodes, then click one node and another to connect them.</p>
+                <div class="expedition-main-area">
+                    <div id="expeditionMapStage" class="expedition-map-stage">
+                        <div id="expeditionMapEmpty" class="expedition-map-empty">
+                            <p>No map uploaded for this settlement.</p>
+                            <p class="expedition-map-empty-hint">Click <strong>Upload Map</strong> to add an exploration map image.</p>
+                        </div>
+                        <div id="expeditionMapInner" class="expedition-map-inner" style="display:none;">
+                            <img id="expeditionMapImage" class="expedition-map-image" alt="Expedition map">
+                            <svg id="expeditionEdgeLayer" class="expedition-edge-layer"></svg>
+                            <div id="expeditionNodeLayer" class="expedition-node-layer"></div>
+                        </div>
                     </div>
-                    <div id="expeditionMapInner" class="expedition-map-inner" style="display:none;">
-                        <img id="expeditionMapImage" class="expedition-map-image" alt="Expedition map">
-                        <svg id="expeditionEdgeLayer" class="expedition-edge-layer"></svg>
-                        <div id="expeditionNodeLayer" class="expedition-node-layer"></div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Node popover -->
-            <div id="expeditionNodePopover" class="expedition-node-popover" style="display:none;">
-                <div class="expedition-popover-header">
-                    <select id="expeditionNodeQuest" class="expedition-popover-quest-select">
-                        <option value="">— Unassigned —</option>
-                    </select>
-                    <button class="btn-delete expedition-popover-delete" type="button" data-action="delete">Delete</button>
-                    <button class="expedition-popover-close" type="button" data-action="close">✕</button>
-                </div>
-                <div class="modal-field">
-                    <input type="text" id="expeditionNodeLabel" placeholder="Describe this spot...">
-                </div>
-                <div class="modal-field">
-                    <label>
-                        <input type="checkbox" id="expeditionNodeIsStart">
-                        Start node
-                    </label>
+                    <aside id="expeditionNodeSidebar" class="expedition-node-sidebar">
+                        <div id="expeditionSidebarEmpty" class="expedition-sidebar-empty">
+                            <p>Select a node</p>
+                        </div>
+                        <div id="expeditionSidebarContent" class="expedition-sidebar-content" style="display:none;">
+                            <div class="expedition-sidebar-header">
+                                <h3>Expedition Node</h3>
+                                <button id="expeditionDeleteNodeBtn" class="expedition-sidebar-delete" type="button">Delete</button>
+                            </div>
+                            <div class="expedition-sidebar-field">
+                                <label for="expeditionNodeQuest">Quest</label>
+                                <select id="expeditionNodeQuest" class="expedition-sidebar-select">
+                                    <option value="">-- Unassigned --</option>
+                                </select>
+                            </div>
+                            <div class="expedition-sidebar-field">
+                                <label for="expeditionNodeLabel">Node Text</label>
+                                <textarea id="expeditionNodeLabel" placeholder="Describe this spot..."></textarea>
+                            </div>
+                            <label class="expedition-sidebar-check">
+                                <input type="checkbox" id="expeditionNodeIsStart">
+                                <span>Starting node</span>
+                            </label>
+                        </div>
+                    </aside>
                 </div>
             </div>
         </div>

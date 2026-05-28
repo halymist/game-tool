@@ -51,9 +51,15 @@
     font-style: italic;
 }
 
+.expedition-main-area {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+}
+
 /* Map stage: scrollable, the inner image controls aspect ratio */
 .expedition-map-stage {
-    flex: 1;
     min-height: 0;
     overflow: auto;
     background: #0a0f18;
@@ -122,11 +128,11 @@
 .expedition-node {
     position: absolute;
     transform: translate(-50%, -50%);
-    width: 36px;
-    height: 36px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: #1f2937;
-    border: 3px solid #6366f1;
+    background: #6366f1;
+    border: 0;
     cursor: grab;
     display: flex;
     align-items: center;
@@ -136,6 +142,7 @@
     font-weight: 700;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     user-select: none;
+    box-sizing: border-box;
     transition: transform 0.05s ease, box-shadow 0.15s ease;
 }
 
@@ -149,19 +156,18 @@
 }
 
 .expedition-node.is-start {
-    background: #14532d;
-    border-color: #22c55e;
+    background: #22c55e;
     box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .expedition-node.selected {
-    outline: 3px solid #f59e0b;
-    outline-offset: 2px;
+    border: 2px solid #f59e0b;
+    outline: none;
 }
 
 .expedition-node.edge-source {
-    outline: 3px dashed #f59e0b;
-    outline-offset: 3px;
+    border: 2px dashed #f59e0b;
+    outline: none;
 }
 
 .expedition-node-label {
@@ -178,91 +184,113 @@
     pointer-events: none;
 }
 
-/* Node popover */
-.expedition-node-popover {
-    position: fixed;
-    z-index: 1000;
+.expedition-node-sidebar {
+    min-height: 0;
     background: #111827;
-    border: 1px solid #374151;
-    border-radius: 8px;
+    border-left: 1px solid #2a3142;
+    color: #e2e8f0;
     padding: 14px;
-    width: 320px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
-    color: #e2e8f0;
+    overflow-y: auto;
 }
 
-.expedition-popover-header {
+.expedition-sidebar-empty {
+    height: 100%;
     display: flex;
-    justify-content: flex-start;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    text-align: center;
 }
 
-.expedition-popover-quest-select {
-    flex: 1;
-    min-width: 0;
-    background: #0f1623;
-    color: #e2e8f0;
-    border: 1px solid #2a3142;
-    border-radius: 6px;
-    padding: 6px 8px;
+.expedition-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
-.expedition-popover-delete {
+.expedition-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #2a3142;
+}
+
+.expedition-sidebar-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.expedition-sidebar-delete {
     border: 1px solid #ef4444;
-    background: #7f1d1d;
+    background: rgba(127, 29, 29, 0.85);
     color: #fff;
     border-radius: 6px;
     padding: 6px 10px;
     cursor: pointer;
+    font-size: 0.75rem;
 }
 
-.expedition-popover-delete:hover {
+.expedition-sidebar-delete:hover {
     background: #991b1b;
 }
 
-.expedition-popover-close {
-    background: #1f2937;
-    border: 1px solid #374151;
-    color: #cbd5e1;
-    font-size: 0.95rem;
-    line-height: 1;
-    cursor: pointer;
-    padding: 6px 9px;
-    border-radius: 6px;
+.expedition-sidebar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
-.expedition-popover-close:hover {
-    background: #2b364a;
-    color: #fff;
-}
-
-.expedition-node-popover .modal-field {
-    margin-bottom: 10px;
-}
-
-.expedition-node-popover .modal-field label {
-    display: block;
+.expedition-sidebar-field label,
+.expedition-sidebar-check {
     font-size: 0.8rem;
-    color: #889;
-    margin-bottom: 4px;
+    color: #94a3b8;
 }
 
-.expedition-node-popover .modal-field input[type="text"],
-.expedition-node-popover .modal-field select {
+.expedition-sidebar-field textarea,
+.expedition-sidebar-field select {
     width: 100%;
     background: #0f1623;
     color: #e2e8f0;
     border: 1px solid #2a3142;
     border-radius: 6px;
-    padding: 6px 8px;
+    padding: 8px 10px;
     box-sizing: border-box;
+    font-family: inherit;
+    font-size: 0.85rem;
 }
 
-.expedition-node-popover .modal-buttons {
+.expedition-sidebar-field textarea {
+    min-height: 130px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.expedition-sidebar-field textarea:focus,
+.expedition-sidebar-field select:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.expedition-sidebar-check {
     display: flex;
-    justify-content: space-between;
     gap: 8px;
-    margin-top: 14px;
+    align-items: center;
+    color: #cbd5e1;
+}
+
+@media (max-width: 1100px) {
+    .expedition-main-area {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(420px, 1fr) auto;
+    }
+
+    .expedition-node-sidebar {
+        border-left: none;
+        border-top: 1px solid #2a3142;
+        max-height: 320px;
+    }
 }
