@@ -336,43 +336,27 @@
 /* ── Cards Grid ─────────────────────────────────────── */
 .settlement-cards-grid {
     position: relative;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(180px, 1fr));
-    column-gap: 20px;
-    row-gap: 44px;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 20px;
     min-height: 0;
-    padding: 0 8px;
-    align-items: stretch;
-}
-
-.settlement-cards-grid::before {
-    content: "";
-    position: absolute;
-    left: 8px;
-    right: 8px;
-    top: 50%;
-    border-top: 1px solid var(--border-default);
-    opacity: 0.8;
-    pointer-events: none;
+    padding: 0 8px 14px;
+    align-items: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
 }
 
 .settlement-card-wrapper {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
     align-items: center;
-    flex: 1;
-    min-width: 280px;
-    max-width: 380px;
+    flex: 0 0 340px;
+    min-width: 340px;
+    max-width: 420px;
 }
-
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(1) { grid-column: 1; grid-row: 1; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(2) { grid-column: 2; grid-row: 1; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(3) { grid-column: 1; grid-row: 2; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(4) { grid-column: 3; grid-row: 1; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(5) { grid-column: 2; grid-row: 2; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(6) { grid-column: 4; grid-row: 1; }
-.settlement-cards-grid > .settlement-card-wrapper:nth-child(7) { grid-column: 3; grid-row: 2; }
 
 .settlement-card-wrapper .settlement-card {
     margin-top: auto;
@@ -384,6 +368,10 @@
     font-weight: 600;
     text-align: center;
     margin: 0;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ── Settlement Card (9:16 portrait) ────────────────── */
@@ -542,13 +530,19 @@
 
 /* ── Utility Type Selector ──────────────────────────── */
 .utility-type-selector {
-    margin-bottom: 8px;
+    width: 100%;
+    min-height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .utility-type-row {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    max-width: 260px;
 }
 
 .utility-type-row select {
@@ -1245,28 +1239,20 @@
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 1600px) {
     .settlement-cards-grid {
-        grid-template-columns: repeat(4, minmax(160px, 1fr));
+        gap: 18px;
     }
 }
 
 @media (max-width: 1400px) {
     .settlement-card-wrapper {
-        min-width: 0;
+        flex-basis: 320px;
+        min-width: 320px;
     }
 }
 
 @media (max-width: 1200px) {
     .settlement-cards-grid {
-        grid-template-columns: repeat(2, minmax(180px, 1fr));
-    }
-
-    .settlement-cards-grid > .settlement-card-wrapper {
-        grid-column: auto;
-        grid-row: auto;
-    }
-
-    .settlement-cards-grid::before {
-        display: none;
+        gap: 16px;
     }
 }
 

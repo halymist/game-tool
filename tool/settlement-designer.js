@@ -216,6 +216,16 @@ function setupSettlementEventListeners() {
         });
     }
 
+    bindMirroredBlessingSelect('utility2Blessing1Select', 'blessing1Select');
+    bindMirroredBlessingSelect('utility2Blessing2Select', 'blessing2Select');
+    bindMirroredBlessingSelect('utility2Blessing3Select', 'blessing3Select');
+    ['blessing1Select', 'blessing2Select', 'blessing3Select'].forEach((id) => {
+        const select = document.getElementById(id);
+        if (!select || select.dataset.mirrorSourceBound === 'true') return;
+        select.dataset.mirrorSourceBound = 'true';
+        select.addEventListener('change', () => syncMirroredBlessingSelects());
+    });
+
     // Add vendor item button
     const addVendorItemBtn = document.getElementById('addVendorItemBtn');
     if (addVendorItemBtn) {
@@ -437,14 +447,33 @@ function populateSettlementEditorSelect() {
     if (!select) return;
 
     const prevId = settlementState.selectedSettlementId;
+    const factionGroups = [
+        { key: '1', label: 'Order', match: settlement => String(settlement.faction || '') === '1' },
+        { key: '2', label: 'Guild', match: settlement => String(settlement.faction || '') === '2' },
+        { key: '3', label: 'Companions', match: settlement => String(settlement.faction || '') === '3' },
+        { key: 'neutral', label: 'Neutral', match: settlement => !settlement.faction }
+    ];
 
     select.innerHTML = '<option value="">-- New Settlement --</option>';
-    
-    settlementState.settlements.forEach(settlement => {
-        const option = document.createElement('option');
-        option.value = settlement.settlement_id;
-        option.textContent = settlement.settlement_name || `Settlement ${settlement.settlement_id}`;
-        select.appendChild(option);
+
+    factionGroups.forEach(group => {
+        const settlements = settlementState.settlements
+            .filter(group.match)
+            .sort((a, b) => String(a.settlement_name || '').localeCompare(String(b.settlement_name || '')));
+
+        if (!settlements.length) return;
+
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group.label;
+
+        settlements.forEach(settlement => {
+            const option = document.createElement('option');
+            option.value = settlement.settlement_id;
+            option.textContent = settlement.settlement_name || `Settlement ${settlement.settlement_id}`;
+            optgroup.appendChild(option);
+        });
+
+        select.appendChild(optgroup);
     });
 
     // Restore previous selection if it still exists
@@ -454,7 +483,10 @@ function populateSettlementEditorSelect() {
 }
 
 function populateBlessingDropdowns() {
-    const blessingSelects = ['blessing1Select', 'blessing2Select', 'blessing3Select'];
+    const blessingSelects = [
+        'blessing1Select', 'blessing2Select', 'blessing3Select',
+        'utility2Blessing1Select', 'utility2Blessing2Select', 'utility2Blessing3Select'
+    ];
     
     blessingSelects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -468,6 +500,34 @@ function populateBlessingDropdowns() {
             option.textContent = perk.perk_name || perk.name || `Perk ${perk.perk_id || perk.id}`;
             select.appendChild(option);
         });
+    });
+}
+
+function bindMirroredBlessingSelect(mirrorId, sourceId) {
+    const mirror = document.getElementById(mirrorId);
+    if (!mirror || mirror.dataset.mirrorBound === 'true') return;
+    mirror.dataset.mirrorBound = 'true';
+    mirror.addEventListener('change', () => {
+        const source = document.getElementById(sourceId);
+        if (!source) return;
+        source.value = mirror.value;
+        syncMirroredBlessingSelects();
+        checkSettlementSaveConditions();
+    });
+}
+
+function syncMirroredBlessingSelects() {
+    const pairs = [
+        ['blessing1Select', 'utility2Blessing1Select'],
+        ['blessing2Select', 'utility2Blessing2Select'],
+        ['blessing3Select', 'utility2Blessing3Select']
+    ];
+    pairs.forEach(([sourceId, mirrorId]) => {
+        const source = document.getElementById(sourceId);
+        const mirror = document.getElementById(mirrorId);
+        if (source && mirror) {
+            mirror.value = source.value || '';
+        }
     });
 }
 
@@ -585,10 +645,8 @@ function populateSettlementForm(settlement) {
     }
     updateAssetPreview('utility2', settlement.utility2_asset_id);
 
-    // Update utility content visibility was already called by selectUtilityType
-    if (!utilityType) {
-        updateUtilityContent();
-    }
+    syncMirroredBlessingSelects();
+    updateUtilityContent();
 
     // Blessings (for church)
     const blessing1 = document.getElementById('blessing1Select');
@@ -597,6 +655,7 @@ function populateSettlementForm(settlement) {
     if (blessing1) blessing1.value = settlement.blessing1 || '';
     if (blessing2) blessing2.value = settlement.blessing2 || '';
     if (blessing3) blessing3.value = settlement.blessing3 || '';
+    syncMirroredBlessingSelects();
 
     // Expedition and Arena
     updateAssetPreview('expedition', settlement.expedition_asset_id);
@@ -664,28 +723,31 @@ function flattenSettlementResponses(settlement, fieldByType) {
 }
 
 function updateUtilityContent() {
-    const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
-    
-    // Hide all content sections
-    document.getElementById('utilityChurchContent')?.classList.remove('active');
-    document.getElementById('utilityEnchanterContent')?.classList.remove('active');
-    document.getElementById('utilityEmptyContent')?.classList.remove('active');
+    updateUtilityContentForSlot(1);
+    updateUtilityContentForSlot(2);
+}
 
-    // Show relevant content
+function updateUtilityContentForSlot(slot) {
+    const utilityType = document.getElementById(slot === 2 ? 'utility2TypeSelect' : 'utilityTypeSelect')?.value || '';
+    const prefix = slot === 2 ? 'utility2' : 'utility';
+
+    document.getElementById(`${prefix}ChurchContent`)?.classList.remove('active');
+    document.getElementById(`${prefix}EnchanterContent`)?.classList.remove('active');
+    document.getElementById(`${prefix}EmptyContent`)?.classList.remove('active');
+
     switch (utilityType) {
         case 'church':
-            document.getElementById('utilityChurchContent')?.classList.add('active');
+            document.getElementById(`${prefix}ChurchContent`)?.classList.add('active');
             break;
         case 'enchanter':
-            document.getElementById('utilityEnchanterContent')?.classList.add('active');
+            document.getElementById(`${prefix}EnchanterContent`)?.classList.add('active');
             break;
         case 'blacksmith':
         case 'alchemist':
         case 'trainer':
-            document.getElementById('utilityEmptyContent')?.classList.add('active');
+            document.getElementById(`${prefix}EmptyContent`)?.classList.add('active');
             break;
         default:
-            // No utility selected - show nothing
             break;
     }
 }
@@ -696,9 +758,7 @@ function selectUtilityType(type, slot = 1) {
         utilityTypeSelect.value = type;
     }
 
-    if (slot === 1) {
-        updateUtilityContent();
-    }
+    updateUtilityContent();
 }
 
 function updateAssetPreview(target, assetId) {
@@ -791,9 +851,6 @@ function renderVendorItems() {
 }
 
 function renderEnchanterEffects() {
-    const list = document.getElementById('enchanterEffectsList');
-    if (!list) return;
-
     const addBtn = `<div class="effect-row add-cell" onclick="showAddEffectDialog()" style="cursor:pointer; justify-content:center;">
         <span class="add-cell-icon">+</span>
     </div>`;
@@ -809,7 +866,12 @@ function renderEnchanterEffects() {
         `;
     }).join('');
 
-    list.innerHTML = addBtn + effectsHtml;
+    ['enchanterEffectsList', 'utility2EnchanterEffectsList'].forEach((id) => {
+        const list = document.getElementById(id);
+        if (list) {
+            list.innerHTML = addBtn + effectsHtml;
+        }
+    });
 }
 
 function showAddItemDialog() {
@@ -1187,6 +1249,7 @@ function createNewSettlement() {
     document.getElementById('blessing1Select').value = '';
     document.getElementById('blessing2Select').value = '';
     document.getElementById('blessing3Select').value = '';
+    syncMirroredBlessingSelects();
     document.getElementById('expeditionDescription').value = '';
     document.getElementById('expeditionContext').value = '';
 

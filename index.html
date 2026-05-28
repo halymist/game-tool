@@ -1455,6 +1455,24 @@
                         </div>
                     </div>
 
+                    <!-- Healer Card -->
+                    <div class="settlement-card-wrapper secondary-vendor-slot">
+                        <h3 class="settlement-card-title">Healer <button class="responses-btn" onclick="openResponsesModal('healer')">💬</button><button class="responses-btn" onclick="toggleMsgRect('healer')" title="Toggle message rectangle">📐</button></h3>
+                        <div class="settlement-card">
+                            <div id="healerAssetArea" class="settlement-card-asset" data-asset-id="">
+                                <div class="no-asset">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                                        <polyline points="21 15 16 10 5 21"/>
+                                    </svg>
+                                    <span>Click to select asset</span>
+                                </div>
+                                <div id="healerMsgRect" class="msg-rect-overlay" style="display:none"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Utility Card -->
                     <div class="settlement-card-wrapper">
                         <div class="utility-type-selector">
@@ -1515,24 +1533,6 @@
                         </div>
                     </div>
 
-                    <!-- Healer Card -->
-                    <div class="settlement-card-wrapper secondary-vendor-slot">
-                        <h3 class="settlement-card-title">Healer <button class="responses-btn" onclick="openResponsesModal('healer')">💬</button><button class="responses-btn" onclick="toggleMsgRect('healer')" title="Toggle message rectangle">📐</button></h3>
-                        <div class="settlement-card">
-                            <div id="healerAssetArea" class="settlement-card-asset" data-asset-id="">
-                                <div class="no-asset">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                        <circle cx="8.5" cy="8.5" r="1.5"/>
-                                        <polyline points="21 15 16 10 5 21"/>
-                                    </svg>
-                                    <span>Click to select asset</span>
-                                </div>
-                                <div id="healerMsgRect" class="msg-rect-overlay" style="display:none"></div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Utility Slot 2 Card -->
                     <div class="settlement-card-wrapper secondary-utility-slot">
                         <div class="utility-type-selector">
@@ -1562,8 +1562,29 @@
                                 <div id="utility2MsgRect" class="msg-rect-overlay" style="display:none"></div>
                             </div>
                             <div class="settlement-card-info">
-                                <div class="utility-content active">
-                                    <p class="utility-empty-msg">Slot 2 uses shared utility configuration</p>
+                                <div id="utility2ChurchContent" class="utility-content">
+                                    <label>Blessings (Perks)</label>
+                                    <div class="blessing-selects">
+                                        <select id="utility2Blessing1Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                        <select id="utility2Blessing2Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                        <select id="utility2Blessing3Select">
+                                            <option value="">-- None --</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div id="utility2EnchanterContent" class="utility-content">
+                                    <div id="utility2EnchanterEffectsList" class="effects-list">
+                                        <!-- Effects will be populated here -->
+                                    </div>
+                                </div>
+
+                                <div id="utility2EmptyContent" class="utility-content">
+                                    <p class="utility-empty-msg">No additional configuration needed</p>
                                 </div>
                             </div>
                         </div>

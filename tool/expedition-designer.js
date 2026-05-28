@@ -12,6 +12,7 @@ console.log('📦 expedition-designer.js LOADED');
 
     const MAP_FOLDER = 'expedition-maps';
     const LOG_PREFIX = '[expedition-designer]';
+    const NODE_DRAG_HOLD_MS = 360;
 
     const state = {
         settlementId: null,
@@ -26,6 +27,7 @@ console.log('📦 expedition-designer.js LOADED');
         selectedNodeId: null,
         edgeSourceId: null,
         dragging: null,      // {clientId, offsetXPct, offsetYPct}
+        suppressClickUntil: 0,
         dirty: false,
         isSaving: false,
         baselineSignature: null,
@@ -567,13 +569,18 @@ console.log('📦 expedition-designer.js LOADED');
             offsetXPct: node.pos_x - startX,
             offsetYPct: node.pos_y - startY,
             moved: false,
+            armed: false,
+            holdTimer: window.setTimeout(() => {
+                if (!state.dragging || state.dragging.clientId !== node.client_id) return;
+                state.dragging.armed = true;
+                document.addEventListener('mousemove', onDragMove);
+            }, NODE_DRAG_HOLD_MS),
         };
-        document.addEventListener('mousemove', onDragMove);
         document.addEventListener('mouseup', onDragEnd, { once: true });
     }
 
     function onDragMove(e) {
-        if (!state.dragging) return;
+        if (!state.dragging || !state.dragging.armed) return;
         const inner = $('expeditionMapInner');
         const rect = inner.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width + state.dragging.offsetXPct;
@@ -589,13 +596,19 @@ console.log('📦 expedition-designer.js LOADED');
 
     function onDragEnd() {
         document.removeEventListener('mousemove', onDragMove);
-        if (state.dragging && state.dragging.moved) markDirty();
+        if (state.dragging?.holdTimer) {
+            window.clearTimeout(state.dragging.holdTimer);
+        }
+        if (state.dragging && state.dragging.moved) {
+            state.suppressClickUntil = Date.now() + 100;
+            markDirty();
+        }
         state.dragging = null;
     }
 
     function onNodeClick(e, node) {
         e.stopPropagation();
-        if (state.dragging && state.dragging.moved) return; // suppress click after drag
+        if (Date.now() < state.suppressClickUntil) return;
         state.edgeSourceId = null;
         state.selectedNodeId = node.client_id;
         setStatus('');
