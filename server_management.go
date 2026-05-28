@@ -573,12 +573,20 @@ func loadQuestBanksForGeneration() (map[int][]int, error) {
 	defer rows.Close()
 
 	questBanks := make(map[int][]int)
+	seenBySettlement := make(map[int]map[int]struct{})
 	for rows.Next() {
 		var settlementID int
 		var questID int
 		if err := rows.Scan(&settlementID, &questID); err != nil {
 			return nil, err
 		}
+		if seenBySettlement[settlementID] == nil {
+			seenBySettlement[settlementID] = make(map[int]struct{})
+		}
+		if _, exists := seenBySettlement[settlementID][questID]; exists {
+			continue
+		}
+		seenBySettlement[settlementID][questID] = struct{}{}
 		questBanks[settlementID] = append(questBanks[settlementID], questID)
 	}
 	if err := rows.Err(); err != nil {
