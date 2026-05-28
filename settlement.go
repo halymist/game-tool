@@ -30,11 +30,14 @@ type Settlement struct {
 	Blessing3             *int             `json:"blessing3"`
 	SettlementAssetID     *int             `json:"settlement_asset_id"`
 	VendorAssetID         *int             `json:"vendor_asset_id"`
+	HealerAssetID         *int             `json:"healer_asset_id"`
 	BlacksmithAssetID     *int             `json:"blacksmith_asset_id"`
 	AlchemistAssetID      *int             `json:"alchemist_asset_id"`
 	EnchanterAssetID      *int             `json:"enchanter_asset_id"`
 	TrainerAssetID        *int             `json:"trainer_asset_id"`
 	ChurchAssetID         *int             `json:"church_asset_id"`
+	Utility2Type          *string          `json:"utility2_type"`
+	Utility2AssetID       *int             `json:"utility2_asset_id"`
 	Description           *string          `json:"description"`
 	KeyIssues             []string         `json:"key_issues"`
 	Context               *string          `json:"context"`
@@ -46,11 +49,19 @@ type Settlement struct {
 	VendorOnEntered       *json.RawMessage `json:"vendor_on_entered"`
 	VendorOnSold          *json.RawMessage `json:"vendor_on_sold"`
 	VendorOnBought        *json.RawMessage `json:"vendor_on_bought"`
+	HealerOnEntered       *json.RawMessage `json:"healer_on_entered"`
+	HealerOnHealed        *json.RawMessage `json:"healer_on_healed"`
+	HealerOnCured         *json.RawMessage `json:"healer_on_cured"`
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
+	Utility2OnEntered     *json.RawMessage `json:"utility2_on_entered"`
+	Utility2OnPlaced      *json.RawMessage `json:"utility2_on_placed"`
+	Utility2OnAction      *json.RawMessage `json:"utility2_on_action"`
 	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
+	HealerMsgRect         *json.RawMessage `json:"healer_msg_rect"`
 	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
+	Utility2MsgRect       *json.RawMessage `json:"utility2_msg_rect"`
 	VendorItems           []int            `json:"vendor_items"`
 	EnchanterEffects      []int            `json:"enchanter_effects"`
 	Locations             []Location       `json:"locations"`
@@ -97,11 +108,14 @@ type SaveSettlementRequest struct {
 	Blessing3             *int             `json:"blessing3"`
 	SettlementAssetID     *int             `json:"settlement_asset_id"`
 	VendorAssetID         *int             `json:"vendor_asset_id"`
+	HealerAssetID         *int             `json:"healer_asset_id"`
 	BlacksmithAssetID     *int             `json:"blacksmith_asset_id"`
 	AlchemistAssetID      *int             `json:"alchemist_asset_id"`
 	EnchanterAssetID      *int             `json:"enchanter_asset_id"`
 	TrainerAssetID        *int             `json:"trainer_asset_id"`
 	ChurchAssetID         *int             `json:"church_asset_id"`
+	Utility2Type          *string          `json:"utility2_type"`
+	Utility2AssetID       *int             `json:"utility2_asset_id"`
 	Description           *string          `json:"description"`
 	KeyIssues             []string         `json:"key_issues"`
 	Context               *string          `json:"context"`
@@ -112,11 +126,19 @@ type SaveSettlementRequest struct {
 	VendorOnEntered       *json.RawMessage `json:"vendor_on_entered"`
 	VendorOnSold          *json.RawMessage `json:"vendor_on_sold"`
 	VendorOnBought        *json.RawMessage `json:"vendor_on_bought"`
+	HealerOnEntered       *json.RawMessage `json:"healer_on_entered"`
+	HealerOnHealed        *json.RawMessage `json:"healer_on_healed"`
+	HealerOnCured         *json.RawMessage `json:"healer_on_cured"`
 	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
 	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
 	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
+	Utility2OnEntered     *json.RawMessage `json:"utility2_on_entered"`
+	Utility2OnPlaced      *json.RawMessage `json:"utility2_on_placed"`
+	Utility2OnAction      *json.RawMessage `json:"utility2_on_action"`
 	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
+	HealerMsgRect         *json.RawMessage `json:"healer_msg_rect"`
 	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
+	Utility2MsgRect       *json.RawMessage `json:"utility2_msg_rect"`
 	VendorItems           []int            `json:"vendor_items"`
 	EnchanterEffects      []int            `json:"enchanter_effects"`
 	Locations             []Location       `json:"locations"`
@@ -162,13 +184,15 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		       COALESCE(blacksmith, false), COALESCE(alchemist, false), 
 		       COALESCE(enchanter, false), COALESCE(trainer, false), COALESCE(church, false),
 		       blessing1, blessing2, blessing3,
-		       settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
-		       enchanter_asset_id, trainer_asset_id, church_asset_id,
+		       settlement_asset_id, vendor_asset_id, healer_asset_id, blacksmith_asset_id, alchemist_asset_id,
+		       enchanter_asset_id, trainer_asset_id, church_asset_id, utility2_type, utility2_asset_id,
 		       description, key_issues, context, COALESCE(version, 1),
 		       expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 		       vendor_on_entered, vendor_on_sold, vendor_on_bought,
+		       healer_on_entered, healer_on_healed, healer_on_cured,
 		       utility_on_entered, utility_on_placed, utility_on_action,
-		       vendor_msg_rect, utility_msg_rect
+		       utility2_on_entered, utility2_on_placed, utility2_on_action,
+		       vendor_msg_rect, healer_msg_rect, utility_msg_rect, utility2_msg_rect
 		FROM game.world_info
 		ORDER BY settlement_id
 	`)
@@ -186,13 +210,15 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.SettlementID, &s.SettlementName, &s.Faction,
 			&s.Blacksmith, &s.Alchemist, &s.Enchanter, &s.Trainer, &s.Church,
 			&s.Blessing1, &s.Blessing2, &s.Blessing3,
-			&s.SettlementAssetID, &s.VendorAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
-			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID,
+			&s.SettlementAssetID, &s.VendorAssetID, &s.HealerAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
+			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID, &s.Utility2Type, &s.Utility2AssetID,
 			&s.Description, pq.Array(&s.KeyIssues), &s.Context, &s.Version,
 			&s.ExpeditionAssetID, &s.ExpeditionDescription, &s.ExpeditionContext, &s.ArenaAssetID,
 			&s.VendorOnEntered, &s.VendorOnSold, &s.VendorOnBought,
+			&s.HealerOnEntered, &s.HealerOnHealed, &s.HealerOnCured,
 			&s.UtilityOnEntered, &s.UtilityOnPlaced, &s.UtilityOnAction,
-			&s.VendorMsgRect, &s.UtilityMsgRect,
+			&s.Utility2OnEntered, &s.Utility2OnPlaced, &s.Utility2OnAction,
+			&s.VendorMsgRect, &s.HealerMsgRect, &s.UtilityMsgRect, &s.Utility2MsgRect,
 		)
 		if err != nil {
 			log.Printf("Failed to scan settlement: %v", err)
@@ -468,25 +494,31 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				settlement_name = $1, faction = $2,
 				blacksmith = $3, alchemist = $4, enchanter = $5, trainer = $6, church = $7,
 				blessing1 = $8, blessing2 = $9, blessing3 = $10,
-				settlement_asset_id = $11, vendor_asset_id = $12, blacksmith_asset_id = $13, alchemist_asset_id = $14,
-				enchanter_asset_id = $15, trainer_asset_id = $16, church_asset_id = $17,
-				description = $18, key_issues = $19, context = $20,
-				expedition_asset_id = $21, expedition_description = $22, expedition_context = $23, arena_asset_id = $24,
-				vendor_on_entered = $25, vendor_on_sold = $26, vendor_on_bought = $27,
-				utility_on_entered = $28, utility_on_placed = $29, utility_on_action = $30,
-				vendor_msg_rect = $31, utility_msg_rect = $32,
+				settlement_asset_id = $11, vendor_asset_id = $12, healer_asset_id = $13,
+				blacksmith_asset_id = $14, alchemist_asset_id = $15,
+				enchanter_asset_id = $16, trainer_asset_id = $17, church_asset_id = $18,
+				utility2_type = $19, utility2_asset_id = $20,
+				description = $21, key_issues = $22, context = $23,
+				expedition_asset_id = $24, expedition_description = $25, expedition_context = $26, arena_asset_id = $27,
+				vendor_on_entered = $28, vendor_on_sold = $29, vendor_on_bought = $30,
+				healer_on_entered = $31, healer_on_healed = $32, healer_on_cured = $33,
+				utility_on_entered = $34, utility_on_placed = $35, utility_on_action = $36,
+				utility2_on_entered = $37, utility2_on_placed = $38, utility2_on_action = $39,
+				vendor_msg_rect = $40, healer_msg_rect = $41, utility_msg_rect = $42, utility2_msg_rect = $43,
 				version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
-			WHERE settlement_id = $33
+			WHERE settlement_id = $44
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
-			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
-			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
+			req.SettlementAssetID, req.VendorAssetID, req.HealerAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
+			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID, req.Utility2Type, req.Utility2AssetID,
 			req.Description, pq.Array(req.KeyIssues), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
+			req.HealerOnEntered, req.HealerOnHealed, req.HealerOnCured,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
-			req.VendorMsgRect, req.UtilityMsgRect,
+			req.Utility2OnEntered, req.Utility2OnPlaced, req.Utility2OnAction,
+			req.VendorMsgRect, req.HealerMsgRect, req.UtilityMsgRect, req.Utility2MsgRect,
 			*req.SettlementID)
 
 		if err != nil {
@@ -503,29 +535,34 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				settlement_name, faction,
 				blacksmith, alchemist, enchanter, trainer, church,
 				blessing1, blessing2, blessing3,
-				settlement_asset_id, vendor_asset_id, blacksmith_asset_id, alchemist_asset_id,
-				enchanter_asset_id, trainer_asset_id, church_asset_id,
+				settlement_asset_id, vendor_asset_id, healer_asset_id, blacksmith_asset_id, alchemist_asset_id,
+				enchanter_asset_id, trainer_asset_id, church_asset_id, utility2_type, utility2_asset_id,
 				description, key_issues, context,
 				expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
 				vendor_on_entered, vendor_on_sold, vendor_on_bought,
+				healer_on_entered, healer_on_healed, healer_on_cured,
 				utility_on_entered, utility_on_placed, utility_on_action,
-				vendor_msg_rect, utility_msg_rect,
+				utility2_on_entered, utility2_on_placed, utility2_on_action,
+				vendor_msg_rect, healer_msg_rect, utility_msg_rect, utility2_msg_rect,
 				version
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32,
+				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
+				$35, $36, $37, $38, $39, $40, $41, $42, $43,
 				(SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
-			req.SettlementAssetID, req.VendorAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
-			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID,
+			req.SettlementAssetID, req.VendorAssetID, req.HealerAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
+			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID, req.Utility2Type, req.Utility2AssetID,
 			req.Description, pq.Array(req.KeyIssues), req.Context,
 			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
+			req.HealerOnEntered, req.HealerOnHealed, req.HealerOnCured,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
-			req.VendorMsgRect, req.UtilityMsgRect).Scan(&settlementID)
+			req.Utility2OnEntered, req.Utility2OnPlaced, req.Utility2OnAction,
+			req.VendorMsgRect, req.HealerMsgRect, req.UtilityMsgRect, req.Utility2MsgRect).Scan(&settlementID)
 
 		if err != nil {
 			log.Printf("Failed to insert settlement: %v", err)

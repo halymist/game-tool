@@ -7,18 +7,22 @@ let settlementState = {
     isNewSettlement: false,
     settlementAssets: [],
     questAssets: [], // Quest assets from images/quests - used for location textures
-    currentAssetTarget: null, // 'settlement', 'vendor', 'utility', 'expedition', 'arena', 'location'
+    currentAssetTarget: null, // 'settlement', 'vendor', 'healer', 'utility', 'utility2', 'expedition', 'arena', 'location'
     blessings: [], // perks for church blessings
     items: [], // items for vendor
     effects: [], // effects for enchanter
     vendorItems: [], // current vendor's items
     enchanterEffects: [], // current enchanter's effects
     vendorResponses: [], // [{type: 'on_entered', text: '...'}, ...]
+    healerResponses: [], // [{type: 'on_entered', text: '...'}, ...]
     utilityResponses: [], // [{type: 'on_entered', text: '...'}, ...]
+    utility2Responses: [], // [{type: 'on_entered', text: '...'}, ...]
     locations: [], // [{id: 1, name: '...', description: '...', texture_id: ...}, ...]
     editingLocationIndex: null, // index of location being edited, null for new
     vendorMsgRect: null, // {x1, y1, x2, y2} percentages
-    utilityMsgRect: null
+    healerMsgRect: null,
+    utilityMsgRect: null,
+    utility2MsgRect: null
 };
 let settlementAssetUploader = null;
 let locationTextureUploader = null;
@@ -121,9 +125,19 @@ function setupSettlementEventListeners() {
         vendorAssetArea.addEventListener('click', () => openAssetGallery('vendor'));
     }
 
+    const healerAssetArea = document.getElementById('healerAssetArea');
+    if (healerAssetArea) {
+        healerAssetArea.addEventListener('click', () => openAssetGallery('healer'));
+    }
+
     const utilityAssetArea = document.getElementById('utilityAssetArea');
     if (utilityAssetArea) {
         utilityAssetArea.addEventListener('click', () => openAssetGallery('utility'));
+    }
+
+    const utility2AssetArea = document.getElementById('utility2AssetArea');
+    if (utility2AssetArea) {
+        utility2AssetArea.addEventListener('click', () => openAssetGallery('utility2'));
     }
 
     const expeditionAssetArea = document.getElementById('expeditionAssetArea');
@@ -195,6 +209,13 @@ function setupSettlementEventListeners() {
         });
     }
 
+    const utility2TypeSelect = document.getElementById('utility2TypeSelect');
+    if (utility2TypeSelect) {
+        utility2TypeSelect.addEventListener('change', (e) => {
+            selectUtilityType(e.target.value, 2);
+        });
+    }
+
     // Add vendor item button
     const addVendorItemBtn = document.getElementById('addVendorItemBtn');
     if (addVendorItemBtn) {
@@ -233,7 +254,7 @@ function setupSettlementEventListeners() {
     const formInputIds = [
         'settlementName', 'settlementDescription',
         'settlementContext', 'expeditionContext',
-        'factionSelect', 'utilityTypeSelect', 'expeditionDescription',
+        'factionSelect', 'utilityTypeSelect', 'utility2TypeSelect', 'expeditionDescription',
         'blessing1Select', 'blessing2Select', 'blessing3Select'
     ];
     formInputIds.forEach(id => {
@@ -524,26 +545,26 @@ function populateSettlementForm(settlement) {
     // Vendor asset
     updateAssetPreview('vendor', settlement.vendor_asset_id);
 
-    // Determine which utility is active based on the boolean flags
+    // Healer asset
+    updateAssetPreview('healer', settlement.healer_asset_id);
+
+    // Determine slot 1 from legacy utility flags, excluding slot 2 when possible.
     const utilityTypeSelect = document.getElementById('utilityTypeSelect');
     let utilityType = '';
     let utilityAssetId = null;
-
-    if (settlement.church) {
-        utilityType = 'church';
-        utilityAssetId = settlement.church_asset_id;
-    } else if (settlement.enchanter) {
-        utilityType = 'enchanter';
-        utilityAssetId = settlement.enchanter_asset_id;
-    } else if (settlement.blacksmith) {
-        utilityType = 'blacksmith';
-        utilityAssetId = settlement.blacksmith_asset_id;
-    } else if (settlement.alchemist) {
-        utilityType = 'alchemist';
-        utilityAssetId = settlement.alchemist_asset_id;
-    } else if (settlement.trainer) {
-        utilityType = 'trainer';
-        utilityAssetId = settlement.trainer_asset_id;
+    const utilityCandidates = [
+        ['church', settlement.church, settlement.church_asset_id],
+        ['enchanter', settlement.enchanter, settlement.enchanter_asset_id],
+        ['blacksmith', settlement.blacksmith, settlement.blacksmith_asset_id],
+        ['alchemist', settlement.alchemist, settlement.alchemist_asset_id],
+        ['trainer', settlement.trainer, settlement.trainer_asset_id]
+    ];
+    const utility2Type = settlement.utility2_type || '';
+    const slot1Candidate = utilityCandidates.find(([type, enabled]) => enabled && type !== utility2Type)
+        || utilityCandidates.find(([, enabled]) => enabled);
+    if (slot1Candidate) {
+        utilityType = slot1Candidate[0];
+        utilityAssetId = slot1Candidate[2];
     }
 
     if (utilityTypeSelect) {
@@ -552,11 +573,17 @@ function populateSettlementForm(settlement) {
 
     // Update utility card styling
     if (utilityType) {
-        selectUtilityType(utilityType);
+        selectUtilityType(utilityType, 1);
     }
 
     // Update utility asset
     updateAssetPreview('utility', utilityAssetId);
+
+    const utility2TypeSelect = document.getElementById('utility2TypeSelect');
+    if (utility2TypeSelect) {
+        utility2TypeSelect.value = settlement.utility2_type || '';
+    }
+    updateAssetPreview('utility2', settlement.utility2_asset_id);
 
     // Update utility content visibility was already called by selectUtilityType
     if (!utilityType) {
@@ -580,53 +607,26 @@ function populateSettlementForm(settlement) {
     const expeditionContext = document.getElementById('expeditionContext');
     if (expeditionContext) expeditionContext.value = settlement.expedition_context || '';
 
-    // Parse and populate vendor responses (arrays per type -> flat list)
-    settlementState.vendorResponses = [];
-    if (settlement.vendor_on_entered) {
-        const arr = Array.isArray(settlement.vendor_on_entered) ? settlement.vendor_on_entered : [settlement.vendor_on_entered];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_entered', text });
-            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_entered', text: text.text });
-        });
-    }
-    if (settlement.vendor_on_sold) {
-        const arr = Array.isArray(settlement.vendor_on_sold) ? settlement.vendor_on_sold : [settlement.vendor_on_sold];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_sold', text });
-            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_sold', text: text.text });
-        });
-    }
-    if (settlement.vendor_on_bought) {
-        const arr = Array.isArray(settlement.vendor_on_bought) ? settlement.vendor_on_bought : [settlement.vendor_on_bought];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.vendorResponses.push({ type: 'on_bought', text });
-            else if (text?.text) settlementState.vendorResponses.push({ type: 'on_bought', text: text.text });
-        });
-    }
-
-    // Parse and populate utility responses (arrays per type -> flat list)
-    settlementState.utilityResponses = [];
-    if (settlement.utility_on_entered) {
-        const arr = Array.isArray(settlement.utility_on_entered) ? settlement.utility_on_entered : [settlement.utility_on_entered];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_entered', text });
-            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_entered', text: text.text });
-        });
-    }
-    if (settlement.utility_on_placed) {
-        const arr = Array.isArray(settlement.utility_on_placed) ? settlement.utility_on_placed : [settlement.utility_on_placed];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_placed', text });
-            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_placed', text: text.text });
-        });
-    }
-    if (settlement.utility_on_action) {
-        const arr = Array.isArray(settlement.utility_on_action) ? settlement.utility_on_action : [settlement.utility_on_action];
-        arr.forEach(text => {
-            if (typeof text === 'string') settlementState.utilityResponses.push({ type: 'on_action', text });
-            else if (text?.text) settlementState.utilityResponses.push({ type: 'on_action', text: text.text });
-        });
-    }
+    settlementState.vendorResponses = flattenSettlementResponses(settlement, {
+        on_entered: 'vendor_on_entered',
+        on_sold: 'vendor_on_sold',
+        on_bought: 'vendor_on_bought'
+    });
+    settlementState.healerResponses = flattenSettlementResponses(settlement, {
+        on_entered: 'healer_on_entered',
+        on_healed: 'healer_on_healed',
+        on_cured: 'healer_on_cured'
+    });
+    settlementState.utilityResponses = flattenSettlementResponses(settlement, {
+        on_entered: 'utility_on_entered',
+        on_placed: 'utility_on_placed',
+        on_action: 'utility_on_action'
+    });
+    settlementState.utility2Responses = flattenSettlementResponses(settlement, {
+        on_entered: 'utility2_on_entered',
+        on_placed: 'utility2_on_placed',
+        on_action: 'utility2_on_action'
+    });
 
     // Vendor items and enchanter effects from settlement data
     settlementState.vendorItems = settlement.vendor_items || [];
@@ -640,9 +640,27 @@ function populateSettlementForm(settlement) {
 
     // Message rectangles
     settlementState.vendorMsgRect = settlement.vendor_msg_rect || null;
+    settlementState.healerMsgRect = settlement.healer_msg_rect || null;
     settlementState.utilityMsgRect = settlement.utility_msg_rect || null;
+    settlementState.utility2MsgRect = settlement.utility2_msg_rect || null;
     applyMsgRect('vendor');
+    applyMsgRect('healer');
     applyMsgRect('utility');
+    applyMsgRect('utility2');
+}
+
+function flattenSettlementResponses(settlement, fieldByType) {
+    const responses = [];
+    Object.entries(fieldByType).forEach(([type, field]) => {
+        const value = settlement[field];
+        if (!value) return;
+        const arr = Array.isArray(value) ? value : [value];
+        arr.forEach(text => {
+            if (typeof text === 'string') responses.push({ type, text });
+            else if (text?.text) responses.push({ type, text: text.text });
+        });
+    });
+    return responses;
 }
 
 function updateUtilityContent() {
@@ -672,15 +690,15 @@ function updateUtilityContent() {
     }
 }
 
-function selectUtilityType(type) {
-    // Update the select value
-    const utilityTypeSelect = document.getElementById('utilityTypeSelect');
+function selectUtilityType(type, slot = 1) {
+    const utilityTypeSelect = document.getElementById(slot === 2 ? 'utility2TypeSelect' : 'utilityTypeSelect');
     if (utilityTypeSelect) {
         utilityTypeSelect.value = type;
     }
 
-    // Update utility content
-    updateUtilityContent();
+    if (slot === 1) {
+        updateUtilityContent();
+    }
 }
 
 function updateAssetPreview(target, assetId) {
@@ -699,8 +717,14 @@ function updateAssetPreview(target, assetId) {
         case 'vendor':
             areaId = 'vendorAssetArea';
             break;
+        case 'healer':
+            areaId = 'healerAssetArea';
+            break;
         case 'utility':
             areaId = 'utilityAssetArea';
+            break;
+        case 'utility2':
+            areaId = 'utility2AssetArea';
             break;
         case 'expedition':
             areaId = 'expeditionAssetArea';
@@ -1036,8 +1060,25 @@ function removeEnchanterEffect(index) {
 
 // Response modal management
 const VENDOR_RESPONSE_TYPES = ['on_entered', 'on_sold', 'on_bought'];
+const HEALER_RESPONSE_TYPES = ['on_entered', 'on_healed', 'on_cured'];
 const UTILITY_RESPONSE_TYPES = ['on_entered', 'on_placed', 'on_action'];
-let currentResponsesTarget = null; // 'vendor', 'utility'
+let currentResponsesTarget = null; // 'vendor', 'healer', 'utility', 'utility2'
+
+function getResponsesForTarget(target) {
+    switch (target) {
+        case 'vendor': return settlementState.vendorResponses;
+        case 'healer': return settlementState.healerResponses;
+        case 'utility': return settlementState.utilityResponses;
+        case 'utility2': return settlementState.utility2Responses;
+        default: return [];
+    }
+}
+
+function getResponseTypesForTarget(target) {
+    if (target === 'vendor') return VENDOR_RESPONSE_TYPES;
+    if (target === 'healer') return HEALER_RESPONSE_TYPES;
+    return UTILITY_RESPONSE_TYPES;
+}
 
 function openResponsesModal(target) {
     currentResponsesTarget = target;
@@ -1045,9 +1086,13 @@ function openResponsesModal(target) {
     const title = document.getElementById('responsesModalTitle');
     
     if (title) {
-        title.textContent = target === 'vendor'
-            ? 'Vendor Responses'
-            : 'Utility Responses';
+        const labels = {
+            vendor: 'Vendor Responses',
+            healer: 'Healer Responses',
+            utility: 'Utility Slot 1 Responses',
+            utility2: 'Utility Slot 2 Responses'
+        };
+        title.textContent = labels[target] || 'Responses';
     }
     
     renderModalResponses();
@@ -1066,27 +1111,18 @@ function closeResponsesModal() {
 }
 
 function addResponseEntry() {
-    if (currentResponsesTarget === 'vendor') {
-        settlementState.vendorResponses.push({ type: 'on_entered', text: '' });
-    } else if (currentResponsesTarget === 'utility') {
-        settlementState.utilityResponses.push({ type: 'on_entered', text: '' });
-    }
+    const responses = getResponsesForTarget(currentResponsesTarget);
+    responses.push({ type: 'on_entered', text: '' });
     renderModalResponses();
 }
 
 function removeResponseEntry(index) {
-    if (currentResponsesTarget === 'vendor') {
-        settlementState.vendorResponses.splice(index, 1);
-    } else if (currentResponsesTarget === 'utility') {
-        settlementState.utilityResponses.splice(index, 1);
-    }
+    getResponsesForTarget(currentResponsesTarget).splice(index, 1);
     renderModalResponses();
 }
 
 function updateResponseEntry(index, field, value) {
-    const responses = currentResponsesTarget === 'vendor'
-        ? settlementState.vendorResponses
-        : settlementState.utilityResponses;
+    const responses = getResponsesForTarget(currentResponsesTarget);
     if (responses[index]) {
         responses[index][field] = value;
     }
@@ -1102,12 +1138,8 @@ function renderModalResponses() {
     const content = document.getElementById('responsesModalContent');
     if (!content) return;
     
-    const responses = currentResponsesTarget === 'vendor'
-        ? settlementState.vendorResponses
-        : settlementState.utilityResponses;
-    const types = currentResponsesTarget === 'vendor'
-        ? VENDOR_RESPONSE_TYPES
-        : UTILITY_RESPONSE_TYPES;
+    const responses = getResponsesForTarget(currentResponsesTarget);
+    const types = getResponseTypesForTarget(currentResponsesTarget);
     
     if (responses.length === 0) {
         content.innerHTML = '<div style="color: #4a5568; font-style: italic; text-align: center; padding: 20px;">No responses yet. Click "Add Response" to create one.</div>';
@@ -1133,10 +1165,14 @@ function createNewSettlement() {
     settlementState.vendorItems = [];
     settlementState.enchanterEffects = [];
     settlementState.vendorResponses = [];
+    settlementState.healerResponses = [];
     settlementState.utilityResponses = [];
+    settlementState.utility2Responses = [];
     settlementState.locations = [];
     settlementState.vendorMsgRect = {x1: 4.97, y1: 5.86, x2: 65.15, y2: 24.27};
+    settlementState.healerMsgRect = {x1: 4.97, y1: 5.86, x2: 65.15, y2: 24.27};
     settlementState.utilityMsgRect = {x1: 3.79, y1: 4.21, x2: 77.28, y2: 23.44};
+    settlementState.utility2MsgRect = {x1: 3.79, y1: 4.21, x2: 77.28, y2: 23.44};
 
     // Clear form
     document.getElementById('settlementName').value = '';
@@ -1147,6 +1183,7 @@ function createNewSettlement() {
     document.getElementById('settlementContext').value = '';
     document.getElementById('factionSelect').value = '';
     document.getElementById('utilityTypeSelect').value = '';
+    document.getElementById('utility2TypeSelect').value = '';
     document.getElementById('blessing1Select').value = '';
     document.getElementById('blessing2Select').value = '';
     document.getElementById('blessing3Select').value = '';
@@ -1156,7 +1193,9 @@ function createNewSettlement() {
     // Clear asset previews
     updateAssetPreview('settlement', null);
     updateAssetPreview('vendor', null);
+    updateAssetPreview('healer', null);
     updateAssetPreview('utility', null);
+    updateAssetPreview('utility2', null);
     updateAssetPreview('expedition', null);
     updateAssetPreview('arena', null);
 
@@ -1172,7 +1211,9 @@ function createNewSettlement() {
 
     // Clear message rects
     applyMsgRect('vendor');
+    applyMsgRect('healer');
     applyMsgRect('utility');
+    applyMsgRect('utility2');
 
     // Update select
     const select = document.getElementById('settlementSelect');
@@ -1213,9 +1254,16 @@ function openAssetGallery(target) {
             case 'vendor':
                 title.textContent = 'Select Vendor Asset';
                 break;
+            case 'healer':
+                title.textContent = 'Select Healer Asset';
+                break;
             case 'utility':
                 const utilityType = document.getElementById('utilityTypeSelect')?.value;
-                title.textContent = utilityType ? `Select ${utilityType.charAt(0).toUpperCase() + utilityType.slice(1)} Asset` : 'Select Utility Asset';
+                title.textContent = utilityType ? `Select ${utilityType.charAt(0).toUpperCase() + utilityType.slice(1)} Asset` : 'Select Utility Slot 1 Asset';
+                break;
+            case 'utility2':
+                const utility2Type = document.getElementById('utility2TypeSelect')?.value;
+                title.textContent = utility2Type ? `Select ${utility2Type.charAt(0).toUpperCase() + utility2Type.slice(1)} Asset` : 'Select Utility Slot 2 Asset';
                 break;
             case 'expedition':
                 title.textContent = 'Select Expedition Asset';
@@ -1279,8 +1327,14 @@ function getCurrentAssetId() {
         case 'vendor':
             areaId = 'vendorAssetArea';
             break;
+        case 'healer':
+            areaId = 'healerAssetArea';
+            break;
         case 'utility':
             areaId = 'utilityAssetArea';
+            break;
+        case 'utility2':
+            areaId = 'utility2AssetArea';
             break;
         case 'expedition':
             areaId = 'expeditionAssetArea';
@@ -1322,22 +1376,7 @@ function selectSettlementAsset(assetId, assetUrl) {
             textureArea.dataset.assetId = assetId;
         }
     } else {
-        // Update settlement card asset
-        let areaId;
-        switch (target) {
-            case 'settlement': areaId = 'settlementAssetArea'; break;
-            case 'vendor': areaId = 'vendorAssetArea'; break;
-            case 'utility': areaId = 'utilityAssetArea'; break;
-            case 'expedition': areaId = 'expeditionAssetArea'; break;
-            case 'arena': areaId = 'arenaAssetArea'; break;
-        }
-        
-        const area = document.getElementById(areaId);
-        if (area) {
-            area.innerHTML = `<img src="${assetUrl}" alt="${target} asset">`;
-            area.dataset.assetId = assetId;
-            area.closest('.settlement-card')?.classList.add('has-asset');
-        }
+        updateAssetPreview(target, assetId);
     }
     
     closeAssetGallery();
@@ -1416,14 +1455,17 @@ async function saveSettlement() {
     }
 
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
-    const enchanterValidation = validateEnchanterInventoryForSave(utilityType);
+    const utility2Type = document.getElementById('utility2TypeSelect')?.value || '';
+    const enchanterValidation = validateEnchanterInventoryForSave(utilityType, utility2Type);
     if (!enchanterValidation.valid) {
         alert(enchanterValidation.message);
         return;
     }
 
     const utilityAssetId = parseInt(document.getElementById('utilityAssetArea').dataset.assetId) || null;
+    const utility2AssetId = parseInt(document.getElementById('utility2AssetArea').dataset.assetId) || null;
     const vendorAssetId = parseInt(document.getElementById('vendorAssetArea').dataset.assetId) || null;
+    const healerAssetId = parseInt(document.getElementById('healerAssetArea').dataset.assetId) || null;
     const expeditionAssetId = parseInt(document.getElementById('expeditionAssetArea')?.dataset.assetId) || null;
     const arenaAssetId = parseInt(document.getElementById('arenaAssetArea')?.dataset.assetId) || null;
     const description = document.getElementById('settlementDescription')?.value.trim() || null;
@@ -1434,27 +1476,16 @@ async function saveSettlement() {
     const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
     const expeditionContext = document.getElementById('expeditionContext')?.value.trim() || null;
 
-    // Build vendor responses JSONB from dynamic entries
-    const vendorResponsesObj = {};
-    settlementState.vendorResponses.forEach(resp => {
-        if (resp.type && resp.text) {
-            if (!vendorResponsesObj[resp.type]) {
-                vendorResponsesObj[resp.type] = [];
-            }
-            vendorResponsesObj[resp.type].push(resp.text);
-        }
-    });
+    const vendorResponsesObj = buildResponsesObject(settlementState.vendorResponses);
+    const healerResponsesObj = buildResponsesObject(settlementState.healerResponses);
+    const utilityResponsesObj = buildResponsesObject(settlementState.utilityResponses);
+    const utility2ResponsesObj = buildResponsesObject(settlementState.utility2Responses);
 
-    // Build utility responses JSONB from dynamic entries
-    const utilityResponsesObj = {};
-    settlementState.utilityResponses.forEach(resp => {
-        if (resp.type && resp.text) {
-            if (!utilityResponsesObj[resp.type]) {
-                utilityResponsesObj[resp.type] = [];
-            }
-            utilityResponsesObj[resp.type].push(resp.text);
-        }
-    });
+    const utilityAssetsByType = {};
+    if (utilityType && utilityAssetId) utilityAssetsByType[utilityType] = utilityAssetId;
+    if (utility2Type && utility2AssetId && !utilityAssetsByType[utility2Type]) {
+        utilityAssetsByType[utility2Type] = utility2AssetId;
+    }
 
     const settlement = {
         settlement_name: name,
@@ -1464,22 +1495,25 @@ async function saveSettlement() {
         faction: parseInt(document.getElementById('factionSelect').value) || null,
         settlement_asset_id: parseInt(document.getElementById('settlementAssetArea').dataset.assetId) || null,
         vendor_asset_id: vendorAssetId,
-        // Set utility flags based on selected type
-        blacksmith: utilityType === 'blacksmith',
-        alchemist: utilityType === 'alchemist',
-        enchanter: utilityType === 'enchanter',
-        trainer: utilityType === 'trainer',
-        church: utilityType === 'church',
+        healer_asset_id: healerAssetId,
+        utility2_type: utility2Type || null,
+        utility2_asset_id: utility2AssetId,
+        // Set utility flags when either slot contains that utility type.
+        blacksmith: utilityType === 'blacksmith' || utility2Type === 'blacksmith',
+        alchemist: utilityType === 'alchemist' || utility2Type === 'alchemist',
+        enchanter: utilityType === 'enchanter' || utility2Type === 'enchanter',
+        trainer: utilityType === 'trainer' || utility2Type === 'trainer',
+        church: utilityType === 'church' || utility2Type === 'church',
         // Blessings (for church)
         blessing1: parseInt(document.getElementById('blessing1Select').value) || null,
         blessing2: parseInt(document.getElementById('blessing2Select').value) || null,
         blessing3: parseInt(document.getElementById('blessing3Select').value) || null,
-        // Utility assets - set based on type
-        blacksmith_asset_id: utilityType === 'blacksmith' ? utilityAssetId : null,
-        alchemist_asset_id: utilityType === 'alchemist' ? utilityAssetId : null,
-        enchanter_asset_id: utilityType === 'enchanter' ? utilityAssetId : null,
-        trainer_asset_id: utilityType === 'trainer' ? utilityAssetId : null,
-        church_asset_id: utilityType === 'church' ? utilityAssetId : null,
+        // Legacy utility assets by type. If both slots use the same type, slot 1 wins here.
+        blacksmith_asset_id: utilityAssetsByType.blacksmith || null,
+        alchemist_asset_id: utilityAssetsByType.alchemist || null,
+        enchanter_asset_id: utilityAssetsByType.enchanter || null,
+        trainer_asset_id: utilityAssetsByType.trainer || null,
+        church_asset_id: utilityAssetsByType.church || null,
         // New expedition and arena fields
         expedition_asset_id: expeditionAssetId,
         expedition_description: expeditionDescription,
@@ -1489,10 +1523,17 @@ async function saveSettlement() {
         vendor_on_entered: vendorResponsesObj.on_entered?.length ? vendorResponsesObj.on_entered : null,
         vendor_on_sold: vendorResponsesObj.on_sold?.length ? vendorResponsesObj.on_sold : null,
         vendor_on_bought: vendorResponsesObj.on_bought?.length ? vendorResponsesObj.on_bought : null,
+        // Healer responses
+        healer_on_entered: healerResponsesObj.on_entered?.length ? healerResponsesObj.on_entered : null,
+        healer_on_healed: healerResponsesObj.on_healed?.length ? healerResponsesObj.on_healed : null,
+        healer_on_cured: healerResponsesObj.on_cured?.length ? healerResponsesObj.on_cured : null,
         // Utility responses (JSONB with arrays per type)
         utility_on_entered: utilityResponsesObj.on_entered?.length ? utilityResponsesObj.on_entered : null,
         utility_on_placed: utilityResponsesObj.on_placed?.length ? utilityResponsesObj.on_placed : null,
         utility_on_action: utilityResponsesObj.on_action?.length ? utilityResponsesObj.on_action : null,
+        utility2_on_entered: utility2ResponsesObj.on_entered?.length ? utility2ResponsesObj.on_entered : null,
+        utility2_on_placed: utility2ResponsesObj.on_placed?.length ? utility2ResponsesObj.on_placed : null,
+        utility2_on_action: utility2ResponsesObj.on_action?.length ? utility2ResponsesObj.on_action : null,
         // Inventory arrays
         vendor_items: settlementState.vendorItems,
         enchanter_effects: settlementState.enchanterEffects,
@@ -1500,7 +1541,9 @@ async function saveSettlement() {
         locations: settlementState.locations,
         // Message rectangles
         vendor_msg_rect: settlementState.vendorMsgRect || null,
-        utility_msg_rect: settlementState.utilityMsgRect || null
+        healer_msg_rect: settlementState.healerMsgRect || null,
+        utility_msg_rect: settlementState.utilityMsgRect || null,
+        utility2_msg_rect: settlementState.utility2MsgRect || null
     };
 
     if (!settlementState.isNewSettlement && settlementState.selectedSettlementId) {
@@ -1531,6 +1574,19 @@ async function saveSettlement() {
         console.error('Error saving settlement:', error);
         alert('Error saving settlement: ' + error.message);
     }
+}
+
+function buildResponsesObject(responses) {
+    const obj = {};
+    responses.forEach(resp => {
+        if (resp.type && resp.text) {
+            if (!obj[resp.type]) {
+                obj[resp.type] = [];
+            }
+            obj[resp.type].push(resp.text);
+        }
+    });
+    return obj;
 }
 
 function parseListInput(text) {
@@ -1615,9 +1671,12 @@ function getSettlementFormSnapshot() {
         expeditionDescription: document.getElementById('expeditionDescription')?.value || '',
         faction: document.getElementById('factionSelect')?.value || '',
         utilityType: document.getElementById('utilityTypeSelect')?.value || '',
+        utility2Type: document.getElementById('utility2TypeSelect')?.value || '',
         settlementAssetId: document.getElementById('settlementAssetArea')?.dataset.assetId || '',
         vendorAssetId: document.getElementById('vendorAssetArea')?.dataset.assetId || '',
+        healerAssetId: document.getElementById('healerAssetArea')?.dataset.assetId || '',
         utilityAssetId: document.getElementById('utilityAssetArea')?.dataset.assetId || '',
+        utility2AssetId: document.getElementById('utility2AssetArea')?.dataset.assetId || '',
         expeditionAssetId: document.getElementById('expeditionAssetArea')?.dataset.assetId || '',
         arenaAssetId: document.getElementById('arenaAssetArea')?.dataset.assetId || '',
         blessing1: document.getElementById('blessing1Select')?.value || '',
@@ -1626,10 +1685,14 @@ function getSettlementFormSnapshot() {
         vendorItems: JSON.stringify(settlementState.vendorItems),
         enchanterEffects: JSON.stringify(settlementState.enchanterEffects),
         vendorResponses: JSON.stringify(settlementState.vendorResponses),
+        healerResponses: JSON.stringify(settlementState.healerResponses),
         utilityResponses: JSON.stringify(settlementState.utilityResponses),
+        utility2Responses: JSON.stringify(settlementState.utility2Responses),
         locations: JSON.stringify(settlementState.locations),
         vendorMsgRect: JSON.stringify(settlementState.vendorMsgRect),
-        utilityMsgRect: JSON.stringify(settlementState.utilityMsgRect)
+        healerMsgRect: JSON.stringify(settlementState.healerMsgRect),
+        utilityMsgRect: JSON.stringify(settlementState.utilityMsgRect),
+        utility2MsgRect: JSON.stringify(settlementState.utility2MsgRect)
     });
 }
 
@@ -1639,20 +1702,23 @@ function checkSettlementSaveConditions() {
 
     const name = (document.getElementById('settlementName')?.value || '').trim();
     const utilityType = document.getElementById('utilityTypeSelect')?.value || '';
+    const utility2Type = document.getElementById('utility2TypeSelect')?.value || '';
 
     const settlementAssetId = document.getElementById('settlementAssetArea')?.dataset.assetId || '';
     const arenaAssetId = document.getElementById('arenaAssetArea')?.dataset.assetId || '';
     const expeditionAssetId = document.getElementById('expeditionAssetArea')?.dataset.assetId || '';
     const vendorAssetId = document.getElementById('vendorAssetArea')?.dataset.assetId || '';
+    const healerAssetId = document.getElementById('healerAssetArea')?.dataset.assetId || '';
     const utilityAssetId = document.getElementById('utilityAssetArea')?.dataset.assetId || '';
+    const utility2AssetId = document.getElementById('utility2AssetArea')?.dataset.assetId || '';
 
-    const allAssetsSet = settlementAssetId && arenaAssetId && expeditionAssetId && vendorAssetId && utilityAssetId;
-    const enchanterValidation = validateEnchanterInventoryForSave(utilityType);
+    const allAssetsSet = settlementAssetId && arenaAssetId && expeditionAssetId && vendorAssetId && healerAssetId && utilityAssetId && utility2AssetId;
+    const enchanterValidation = validateEnchanterInventoryForSave(utilityType, utility2Type);
 
     let canSave = false;
 
     if (settlementState.isNewSettlement) {
-        canSave = !!name && !!allAssetsSet && !!utilityType && enchanterValidation.valid;
+        canSave = !!name && !!allAssetsSet && !!utilityType && !!utility2Type && enchanterValidation.valid;
     } else {
         const currentSnapshot = getSettlementFormSnapshot();
         const isDirty = settlementState._snapshot && currentSnapshot !== settlementState._snapshot;
@@ -1679,8 +1745,8 @@ function checkSettlementSaveConditions() {
     }
 }
 
-function validateEnchanterInventoryForSave(utilityType) {
-    if (utilityType !== 'enchanter') {
+function validateEnchanterInventoryForSave(utilityType, utility2Type = '') {
+    if (utilityType !== 'enchanter' && utility2Type !== 'enchanter') {
         return { valid: true, message: '' };
     }
 
@@ -1975,10 +2041,25 @@ window.deleteLocation = deleteLocation;
 
 // ==================== MESSAGE RECTANGLE DRAG / RESIZE ====================
 
-const MSG_RECT_TARGETS = ['vendor', 'utility'];
-const MSG_RECT_STATE_KEYS = { vendor: 'vendorMsgRect', utility: 'utilityMsgRect' };
-const MSG_RECT_ELEM_IDS = { vendor: 'vendorMsgRect', utility: 'utilityMsgRect' };
-const MSG_RECT_AREA_IDS = { vendor: 'vendorAssetArea', utility: 'utilityAssetArea' };
+const MSG_RECT_TARGETS = ['vendor', 'healer', 'utility', 'utility2'];
+const MSG_RECT_STATE_KEYS = {
+    vendor: 'vendorMsgRect',
+    healer: 'healerMsgRect',
+    utility: 'utilityMsgRect',
+    utility2: 'utility2MsgRect'
+};
+const MSG_RECT_ELEM_IDS = {
+    vendor: 'vendorMsgRect',
+    healer: 'healerMsgRect',
+    utility: 'utilityMsgRect',
+    utility2: 'utility2MsgRect'
+};
+const MSG_RECT_AREA_IDS = {
+    vendor: 'vendorAssetArea',
+    healer: 'healerAssetArea',
+    utility: 'utilityAssetArea',
+    utility2: 'utility2AssetArea'
+};
 
 function applyMsgRect(target) {
     const el = document.getElementById(MSG_RECT_ELEM_IDS[target]);
@@ -2025,7 +2106,7 @@ function toggleMsgRect(target) {
             applyMsgRect(target);
         } else {
             // No saved rect yet — show with default position without marking dirty
-            const defaultRect = target === 'vendor'
+            const defaultRect = target === 'vendor' || target === 'healer'
                 ? {x1: 4.97, y1: 5.86, x2: 65.15, y2: 24.27}
                 : {x1: 3.79, y1: 4.21, x2: 77.28, y2: 23.44};
             settlementState[stateKey] = defaultRect;

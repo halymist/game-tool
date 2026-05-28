@@ -335,15 +335,12 @@
 
 /* ── Cards Grid ─────────────────────────────────────── */
 .settlement-cards-grid {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
     gap: 20px;
     min-height: 0;
     padding: 0 8px;
-    justify-content: stretch;
     align-items: stretch;
-    flex-wrap: nowrap;
-    overflow-x: auto;
 }
 
 .settlement-card-wrapper {
@@ -355,6 +352,14 @@
     min-width: 280px;
     max-width: 380px;
 }
+
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(1) { grid-column: 1; grid-row: 1; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(2) { grid-column: 2; grid-row: 1; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(3) { grid-column: 1; grid-row: 2; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(4) { grid-column: 3; grid-row: 1; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(5) { grid-column: 2; grid-row: 2; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(6) { grid-column: 4; grid-row: 1; }
+.settlement-cards-grid > .settlement-card-wrapper:nth-child(7) { grid-column: 3; grid-row: 2; }
 
 .settlement-card-wrapper .settlement-card {
     margin-top: auto;
@@ -1226,16 +1231,26 @@
 
 /* ── Responsive ─────────────────────────────────────── */
 @media (max-width: 1600px) {
-    .settlement-card { width: 240px; }
+    .settlement-cards-grid {
+        grid-template-columns: repeat(4, minmax(160px, 1fr));
+    }
 }
 
 @media (max-width: 1400px) {
-    .settlement-card { width: 200px; }
+    .settlement-card-wrapper {
+        min-width: 0;
+    }
 }
 
 @media (max-width: 1200px) {
-    .settlement-cards-grid { flex-wrap: wrap; }
-    .settlement-card { width: 180px; }
+    .settlement-cards-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+    }
+
+    .settlement-cards-grid > .settlement-card-wrapper {
+        grid-column: auto;
+        grid-row: auto;
+    }
 }
 
 /* ── Responses Modal ────────────────────────────────── */
@@ -1811,7 +1826,8 @@
 }
 
 /* ── Utility Type Select Styling ─────────────────────── */
-#utilityTypeSelect {
+#utilityTypeSelect,
+#utility2TypeSelect {
     width: 100%;
     padding: 6px 10px;
     background: var(--bg-elevated);
@@ -1825,12 +1841,14 @@
     transition: border-color 0.15s ease;
 }
 
-#utilityTypeSelect:focus {
+#utilityTypeSelect:focus,
+#utility2TypeSelect:focus {
     outline: none;
     border-color: var(--accent);
 }
 
-#utilityTypeSelect option {
+#utilityTypeSelect option,
+#utility2TypeSelect option {
     background: var(--bg-elevated);
     color: var(--text-primary);
 }
