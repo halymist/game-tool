@@ -16,13 +16,14 @@ import (
 // with expedition-level versioning and soft-deletes (see migrations/20260502_expeditions_game_versioned.sql).
 
 type expeditionNode struct {
-	NodeID   int     `json:"node_id"`   // 0 for client-only (new) nodes
-	ClientID int     `json:"client_id"` // designer-side stable id used to wire edges
-	QuestID  *int    `json:"quest_id"`
-	IsStart  bool    `json:"is_start"`
-	PosX     float64 `json:"pos_x"`
-	PosY     float64 `json:"pos_y"`
-	Label    *string `json:"label"`
+	NodeID     int     `json:"node_id"`   // 0 for client-only (new) nodes
+	ClientID   int     `json:"client_id"` // designer-side stable id used to wire edges
+	LocationID *int64  `json:"location_id"`
+	QuestID    *int    `json:"quest_id"`
+	IsStart    bool    `json:"is_start"`
+	PosX       float64 `json:"pos_x"`
+	PosY       float64 `json:"pos_y"`
+	Label      *string `json:"label"`
 }
 
 type expeditionEdge struct {
@@ -127,7 +128,7 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 
 		nodeRows, err := tx.Query(`
-			SELECT node_id, quest_id, is_start, pos_x, pos_y, label
+			SELECT node_id, location_id, quest_id, is_start, pos_x, pos_y, label
 			FROM game.expedition_nodes
 			WHERE expedition_id = $1 AND is_deleted = FALSE
 			ORDER BY node_id
@@ -139,11 +140,16 @@ func handleGetExpedition(w http.ResponseWriter, r *http.Request) {
 
 		for nodeRows.Next() {
 			var n expeditionNode
+			var locationID sql.NullInt64
 			var questID sql.NullInt64
 			var label sql.NullString
-			if err := nodeRows.Scan(&n.NodeID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
+			if err := nodeRows.Scan(&n.NodeID, &locationID, &questID, &n.IsStart, &n.PosX, &n.PosY, &label); err != nil {
 				log.Printf("getExpedition: scan node: %v", err)
 				continue
+			}
+			if locationID.Valid {
+				v := locationID.Int64
+				n.LocationID = &v
 			}
 			if questID.Valid {
 				v := int(questID.Int64)
@@ -250,15 +256,16 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 
 		type existingNode struct {
-			questID *int
-			isStart bool
-			posX    float64
-			posY    float64
-			label   *string
+			locationID *int64
+			questID    *int
+			isStart    bool
+			posX       float64
+			posY       float64
+			label      *string
 		}
 		existingNodes := make(map[int]existingNode)
 		nodeRows, err := tx.Query(`
-			SELECT node_id, quest_id, is_start, pos_x, pos_y, label
+			SELECT node_id, location_id, quest_id, is_start, pos_x, pos_y, label
 			FROM game.expedition_nodes
 			WHERE expedition_id = $1 AND is_deleted = FALSE
 		`, expeditionID)
@@ -267,12 +274,17 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		}
 		for nodeRows.Next() {
 			var nodeID int
+			var locationID sql.NullInt64
 			var questID sql.NullInt64
 			var item existingNode
 			var label sql.NullString
-			if err := nodeRows.Scan(&nodeID, &questID, &item.isStart, &item.posX, &item.posY, &label); err != nil {
+			if err := nodeRows.Scan(&nodeID, &locationID, &questID, &item.isStart, &item.posX, &item.posY, &label); err != nil {
 				nodeRows.Close()
 				return fmt.Errorf("scan existing nodes: %w", err)
+			}
+			if locationID.Valid {
+				v := locationID.Int64
+				item.locationID = &v
 			}
 			if questID.Valid {
 				qid := int(questID.Int64)
@@ -293,14 +305,15 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			if n.NodeID > 0 {
 				res, err := tx.Exec(`
 					UPDATE game.expedition_nodes
-					SET quest_id = $1,
-						is_start = $2,
-						pos_x = $3,
-						pos_y = $4,
-						label = $5,
+					SET location_id = $1,
+						quest_id = $2,
+						is_start = $3,
+						pos_x = $4,
+						pos_y = $5,
+						label = $6,
 						is_deleted = FALSE
-					WHERE node_id = $6 AND expedition_id = $7
-				`, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, n.NodeID, expeditionID)
+					WHERE node_id = $7 AND expedition_id = $8
+				`, n.LocationID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label, n.NodeID, expeditionID)
 				if err != nil {
 					return fmt.Errorf("update node %d: %w", n.NodeID, err)
 				}
@@ -313,10 +326,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			if resolvedNodeID == 0 {
 				err := tx.QueryRow(`
 					INSERT INTO game.expedition_nodes
-						(expedition_id, quest_id, is_start, pos_x, pos_y, label, is_deleted)
-					VALUES ($1, $2, $3, $4, $5, $6, FALSE)
+						(expedition_id, location_id, quest_id, is_start, pos_x, pos_y, label, is_deleted)
+					VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE)
 					RETURNING node_id
-				`, expeditionID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&resolvedNodeID)
+				`, expeditionID, n.LocationID, n.QuestID, n.IsStart, n.PosX, n.PosY, n.Label).Scan(&resolvedNodeID)
 				if err != nil {
 					return fmt.Errorf("insert node: %w", err)
 				}
@@ -487,7 +500,7 @@ func handleGetQuestsLite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := db.Query(`SELECT quest_id, COALESCE(quest_name, ''), asset_id, COALESCE(expedition_quest, false)
+	rows, err := db.Query(`SELECT quest_id, COALESCE(quest_name, ''), location_id, asset_id, COALESCE(expedition_quest, false)
 		FROM game.quests WHERE settlement_id = $1 ORDER BY quest_name, quest_id`, settlementID)
 	if err != nil {
 		log.Printf("getQuestsLite: query: %v", err)
@@ -499,16 +512,22 @@ func handleGetQuestsLite(w http.ResponseWriter, r *http.Request) {
 	type liteQuest struct {
 		QuestID         int    `json:"quest_id"`
 		QuestName       string `json:"quest_name"`
+		LocationID      *int64 `json:"location_id"`
 		AssetID         *int   `json:"asset_id"`
 		ExpeditionQuest bool   `json:"expedition_quest"`
 	}
 	out := []liteQuest{}
 	for rows.Next() {
 		var q liteQuest
+		var locationID sql.NullInt64
 		var assetID sql.NullInt64
-		if err := rows.Scan(&q.QuestID, &q.QuestName, &assetID, &q.ExpeditionQuest); err != nil {
+		if err := rows.Scan(&q.QuestID, &q.QuestName, &locationID, &assetID, &q.ExpeditionQuest); err != nil {
 			log.Printf("getQuestsLite: scan: %v", err)
 			continue
+		}
+		if locationID.Valid {
+			v := locationID.Int64
+			q.LocationID = &v
 		}
 		if assetID.Valid {
 			v := int(assetID.Int64)

@@ -19,9 +19,10 @@ console.log('📦 expedition-designer.js LOADED');
         expeditionId: null,
         mapAssetId: null,
         mapImageUrl: null,
-        nodes: new Map(),    // client_id -> {client_id, quest_id, is_start, pos_x, pos_y, label}
+        nodes: new Map(),    // client_id -> {client_id, quest_id, location_id, is_start, pos_x, pos_y, label}
         edges: new Map(),    // pair-key "minA-maxB" -> {a_client_id, b_client_id}
-        quests: [],          // [{quest_id, quest_name, asset_id}]
+        quests: [],          // [{quest_id, quest_name, asset_id, expedition_quest, location_id}]
+        locations: [],       // [{location_id, name}]
         mapAssets: [],       // [{assetID, icon, name}]
         nextClientId: -1,    // negative for newly-created (positive ids come from server)
         selectedNodeId: null,
@@ -81,6 +82,7 @@ console.log('📦 expedition-designer.js LOADED');
     function syncGlobalCaches(settlementId, reason = 'sync') {
         const sid = Number(settlementId);
         const allQuests = getGlobalArray('quests');
+        const allSettlements = getGlobalArray('settlements');
         const allChains = typeof window.getQuestChainsData === 'function'
             ? (window.getQuestChainsData() || [])
             : getGlobalArray('questChains');
@@ -90,7 +92,19 @@ console.log('📦 expedition-designer.js LOADED');
                 .map((chain) => Number(chain.questchain_id))
                 .filter((id) => id > 0)
         );
+        const settlement = sid > 0
+            ? allSettlements.find((item) => Number(item && item.settlement_id) === sid)
+            : null;
         state.mapAssets = getGlobalArray('expeditionMapAssets').slice();
+        state.locations = Array.isArray(settlement?.locations)
+            ? settlement.locations
+                .map((location) => ({
+                    location_id: Number(location.location_id || location.id || 0),
+                    name: location.name || `Location ${location.location_id || location.id}`,
+                }))
+                .filter((location) => location.location_id > 0)
+                .sort((a, b) => a.name.localeCompare(b.name))
+            : [];
         state.quests = sid > 0
             ? allQuests
                 .filter((quest) => {
@@ -104,6 +118,8 @@ console.log('📦 expedition-designer.js LOADED');
                     quest_id: Number(quest.quest_id),
                     quest_name: quest.quest_name || `Quest ${quest.quest_id}`,
                     asset_id: quest.asset_id ?? null,
+                    expedition_quest: !!quest.expedition_quest,
+                    location_id: quest.location_id == null ? null : Number(quest.location_id),
                 }))
             : [];
         log('Global caches synced', {
@@ -113,8 +129,36 @@ console.log('📦 expedition-designer.js LOADED');
             totalQuestChains: allChains.length,
             settlementQuestChains: sid > 0 ? chainIdsForSettlement.size : 0,
             settlementQuests: state.quests.length,
+            settlementLocations: state.locations.length,
             mapAssets: state.mapAssets.length,
         });
+    }
+
+    function getNodeLocationOptions() {
+        return state.locations;
+    }
+
+    function getNodeLocationName(node) {
+        if (!node || node.location_id == null) return '';
+        const location = state.locations.find((item) => Number(item.location_id) === Number(node.location_id));
+        return location ? location.name : `Location ${node.location_id}`;
+    }
+
+    function getAssignableQuestsForNode(node) {
+        if (!node) return [];
+        return state.quests.filter((quest) => {
+            if (!quest.expedition_quest) return false;
+            if (node.location_id == null) return false;
+            return Number(quest.location_id) === Number(node.location_id);
+        });
+    }
+
+    function normalizeNodeQuestAssignment(node) {
+        if (!node || node.quest_id == null) return false;
+        const isValid = getAssignableQuestsForNode(node).some((quest) => quest.quest_id === node.quest_id);
+        if (isValid) return false;
+        node.quest_id = null;
+        return true;
     }
 
     function setStatus(msg, isError) {
@@ -139,6 +183,7 @@ console.log('📦 expedition-designer.js LOADED');
             .map((n) => ({
                 client_id: Number(n.client_id),
                 quest_id: n.quest_id == null ? null : Number(n.quest_id),
+                location_id: n.location_id == null ? null : Number(n.location_id),
                 is_start: !!n.is_start,
                 pos_x: Number(Number(n.pos_x || 0).toFixed(6)),
                 pos_y: Number(Number(n.pos_y || 0).toFixed(6)),
@@ -253,6 +298,7 @@ console.log('📦 expedition-designer.js LOADED');
             state.nodes.set(n.client_id, {
                 client_id: n.client_id,
                 quest_id: n.quest_id || null,
+                location_id: n.location_id || null,
                 is_start: !!n.is_start,
                 pos_x: n.pos_x,
                 pos_y: n.pos_y,
@@ -400,12 +446,21 @@ console.log('📦 expedition-designer.js LOADED');
         updateSaveButton();
         setStatus('Saving…');
         try {
+            let normalizedAnyNode = false;
+            state.nodes.forEach((node) => {
+                normalizedAnyNode = normalizeNodeQuestAssignment(node) || normalizedAnyNode;
+            });
+            if (normalizedAnyNode) {
+                renderNodes();
+                updateNodeSidebar();
+            }
             const payload = {
                 settlement_id: state.settlementId,
                 map_asset_id: state.mapAssetId,
                 nodes: Array.from(state.nodes.values()).map(n => ({
                     client_id: n.client_id,
                     quest_id: n.quest_id,
+                    location_id: n.location_id,
                     is_start: n.is_start,
                     pos_x: n.pos_x,
                     pos_y: n.pos_y,
@@ -426,6 +481,7 @@ console.log('📦 expedition-designer.js LOADED');
                 state.nodes.set(n.client_id, {
                     client_id: n.client_id,
                     quest_id: n.quest_id || null,
+                    location_id: n.location_id || null,
                     is_start: !!n.is_start,
                     pos_x: n.pos_x,
                     pos_y: n.pos_y,
@@ -507,12 +563,13 @@ console.log('📦 expedition-designer.js LOADED');
             el.style.top = (node.pos_y * 100) + '%';
             el.dataset.clientId = String(node.client_id);
             const quest = state.quests.find(q => q.quest_id === node.quest_id);
+            const locationName = getNodeLocationName(node);
             el.textContent = '';
-            el.title = (quest ? quest.quest_name : '(no quest)') + (node.is_start ? ' [start]' : '');
-            if (node.label) {
+            el.title = `${locationName || '(no location)'}${quest ? ` - ${quest.quest_name}` : ''}${node.is_start ? ' [start]' : ''}`;
+            if (locationName) {
                 const labelEl = document.createElement('div');
                 labelEl.className = 'expedition-node-label';
-                labelEl.textContent = node.label;
+                labelEl.textContent = locationName;
                 el.appendChild(labelEl);
             }
             attachNodeHandlers(el, node);
@@ -662,6 +719,7 @@ console.log('📦 expedition-designer.js LOADED');
         state.nodes.set(id, {
             client_id: id,
             quest_id: null,
+            location_id: null,
             is_start: !hasStartNode,
             pos_x: x,
             pos_y: y,
@@ -678,14 +736,17 @@ console.log('📦 expedition-designer.js LOADED');
         const empty = $('expeditionSidebarEmpty');
         const content = $('expeditionSidebarContent');
         const labelEl = $('expeditionNodeLabel');
+        const locationEl = $('expeditionNodeLocation');
         const questEl = $('expeditionNodeQuest');
         const isStartEl = $('expeditionNodeIsStart');
-        if (!empty || !content || !labelEl || !questEl || !isStartEl) return;
+        if (!empty || !content || !labelEl || !locationEl || !questEl || !isStartEl) return;
         const node = state.nodes.get(state.selectedNodeId);
         if (!node) {
             empty.style.display = 'flex';
             content.style.display = 'none';
             labelEl.value = '';
+            locationEl.innerHTML = '<option value="">-- No location --</option>';
+            locationEl.value = '';
             questEl.innerHTML = '<option value="">-- Unassigned --</option>';
             isStartEl.checked = false;
             return;
@@ -694,9 +755,10 @@ console.log('📦 expedition-designer.js LOADED');
         empty.style.display = 'none';
         content.style.display = 'flex';
         labelEl.value = node.label || '';
-        questEl.innerHTML = '<option value="">-- Unassigned --</option>' +
-            state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
-        questEl.value = node.quest_id ? String(node.quest_id) : '';
+        locationEl.innerHTML = '<option value="">-- No location --</option>' +
+            getNodeLocationOptions().map((location) => `<option value="${location.location_id}">${escapeHtml(location.name)}</option>`).join('');
+        locationEl.value = node.location_id ? String(node.location_id) : '';
+        refreshNodeSidebarQuestOptions();
         isStartEl.checked = !!node.is_start;
     }
 
@@ -709,17 +771,25 @@ console.log('📦 expedition-designer.js LOADED');
     function applySidebarFieldsLive() {
         const node = state.nodes.get(state.selectedNodeId);
         if (!node) return;
+        const locationVal = $('expeditionNodeLocation').value;
         const questVal = $('expeditionNodeQuest').value;
+        const nextLocationID = locationVal ? parseInt(locationVal, 10) : null;
         const nextQuestID = questVal ? parseInt(questVal, 10) : null;
         const lbl = $('expeditionNodeLabel').value.trim();
         const nextLabel = lbl || null;
         const isStartEl = $('expeditionNodeIsStart');
         const nextIsStart = !!(isStartEl && isStartEl.checked);
+        const allowedQuestIds = new Set(getAssignableQuestsForNode({ location_id: nextLocationID }).map((quest) => quest.quest_id));
+        const normalizedQuestID = nextQuestID && allowedQuestIds.has(nextQuestID) ? nextQuestID : null;
 
-        const changed = node.quest_id !== nextQuestID || node.label !== nextLabel || !!node.is_start !== nextIsStart;
+        const changed = node.location_id !== nextLocationID
+            || node.quest_id !== normalizedQuestID
+            || node.label !== nextLabel
+            || !!node.is_start !== nextIsStart;
         if (!changed) return;
 
-        node.quest_id = nextQuestID;
+        node.location_id = nextLocationID;
+        node.quest_id = normalizedQuestID;
         node.label = nextLabel;
         node.is_start = nextIsStart;
         if (nextIsStart) {
@@ -727,6 +797,7 @@ console.log('📦 expedition-designer.js LOADED');
                 if (other.client_id !== node.client_id) other.is_start = false;
             }
         }
+        refreshNodeSidebarQuestOptions();
         markDirty();
         renderNodes();
     }
@@ -760,8 +831,12 @@ console.log('📦 expedition-designer.js LOADED');
         const node = state.nodes.get(state.selectedNodeId);
         if (!node) return;
 
+        const assignableQuests = getAssignableQuestsForNode(node);
         questEl.innerHTML = '<option value="">-- Unassigned --</option>' +
-            state.quests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
+            assignableQuests.map(q => `<option value="${q.quest_id}">${escapeHtml(q.quest_name)}</option>`).join('');
+        if (normalizeNodeQuestAssignment(node)) {
+            markDirty();
+        }
         questEl.value = node.quest_id ? String(node.quest_id) : '';
     }
 
@@ -883,10 +958,12 @@ console.log('📦 expedition-designer.js LOADED');
         if (img) img.addEventListener('load', () => renderEdges());
 
         const labelEl = $('expeditionNodeLabel');
+        const locationEl = $('expeditionNodeLocation');
         const questEl = $('expeditionNodeQuest');
         const isStartEl = $('expeditionNodeIsStart');
         const deleteBtn = $('expeditionDeleteNodeBtn');
         if (labelEl) labelEl.addEventListener('input', applySidebarFieldsLive);
+        if (locationEl) locationEl.addEventListener('change', applySidebarFieldsLive);
         if (questEl) questEl.addEventListener('change', applySidebarFieldsLive);
         if (isStartEl) isStartEl.addEventListener('change', applySidebarFieldsLive);
         if (deleteBtn) deleteBtn.addEventListener('click', deleteSelectedNode);
@@ -943,6 +1020,8 @@ console.log('📦 expedition-designer.js LOADED');
         window.subscribeToGlobalData('settlements', () => {
             const previous = getSelectedSettlementFromDom();
             populateSettlementSelect();
+            syncGlobalCaches(state.settlementId || getSelectedSettlementFromDom(), 'settlements subscription');
+            updateNodeSidebar();
             const current = getSelectedSettlementFromDom();
             log('Settlements subscription fired', {
                 previousSettlementId: previous,

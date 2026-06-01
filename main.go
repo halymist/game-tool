@@ -169,6 +169,11 @@ func init() {
 			} else {
 				log.Printf("SUCCESS: Set search_path to game schema")
 			}
+
+			if schemaErr := ensureQuestAndExpeditionLocationSupport(db); schemaErr != nil {
+				log.Printf("CRITICAL: Failed to ensure quest/expedition location schema: %v", schemaErr)
+				db = nil
+			}
 		}
 	}
 }

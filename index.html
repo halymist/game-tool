@@ -235,6 +235,12 @@
                                     <span>Expedition quest</span>
                                 </label>
                                 <div class="sidebar-field">
+                                    <label for="sidebarQuestLocation">Location</label>
+                                    <select id="sidebarQuestLocation">
+                                        <option value="">-- No location --</option>
+                                    </select>
+                                </div>
+                                <div class="sidebar-field">
                                     <label>Summary</label>
                                     <textarea id="sidebarSummaryText" placeholder="Comprehensive quest summary and branch overview..."></textarea>
                                 </div>
@@ -1209,6 +1215,12 @@
                             <div class="expedition-sidebar-header">
                                 <h3>Expedition Node</h3>
                                 <button id="expeditionDeleteNodeBtn" class="expedition-sidebar-delete" type="button">Delete</button>
+                            </div>
+                            <div class="expedition-sidebar-field">
+                                <label for="expeditionNodeLocation">Location</label>
+                                <select id="expeditionNodeLocation" class="expedition-sidebar-select">
+                                    <option value="">-- No location --</option>
+                                </select>
                             </div>
                             <div class="expedition-sidebar-field">
                                 <label for="expeditionNodeQuest">Quest</label>

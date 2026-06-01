@@ -4,7 +4,7 @@ console.log('📦 quest-designer.js LOADED');
 // ==================== STATE ====================
 const questState = {
     // Quests (slides with asset, name, text, travelText, failureText, summary, sortOrder for tree depth)
-    quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, summary, assetId, assetUrl, x, y, sortOrder }
+    quests: new Map(),       // questId -> { questId, name, text, travelText, failureText, summary, locationId, assetId, assetUrl, x, y, sortOrder }
     nextQuestId: 1,
     selectedQuest: null,
     selectedQuestIds: new Set(),
@@ -76,6 +76,33 @@ function questFactionCodeToKey(code) {
 function questFormatFactionLabel(key) {
     if (!key) return '';
     return QUEST_FACTION_LABELS[key] || key;
+}
+
+function getQuestSettlementLocations() {
+    const settlementId = Number(questState.selectedSettlementId || 0);
+    if (!(settlementId > 0)) return [];
+    const settlements = Array.isArray(GlobalData?.settlements) ? GlobalData.settlements : [];
+    const settlement = settlements.find((item) => Number(item.settlement_id) === settlementId);
+    const locations = Array.isArray(settlement?.locations) ? settlement.locations : [];
+    return locations
+        .map((location) => ({
+            id: Number(location.location_id || location.id || 0),
+            name: location.name || `Location ${location.location_id || location.id}`,
+        }))
+        .filter((location) => location.id > 0)
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function populateQuestLocationSelect(selectedLocationId = null) {
+    const select = document.getElementById('sidebarQuestLocation');
+    if (!select) return;
+    const currentValue = selectedLocationId ?? select.value;
+    const locations = getQuestSettlementLocations();
+    select.innerHTML = '<option value="">-- No location --</option>' +
+        locations.map((location) => `<option value="${location.id}">${escapeHtml(location.name)}</option>`).join('');
+    if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
+        select.value = String(currentValue);
+    }
 }
 
 const questPreviewState = {
@@ -261,6 +288,10 @@ function setupQuestDataSubscriptions() {
 
     questDataSubscriptions.push(subscribeToGlobalData('settlements', () => {
         populateQuestSettlementSelect();
+        if (questState.selectedQuest) {
+            const quest = questState.quests.get(questState.selectedQuest);
+            populateQuestLocationSelect(quest?.locationId ?? null);
+        }
     }));
 
     questDataSubscriptions.push(subscribeToGlobalData('recentEvents', (events) => {
@@ -325,6 +356,7 @@ function addQuest() {
         travelText: '',
         failureText: '',
         summary: '',
+        locationId: null,
         expeditionQuest: false,
         assetId: null,
         assetUrl: null,
@@ -1231,6 +1263,10 @@ function updateQuestSidebar(questId) {
     const expeditionQuestInput = document.getElementById('sidebarExpeditionQuest');
     if (expeditionQuestInput) expeditionQuestInput.checked = !!quest.expeditionQuest;
 
+    populateQuestLocationSelect(quest.locationId ?? null);
+    const locationInput = document.getElementById('sidebarQuestLocation');
+    if (locationInput) locationInput.value = quest.locationId ? String(quest.locationId) : '';
+
     const summaryInput = document.getElementById('sidebarSummaryText');
     if (summaryInput) summaryInput.value = quest.summary || '';
 }
@@ -1977,6 +2013,7 @@ async function loadQuestChainData(chainId) {
                 travelText: q.travel_text || '',
                 failureText: q.failure_text || '',
                 summary: q.summary || '',
+                locationId: q.location_id || null,
                 expeditionQuest: !!q.expedition_quest,
                 assetId: q.asset_id,
                 assetUrl: assetObj ? assetObj.url : remoteAssetUrl,
@@ -2810,6 +2847,18 @@ function setupSidebarEventListeners() {
         });
     }
 
+    const questLocation = document.getElementById('sidebarQuestLocation');
+    if (questLocation) {
+        questLocation.addEventListener('change', (e) => {
+            if (!questState.selectedQuest) return;
+            const quest = questState.quests.get(questState.selectedQuest);
+            if (quest) {
+                quest.locationId = e.target.value ? parseInt(e.target.value, 10) : null;
+                checkQuestSaveConditions();
+            }
+        });
+    }
+
     const questPreviewBtn = document.getElementById('sidebarQuestPreviewBtn');
     if (questPreviewBtn) {
         questPreviewBtn.addEventListener('click', () => {
@@ -2959,6 +3008,7 @@ function buildQuestSnapshot(includeTooling) {
                 travelText: quest.travelText || '',
                 failureText: quest.failureText || '',
                 summary: quest.summary || '',
+                locationId: quest.locationId ?? null,
                 expeditionQuest: !!quest.expeditionQuest,
                 assetId: quest.assetId ?? null,
                 sortOrder: Number(quest.sortOrder || 0),
@@ -3137,6 +3187,7 @@ async function saveQuest() {
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
                     summary: quest.summary || '',
+                    locationId: quest.locationId ?? null,
                     expeditionQuest: !!quest.expeditionQuest,
                     assetId: quest.assetId || null,
                     posX: quest.x,
@@ -3152,6 +3203,7 @@ async function saveQuest() {
                     travelText: quest.travelText || '',
                     failureText: quest.failureText || '',
                     summary: quest.summary || '',
+                    locationId: quest.locationId ?? null,
                     expeditionQuest: !!quest.expeditionQuest,
                     assetId: quest.assetId || null,
                     posX: quest.x,
@@ -5462,6 +5514,7 @@ function applyGeneratedQuest(data, locationTextureOverride = null) {
         travelText: questRaw.travel_text || questRaw.travelText || '',
         failureText: questRaw.failure_text || questRaw.failureText || '',
         summary: questRaw.summary || '',
+        locationId: normalizeNumericId(document.getElementById('questGenerateLocation')?.value || null),
         expeditionQuest: !!(questRaw.expedition_quest ?? questRaw.expeditionQuest),
         assetId: resolvedAssetId,
         assetUrl: assetObj ? assetObj.url : remoteAssetUrl,

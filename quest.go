@@ -38,6 +38,7 @@ type Quest struct {
 	Ending            *int    `json:"ending"`
 	DefaultEntry      bool    `json:"default_entry"`
 	SettlementID      *int    `json:"settlement_id"`
+	LocationID        *int64  `json:"location_id"`
 	AssetID           *int    `json:"asset_id"`
 	ExpeditionQuest   bool    `json:"expedition_quest"`
 	PosX              float64 `json:"pos_x"`
@@ -138,7 +139,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 	// Get quests for these chains
 	var quests []Quest
 	if len(chainIDs) > 0 {
-		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, summary, requisite_option_id, ending, default_entry, settlement_id, asset_id, COALESCE(expedition_quest, false),
+		questQuery := `SELECT quest_id, questchain_id, quest_name, start_text, travel_text, failure_text, summary, requisite_option_id, ending, default_entry, settlement_id, location_id, asset_id, COALESCE(expedition_quest, false),
 			COALESCE(pos_x, 50) as pos_x, COALESCE(pos_y, 100) as pos_y, COALESCE(sort_order, 0) as sort_order
 			FROM game.quests WHERE questchain_id = ANY($1) ORDER BY questchain_id, sort_order, quest_id`
 
@@ -152,7 +153,7 @@ func handleGetQuests(w http.ResponseWriter, r *http.Request) {
 
 		for questRows.Next() {
 			var q Quest
-			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.Summary, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.AssetID, &q.ExpeditionQuest, &q.PosX, &q.PosY, &q.SortOrder)
+			err := questRows.Scan(&q.QuestID, &q.QuestchainID, &q.QuestName, &q.StartText, &q.TravelText, &q.FailureText, &q.Summary, &q.RequisiteOptionID, &q.Ending, &q.DefaultEntry, &q.SettlementID, &q.LocationID, &q.AssetID, &q.ExpeditionQuest, &q.PosX, &q.PosY, &q.SortOrder)
 			if err != nil {
 				log.Printf("Error scanning quest: %v", err)
 				continue
@@ -343,6 +344,7 @@ type NewQuestData struct {
 	TravelText      string  `json:"travelText"`
 	FailureText     string  `json:"failureText"`
 	Summary         string  `json:"summary"`
+	LocationID      *int64  `json:"locationId"`
 	AssetID         *int    `json:"assetId"`
 	ExpeditionQuest bool    `json:"expeditionQuest"`
 	PosX            float64 `json:"posX"`
@@ -358,6 +360,7 @@ type QuestUpdateData struct {
 	TravelText      string  `json:"travelText"`
 	FailureText     string  `json:"failureText"`
 	Summary         string  `json:"summary"`
+	LocationID      *int64  `json:"locationId"`
 	AssetID         *int    `json:"assetId"`
 	ExpeditionQuest bool    `json:"expeditionQuest"`
 	PosX            float64 `json:"posX"`
@@ -635,6 +638,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 	failureTexts := make([]string, n)
 	summaries := make([]string, n)
 	chainIDs := make([]int64, n)
+	locationIDs := make([]sql.NullInt64, n)
 	assetIDs := make([]sql.NullInt64, n)
 	expeditionQuests := make([]bool, n)
 	defaults := make([]bool, n)
@@ -649,6 +653,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		failureTexts[i] = q.FailureText
 		summaries[i] = q.Summary
 		chainIDs[i] = int64(questchainID)
+		locationIDs[i] = nullInt64(q.LocationID)
 		assetIDs[i] = nullInt(q.AssetID)
 		expeditionQuests[i] = q.ExpeditionQuest
 		defaults[i] = true
@@ -664,6 +669,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		{Name: "failure_text", Cast: "text", Values: failureTexts},
 		{Name: "summary", Cast: "text", Values: summaries},
 		{Name: "questchain_id", Cast: "int", Values: chainIDs},
+		{Name: "location_id", Cast: "bigint", Values: locationIDs},
 		{Name: "asset_id", Cast: "int", Values: assetIDs},
 		{Name: "expedition_quest", Cast: "bool", Values: expeditionQuests},
 		{Name: "default_entry", Cast: "bool", Values: defaults},
@@ -672,7 +678,7 @@ func bulkInsertQuests(tx *sql.Tx, newQuests []NewQuestData, questchainID int) (m
 		{Name: "sort_order", Cast: "int", Values: sortOrders},
 	})
 	rows, err := tx.Query(fmt.Sprintf(`
-		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, asset_id, expedition_quest, default_entry, pos_x, pos_y, sort_order)
+		INSERT INTO game.quests (quest_name, start_text, travel_text, failure_text, summary, questchain_id, location_id, asset_id, expedition_quest, default_entry, pos_x, pos_y, sort_order)
 		%s
 		RETURNING quest_id
 	`, selectSQL), args...)
@@ -702,6 +708,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 	travelTexts := make([]string, n)
 	failureTexts := make([]string, n)
 	summaries := make([]string, n)
+	locationIDs := make([]sql.NullInt64, n)
 	assetIDs := make([]sql.NullInt64, n)
 	expeditionQuests := make([]bool, n)
 	posXs := make([]float64, n)
@@ -715,6 +722,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		travelTexts[i] = u.TravelText
 		failureTexts[i] = u.FailureText
 		summaries[i] = u.Summary
+		locationIDs[i] = nullInt64(u.LocationID)
 		assetIDs[i] = nullInt(u.AssetID)
 		expeditionQuests[i] = u.ExpeditionQuest
 		posXs[i] = u.PosX
@@ -729,6 +737,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 		{Name: "travel_text", Cast: "text", Values: travelTexts},
 		{Name: "failure_text", Cast: "text", Values: failureTexts},
 		{Name: "summary", Cast: "text", Values: summaries},
+		{Name: "location_id", Cast: "bigint", Values: locationIDs},
 		{Name: "asset_id", Cast: "int", Values: assetIDs},
 		{Name: "expedition_quest", Cast: "bool", Values: expeditionQuests},
 		{Name: "pos_x", Cast: "float8", Values: posXs},
@@ -742,6 +751,7 @@ func bulkUpdateQuests(tx *sql.Tx, updates []QuestUpdateData) error {
 			travel_text  = v.travel_text,
 			failure_text = v.failure_text,
 			summary      = v.summary,
+			location_id  = v.location_id,
 			asset_id     = v.asset_id,
 			expedition_quest = v.expedition_quest,
 			pos_x        = v.pos_x,
