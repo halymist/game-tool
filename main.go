@@ -174,6 +174,10 @@ func init() {
 				log.Printf("CRITICAL: Failed to ensure quest/expedition location schema: %v", schemaErr)
 				db = nil
 			}
+			if schemaErr := ensureTalentEffectAssetSupport(db); schemaErr != nil {
+				log.Printf("CRITICAL: Failed to ensure talent effect asset schema: %v", schemaErr)
+				db = nil
+			}
 		}
 	}
 }
@@ -213,8 +217,6 @@ func main() {
 	http.HandleFunc("/api/getEnemies", apiHandler(handleGetEnemies))
 	http.HandleFunc("/api/getTalentsInfo", apiHandler(handleGetTalentsInfo))
 	http.HandleFunc("/api/updateTalentInfo", apiHandler(handleUpdateTalentInfo))
-	http.HandleFunc("/api/getTalentAssets", apiHandler(CreateGetAssetsHandler("perks")))
-	http.HandleFunc("/api/uploadTalentAsset", apiHandler(CreateUploadAssetHandler("perks")))
 	http.HandleFunc("/api/createEnemy", apiHandler(handleCreateEnemy))
 	http.HandleFunc("/api/toggleApproveEnemy", apiHandler(handleToggleApproveEnemy))
 	http.HandleFunc("/api/mergeEnemies", apiHandler(handleMergeEnemies))

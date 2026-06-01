@@ -527,7 +527,7 @@ function buildTalentTreeGrid() {
         cell.className = 'talent-cell';
         cell.dataset.talentId = talent.talentId;
 
-        const iconUrl = getTalentIconUrl(talent.assetId);
+        const iconUrl = getTalentIconUrl(talent);
         cell.title = getTalentTooltip(talent);
         cell.innerHTML = `
             <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
@@ -571,7 +571,12 @@ function buildTalentTreeGrid() {
     });
 }
 
-function getTalentIconUrl(assetId) {
+function getTalentIconUrl(talentOrAssetId) {
+    const talent = typeof talentOrAssetId === 'object' ? talentOrAssetId : null;
+    const effect = talent?.effectId
+        ? (GlobalData.effects || []).find(e => String(e.id) === String(talent.effectId))
+        : null;
+    const assetId = effect?.assetID || effect?.assetId || effect?.asset_id || talent?.assetId || (talent ? null : talentOrAssetId);
     if (!assetId) return '';
     if (typeof window.buildPublicAssetUrl === 'function') {
         return window.buildPublicAssetUrl(`images/perks/${assetId}.webp`);

@@ -1780,20 +1780,39 @@ function populateSettlementSelect(selectId, preferredId) {
 
     const previousValue = select.value || (preferredId != null ? String(preferredId) : '');
 
-    const sorted = [...settlements].sort((a, b) => {
-        const nA = (a.settlement_name || '').toLowerCase();
-        const nB = (b.settlement_name || '').toLowerCase();
-        return nA === nB
-            ? (a.settlement_id || 0) - (b.settlement_id || 0)
-            : nA.localeCompare(nB);
-    });
-
     select.innerHTML = '';
-    sorted.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.settlement_id;
-        opt.textContent = s.settlement_name || `Settlement #${s.settlement_id}`;
-        select.appendChild(opt);
+
+    const factionGroups = [
+        { label: 'Order', match: settlement => String(settlement.faction || '') === '1' },
+        { label: 'Guild', match: settlement => String(settlement.faction || '') === '2' },
+        { label: 'Companions', match: settlement => String(settlement.faction || '') === '3' },
+        { label: 'Neutral', match: settlement => !settlement.faction }
+    ];
+
+    factionGroups.forEach(group => {
+        const groupedSettlements = settlements
+            .filter(group.match)
+            .sort((a, b) => {
+                const nA = (a.settlement_name || '').toLowerCase();
+                const nB = (b.settlement_name || '').toLowerCase();
+                return nA === nB
+                    ? (a.settlement_id || 0) - (b.settlement_id || 0)
+                    : nA.localeCompare(nB);
+            });
+
+        if (!groupedSettlements.length) return;
+
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = group.label;
+
+        groupedSettlements.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.settlement_id;
+            opt.textContent = s.settlement_name || `Settlement #${s.settlement_id}`;
+            optgroup.appendChild(opt);
+        });
+
+        select.appendChild(optgroup);
     });
 
     // Try to restore previous selection, fall back to first option

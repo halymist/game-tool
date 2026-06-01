@@ -256,14 +256,29 @@ console.log('📦 expedition-designer.js LOADED');
 
         const settlements = (window.GlobalData && window.GlobalData.settlements) || [];
         const previous = state.settlementId;
-        const sorted = [...settlements].sort((a, b) => {
-            const an = (a.settlement_name || a.name || '').toLowerCase();
-            const bn = (b.settlement_name || b.name || '').toLowerCase();
-            return an.localeCompare(bn);
+        const factionGroups = [
+            { label: 'Order', match: settlement => String(settlement.faction || '') === '1' },
+            { label: 'Guild', match: settlement => String(settlement.faction || '') === '2' },
+            { label: 'Companions', match: settlement => String(settlement.faction || '') === '3' },
+            { label: 'Neutral', match: settlement => !settlement.faction }
+        ];
+        sel.innerHTML = '';
+        factionGroups.forEach(group => {
+            const groupedSettlements = settlements
+                .filter(group.match)
+                .sort((a, b) => String(a.settlement_name || a.name || '').localeCompare(String(b.settlement_name || b.name || '')));
+            if (!groupedSettlements.length) return;
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = group.label;
+            groupedSettlements.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s.settlement_id;
+                option.textContent = s.settlement_name || s.name || `Settlement #${s.settlement_id}`;
+                optgroup.appendChild(option);
+            });
+            sel.appendChild(optgroup);
         });
-        sel.innerHTML = '<option value="">— Select settlement —</option>' +
-            sorted.map(s => `<option value="${s.settlement_id}">${escapeHtml(s.settlement_name || s.name || `Settlement #${s.settlement_id}`)}</option>`).join('');
-        if (previous && sorted.some(s => s.settlement_id === previous)) {
+        if (previous && sel.querySelector(`option[value="${previous}"]`)) {
             sel.value = String(previous);
         }
     }

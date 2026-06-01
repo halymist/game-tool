@@ -6,9 +6,6 @@ let talentEditorState = {
     filteredTalents: []
 };
 
-let talentAssets = [];
-let talentAssetGallery = null;
-
 function registerTalentDesigner() {
     if (!document.getElementById('talents-content')) return;
     window.loadTalentEditorData = loadTalentEditorData;
@@ -82,6 +79,8 @@ function setupTalentEditorListeners() {
     if (effectSelect) {
         effectSelect.addEventListener('change', () => {
             updateEffectDescription(effectSelect.value);
+            const selectedTalent = talentEditorState.talents.find(t => t.talentId === talentEditorState.selectedTalentId);
+            if (selectedTalent) updateTalentAssetPreview(effectSelect.value);
         });
     }
 
@@ -102,8 +101,6 @@ function setupTalentEditorListeners() {
         maxPointsInput.addEventListener('input', () => normalizeIntegerInputValue(maxPointsInput));
         maxPointsInput.addEventListener('blur', () => normalizeIntegerInputValue(maxPointsInput));
     }
-
-    getTalentAssetGallery();
 
     const saveBtn = document.getElementById('talentSaveBtn');
     if (saveBtn) saveBtn.addEventListener('click', saveTalentChanges);
@@ -127,7 +124,6 @@ function getTalentFormSnapshot() {
         effectId: document.getElementById('talentEffectId')?.value ?? '',
         factor: document.getElementById('talentFactor')?.value ?? '',
         description: document.getElementById('talentDescription')?.value ?? '',
-        assetId: document.getElementById('talentAssetId')?.value ?? '',
     });
 }
 
@@ -169,9 +165,6 @@ async function loadTalentEditorData(options = {}) {
         talentEditorState.talents = GlobalData.talents || [];
         talentEditorState.filteredTalents = [...talentEditorState.talents];
 
-        await ensureTalentAssets();
-        createTalentAssetGallery();
-
         populateTalentEffectOptions();
         renderTalentGrid();
 
@@ -198,93 +191,32 @@ function populateTalentEffectOptions() {
     });
 }
 
-async function ensureTalentAssets(options = {}) {
-    const forceReload = options?.forceReload === true;
+function getTalentEffect(effectId) {
+    if (!effectId) return null;
+    return (GlobalData.effects || []).find(effect => String(effect.id) === String(effectId)) || null;
+}
 
-    if (typeof loadPerkAssets === 'function' && typeof getPerkAssets === 'function') {
-        await loadPerkAssets({ forceReload });
-        talentAssets = getPerkAssets() || [];
-        return;
+function getEffectAssetId(effectId) {
+    const effect = getTalentEffect(effectId);
+    return effect?.assetID || effect?.assetId || effect?.asset_id || null;
+}
+
+function getTalentAssetIcon(talentOrEffectId) {
+    const talent = typeof talentOrEffectId === 'object' ? talentOrEffectId : null;
+    const effectId = talent ? talent.effectId : talentOrEffectId;
+    const assetId = getEffectAssetId(effectId) || talent?.assetId || null;
+    if (!assetId) return '';
+    if (typeof window.buildPublicAssetUrl === 'function') {
+        return window.buildPublicAssetUrl(`images/perks/${assetId}.webp`);
     }
-
-    await loadTalentAssetsFallback();
+    return `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/perks/${assetId}.webp`;
 }
 
-async function loadTalentAssetsFallback() {
-    try {
-        const token = await getCurrentAccessToken();
-        if (!token) return;
-
-        const response = await fetch('/api/getTalentAssets', {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const data = await response.json();
-        if (data.success && data.assets) {
-            talentAssets = data.assets;
-            console.log('✅ Loaded', talentAssets.length, 'talent assets');
-        }
-    } catch (error) {
-        console.error('Error loading talent assets:', error);
-    }
-}
-
-function getTalentAssetGallery() {
-    if (talentAssetGallery) return talentAssetGallery;
-    talentAssetGallery = new AssetGallery({
-        overlayId: 'talentAssetGalleryOverlay',
-        gridId: 'talentAssetGrid',
-        openTriggerIds: ['talentAssetPreview'],
-        closeTriggerIds: ['talentAssetGalleryClose'],
-        uploadTriggerIds: ['talentUploadNewBtn', 'talentUploadNewBtnOverlay'],
-        fileInputId: 'talentAssetFile',
-        getAssets: () => talentAssets,
-        getSelectedAssetId: () => document.getElementById('talentAssetId')?.value || null,
-        uploadEndpoint: '/api/uploadTalentAsset',
-        getNextAssetID: getNextAvailableTalentAssetID,
-        width: 128,
-        height: 128,
-        quality: 0.8,
-        onSelect: (asset, { assetId, iconUrl, gallery }) => {
-            document.getElementById('talentAssetId').value = assetId;
-            updateTalentAssetPreview(assetId, iconUrl);
-            gallery.close();
-        },
-        onUploaded: async ({ result, base64Data, gallery }) => {
-            await ensureTalentAssets({ forceReload: true });
-            const refreshedIcon = getTalentAssetIcon(result.assetID) || result.icon || base64Data;
-            gallery.render();
-            gallery.selectById(result.assetID, refreshedIcon);
-            alert('Talent asset uploaded successfully!');
-        },
-        onUploadError: ({ error, result }) => {
-            alert(result?.message ? 'Error uploading asset: ' + result.message : 'Failed to upload asset. Please try again.');
-            console.error('Error uploading talent asset:', error);
-        }
-    });
-    return talentAssetGallery;
-}
-
-function createTalentAssetGallery() {
-    getTalentAssetGallery().render();
-}
-
-function toggleTalentAssetGallery() {
-    getTalentAssetGallery().toggle();
-}
-
-function selectTalentAsset(assetId, iconUrl) {
-    getTalentAssetGallery().selectById(assetId, iconUrl);
-}
-
-function updateTalentAssetPreview(assetId, iconUrl) {
+function updateTalentAssetPreview(effectId) {
     const preview = document.getElementById('talentAssetPreview');
     const image = document.getElementById('talentAssetImage');
     const placeholder = document.getElementById('talentAssetPlaceholder');
+    const iconUrl = getTalentAssetIcon(effectId);
 
     if (image) {
         image.src = iconUrl || '';
@@ -296,30 +228,6 @@ function updateTalentAssetPreview(assetId, iconUrl) {
         placeholder.style.display = iconUrl ? 'none' : 'block';
     }
 
-}
-
-async function uploadTalentAsset(file) {
-    return getTalentAssetGallery().upload(file);
-}
-
-function getNextAvailableTalentAssetID() {
-    if (!talentAssets || talentAssets.length === 0) {
-        return 1;
-    }
-
-    let maxID = 0;
-    for (const asset of talentAssets) {
-        if (asset.assetID > maxID) {
-            maxID = asset.assetID;
-        }
-    }
-
-    return maxID + 1;
-}
-
-function getTalentAssetIcon(assetId) {
-    const asset = talentAssets.find(a => a.assetID === assetId);
-    return asset ? asset.icon : '';
 }
 
 function updateEffectDescription(effectId) {
@@ -364,7 +272,7 @@ function renderTalentGrid(filterText = '') {
         const cell = document.createElement('div');
         cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '');
 
-        const iconUrl = getTalentAssetIcon(talent.assetId);
+        const iconUrl = getTalentAssetIcon(talent);
         const perkIndicator = (talent.perkSlot === true || talent.perkSlot === 1) ? '<div class="talent-perk-indicator">★</div>' : '';
         cell.innerHTML = `
             ${perkIndicator}
@@ -400,8 +308,7 @@ function selectTalent(talentId) {
     document.getElementById('talentEffectId').value = talent.effectId ?? '';
     document.getElementById('talentFactor').value = talent.factor ?? '';
     document.getElementById('talentDescription').value = talent.description ?? '';
-    document.getElementById('talentAssetId').value = talent.assetId ?? 1;
-    updateTalentAssetPreview(talent.assetId, getTalentAssetIcon(talent.assetId));
+    updateTalentAssetPreview(talent.effectId);
     updateEffectDescription(talent.effectId);
 
     // Store snapshot for dirty tracking
@@ -425,7 +332,6 @@ async function saveTalentChanges() {
     const payload = {
         talentId: talentId,
         talentName: document.getElementById('talentName').value.trim(),
-        assetId: parseInt(document.getElementById('talentAssetId').value, 10),
         maxPoints: parseInt(document.getElementById('talentMaxPoints').value, 10),
         perkSlot: document.getElementById('talentPerkSlot').checked,
         effectId: document.getElementById('talentEffectId').value ? parseInt(document.getElementById('talentEffectId').value, 10) : null,
@@ -433,7 +339,7 @@ async function saveTalentChanges() {
         description: document.getElementById('talentDescription').value.trim() || null
     };
 
-    if (!payload.talentName || !payload.maxPoints || !payload.assetId) {
+    if (!payload.talentName || !payload.maxPoints) {
         setTalentStatus('Please fill required fields.', true);
         return;
     }

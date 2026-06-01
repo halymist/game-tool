@@ -273,9 +273,15 @@ function renderTalentTree() {
         cell.className = 'ct-cell';
         cell.dataset.talentId = talent.talentId;
 
-        const iconUrl = (typeof window.buildPublicAssetUrl === 'function')
-            ? window.buildPublicAssetUrl(`images/perks/${talent.assetId}.webp`)
-            : `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/perks/${talent.assetId}.webp`;
+        const effect = talent.effectId
+            ? (GlobalData.effects || []).find(e => String(e.id) === String(talent.effectId))
+            : null;
+        const assetId = effect?.assetID || effect?.assetId || effect?.asset_id || talent.assetId;
+        const iconUrl = assetId
+            ? ((typeof window.buildPublicAssetUrl === 'function')
+                ? window.buildPublicAssetUrl(`images/perks/${assetId}.webp`)
+                : `https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev/images/perks/${assetId}.webp`)
+            : '';
         const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
 
         cell.innerHTML = `

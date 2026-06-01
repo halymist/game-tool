@@ -376,11 +376,12 @@ func loadPlayerInventory(characterIDs []int) (map[int][]PlayerInventoryItem, err
 
 func loadPlayerTalents(characterIDs []int) (map[int][]PlayerTalent, error) {
 	rows, err := db.Query(`
-		SELECT t.character_id, t.talent_id, t.points, COALESCE(ti.talent_name, ''), ti.asset_id,
+		SELECT t.character_id, t.talent_id, t.points, COALESCE(ti.talent_name, ''), e.asset_id,
 		       ti.effect_id, ti.factor, ti.description,
 		       COALESCE(ti.row, 1), COALESCE(ti.col, 1), COALESCE(ti.max_points, 0), COALESCE(ti.perk_slot, false)
 		FROM public.talents t
 		LEFT JOIN game.talents_info ti ON ti.talent_id = t.talent_id
+		LEFT JOIN game.effects e ON e.effect_id = ti.effect_id
 		WHERE t.character_id = ANY($1)
 		ORDER BY t.character_id, t.talent_id
 	`, pq.Array(characterIDs))

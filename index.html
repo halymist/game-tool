@@ -736,15 +736,13 @@
                     </div>
                     <form id="talentEditorForm" class="talent-editor-form" style="display: none;">
                         <input type="hidden" id="talentId">
-                        <input type="hidden" id="talentAssetId" value="1">
-                        <input type="file" id="talentAssetFile" accept="image/*" style="display: none;">
 
                         <!-- Icon + Name/Max row -->
                         <div class="talent-header-row">
                             <div class="talent-icon-column">
                                 <div class="talent-asset-preview" id="talentAssetPreview">
                                     <img id="talentAssetImage" src="" alt="No asset">
-                                    <span id="talentAssetPlaceholder">Click to<br>select icon</span>
+                                    <span id="talentAssetPlaceholder">Effect<br>icon</span>
                                 </div>
 
                             </div>
@@ -794,20 +792,6 @@
                             <button type="button" id="talentSaveBtn" class="btn-save" disabled>Save Changes</button>
                         </div>
                     </form>
-                </div>
-            </div>
-
-            <!-- Talent Asset Gallery Overlay -->
-            <div id="talentAssetGalleryOverlay" class="talent-asset-gallery-overlay hidden">
-                <div class="talent-asset-gallery">
-                    <div class="talent-asset-gallery-header">
-                        <h3>Talent Assets</h3>
-                        <div class="gallery-header-actions">
-                            <button type="button" id="talentUploadNewBtn" class="gallery-upload-btn">Upload</button>
-                            <button type="button" id="talentAssetGalleryClose" class="talent-asset-gallery-close">✕</button>
-                        </div>
-                    </div>
-                    <div id="talentAssetGrid" class="talent-asset-grid"></div>
                 </div>
             </div>
         </div>

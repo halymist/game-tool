@@ -15,7 +15,7 @@ import (
 type TalentInfo struct {
 	TalentID    int     `json:"talentId" db:"talent_id"`
 	TalentName  string  `json:"talentName" db:"talent_name"`
-	AssetID     int     `json:"assetId" db:"asset_id"`
+	AssetID     int     `json:"assetId"`
 	MaxPoints   int     `json:"maxPoints" db:"max_points"`
 	PerkSlot    *bool   `json:"perkSlot" db:"perk_slot"`
 	EffectID    *int    `json:"effectId" db:"effect_id"`
@@ -575,10 +575,11 @@ func handleRemovePendingEnemy(w http.ResponseWriter, r *http.Request) {
 // getAllTalentsInfo retrieves all talents from game.talents_info
 func getAllTalentsInfo() ([]TalentInfo, error) {
 	query := `
-		SELECT talent_id, talent_name, asset_id, max_points, perk_slot, effect_id, factor, 
-		       description, row, col, COALESCE(version, 1)
-		FROM game.talents_info
-		ORDER BY row, col
+		SELECT ti.talent_id, ti.talent_name, COALESCE(e.asset_id, 0), ti.max_points, ti.perk_slot, ti.effect_id, ti.factor, 
+		       ti.description, ti.row, ti.col, COALESCE(ti.version, 1)
+		FROM game.talents_info ti
+		LEFT JOIN game.effects e ON e.effect_id = ti.effect_id
+		ORDER BY ti.row, ti.col
 	`
 
 	rows, err := db.Query(query)
