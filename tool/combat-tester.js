@@ -112,7 +112,7 @@ async function loadCombatData() {
 
 function updateHpCalc(panel) {
     const sta = parseInt(document.getElementById(`combatSta${panel}`).value) || 0;
-    document.getElementById(`combatHpCalc${panel}`).textContent = sta * 10;
+    document.getElementById(`combatHpCalc${panel}`).textContent = sta * 5;
 }
 
 function checkFightReady() {

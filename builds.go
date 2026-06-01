@@ -108,17 +108,12 @@ var buildProgressMap sync.Map // map[int64]*buildProgressTracker
 
 // ── Day-N snapshot ──────────────────────────────────────────────────────────
 
-// scaleStat applies +2 %/day compounding, rounded each day (matches the
-// in-game tick where the rounded value carries to the next day).
+// scaleStat applies +2 %/day compounding after day 1.
 func scaleStat(base, day int) int {
-	if day <= 0 {
+	if day <= 1 {
 		return base
 	}
-	v := float64(base)
-	for i := 0; i < day; i++ {
-		v = math.Round(v * 1.02)
-	}
-	return int(v)
+	return int(math.Round(float64(base) * math.Pow(1.02, float64(day-1))))
 }
 
 // snapshotBuild produces the CombatCharacter the build represents on `day`.

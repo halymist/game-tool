@@ -231,7 +231,7 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	enemyMods := resolveCombatModifiers(enemy)
 
 	calculateMaxHP := func(char *CombatCharacter) int {
-		return char.Stamina * 10
+		return char.Stamina * 5
 	}
 
 	// Ratio-based chance with diminishing returns:
@@ -405,13 +405,13 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 	fireStartEffects(enemy, &enemyCurrentHP, enemyMaxHP, &enemyMods, &enemyTempBuffs,
 		&playerCurrentHP, playerMaxHP, &playerMods, &playerTempBuffs, &playerBleedStacks, &playerStunned)
 
-	calculateDamage := func(attacker *CombatCharacter, attackerMods *CombatModifiers) int {
+	calculateRawDamage := func(attacker *CombatCharacter, attackerMods *CombatModifiers) int {
 		damageRange := attacker.MaxDamage - attacker.MinDamage
-		baseDamage := attacker.MinDamage
+		weaponDamage := attacker.MinDamage
 		if damageRange > 0 {
-			baseDamage += rand.Intn(damageRange + 1)
+			weaponDamage += rand.Intn(damageRange + 1)
 		}
-		finalDamage := baseDamage + attacker.Strength
+		finalDamage := attacker.Strength + weaponDamage
 		if attackerMods.DamageModifier != 0 {
 			finalDamage = finalDamage + (finalDamage * attackerMods.DamageModifier / 100)
 		}
@@ -426,10 +426,13 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 		if defenderMods.ArmorModifier != 0 {
 			armor = armor + (armor * defenderMods.ArmorModifier / 100)
 		}
-		if armor <= 0 {
-			return damage
+		if damage <= 0 {
+			return 1
 		}
-		reduced := damage * 100 / (armor + 100)
+		if armor < 0 {
+			armor = 0
+		}
+		reduced := damage * damage / (damage + armor)
 		if reduced < 1 {
 			reduced = 1
 		}
@@ -541,7 +544,7 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 
 		// ── Perform attack (and potentially double attack) ──
 		{
-			// Helper: perform one full attack sequence (dodge check → damage → crit → armor → on_hit → on_crit → on_crit_taken → on_hit_taken → counter)
+			// Helper: perform one full attack sequence (dodge check → raw damage → armor → crit → on_hit → on_crit → on_crit_taken → on_hit_taken → counter)
 			performAttack := func(isDoubleAttack bool) {
 				// Dodge check — based on defender agility vs attacker agility
 				dodgeChance := statBasedChance(defender.Agility, attacker.Agility, defenderMods.DodgeChance)
@@ -559,14 +562,17 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					aStats.MaxConsecHits = *attackerConsecHits
 				}
 
-				// Calculate base damage
-				damage := calculateDamage(attacker, attackerMods)
+				// Calculate raw damage: strength + weapon roll, then combat modifiers.
+				damage := calculateRawDamage(attacker, attackerMods)
 
 				// Apply consecutive damage bonus (% increase per hit in streak)
 				if attackerMods.ConsecutiveDamageBonus > 0 && *attackerConsecHits > 1 {
 					bonus := attackerMods.ConsecutiveDamageBonus * (*attackerConsecHits - 1)
 					damage = damage + (damage * bonus / 100)
 				}
+
+				// Apply armor before crit so crit doubles the reduced result.
+				damage = applyArmor(damage, defender, defenderMods)
 
 				// Crit check — based on attacker luck vs defender luck
 				isCrit := false
@@ -576,9 +582,6 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 					damage = damage * 2
 					aStats.CritHits++
 				}
-
-				// Apply armor
-				damage = applyArmor(damage, defender, defenderMods)
 
 				// Apply damage
 				*defenderHP -= damage
@@ -807,7 +810,7 @@ func executeCombat(player *CombatCharacter, enemy *CombatCharacter) map[string]i
 
 				// Counterattack check (only on first/main attack, not double)
 				if !isDoubleAttack && defenderMods.CounterChance > 0 && rand.Intn(100) < defenderMods.CounterChance {
-					counterDmg := calculateDamage(defender, defenderMods)
+					counterDmg := calculateRawDamage(defender, defenderMods)
 					counterDmg = applyArmor(counterDmg, attacker, attackerMods)
 					*attackerHP -= counterDmg
 					getStats(defender.CharacterID).DamageDealt += counterDmg

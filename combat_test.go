@@ -12,12 +12,12 @@ func baseCombatant(id int, name string, effects []CombatTestEffect) *CombatChara
 		CharacterID:   id,
 		CharacterName: name,
 		Strength:      10,
-		Stamina:       10, // 100 HP
+		Stamina:       10, // 50 HP
 		Agility:       10,
 		Luck:          10,
 		Armor:         0,
 		MinDamage:     10,
-		MaxDamage:     10, // fixed 20 damage (10 base + 10 str)
+		MaxDamage:     10, // fixed 20 raw damage (10 weapon + 10 str)
 		Effects:       effects,
 	}
 }
@@ -81,7 +81,7 @@ func TestBleedOnHit(t *testing.T) {
 
 func TestHealOnTurnStart(t *testing.T) {
 	// C1 has attack with negative factor + targetSelf + on_turn_start = heal
-	// -3 percent_of_max_hp means heal 3% of maxHP (100) = 3 HP per turn
+	// 3 percent_of_max_hp means heal 3% of maxHP (50), floored to 1 HP per turn
 	c1 := baseCombatant(1, "Healer", []CombatTestEffect{
 		{EffectID: 1, CoreEffectCode: "heal", TriggerType: "on_turn_start", FactorType: "percent_of_max_hp", TargetSelf: true, Value: 3},
 	})
@@ -94,8 +94,8 @@ func TestHealOnTurnStart(t *testing.T) {
 	for _, e := range log {
 		if e.Action == "heal" && e.CharacterID == 1 {
 			healCount++
-			if e.Factor != 3 {
-				t.Errorf("Heal factor: got %d, want 3 (3%% of 100 HP)", e.Factor)
+			if e.Factor != 1 {
+				t.Errorf("Heal factor: got %d, want 1 (3%% of 50 HP)", e.Factor)
 			}
 		}
 	}
@@ -1087,6 +1087,7 @@ func TestShakenCritDebuff(t *testing.T) {
 		{EffectID: 80, CoreEffectCode: "modify_crit", TriggerType: "on_hit", FactorType: "percent", Value: -5, TargetSelf: false, Duration: &dur},
 	})
 	c1.Luck = 0
+	c1.Stamina = 50
 
 	c2 := baseCombatant(2, "ShakenTarget", nil)
 	c2.Luck = 50 // high luck so crit reduction is visible
@@ -1529,6 +1530,7 @@ func TestBloodlustDebuffOnCrit(t *testing.T) {
 func TestRecoveryInstinctHealBuff(t *testing.T) {
 	dur := 2
 	c1 := baseCombatant(1, "Attacker", nil)
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "Resilient", []CombatTestEffect{
 		{EffectID: 100, CoreEffectCode: "modify_heal", TriggerType: "on_hit_taken", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
 	})
@@ -1627,7 +1629,9 @@ func TestOpeningDodgeBuff(t *testing.T) {
 	c1 := baseCombatant(1, "OpenDodge", []CombatTestEffect{
 		{EffectID: 103, CoreEffectCode: "modify_dodge", TriggerType: "on_start", FactorType: "percent", Value: 15, TargetSelf: true, Duration: &dur},
 	})
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -1661,7 +1665,9 @@ func TestOpeningCritBuff(t *testing.T) {
 	c1 := baseCombatant(1, "OpenCrit", []CombatTestEffect{
 		{EffectID: 104, CoreEffectCode: "modify_crit", TriggerType: "on_start", FactorType: "percent", Value: 20, TargetSelf: true, Duration: &dur},
 	})
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "Target", nil)
+	c2.Stamina = 50
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -1732,8 +1738,10 @@ func TestShatteringStartDebuff(t *testing.T) {
 	c1 := baseCombatant(1, "Shatterer", []CombatTestEffect{
 		{EffectID: 106, CoreEffectCode: "modify_armor", TriggerType: "on_start", FactorType: "percent", Value: -20, TargetSelf: false, Duration: &dur},
 	})
+	c1.Stamina = 50
 	c2 := baseCombatant(2, "ArmoredFoe", nil)
 	c2.Armor = 10
+	c2.Stamina = 50
 
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
@@ -1860,13 +1868,13 @@ func TestFinishingBlowTurnEndDamage(t *testing.T) {
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
 
-	// 5% of 100 maxHP = 5 damage per turn end
+	// 5% of 50 maxHP = 2 damage per turn end
 	turnEndDmg := 0
 	for _, e := range log {
 		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_turn_end" {
 			turnEndDmg++
-			if e.Factor != 5 {
-				t.Errorf("Finishing Blow damage: got %d, want 5 (5%% of 100 HP)", e.Factor)
+			if e.Factor != 2 {
+				t.Errorf("Finishing Blow damage: got %d, want 2 (5%% of 50 HP)", e.Factor)
 			}
 		}
 	}
@@ -1916,15 +1924,15 @@ func TestAttritionEveryOtherTurnDamage(t *testing.T) {
 	result := executeCombat(c1, c2)
 	log := extractLog(result)
 
-	// 8% of 100 maxHP = 8 damage per odd turn
+	// 8% of 50 maxHP = 4 damage per odd turn
 	eotDmg := 0
 	eotTurns := []int{}
 	for _, e := range log {
 		if e.CharacterID == 1 && e.Action == "damage" && e.TriggerType == "on_every_other_turn" {
 			eotDmg++
 			eotTurns = append(eotTurns, e.Turn)
-			if e.Factor != 8 {
-				t.Errorf("Attrition damage: got %d, want 8 (8%% of 100 HP)", e.Factor)
+			if e.Factor != 4 {
+				t.Errorf("Attrition damage: got %d, want 4 (8%% of 50 HP)", e.Factor)
 			}
 		}
 	}
@@ -2000,9 +2008,9 @@ func TestHemorrhageBleedOnCrit(t *testing.T) {
 	for _, e := range log {
 		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_crit" {
 			bleedApps++
-			// 3% of 1000 maxHP = 30
-			if e.Factor != 30 {
-				t.Errorf("Hemorrhage bleed: got %d, want 30 (3%% of 1000 HP)", e.Factor)
+			// 3% of target maxHP (500) = 15
+			if e.Factor != 15 {
+				t.Errorf("Hemorrhage bleed: got %d, want 15 (3%% of 500 HP)", e.Factor)
 			}
 		}
 		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
@@ -2077,9 +2085,9 @@ func TestFesteringWoundBleedOnTurnEnd(t *testing.T) {
 	for _, e := range log {
 		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_turn_end" {
 			bleedApps++
-			// 2% of 500 maxHP = 10
-			if e.Factor != 10 {
-				t.Errorf("Festering Wound bleed: got %d, want 10 (2%% of 500 HP)", e.Factor)
+			// 2% of 250 maxHP = 5
+			if e.Factor != 5 {
+				t.Errorf("Festering Wound bleed: got %d, want 5 (2%% of 250 HP)", e.Factor)
 			}
 		}
 		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
@@ -2271,9 +2279,9 @@ func TestSpiteDamageOnCritTaken(t *testing.T) {
 	for _, e := range log {
 		if e.CharacterID == 2 && e.Action == "damage" && e.TriggerType == "on_crit_taken" {
 			spiteDmg++
-			// 10% of C2 maxHP (500) = 50
-			if e.Factor != 50 {
-				t.Errorf("Spite damage: got %d, want 50 (10%% of 500 HP)", e.Factor)
+			// 10% of C2 maxHP (250) = 25
+			if e.Factor != 25 {
+				t.Errorf("Spite damage: got %d, want 25 (10%% of 250 HP)", e.Factor)
 			}
 		}
 	}
@@ -2479,9 +2487,9 @@ func TestCursedBladeBleedOnStart(t *testing.T) {
 	for _, e := range log {
 		if e.CharacterID == 1 && e.Action == "bleed" && e.TriggerType == "on_start" {
 			bleedApps++
-			// 4% of 500 maxHP = 20
-			if e.Factor != 20 {
-				t.Errorf("Cursed Blade bleed: got %d, want 20 (4%% of 500 HP)", e.Factor)
+			// 4% of 250 maxHP = 10
+			if e.Factor != 10 {
+				t.Errorf("Cursed Blade bleed: got %d, want 10 (4%% of 250 HP)", e.Factor)
 			}
 		}
 		if e.CharacterID == 2 && e.Action == "bleed" && e.TriggerType == "" {
@@ -3467,9 +3475,9 @@ func TestPerkDefiantHealer(t *testing.T) {
 	for _, e := range log {
 		if e.Action == "heal" && e.TriggerType == "on_crit_taken" && e.CharacterID == 1 {
 			healCount++
-			// 8% of 500 maxHP = 40
-			if e.Factor != 40 {
-				t.Errorf("Defiant Roar heal: got %d, want 40 (8%% of 500 HP)", e.Factor)
+			// 8% of 250 maxHP = 20
+			if e.Factor != 20 {
+				t.Errorf("Defiant Roar heal: got %d, want 20 (8%% of 250 HP)", e.Factor)
 			}
 		}
 	}
@@ -3834,8 +3842,8 @@ func TestPerkToxicBlood(t *testing.T) {
 		t.Error("Toxic Blood: No bleed applied on_crit_taken")
 	}
 
-	// bleed should be 3% of max HP = 3% of 500 = 15
-	maxHP := float64(c2.Stamina) * 10
+	// bleed should be 3% of max HP = 3% of 250 = 7
+	maxHP := float64(c2.Stamina) * 5
 	expectedBleed := int(maxHP * 3 / 100)
 	for _, e := range log {
 		if e.Action == "bleed" && e.TriggerType == "on_crit_taken" {
@@ -3870,8 +3878,8 @@ func TestPerkSoulSiphon(t *testing.T) {
 	for _, e := range log {
 		if e.Action == "heal" && e.TriggerType == "on_crit" && e.CharacterID == 1 {
 			healCount++
-			// 5% of 500 = 25
-			expectedHeal := int(float64(c1.Stamina) * 10 * 5 / 100)
+			// 5% of 250 = 12
+			expectedHeal := int(float64(c1.Stamina) * 5 * 5 / 100)
 			if e.Factor != expectedHeal {
 				t.Errorf("Soul Siphon: expected heal=%d, got %d", expectedHeal, e.Factor)
 			}
@@ -4001,8 +4009,8 @@ func TestPerkWarlordDecree(t *testing.T) {
 	for _, e := range log {
 		if e.Action == "damage" && e.TriggerType == "on_turn_start" && e.CharacterID == 1 {
 			dmgCount++
-			// 3% of target max HP = 3% of 500 = 15
-			expectedDmg := int(float64(c2.Stamina) * 10 * 3 / 100)
+			// 3% of caster max HP = 3% of 250 = 7
+			expectedDmg := int(float64(c1.Stamina) * 5 * 3 / 100)
 			if e.Factor != expectedDmg {
 				t.Errorf("Warlord Decree: expected dmg=%d, got %d", expectedDmg, e.Factor)
 			}
