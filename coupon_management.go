@@ -124,7 +124,7 @@ func handleCreateCoupon(w http.ResponseWriter, r *http.Request) {
 		code = strings.ToUpper(strings.TrimSpace(*req.Code))
 	}
 	if code == "" {
-		generated, genErr := generateCouponCode(12)
+		generated, genErr := generateCouponCode(randomCouponCodeLength())
 		if genErr != nil {
 			json.NewEncoder(w).Encode(CouponResponse{Success: false, Message: "Failed to generate coupon code"})
 			return
@@ -244,6 +244,15 @@ func isCouponCodeValid(code string) bool {
 		}
 	}
 	return true
+}
+
+func randomCouponCodeLength() int {
+	var random [1]byte
+	if _, err := crand.Read(random[:]); err != nil {
+		log.Printf("Failed to generate random coupon code length: %v", err)
+		return 6
+	}
+	return 5 + int(random[0])%4
 }
 
 func generateCouponCode(length int) (string, error) {

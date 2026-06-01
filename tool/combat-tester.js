@@ -1,15 +1,16 @@
 // ==================== COMBAT TESTER ====================
 
+const ICON = (id) => `<svg class="icon icon-sm"><use href="#i-${id}"/></svg>`;
 const ACTION_ICONS = {
-    attack:         '⚔️',
-    crit:           '💥',
-    dodge:          '💨',
-    stun:           '😵',
-    stunned:        '😵',
-    bleed:          '🩸',
-    counterattack:  '🔄',
-    double_attack:  '⚡',
-    heal:           '💚',
+    attack:         ICON('swords'),
+    crit:           ICON('burst'),
+    dodge:          ICON('wind'),
+    stun:           ICON('dizzy'),
+    stunned:        ICON('dizzy'),
+    bleed:          ICON('drop'),
+    counterattack:  ICON('refresh'),
+    double_attack:  ICON('zap'),
+    heal:           ICON('heart'),
 };
 
 // ── State ────────────────────────────────────────────
@@ -826,7 +827,7 @@ class CombatAnimator {
                 await this.animateHeal(isC1, entry.factor);
                 break;
             default:
-                this.showAction(`${ACTION_ICONS[entry.action] || '⚔️'} ${entry.action}`);
+                this.showAction(`${ACTION_ICONS[entry.action] || ICON('swords')} ${entry.action}`);
                 await sleep(250);
                 break;
         }
@@ -857,7 +858,7 @@ class CombatAnimator {
         const defenderEl = document.getElementById(isC1 ? 'arenaFighter2' : 'arenaFighter1');
         const defSide = isC1 ? 2 : 1;
 
-        this.showAction(`${isCrit ? '💥 CRIT' : '⚔️'} ${damage}`);
+        this.showAction(`${isCrit ? ICON('burst') + ' CRIT' : ICON('swords')} ${damage}`);
         triggerAnim(attackerEl, isC1 ? 'lunge-right' : 'lunge-left');
         await sleep(180);
         triggerAnim(defenderEl, 'hit');
@@ -870,7 +871,7 @@ class CombatAnimator {
         const defenderEl = document.getElementById(isC1 ? 'arenaFighter2' : 'arenaFighter1');
         const defSide = isC1 ? 2 : 1;
 
-        this.showAction('💨 DODGE');
+        this.showAction(`${ICON('wind')} DODGE`);
         triggerAnim(attackerEl, isC1 ? 'lunge-right' : 'lunge-left');
         await sleep(150);
         triggerAnim(defenderEl, 'dodging');
@@ -882,13 +883,13 @@ class CombatAnimator {
         if (isApplied) {
             const defSide = isC1 ? 2 : 1;
             const defEl = document.getElementById(isC1 ? 'arenaFighter2' : 'arenaFighter1');
-            this.showAction('😵 STUN');
+            this.showAction(`${ICON('dizzy')} STUN`);
             triggerAnim(defEl, 'stunned');
             this.showDmgNum(defSide, 'STUN', 'stun');
         } else {
             const el = document.getElementById(isC1 ? 'arenaFighter1' : 'arenaFighter2');
             const side = isC1 ? 1 : 2;
-            this.showAction('😵 Stunned!');
+            this.showAction(`${ICON('dizzy')} Stunned!`);
             triggerAnim(el, 'stunned');
             this.showDmgNum(side, 'STUNNED', 'stun');
         }
@@ -898,7 +899,7 @@ class CombatAnimator {
     async animateBleed(isC1, damage) {
         const side = isC1 ? 1 : 2;
         const el = document.getElementById(isC1 ? 'arenaFighter1' : 'arenaFighter2');
-        this.showAction(`🩸 ${damage}`);
+        this.showAction(`${ICON('drop')} ${damage}`);
         triggerAnim(el, 'bleeding');
         this.showDmgNum(side, damage, 'bleed');
         await sleep(350);
@@ -909,7 +910,7 @@ class CombatAnimator {
         const targetEl = document.getElementById(isC1 ? 'arenaFighter2' : 'arenaFighter1');
         const targetSide = isC1 ? 2 : 1;
 
-        this.showAction(`🔄 Counter ${damage}`);
+        this.showAction(`${ICON('refresh')} Counter ${damage}`);
         triggerAnim(counterEl, isC1 ? 'lunge-right' : 'lunge-left');
         await sleep(180);
         triggerAnim(targetEl, 'hit');
@@ -920,7 +921,7 @@ class CombatAnimator {
     async animateHeal(isC1, amount) {
         const side = isC1 ? 1 : 2;
         const el = document.getElementById(isC1 ? 'arenaFighter1' : 'arenaFighter2');
-        this.showAction(`💚 +${amount}`);
+        this.showAction(`${ICON('heart')} +${amount}`);
         triggerAnim(el, 'healing');
         this.showDmgNum(side, amount, 'heal');
         await sleep(350);
@@ -928,9 +929,9 @@ class CombatAnimator {
 
     // ── UI helpers ───────────────────────────────────
 
-    showAction(text) {
+    showAction(html) {
         const el = document.getElementById('arenaAction');
-        el.textContent = text;
+        el.innerHTML = html;
         triggerAnim(el, 'pop');
     }
 
@@ -963,13 +964,7 @@ class CombatAnimator {
         const actor = isC1 ? this.c1.name : this.c2.name;
         const opponent = isC1 ? this.c2.name : this.c1.name;
         const _esc = (t) => { const d = document.createElement('span'); d.textContent = t; return d.innerHTML; };
-        const icon = ACTION_ICONS[entry.action] || '⚔️';
-        const desc = formatAction(entry.action, entry.factor, actor, opponent, _esc);
-
-        const row = document.createElement('div');
-        row.className = 'live-log-row ' + (isC1 ? 'c1' : 'c2');
-        row.innerHTML = `<span class="live-log-icon">${icon}</span><span class="live-log-actor">${_esc(actor)}</span> ${desc}`;
-        container.appendChild(row);
+        const icon = ACTION_ICONS[entry.action] || ICON('swords');
 
         // Keep only last 5
         while (container.children.length > 5) container.removeChild(container.firstChild);
@@ -980,9 +975,10 @@ class CombatAnimator {
         const winnerId = this.header.winnerId;
         const isC1Win = winnerId === this.c1.id;
         const winnerName = isC1Win ? this.c1.name : this.c2.name;
+        const _escWin = (t) => { const d = document.createElement('span'); d.textContent = t; return d.innerHTML; };
 
         const res = document.getElementById('arenaResult');
-        res.textContent = `🏆 ${winnerName} wins!`;
+        res.innerHTML = `${ICON('trophy')} ${_escWin(winnerName)} wins!`;
         res.className = 'arena-result ' + (isC1Win ? 'win1' : 'win2');
 
         document.getElementById('arenaFighter1').classList.add(isC1Win ? 'winner' : 'defeated');
@@ -1023,7 +1019,7 @@ function renderCombatLog() {
         const isC1 = entry.characterId === c1.id;
         const actor = isC1 ? c1.name : c2.name;
         const opponent = isC1 ? c2.name : c1.name;
-        const icon = ACTION_ICONS[entry.action] || '⚔️';
+        const icon = ACTION_ICONS[entry.action] || ICON('swords');
         const desc = formatAction(entry.action, entry.factor, actor, opponent, _esc);
 
         const el = document.createElement('div');

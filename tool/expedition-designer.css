@@ -13,8 +13,8 @@
     justify-content: space-between;
     gap: 12px;
     padding: 10px 16px;
-    background: var(--surface-1, #1a1f2e);
-    border-bottom: 1px solid var(--border-1, #2a3142);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-default);
     flex-shrink: 0;
 }
 
@@ -32,21 +32,21 @@
 }
 
 .expedition-settlement-select label {
-    color: var(--text-muted, #889);
+    color: var(--text-muted);
     font-size: 0.85rem;
 }
 
 .expedition-settlement-select select {
-    background: #0f1623;
-    color: #e2e8f0;
-    border: 1px solid #2a3142;
-    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
     padding: 6px 10px;
     min-width: 200px;
 }
 
 .expedition-status {
-    color: var(--text-muted, #889);
+    color: var(--text-muted);
     font-size: 0.8rem;
     font-style: italic;
 }
@@ -62,7 +62,7 @@
 .expedition-map-stage {
     min-height: 0;
     overflow: auto;
-    background: #0a0f18;
+    background: var(--bg-base);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -70,7 +70,7 @@
 }
 
 .expedition-map-empty {
-    color: var(--text-muted, #889);
+    color: var(--text-muted);
     text-align: center;
     margin: auto;
     max-width: 400px;
@@ -112,10 +112,10 @@
 }
 
 .expedition-edge-layer line {
-    stroke: rgba(99, 102, 241, 0.85);
+    stroke: var(--accent);
     stroke-width: 3;
     stroke-linecap: round;
-    filter: drop-shadow(0 0 2px rgba(99, 102, 241, 0.5));
+    filter: drop-shadow(0 0 2px var(--accent-subtle));
 }
 
 .expedition-node-layer {
@@ -131,13 +131,13 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    background: #6366f1;
+    background: var(--accent);
     border: 0;
     cursor: grab;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #e2e8f0;
+    color: var(--text-primary);
     font-size: 0.85rem;
     font-weight: 700;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
@@ -147,7 +147,7 @@
 }
 
 .expedition-node:hover {
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.35), 0 4px 12px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 0 3px var(--accent-subtle), 0 4px 12px rgba(0, 0, 0, 0.6);
 }
 
 .expedition-node.dragging {
@@ -156,17 +156,17 @@
 }
 
 .expedition-node.is-start {
-    background: #22c55e;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5);
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(130, 194, 129, 0.28), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .expedition-node.selected {
-    border: 2px solid #f59e0b;
+    border: 2px solid var(--accent-hover);
     outline: none;
 }
 
 .expedition-node.edge-source {
-    border: 2px dashed #f59e0b;
+    border: 2px dashed var(--accent-hover);
     outline: none;
 }
 
@@ -177,7 +177,7 @@
     transform: translateX(-50%);
     white-space: nowrap;
     font-size: 0.75rem;
-    color: #e2e8f0;
+    color: var(--text-primary);
     background: rgba(0, 0, 0, 0.65);
     padding: 2px 6px;
     border-radius: 4px;
@@ -186,9 +186,9 @@
 
 .expedition-node-sidebar {
     min-height: 0;
-    background: #111827;
-    border-left: 1px solid #2a3142;
-    color: #e2e8f0;
+    background: var(--bg-surface);
+    border-left: 1px solid var(--border-default);
+    color: var(--text-primary);
     padding: 14px;
     overflow-y: auto;
 }
@@ -198,7 +198,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     text-align: center;
 }
@@ -215,7 +215,7 @@
     justify-content: space-between;
     gap: 10px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #2a3142;
+    border-bottom: 1px solid var(--border-default);
 }
 
 .expedition-sidebar-header h3 {
@@ -225,10 +225,10 @@
 }
 
 .expedition-sidebar-delete {
-    border: 1px solid #ef4444;
+    border: 1px solid var(--danger);
     background: rgba(127, 29, 29, 0.85);
     color: #fff;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     padding: 6px 10px;
     cursor: pointer;
     font-size: 0.75rem;
@@ -247,16 +247,16 @@
 .expedition-sidebar-field label,
 .expedition-sidebar-check {
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
 }
 
 .expedition-sidebar-field textarea,
 .expedition-sidebar-field select {
     width: 100%;
-    background: #0f1623;
-    color: #e2e8f0;
-    border: 1px solid #2a3142;
-    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
     padding: 8px 10px;
     box-sizing: border-box;
     font-family: inherit;
@@ -272,14 +272,14 @@
 .expedition-sidebar-field textarea:focus,
 .expedition-sidebar-field select:focus {
     outline: none;
-    border-color: #6366f1;
+    border-color: var(--accent);
 }
 
 .expedition-sidebar-check {
     display: flex;
     gap: 8px;
     align-items: center;
-    color: #cbd5e1;
+    color: var(--text-primary);
 }
 
 @media (max-width: 1100px) {
@@ -290,7 +290,7 @@
 
     .expedition-node-sidebar {
         border-left: none;
-        border-top: 1px solid #2a3142;
+        border-top: 1px solid var(--border-default);
         max-height: 320px;
     }
 }

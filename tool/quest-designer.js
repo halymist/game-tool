@@ -580,14 +580,15 @@ function renderOption(option) {
 }
 
 function getOptionTypeBadge(type) {
+    const svg = (id) => `<svg class="icon icon-sm"><use href="#i-${id}"/></svg>`;
     switch (type) {
-        case 'stat_check': return '📊';
-        case 'effect_check': return '✨';
-        case 'combat': return '⚔️';
-        case 'faction': return '🏰';
-        case 'silver': return '🪙';
-        case 'end': return '🏁';
-        default: return '💬';
+        case 'stat_check':   return svg('chart');
+        case 'effect_check': return svg('sparkles');
+        case 'combat':       return svg('swords');
+        case 'faction':      return svg('castle');
+        case 'silver':       return svg('coin');
+        case 'end':          return svg('flag');
+        default:             return svg('message');
     }
 }
 
@@ -623,7 +624,7 @@ function getOptionTypeLabel(type, option) {
 
 function updateOptionTypeBadge(option) {
     const badge = document.querySelector(`#option-${option.optionId} .option-type-badge`);
-    if (badge) badge.textContent = getOptionTypeBadge(option.type);
+    if (badge) badge.innerHTML = getOptionTypeBadge(option.type);
 }
 
 function bindOptionEvents(el, option) {

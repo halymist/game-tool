@@ -3,21 +3,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-    --bg-base: #0c0d12;
-    --bg-surface: #13141b;
-    --bg-elevated: #1a1c25;
-    --bg-hover: #22242f;
-    --border-subtle: #1e2029;
-    --border-default: #2a2d3a;
-    --border-accent: #3b82f6;
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --accent-subtle: rgba(59, 130, 246, 0.12);
-    --danger: #ef4444;
-    --success: #22c55e;
+    /* Warm dark palette — sepia surfaces with a saturated teal accent.
+       Wider lightness gaps between surfaces + brighter text + a more
+       chromatic accent keep the UI from feeling washed-out while still
+       being easier on the eyes than the previous near-black + saturated
+       blue scheme. */
+    --bg-base: #14110d;
+    --bg-surface: #1e1a14;
+    --bg-elevated: #2c251c;
+    --bg-hover: #3a3128;
+    --bg-input: #1a1610;
+    --bg-inset: #0f0c09;
+    --border-subtle: #2b251d;
+    --border-default: #4a3e2f;
+    --border-accent: #4ab39f;
+    --text-primary: #fff8ea;
+    --text-secondary: #d8cfba;
+    --text-muted: #a99b84;
+    --accent: #4ab39f;
+    --accent-hover: #5dc4af;
+    --accent-subtle: rgba(74, 179, 159, 0.18);
+    --danger: #e0735c;
+    --success: #82c281;
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
@@ -434,7 +441,7 @@ body {
     opacity: 0.4; cursor: default; pointer-events: none;
 }
 
-/* Dashboard specific styles */
+/* ── Dashboard ───────────────────────────────────────── */
 
 .section-title {
     color: var(--text-muted);
@@ -442,59 +449,105 @@ body {
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.6rem;
 }
+
+.dashboard-search {
+    position: relative;
+    margin: 0 0 1.5rem;
+}
+
+.dashboard-search .icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.dashboard-search input {
+    width: 100%;
+    padding: 0.65rem 0.9rem 0.65rem 2.4rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dashboard-search input::placeholder { color: var(--text-muted); }
+
+.dashboard-search input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--bg-elevated);
+}
+
+.tools-group {
+    margin-bottom: 1.5rem;
+}
+
+.tools-group.is-hidden { display: none; }
 
 .tools-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
 }
 
 .tool-card {
-    background: var(--bg-elevated);
+    background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
     text-decoration: none;
     color: var(--text-primary);
     display: flex;
-    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 1.25rem 1rem;
+    gap: 0.7rem;
+    padding: 0.85rem 0.95rem;
 }
 
 .tool-card:hover {
-    background: var(--bg-hover);
+    background: var(--bg-elevated);
     border-color: var(--border-default);
 }
 
-.tool-card:active {
-    transform: scale(0.98);
-}
+.tool-card:active { transform: scale(0.985); }
+
+.tool-card.is-hidden { display: none; }
 
 .tool-card-icon {
-    font-size: 1.5rem;
-    line-height: 1;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
 }
 
+.tool-card:hover .tool-card-icon {
+    background: var(--accent-subtle);
+}
+
 .tool-card-title {
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 500;
-    margin: 0;
-    white-space: nowrap;
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    line-height: 1.2;
 }
 
-.creation-tools {
-    margin-bottom: 1.5rem;
-}
-
-.management-tools {
-    margin-bottom: 1.5rem;
+.dashboard-empty {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 1.5rem 1rem;
 }
 
 .info-grid {
@@ -655,7 +708,7 @@ datalist {
 
 /* Enhanced styling for inputs with datalist */
 input[list] {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23897c69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 12px center;
     background-size: 16px;
@@ -663,7 +716,7 @@ input[list] {
 }
 
 input[list]:focus {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234ab39f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
 }
 
 /* Upload area - Reusable for drag and drop file uploads */
@@ -778,6 +831,98 @@ input[list]:focus {
     border-color: var(--accent);
     color: var(--accent);
 }
+
+/* ── Shared icon + close button primitives ──────────────
+   `.icon` is the base for all inline SVG glyphs. They inherit color
+   from `currentColor` so they automatically follow the surrounding
+   text color and the warm-dark palette tokens. */
+
+.icon {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    flex-shrink: 0;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: middle;
+}
+
+.icon-sm { width: 14px; height: 14px; }
+.icon-lg { width: 24px; height: 24px; }
+
+/* Icon-only button — used for close (×) buttons and other glyph
+   actions across modals, gallery headers, list rows, etc. */
+.btn-icon {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    line-height: 0;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.btn-icon:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.btn-icon-danger:hover {
+    color: var(--danger);
+    background: rgba(224, 115, 92, 0.12);
+}
+
+.btn-danger,
+.btn-delete,
+.btn-delete-settlement,
+.builds-btn-delete,
+.expedition-sidebar-delete,
+.btn-coupon-disable {
+    background: rgba(224, 115, 92, 0.12) !important;
+    color: #ffd8cf !important;
+    border: 1px solid rgba(224, 115, 92, 0.48) !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: inherit !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease !important;
+}
+
+.btn-danger:hover:not(:disabled),
+.btn-delete:hover:not(:disabled),
+.btn-delete-settlement:hover:not(:disabled),
+.builds-btn-delete:hover:not(:disabled),
+.expedition-sidebar-delete:hover:not(:disabled),
+.btn-coupon-disable:hover:not(:disabled) {
+    background: rgba(224, 115, 92, 0.22) !important;
+    color: #fff2ed !important;
+    border-color: var(--danger) !important;
+    transform: translateY(-1px) !important;
+}
+
+.btn-danger:disabled,
+.btn-delete:disabled,
+.btn-delete-settlement:disabled,
+.builds-btn-delete:disabled,
+.expedition-sidebar-delete:disabled,
+.btn-coupon-disable:disabled {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
 
 /* Generic Asset Gallery Overlay */
 .asset-gallery-overlay {

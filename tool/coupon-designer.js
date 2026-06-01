@@ -54,7 +54,7 @@
         }
     }
 
-    function generateCode(length = 12) {
+    function generateCode(length = 5 + Math.floor(Math.random() * 4)) {
         const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         const out = [];
         const random = new Uint8Array(length);
@@ -76,27 +76,22 @@
         if (!body) return;
 
         if (!state.coupons.length) {
-            body.innerHTML = '<tr><td colspan="7" class="coupon-empty">No coupons found</td></tr>';
+            body.innerHTML = '<tr><td colspan="6" class="coupon-empty">No coupons found</td></tr>';
             return;
         }
 
         body.innerHTML = state.coupons.map((coupon) => {
             const remaining = daysRemaining(coupon.expires_at);
-            const endsIn = remaining == null
-                ? '-'
-                : (remaining >= 0 ? `${remaining}` : `${remaining}`);
-            const rowClass = coupon.is_active ? 'coupon-row-active' : 'coupon-row-expired';
-            const activeLabel = coupon.is_active ? 'Active' : 'Expired';
+            const isExpired = !coupon.is_active || (remaining != null && remaining < 0);
+            const endsIn = remaining == null ? '-' : (isExpired ? 'Expired' : `${remaining}d`);
+            const rowClass = isExpired ? 'coupon-row-expired' : 'coupon-row-active';
             return `
                 <tr class="${rowClass}">
                     <td>${coupon.id}</td>
                     <td class="coupon-code-cell">${escHtml(coupon.code)}</td>
                     <td>${formatDate(coupon.expires_at)}</td>
                     <td>
-                        <span class="coupon-days ${coupon.is_active ? 'coupon-days-active' : 'coupon-days-expired'}">${endsIn}</span>
-                    </td>
-                    <td>
-                        <span class="coupon-status-badge ${coupon.is_active ? 'coupon-status-active' : 'coupon-status-expired'}">${activeLabel}</span>
+                        <span class="coupon-days ${isExpired ? 'coupon-days-expired' : 'coupon-days-active'}">${endsIn}</span>
                     </td>
                     <td>${formatDate(coupon.created_at)}</td>
                     <td>
@@ -124,7 +119,7 @@
             setStatus(err.message || 'Failed to load coupons', 'error');
             const body = qs('couponTableBody');
             if (body) {
-                body.innerHTML = '<tr><td colspan="7" class="coupon-empty">Failed to load coupons</td></tr>';
+                body.innerHTML = '<tr><td colspan="6" class="coupon-empty">Failed to load coupons</td></tr>';
             }
         }
     }
@@ -180,7 +175,7 @@
         const expiryInput = qs('couponExpiryInput');
         if (!expiryInput || expiryInput.value) return;
         const now = new Date();
-        now.setDate(now.getDate() + 30);
+        now.setDate(now.getDate() + 7);
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
         const dd = String(now.getDate()).padStart(2, '0');
@@ -198,7 +193,7 @@
 
         form.addEventListener('submit', createCoupon);
         generateBtn.addEventListener('click', () => {
-            codeInput.value = generateCode(12);
+            codeInput.value = generateCode();
             codeInput.dispatchEvent(new Event('input', { bubbles: true }));
         });
         codeInput.addEventListener('blur', () => {
