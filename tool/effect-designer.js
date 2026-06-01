@@ -309,19 +309,9 @@ function updateEffectCoreHelp() {
 
 function getEffectAssetGallery() {
     if (effectAssetGallery) return effectAssetGallery;
-    effectAssetGallery = new AssetGallery({
-        overlayId: 'effectAssetGalleryOverlay',
-        gridId: 'effectAssetGrid',
-        visibility: 'hidden-class',
-        openTriggerIds: ['effectIconUploadArea'],
-        closeTriggerIds: ['effectAssetGalleryClose'],
-        uploadTriggerIds: ['effectUploadNewBtn'],
-        fileInputId: 'effectIconFile',
-        dropZoneId: 'effectIconUploadArea',
+    effectAssetGallery = DesignerBase.createAssetGallery('effect', {
         getAssets: () => effectAssets,
         getSelectedAssetId: () => selectedEffectAssetId,
-        uploadEndpoint: '/api/uploadEffectAsset',
-        itemClass: 'effect-asset-item',
         getNextAssetID: () => {
             const assetMax = effectAssets.reduce((max, asset) => Math.max(max, Number(asset.id || asset.assetID || 0)), 0);
             const effectMax = effectList.reduce((max, effect) => Math.max(max, Number(effect.assetID || 0)), 0);
@@ -348,12 +338,13 @@ function getEffectAssetGallery() {
                 icon: iconUrl,
                 remoteUrl: iconUrl
             };
-            effectAssets.push(newAsset);
-            if (GlobalData.effectAssets && GlobalData.effectAssets !== effectAssets) {
-                GlobalData.effectAssets.push(newAsset);
+            if (typeof upsertGlobalRecord === 'function') {
+                upsertGlobalRecord('effectAssets', newAsset, ['assetID', 'id']);
+                effectAssets = getEffectAssets();
+            } else {
+                effectAssets.push(newAsset);
             }
             gallery.select(newAsset);
-            notifyGlobalDataChange('effectAssets', GlobalData.effectAssets);
         },
         onUploadError: ({ error, result }) => {
             alert('Upload failed: ' + (result?.message || error.message));

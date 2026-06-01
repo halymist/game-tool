@@ -307,10 +307,13 @@ if (typeof window !== 'undefined') {
     window.GlobalData = GlobalData;
     window.subscribeToGlobalData = subscribeToGlobalData;
     window.notifyGlobalDataChange = notifyGlobalDataChange;
+    window.getGlobalDataSnapshot = getGlobalDataSnapshot;
+    window.setGlobalArray = setGlobalArray;
     window.fetchAuthenticatedJson = fetchAuthenticatedJson;
     window.getAuthenticatedJson = getAuthenticatedJson;
     window.postAuthenticatedJson = postAuthenticatedJson;
     window.preloadGlobalData = preloadGlobalData;
+    window.syncAfterSave = syncAfterSave;
     window.getGlobalDataSummary = buildGlobalDataSummary;
     window.getAssetPublicBaseUrl = getAssetPublicBaseUrl;
     window.buildPublicAssetUrl = buildPublicAssetUrl;
@@ -1278,6 +1281,125 @@ async function syncAfterSave(keys = [], options = {}) {
     }));
 }
 
+function normalizeGlobalDataKeys(keys = []) {
+    return Array.from(new Set((Array.isArray(keys) ? keys : [keys]).filter(Boolean)));
+}
+
+function getGlobalDataLoader(key) {
+    return GLOBAL_DATA_LOADERS[key] || null;
+}
+
+function hasGlobalData(key) {
+    const value = GlobalData[key];
+    return Array.isArray(value) ? value.length > 0 : value !== undefined && value !== null;
+}
+
+async function loadGlobalDataKey(key, options = {}) {
+    const loader = getGlobalDataLoader(key);
+    if (typeof loader !== 'function') {
+        throw new Error(`No global data loader for "${key}"`);
+    }
+    return loader(options);
+}
+
+async function refreshGlobalDataKey(key, options = {}) {
+    return loadGlobalDataKey(key, { ...options, forceReload: true });
+}
+
+async function loadGlobalDataKeys(keys = [], options = {}) {
+    const uniqueKeys = normalizeGlobalDataKeys(keys);
+    return Promise.all(uniqueKeys.map(key => loadGlobalDataKey(key, options)));
+}
+
+async function refreshGlobalDataKeys(keys = [], options = {}) {
+    const uniqueKeys = normalizeGlobalDataKeys(keys);
+    return Promise.all(uniqueKeys.map(key => refreshGlobalDataKey(key, options)));
+}
+
+function setGlobalDataKey(key, values) {
+    if (Array.isArray(GlobalData[key])) {
+        return setGlobalArray(key, Array.isArray(values) ? values : []);
+    }
+    GlobalData[key] = values;
+    notifyGlobalDataChange(key, values);
+    return values;
+}
+
+function updateGlobalDataKey(key, updater) {
+    const currentValue = GlobalData[key];
+    const nextValue = typeof updater === 'function' ? updater(currentValue) : updater;
+    return setGlobalDataKey(key, nextValue);
+}
+
+function invalidateGlobalDataKey(key, options = {}) {
+    const notify = options.notify !== false;
+    if (Array.isArray(GlobalData[key])) {
+        GlobalData[key].length = 0;
+        if (notify) notifyGlobalDataChange(key, GlobalData[key]);
+        return GlobalData[key];
+    }
+    GlobalData[key] = null;
+    if (notify) notifyGlobalDataChange(key, GlobalData[key]);
+    return GlobalData[key];
+}
+
+function invalidateGlobalDataKeys(keys = [], options = {}) {
+    return normalizeGlobalDataKeys(keys).map(key => invalidateGlobalDataKey(key, options));
+}
+
+function upsertGlobalRecord(key, record, idKeys = ['id']) {
+    if (!record || !Array.isArray(GlobalData[key])) return null;
+    const keys = Array.isArray(idKeys) ? idKeys : [idKeys];
+    const index = GlobalData[key].findIndex(entry => keys.some(idKey => {
+        const nextValue = record?.[idKey];
+        const currentValue = entry?.[idKey];
+        return nextValue !== undefined && nextValue !== null && String(currentValue) === String(nextValue);
+    }));
+    if (index >= 0) {
+        GlobalData[key][index] = record;
+    } else {
+        GlobalData[key].push(record);
+    }
+    notifyGlobalDataChange(key, GlobalData[key]);
+    return record;
+}
+
+const GlobalDataStore = {
+    data: GlobalData,
+    loaders: GLOBAL_DATA_LOADERS,
+    summary: buildGlobalDataSummary,
+    get: getGlobalDataSnapshot,
+    has: hasGlobalData,
+    set: setGlobalDataKey,
+    update: updateGlobalDataKey,
+    upsert: upsertGlobalRecord,
+    invalidate: invalidateGlobalDataKey,
+    invalidateMany: invalidateGlobalDataKeys,
+    load: loadGlobalDataKey,
+    loadMany: loadGlobalDataKeys,
+    refresh: refreshGlobalDataKey,
+    refreshMany: refreshGlobalDataKeys,
+    syncAfterSave,
+    subscribe: subscribeToGlobalData,
+    notify: notifyGlobalDataChange,
+};
+
+if (typeof window !== 'undefined') {
+    window.GlobalDataStore = GlobalDataStore;
+    window.syncAfterSave = syncAfterSave;
+    window.loadGlobalDataKey = loadGlobalDataKey;
+    window.loadGlobalDataKeys = loadGlobalDataKeys;
+    window.refreshGlobalDataKey = refreshGlobalDataKey;
+    window.refreshGlobalDataKeys = refreshGlobalDataKeys;
+    window.setGlobalDataKey = setGlobalDataKey;
+    window.updateGlobalDataKey = updateGlobalDataKey;
+    window.upsertGlobalRecord = upsertGlobalRecord;
+    window.setGlobalArray = setGlobalArray;
+    window.getGlobalDataSnapshot = getGlobalDataSnapshot;
+    window.invalidateGlobalDataKey = invalidateGlobalDataKey;
+    window.invalidateGlobalDataKeys = invalidateGlobalDataKeys;
+}
+
 // === DATA ACCESS FUNCTIONS ===
 
 /**
@@ -1383,10 +1505,7 @@ function getAvailableAssetIDs() {
  * @param {Object} enemy - The enemy object to add
  */
 function addEnemyToGlobal(enemy) {
-    console.log('Adding enemy to global data:', enemy.name, 'ID:', enemy.id);
-    GlobalData.enemies.push(enemy);
-    console.log('✅ Enemy added. Total enemies:', GlobalData.enemies.length);
-    notifyGlobalDataChange('enemies', GlobalData.enemies);
+    return upsertGlobalRecord('enemies', enemy, ['id']);
 }
 
 /**
@@ -1394,24 +1513,7 @@ function addEnemyToGlobal(enemy) {
  * @param {Object} updatedEnemy - The updated enemy object
  */
 function updateEnemyInGlobal(updatedEnemy) {
-    console.log('Updating enemy in global data:', updatedEnemy.name, 'ID:', updatedEnemy.id);
-    console.log('Current enemies count:', GlobalData.enemies.length);
-    
-    // Find and replace the enemy with matching ID (convert both to string for comparison)
-    const targetId = String(updatedEnemy.id);
-    const index = GlobalData.enemies.findIndex(enemy => String(enemy.id) === targetId);
-    
-    if (index !== -1) {
-        console.log('Found enemy at index:', index, 'Old enemy:', GlobalData.enemies[index].name);
-        GlobalData.enemies[index] = updatedEnemy;
-        console.log('✅ Enemy updated in global data at index:', index, 'New enemy:', updatedEnemy.name);
-        console.log('Updated enemy icon URL:', updatedEnemy.icon ? 'Present' : 'Missing');
-    } else {
-        console.warn('Enemy not found for update (ID:', targetId, '), available IDs:', GlobalData.enemies.map(e => String(e.id)));
-        console.warn('Adding as new enemy instead:', updatedEnemy.name);
-        GlobalData.enemies.push(updatedEnemy);
-    }
-    notifyGlobalDataChange('enemies', GlobalData.enemies);
+    return upsertGlobalRecord('enemies', updatedEnemy, ['id']);
 }
 
 /**
@@ -1488,10 +1590,7 @@ function getPerkAssetTexture(assetID) {
  * @param {Object} perk - The perk object to add
  */
 function addPerkToGlobal(perk) {
-    console.log('Adding perk to global data:', perk.name, 'ID:', perk.id);
-    GlobalData.perks.push(perk);
-    console.log('✅ Perk added. Total perks:', GlobalData.perks.length);
-    notifyGlobalDataChange('perks', GlobalData.perks);
+    return upsertGlobalRecord('perks', perk, ['id']);
 }
 
 /**
@@ -1499,24 +1598,7 @@ function addPerkToGlobal(perk) {
  * @param {Object} updatedPerk - The updated perk object
  */
 function updatePerkInGlobal(updatedPerk) {
-    console.log('Updating perk in global data:', updatedPerk.name, 'ID:', updatedPerk.id);
-    console.log('Current perks count:', GlobalData.perks.length);
-    
-    // Find and replace the perk with matching ID (convert both to string for comparison)
-    const targetId = String(updatedPerk.id);
-    const index = GlobalData.perks.findIndex(perk => String(perk.id) === targetId);
-    
-    if (index !== -1) {
-        console.log('Found perk at index:', index, 'Old perk:', GlobalData.perks[index].name);
-        GlobalData.perks[index] = updatedPerk;
-        console.log('✅ Perk updated in global data at index:', index, 'New perk:', updatedPerk.name);
-        console.log('Updated perk icon URL:', updatedPerk.icon ? 'Present' : 'Missing');
-    } else {
-        console.warn('Perk not found for update (ID:', targetId, '), available IDs:', GlobalData.perks.map(p => String(p.id)));
-        console.warn('Adding as new perk instead:', updatedPerk.name);
-        GlobalData.perks.push(updatedPerk);
-    }
-    notifyGlobalDataChange('perks', GlobalData.perks);
+    return upsertGlobalRecord('perks', updatedPerk, ['id']);
 }
 
 /**
@@ -1605,10 +1687,7 @@ function getItemAssetTexture(assetID) {
  * @param {Object} item - The item object to add
  */
 function addItemToGlobal(item) {
-    console.log('Adding item to global data:', item.name, 'ID:', item.id);
-    GlobalData.items.push(item);
-    console.log('✅ Item added. Total items:', GlobalData.items.length);
-    notifyGlobalDataChange('items', GlobalData.items);
+    return upsertGlobalRecord('items', item, ['id']);
 }
 
 /**
@@ -1616,24 +1695,7 @@ function addItemToGlobal(item) {
  * @param {Object} updatedItem - The updated item object
  */
 function updateItemInGlobal(updatedItem) {
-    console.log('Updating item in global data:', updatedItem.name, 'ID:', updatedItem.id);
-    console.log('Current items count:', GlobalData.items.length);
-    
-    // Find and replace the item with matching ID (convert both to string for comparison)
-    const targetId = String(updatedItem.id);
-    const index = GlobalData.items.findIndex(item => String(item.id) === targetId);
-    
-    if (index !== -1) {
-        console.log('Found item at index:', index, 'Old item:', GlobalData.items[index].name);
-        GlobalData.items[index] = updatedItem;
-        console.log('✅ Item updated in global data at index:', index, 'New item:', updatedItem.name);
-        console.log('Updated item icon URL:', updatedItem.icon ? 'Present' : 'Missing');
-    } else {
-        console.warn('Item not found for update (ID:', targetId, '), available IDs:', GlobalData.items.map(i => String(i.id)));
-        console.warn('Adding as new item instead:', updatedItem.name);
-        GlobalData.items.push(updatedItem);
-    }
-    notifyGlobalDataChange('items', GlobalData.items);
+    return upsertGlobalRecord('items', updatedItem, ['id']);
 }
 
 /**

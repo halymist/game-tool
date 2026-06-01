@@ -70,6 +70,149 @@ class SaveButton {
 // Expose globally so non-module designer scripts can use it.
 window.SaveButton = SaveButton;
 
+class FormSnapshot {
+    constructor(readFn) {
+        this.readFn = typeof readFn === 'function' ? readFn : () => ({});
+        this.value = this.readFn();
+    }
+
+    refresh() {
+        this.value = this.readFn();
+        return this.value;
+    }
+
+    isDirty() {
+        return JSON.stringify(this.readFn()) !== JSON.stringify(this.value);
+    }
+}
+window.FormSnapshot = FormSnapshot;
+
+class IntegerInputManager {
+    static bind(inputOrId, options = {}) {
+        const input = typeof inputOrId === 'string' ? document.getElementById(inputOrId) : inputOrId;
+        if (!input || input.dataset.integerManagerBound === '1') return input;
+
+        const allowNegative = options.allowNegative !== undefined
+            ? !!options.allowNegative
+            : (input.min === '' || Number(input.min) < 0);
+
+        input.dataset.integerManagerBound = '1';
+        input.addEventListener('keydown', (event) => IntegerInputManager.guardKeydown(event, input, allowNegative));
+        input.addEventListener('paste', (event) => IntegerInputManager.guardPaste(event, input, allowNegative));
+        input.addEventListener('drop', (event) => event.preventDefault());
+        input.addEventListener('input', () => IntegerInputManager.normalize(input, allowNegative));
+        input.addEventListener('blur', () => IntegerInputManager.normalize(input, allowNegative));
+        return input;
+    }
+
+    static bindAll(specs = []) {
+        specs.forEach((spec) => {
+            if (typeof spec === 'string') {
+                IntegerInputManager.bind(spec);
+            } else if (spec) {
+                IntegerInputManager.bind(spec.id || spec.input, spec);
+            }
+        });
+    }
+
+    static guardKeydown(event, input, allowNegative) {
+        const ctrlOrMeta = event.ctrlKey || event.metaKey;
+        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+        if (ctrlOrMeta || navKeys.includes(event.key)) return;
+        if (event.key >= '0' && event.key <= '9') return;
+        if (allowNegative && event.key === '-' && input.value === '') return;
+        event.preventDefault();
+    }
+
+    static guardPaste(event, input, allowNegative) {
+        const pasted = (event.clipboardData || window.clipboardData)?.getData('text') || '';
+        const value = input.value || '';
+        const start = input.selectionStart ?? value.length;
+        const end = input.selectionEnd ?? value.length;
+        const next = value.slice(0, start) + pasted + value.slice(end);
+        const regex = allowNegative ? /^-?\d*$/ : /^\d*$/;
+        if (!regex.test(next)) event.preventDefault();
+    }
+
+    static normalize(input, allowNegative) {
+        if (!input) return;
+        const raw = String(input.value ?? '');
+        if (raw === '') return;
+
+        const negative = allowNegative && raw.startsWith('-');
+        let digits = raw.replace(/\D/g, '');
+        digits = digits.replace(/^0+(?=\d)/, '');
+
+        if (!digits) {
+            input.value = raw === '-' && allowNegative ? '-' : '';
+            return;
+        }
+
+        input.value = `${negative ? '-' : ''}${digits}`;
+    }
+}
+window.IntegerInputManager = IntegerInputManager;
+
+class AssetGalleryFactory {
+    static presets = {
+        item: {
+            overlayId: 'itemAssetGalleryOverlay',
+            gridId: 'itemAssetGrid',
+            openTriggerIds: ['itemAssetGalleryBtn', 'itemIconUploadArea'],
+            closeTriggerIds: ['itemAssetGalleryClose'],
+            uploadTriggerIds: ['itemUploadNewBtn'],
+            fileInputId: 'itemIconFile',
+            dropZoneId: 'itemIconUploadArea',
+            itemClass: 'item-asset-item',
+            thumbnailClass: 'item-asset-thumbnail',
+            uploadEndpoint: '/api/uploadItemAsset'
+        },
+        perk: {
+            overlayId: 'perkAssetGalleryOverlay',
+            gridId: 'perkAssetGrid',
+            openTriggerIds: ['perkAssetGalleryBtn', 'perkIconUploadArea'],
+            closeTriggerIds: ['perkAssetGalleryClose'],
+            uploadTriggerIds: ['perkUploadNewBtn'],
+            fileInputId: 'perkIconFile',
+            dropZoneId: 'perkIconUploadArea',
+            uploadEndpoint: '/api/uploadPerkAsset'
+        },
+        effect: {
+            overlayId: 'effectAssetGalleryOverlay',
+            gridId: 'effectAssetGrid',
+            openTriggerIds: ['effectIconUploadArea'],
+            closeTriggerIds: ['effectAssetGalleryClose'],
+            uploadTriggerIds: ['effectUploadNewBtn'],
+            fileInputId: 'effectIconFile',
+            dropZoneId: 'effectIconUploadArea',
+            itemClass: 'effect-asset-item',
+            uploadEndpoint: '/api/uploadEffectAsset'
+        },
+        enemy: {
+            overlayId: 'enemyAssetGalleryOverlay',
+            gridId: 'enemyAssetGrid',
+            openTriggerIds: ['enemyAssetGalleryBtn', 'enemyIconUploadArea'],
+            closeTriggerIds: ['enemyAssetGalleryClose'],
+            uploadTriggerIds: ['enemyUploadNewBtn'],
+            fileInputId: 'enemyIconFile',
+            dropZoneId: 'enemyIconUploadArea',
+            uploadEndpoint: '/api/uploadEnemyAsset',
+            visibility: 'display-flex'
+        }
+    };
+
+    static create(presetOrConfig = {}, overrides = {}) {
+        const preset = typeof presetOrConfig === 'string'
+            ? (AssetGalleryFactory.presets[presetOrConfig] || {})
+            : presetOrConfig;
+        const config = typeof presetOrConfig === 'string'
+            ? { ...preset, ...overrides }
+            : { ...presetOrConfig, ...overrides };
+        return new AssetGallery(config);
+    }
+}
+window.AssetGalleryFactory = AssetGalleryFactory;
+
 class AssetGallery {
     constructor(config = {}) {
         this.config = {
@@ -389,6 +532,17 @@ function showConfirm(message) {
 }
 
 const DesignerBase = {
+    createFormSnapshot(readFn) {
+        return new FormSnapshot(readFn);
+    },
+
+    bindIntegerInputs(specs = []) {
+        IntegerInputManager.bindAll(specs);
+    },
+
+    createAssetGallery(presetOrConfig, overrides = {}) {
+        return AssetGalleryFactory.create(presetOrConfig, overrides);
+    },
     
     // ==================== TAB MANAGEMENT ====================
     
@@ -1086,7 +1240,6 @@ document.addEventListener('keydown', (e) => {
 
     // 5. Overlays using .hidden class (visible = no hidden class)
     const hiddenOverlays = [
-        'talentAssetGalleryOverlay',
         'itemAssetGalleryOverlay',
         'perkAssetGalleryOverlay'
     ];

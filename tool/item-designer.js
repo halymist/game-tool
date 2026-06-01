@@ -144,57 +144,8 @@ function setupEventListeners() {
     }
 }
 
-function normalizeIntegerInputValue(input) {
-    if (!input) return;
-    const raw = String(input.value ?? '');
-    if (raw === '') return;
-
-    const allowNegative = input.min === '' || Number(input.min) < 0;
-    const negative = allowNegative && raw.startsWith('-');
-    let digits = raw.replace(/\D/g, '');
-    digits = digits.replace(/^0+(?=\d)/, '');
-
-    if (!digits) {
-        input.value = raw === '-' && allowNegative ? '-' : '';
-        return;
-    }
-
-    input.value = `${negative ? '-' : ''}${digits}`;
-}
-
-function attachStrictIntegerGuards(input, allowNegative = true) {
-    if (!input || input.dataset.strictIntegerBound === '1') return;
-    input.dataset.strictIntegerBound = '1';
-
-    input.addEventListener('keydown', (e) => {
-        const ctrlOrMeta = e.ctrlKey || e.metaKey;
-        const navKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
-        if (ctrlOrMeta || navKeys.includes(e.key)) return;
-
-        if (e.key >= '0' && e.key <= '9') return;
-
-        if (allowNegative && e.key === '-') {
-            if (input.value === '') return;
-        }
-
-        e.preventDefault();
-    });
-
-    input.addEventListener('paste', (e) => {
-        const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
-        const value = input.value || '';
-        const start = input.selectionStart ?? value.length;
-        const end = input.selectionEnd ?? value.length;
-        const next = value.slice(0, start) + pasted + value.slice(end);
-        const regex = allowNegative ? /^-?\d*$/ : /^\d*$/;
-        if (!regex.test(next)) e.preventDefault();
-    });
-
-    input.addEventListener('drop', (e) => e.preventDefault());
-}
-
 function bindItemIntegerInputs() {
-    const integerInputs = [
+    DesignerBase.bindIntegerInputs([
         { id: 'itemSilver', allowNegative: false },
         { id: 'itemStrength', allowNegative: true },
         { id: 'itemStamina', allowNegative: true },
@@ -204,16 +155,7 @@ function bindItemIntegerInputs() {
         { id: 'itemMinDamage', allowNegative: true },
         { id: 'itemMaxDamage', allowNegative: true },
         { id: 'itemEffectFactor', allowNegative: true }
-    ];
-
-    integerInputs.forEach(({ id, allowNegative }) => {
-        const input = document.getElementById(id);
-        if (!input || input.dataset.integerBound === '1') return;
-        input.dataset.integerBound = '1';
-        attachStrictIntegerGuards(input, allowNegative);
-        input.addEventListener('input', () => normalizeIntegerInputValue(input));
-        input.addEventListener('blur', () => normalizeIntegerInputValue(input));
-    });
+    ]);
 }
 
 async function loadItemsAndEffects(options = {}) {
@@ -1096,23 +1038,10 @@ function escapeHtml(text) {
 
 function getItemAssetGallery() {
     if (itemAssetGallery) return itemAssetGallery;
-    itemAssetGallery = new AssetGallery({
-        overlayId: 'itemAssetGalleryOverlay',
-        gridId: 'itemAssetGrid',
-        openTriggerIds: ['itemAssetGalleryBtn', 'itemIconUploadArea'],
-        closeTriggerIds: ['itemAssetGalleryClose'],
-        uploadTriggerIds: ['itemUploadNewBtn'],
-        fileInputId: 'itemIconFile',
-        dropZoneId: 'itemIconUploadArea',
+    itemAssetGallery = DesignerBase.createAssetGallery('item', {
         getAssets: () => itemAssets,
         getSelectedAssetId: () => selectedAssetId,
-        itemClass: 'item-asset-item',
-        thumbnailClass: 'item-asset-thumbnail',
-        uploadEndpoint: '/api/uploadItemAsset',
         getNextAssetID: getNextAvailableItemAssetID,
-        width: 128,
-        height: 128,
-        quality: 0.8,
         onSelect: (asset, { assetId, iconUrl, gallery }) => {
             selectedAssetId = assetId;
             selectedAssetIcon = iconUrl;
@@ -1138,11 +1067,16 @@ function getItemAssetGallery() {
             document.getElementById('itemAssetID').value = result.assetID;
             const assetIdDisplay = document.getElementById('itemAssetIDDisplay');
             if (assetIdDisplay) assetIdDisplay.textContent = `Asset ID: ${result.assetID}`;
-            itemAssets.push({
+            const uploadedAsset = {
                 assetID: result.assetID,
                 name: result.assetID.toString(),
                 icon: result.icon || base64Data
-            });
+            };
+            if (typeof upsertGlobalRecord === 'function') {
+                upsertGlobalRecord('itemAssets', uploadedAsset, ['assetID', 'id']);
+            } else {
+                itemAssets.push(uploadedAsset);
+            }
             alert('Item icon uploaded successfully!');
         },
         onUploadError: ({ error, result }) => {
@@ -1159,13 +1093,6 @@ function getItemAssetGallery() {
  */
 function createItemAssetGallery() {
     getItemAssetGallery().render();
-}
-
-/**
- * Toggle the item asset gallery overlay visibility
- */
-function toggleItemAssetGallery() {
-    getItemAssetGallery().toggle();
 }
 
 /**
@@ -1234,13 +1161,6 @@ function clearIconPreview() {
 }
 
 /**
- * Handle item icon upload from file input
- */
-async function handleItemIconUpload(file) {
-    return getItemAssetGallery().upload(file);
-}
-
-/**
  * Get next available asset ID for items
  */
 function getNextAvailableItemAssetID() {
@@ -1256,53 +1176,6 @@ function getNextAvailableItemAssetID() {
     }
     
     return maxID + 1;
-}
-
-/**
- * Convert an image file to WebP format with specified dimensions
- */
-function convertImageToWebP(file, width, height, quality) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        img.onload = () => {
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Draw image scaled to fit
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Convert to WebP
-            canvas.toBlob(
-                (blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Failed to convert to WebP'));
-                    }
-                },
-                'image/webp',
-                quality
-            );
-        };
-        
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = URL.createObjectURL(file);
-    });
-}
-
-/**
- * Convert a Blob to base64 string
- */
-function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
 }
 
 // Export for global access
