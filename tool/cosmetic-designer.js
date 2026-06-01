@@ -4,7 +4,7 @@ let cosmeticState = {
     cosmetics: [],       // DB rows {id, type, name, price, offsetX, offsetY, scale}
     assets: [],          // R2 assets {assetID, icon}
     equipped: {},        // type -> {id, url, offsetX, offsetY, scale}
-    activeType: null,
+    activeType: 'face',
     byType: {},          // type -> [{id, url, name, price, offsetX, offsetY, scale}]
     dirty: new Set(),    // set of cosmetic IDs with unsaved changes
 };
@@ -125,7 +125,8 @@ function renderCategorySelectors() {
 }
 
 function selectCosmeticCategory(type) {
-    cosmeticState.activeType = cosmeticState.activeType === type ? null : type;
+    if (!COSMETIC_TYPES.includes(type)) return;
+    cosmeticState.activeType = type;
     renderCosmeticEditor();
 }
 

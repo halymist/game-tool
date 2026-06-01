@@ -138,6 +138,7 @@ type PlayerPerk struct {
 	TalentID    *int   `json:"talent_id,omitempty"`
 	Name        string `json:"name"`
 	AssetID     *int   `json:"assetID,omitempty"`
+	Description string `json:"description,omitempty"`
 	Icon        string `json:"icon,omitempty"`
 }
 
@@ -416,7 +417,7 @@ func loadPlayerTalents(characterIDs []int) (map[int][]PlayerTalent, error) {
 
 func loadPlayerPerks(characterIDs []int) (map[int][]PlayerPerk, error) {
 	rows, err := db.Query(`
-		SELECT p.character_id, p.perk_id, p.talent_id, COALESCE(pi.perk_name, ''), pi.asset_id
+		SELECT p.character_id, p.perk_id, p.talent_id, COALESCE(pi.perk_name, ''), pi.asset_id, COALESCE(pi.description, '')
 		FROM public.perks p
 		LEFT JOIN game.perks_info pi ON pi.perk_id = p.perk_id
 		WHERE p.character_id = ANY($1)
@@ -431,7 +432,7 @@ func loadPlayerPerks(characterIDs []int) (map[int][]PlayerPerk, error) {
 	for rows.Next() {
 		var p PlayerPerk
 		var talentID, assetID sql.NullInt64
-		if err := rows.Scan(&p.CharacterID, &p.PerkID, &talentID, &p.Name, &assetID); err != nil {
+		if err := rows.Scan(&p.CharacterID, &p.PerkID, &talentID, &p.Name, &assetID, &p.Description); err != nil {
 			return nil, err
 		}
 		p.TalentID = nullInt64Ptr(talentID)

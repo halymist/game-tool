@@ -282,7 +282,7 @@ function renderSelectedPlayerCharacter() {
                 </div>
             </div>
             <div class="player-character-talents">
-                ${renderPlayerTalentTree(character.talents || [])}
+                ${renderPlayerTalentTree(character.talents || [], character.perks || [])}
             </div>
         </div>
     `;
@@ -494,7 +494,7 @@ function renderPlayerActiveEffects(character) {
     `;
 }
 
-function renderPlayerTalentTree(talents) {
+function renderPlayerTalentTree(talents, perks = []) {
     if (!talents.length) {
         return `
             <div class="player-talents-section">
@@ -508,19 +508,19 @@ function renderPlayerTalentTree(talents) {
         <div class="player-talents-section">
             <div class="player-panel-header compact"><h3>Talents</h3></div>
             <div class="player-talent-grid talent-grid">
-                ${talents.map(talent => renderPlayerTalentCell(talent)).join('')}
+                ${talents.map(talent => renderPlayerTalentCell(talent, perks)).join('')}
             </div>
         </div>
     `;
 }
 
-function renderPlayerTalentCell(talent) {
+function renderPlayerTalentCell(talent, perks = []) {
     const row = Number(talent.row || 1);
     const col = Number(talent.col || 1);
     const gridRow = 9 - row;
     const iconUrl = talent.icon || findPlayerTalentIcon(talent.assetID);
     const perkIndicator = talent.perkSlot ? '<div class="talent-perk-indicator">*</div>' : '';
-    const tooltip = getPlayerTalentTooltip(talent);
+    const tooltip = getPlayerTalentTooltip(talent, perks);
     return `
         <div class="talent-cell-wrapper" style="grid-row:${gridRow};grid-column:${col};">
             <div class="talent-cell" title="${pmEscapeHtml(tooltip)}">
@@ -533,7 +533,18 @@ function renderPlayerTalentCell(talent) {
     `;
 }
 
-function getPlayerTalentTooltip(talent) {
+function getPlayerTalentTooltip(talent, perks = []) {
+    const assignedPerk = talent.perkSlot ? findPlayerAssignedPerk(talent, perks) : null;
+    if (assignedPerk) {
+        const parts = [assignedPerk.name || `Perk ${assignedPerk.perk_id || assignedPerk.id}`];
+        if (talent.points || talent.maxPoints) {
+            parts.push(`Slot: ${talent.name || `Talent ${talent.talent_id}`} (${talent.points || 0}/${talent.maxPoints || '?'})`);
+        }
+        const description = assignedPerk.description || findPlayerPerk(assignedPerk.perk_id || assignedPerk.id)?.description || '';
+        if (description) parts.push(description);
+        return parts.join('\n');
+    }
+
     const effect = findPlayerEffect(talent.effectId);
     const baseDescription = effect?.description || talent.description || '';
     const invested = Number(talent.points || 0) * Number(talent.factor || 0);
@@ -555,6 +566,11 @@ function getPlayerTalentTooltip(talent) {
     }
     if (descText) parts.push(descText);
     return parts.join('\n');
+}
+
+function findPlayerAssignedPerk(talent, perks = []) {
+    const talentId = Number(talent.talent_id || talent.talentId);
+    return (perks || []).find(perk => Number(perk.talent_id || perk.talentId) === talentId) || null;
 }
 
 function renderPlayerEmptyState(message) {

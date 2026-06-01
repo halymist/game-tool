@@ -595,7 +595,7 @@ function closeCombatOverlay() {
     document.getElementById('combatLogSection').style.display = 'none';
     document.getElementById('combatLogEntries').innerHTML = '';
     const liveLog = document.getElementById('arenaLiveLog');
-    if (liveLog) { liveLog.innerHTML = ''; liveLog.style.display = 'none'; }
+    if (liveLog) liveLog.innerHTML = '';
     const statsSection = document.getElementById('combatStatsSection');
     if (statsSection) { statsSection.innerHTML = ''; statsSection.style.display = 'none'; }
 }
@@ -618,7 +618,7 @@ function replayCombat() {
     document.getElementById('combatDoneBtn').style.display = 'none';
     document.getElementById('combatLogSection').style.display = 'none';
     const liveLog = document.getElementById('arenaLiveLog');
-    if (liveLog) { liveLog.innerHTML = ''; liveLog.style.display = 'none'; }
+    if (liveLog) liveLog.innerHTML = '';
     const statsSection = document.getElementById('combatStatsSection');
     if (statsSection) { statsSection.innerHTML = ''; statsSection.style.display = 'none'; }
     combatAnimator.play();
@@ -730,7 +730,7 @@ class CombatAnimator {
         document.getElementById('arenaAction').textContent = '';
 
         const liveLog = document.getElementById('arenaLiveLog');
-        if (liveLog) { liveLog.innerHTML = ''; liveLog.style.display = 'none'; }
+        if (liveLog) liveLog.innerHTML = '';
 
         for (const id of ['arenaFighter1', 'arenaFighter2']) {
             const el = document.getElementById(id);
@@ -958,7 +958,6 @@ class CombatAnimator {
     appendLiveLog(entry) {
         const container = document.getElementById('arenaLiveLog');
         if (!container) return;
-        container.style.display = '';
 
         const isC1 = entry.characterId === this.c1.id;
         const actor = isC1 ? this.c1.name : this.c2.name;

@@ -1756,8 +1756,10 @@
                         <input type="search" id="playerSearchInput" placeholder="Character name...">
                     </div>
                     <div class="player-server-summary" id="playerServerSummary"></div>
-                    <button type="button" id="playerRefreshBtn" class="btn-secondary">Refresh</button>
-                    <span id="playerStatus" class="player-status"></span>
+                    <div class="player-toolbar-actions">
+                        <button type="button" id="playerRefreshBtn" class="btn-secondary">Refresh</button>
+                        <span id="playerStatus" class="player-status"></span>
+                    </div>
                 </div>
 
                 <div class="player-manager-layout">
@@ -2137,7 +2139,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="arena-live-log" id="arenaLiveLog" style="display:none;"></div>
+                            <div class="arena-live-log" id="arenaLiveLog"></div>
                             <div class="arena-controls">
                                 <button type="button" id="arenaPlayBtn" class="btn-arena-play">▶ Play</button>
                                 <button type="button" id="arenaSkipBtn" class="btn-arena-skip">⏭ Skip</button>
