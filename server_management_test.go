@@ -36,8 +36,15 @@ func TestChooseFactionSettlementsKeepsOnePerFaction(t *testing.T) {
 }
 
 func TestTakeSettlementQuestsConsumesFiniteBank(t *testing.T) {
-	questBanks := map[int][]int{
-		6: {101, 102, 103, 104, 105, 106},
+	questBanks := map[int][]generatedQuest{
+		6: {
+			{QuestID: 101},
+			{QuestID: 102},
+			{QuestID: 103},
+			{QuestID: 104},
+			{QuestID: 105},
+			{QuestID: 106},
+		},
 	}
 
 	firstDay := takeSettlementQuests(questBanks, 6, 5)
@@ -59,7 +66,37 @@ func TestTakeSettlementQuestsConsumesFiniteBank(t *testing.T) {
 	}
 }
 
+func TestTakeSettlementQuestsAvoidsDuplicateLocationsPerDay(t *testing.T) {
+	locA := int64(10)
+	locB := int64(20)
+	questBanks := map[int][]generatedQuest{
+		6: {
+			{QuestID: 101, LocationID: &locA},
+			{QuestID: 102, LocationID: &locA},
+			{QuestID: 103, LocationID: &locB},
+			{QuestID: 104},
+		},
+	}
+
+	firstDay := takeSettlementQuests(questBanks, 6, 5)
+	if len(firstDay) != 3 {
+		t.Fatalf("expected 3 quests with unique non-null locations, got %d: %v", len(firstDay), firstDay)
+	}
+	for _, questID := range firstDay {
+		if questID == 102 {
+			t.Fatalf("expected duplicate-location quest 102 to be deferred, got %v", firstDay)
+		}
+	}
+
+	secondDay := takeSettlementQuests(questBanks, 6, 5)
+	if len(secondDay) != 1 || secondDay[0] != 102 {
+		t.Fatalf("expected deferred duplicate-location quest 102 on next day, got %v", secondDay)
+	}
+}
+
 func TestGenerateServerContentKeepsFactionSettlementStableAndCapsDailyQuests(t *testing.T) {
+	rand.Seed(1)
+
 	serverName := fmt.Sprintf("server-generation-test-%d", time.Now().UnixNano())
 	startsAt := time.Now().UTC().Truncate(time.Second)
 	endsAt := startsAt.Add(70 * 24 * time.Hour)
@@ -73,6 +110,7 @@ func TestGenerateServerContentKeepsFactionSettlementStableAndCapsDailyQuests(t *
 	}
 
 	t.Cleanup(func() {
+		_, _ = db.Exec(`DELETE FROM public.expedition_node_quests WHERE server_id = $1`, serverID)
 		_, _ = db.Exec(`DELETE FROM public.world_quests WHERE server_id = $1`, serverID)
 		_, _ = db.Exec(`DELETE FROM public.enchanter WHERE server_id = $1`, serverID)
 		_, _ = db.Exec(`DELETE FROM public.vendor WHERE server_id = $1`, serverID)
@@ -160,6 +198,42 @@ func TestGenerateServerContentKeepsFactionSettlementStableAndCapsDailyQuests(t *
 	}
 	if nonExpeditionAssignments != 0 {
 		t.Fatalf("expected no expedition quests in world_quests, got %d", nonExpeditionAssignments)
+	}
+
+	var duplicateDailyLocations int
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM (
+			SELECT wq.server_day, wq.settlement_id, q.location_id
+			FROM public.world_quests wq
+			JOIN game.quests q ON q.quest_id = wq.quest_id
+			WHERE wq.server_id = $1 AND q.location_id IS NOT NULL
+			GROUP BY wq.server_day, wq.settlement_id, q.location_id
+			HAVING COUNT(*) > 1
+		) dup
+	`, serverID).Scan(&duplicateDailyLocations); err != nil {
+		t.Fatalf("count duplicate daily quest locations: %v", err)
+	}
+	if duplicateDailyLocations != 0 {
+		t.Fatalf("expected no duplicate non-null quest locations per settlement day, got %d", duplicateDailyLocations)
+	}
+
+	var missingExpeditionNodeDays int
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM public.world w
+		LEFT JOIN public.expedition_node_quests enq
+		  ON enq.server_id = w.server_id
+		 AND enq.server_day = w.server_day
+		 AND enq.settlement_id = w.settlement_id
+		WHERE w.server_id = $1
+		GROUP BY w.server_id
+		HAVING COUNT(enq.node_id) = 0
+	`, serverID).Scan(&missingExpeditionNodeDays); err != nil && err.Error() != "sql: no rows in result set" {
+		t.Fatalf("count missing expedition node rows: %v", err)
+	}
+	if missingExpeditionNodeDays != 0 {
+		t.Fatalf("expected generated expedition node quest rows, got none")
 	}
 }
 

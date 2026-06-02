@@ -10,7 +10,8 @@ import (
 )
 
 // Expedition is a settlement-scoped exploration map: an uploaded image plus a
-// graph of nodes (each referencing a quest) connected by undirected edges.
+// graph of location nodes connected by undirected edges. A node does not store
+// one authored quest; available expedition quests are derived from its location.
 //
 // Schema lives in game.expeditions / expedition_nodes / expedition_edges
 // with expedition-level versioning and soft-deletes (see migrations/20260502_expeditions_game_versioned.sql).
@@ -42,6 +43,10 @@ type expeditionPayload struct {
 	Edges        []expeditionEdge `json:"edges"`
 	Version      int              `json:"version,omitempty"`
 }
+
+type expeditionValidationError string
+
+func (e expeditionValidationError) Error() string { return string(e) }
 
 func orderedNodePair(a, b int) (int, int) {
 	if a > b {
@@ -98,6 +103,24 @@ func ensureExpeditionRow(tx *sql.Tx, settlementID int, createVersion int) (int, 
 		return id, &v, version, nil
 	}
 	return id, nil, version, nil
+}
+
+func ensureNodeLocationHasExpeditionQuests(tx *sql.Tx, locationID int64) error {
+	var hasQuest bool
+	if err := tx.QueryRow(`
+		SELECT EXISTS(
+			SELECT 1
+			FROM game.quests q
+			WHERE q.location_id = $1
+			  AND COALESCE(q.expedition_quest, FALSE) = TRUE
+		)
+	`, locationID).Scan(&hasQuest); err != nil {
+		return fmt.Errorf("validate node location %d: %w", locationID, err)
+	}
+	if !hasQuest {
+		return expeditionValidationError(fmt.Sprintf("location %d has no expedition quests", locationID))
+	}
+	return nil
 }
 
 // handleGetExpedition: GET /api/getExpedition?settlementId=N
@@ -225,6 +248,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "node missing client_id", http.StatusBadRequest)
 			return
 		}
+		if n.LocationID == nil || *n.LocationID <= 0 {
+			http.Error(w, "every expedition node must have a location", http.StatusBadRequest)
+			return
+		}
 	}
 
 	var expeditionID int
@@ -301,6 +328,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		clientToDB := map[int]int{}
 		incomingNodeIDs := map[int]bool{}
 		for _, n := range in.Nodes {
+			if err := ensureNodeLocationHasExpeditionQuests(tx, *n.LocationID); err != nil {
+				return err
+			}
+			n.QuestID = nil
 			resolvedNodeID := 0
 			if n.NodeID > 0 {
 				res, err := tx.Exec(`
@@ -437,6 +468,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}); err != nil {
 		log.Printf("saveExpedition: %v", err)
+		if _, ok := err.(expeditionValidationError); ok {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "DB error", http.StatusInternalServerError)
 		return
 	}

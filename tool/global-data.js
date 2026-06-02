@@ -26,12 +26,16 @@ const GlobalData = {
     settlements: [],       // Array of all settlements from game.world_info
     quests: [],            // Array of all quests from game.quests (all settlements)
     questChains: [],       // Array of all quest chains from game.questchain (all settlements)
+    expeditions: [],       // Array of all expedition graphs from game.expeditions
     settlementAssets: [],  // Array of available settlement assets from S3
     questAssets: [],       // Array of available quest assets from S3 (images/quests)
     expeditionMapAssets: [], // Array of expedition map assets from S3 (images/expedition-maps)
     cosmetics: [],         // Array of all cosmetics from game.cosmetics
     cosmeticAssets: []     // Array of available cosmetic assets from S3
 };
+
+let expeditionDataVersion = 0;
+let expeditionsLoadingPromise = null;
 
 const DEFAULT_ASSET_PUBLIC_BASE_URL = 'https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev';
 const ASSET_PUBLIC_BASE_URL = String(window.ASSET_PUBLIC_BASE_URL || DEFAULT_ASSET_PUBLIC_BASE_URL).replace(/\/+$/, '');
@@ -238,6 +242,7 @@ function buildGlobalDataSummary() {
         settlements: GlobalData.settlements.length,
         quests: GlobalData.quests.length,
         questChains: GlobalData.questChains.length,
+        expeditions: GlobalData.expeditions.length,
         questAssets: GlobalData.questAssets.length,
         settlementAssets: GlobalData.settlementAssets.length,
         expeditionMapAssets: GlobalData.expeditionMapAssets.length,
@@ -332,6 +337,8 @@ if (typeof window !== 'undefined') {
     window.loadQuestsData = loadQuestsData;
     window.getQuestsData = getQuestsData;
     window.getQuestChainsData = getQuestChainsData;
+    window.loadExpeditionsData = loadExpeditionsData;
+    window.getExpeditionsData = getExpeditionsData;
 }
 
 // === EFFECTS DATA STRUCTURE ===
@@ -753,6 +760,101 @@ async function loadSettlementsData(options = {}) {
 
 function getSettlements() {
     return GlobalData.settlements;
+}
+
+function normalizeExpeditionGraph(expedition) {
+    if (!expedition || typeof expedition !== 'object') return null;
+    return {
+        expedition_id: Number(expedition.expedition_id || 0),
+        settlement_id: Number(expedition.settlement_id || 0),
+        map_asset_id: expedition.map_asset_id == null ? null : Number(expedition.map_asset_id),
+        version: Number(expedition.version || 0),
+        nodes: Array.isArray(expedition.nodes) ? expedition.nodes.map((node) => ({
+            node_id: Number(node.node_id || 0),
+            client_id: Number(node.client_id || node.node_id || 0),
+            location_id: node.location_id == null ? null : Number(node.location_id),
+            is_start: !!node.is_start,
+            pos_x: Number(node.pos_x || 0),
+            pos_y: Number(node.pos_y || 0),
+            label: node.label || null,
+        })) : [],
+        edges: Array.isArray(expedition.edges) ? expedition.edges.map((edge) => ({
+            edge_id: Number(edge.edge_id || 0),
+            node_a: Number(edge.node_a || 0),
+            node_b: Number(edge.node_b || 0),
+            a_client_id: Number(edge.a_client_id || edge.node_a || 0),
+            b_client_id: Number(edge.b_client_id || edge.node_b || 0),
+        })) : [],
+    };
+}
+
+function applyExpeditionDelta(payload, options = {}) {
+    const reset = options?.reset === true;
+    const nextVersion = Number(payload?.version || 0);
+    const incomingExpeditions = Array.isArray(payload?.expeditions)
+        ? payload.expeditions.map(normalizeExpeditionGraph).filter(Boolean)
+        : [];
+    const deletedIDs = new Set(
+        Array.isArray(payload?.deleted_expedition_ids)
+            ? payload.deleted_expedition_ids.map((id) => Number(id)).filter((id) => id > 0)
+            : []
+    );
+
+    const bySettlement = new Map();
+    if (!reset) {
+        for (const expedition of GlobalData.expeditions) {
+            if (!expedition) continue;
+            if (deletedIDs.has(Number(expedition.expedition_id || 0))) continue;
+            bySettlement.set(Number(expedition.settlement_id || 0), expedition);
+        }
+    }
+    for (const expedition of incomingExpeditions) {
+        if (expedition.expedition_id <= 0 || expedition.settlement_id <= 0) continue;
+        bySettlement.set(expedition.settlement_id, expedition);
+    }
+
+    expeditionDataVersion = nextVersion;
+    return setGlobalArray('expeditions', Array.from(bySettlement.values()).sort((a, b) => a.settlement_id - b.settlement_id));
+}
+
+async function loadExpeditionsData(options = {}) {
+    const forceReload = options?.forceReload === true;
+    if (!forceReload && GlobalData.expeditions.length > 0) {
+        return GlobalData.expeditions;
+    }
+    if (expeditionsLoadingPromise) return expeditionsLoadingPromise;
+
+    expeditionsLoadingPromise = (async () => {
+        try {
+            const token = await getCurrentAccessToken();
+            if (!token) throw new Error('Authentication required');
+            const requestedVersion = forceReload ? 0 : expeditionDataVersion;
+            const response = await fetch(`/api/getExpeditionVersioned?version=${requestedVersion}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) {
+                throw new Error('Server error: ' + await response.text());
+            }
+            const payload = await response.json();
+            applyExpeditionDelta(payload, { reset: forceReload || requestedVersion === 0 });
+            console.log(`${GLOBAL_DATA_LOG_PREFIX} expeditions loaded`, {
+                count: GlobalData.expeditions.length,
+                version: expeditionDataVersion,
+            });
+            return GlobalData.expeditions;
+        } catch (error) {
+            console.error('Error loading expeditions:', error);
+            throw error;
+        } finally {
+            expeditionsLoadingPromise = null;
+        }
+    })();
+    return expeditionsLoadingPromise;
+}
+
+function getExpeditionsData() {
+    return GlobalData.expeditions;
 }
 
 // --- Quests (all settlements) ---
@@ -1209,6 +1311,7 @@ const GLOBAL_DATA_LOADERS = {
     enemyAssets:      (options) => loadEnemyAssets(options),
     settlements:      (options) => loadSettlementsData(options),
     quests:           (options) => loadQuestsData(options),
+    expeditions:      (options) => loadExpeditionsData(options),
     settlementAssets: (options) => loadSettlementAssetsData(options),
     questAssets:      (options) => loadQuestAssetsData(options),
     expeditionMapAssets: (options) => loadExpeditionMapAssetsData(options),
@@ -1246,6 +1349,7 @@ async function preloadGlobalData(keys = []) {
             `${GlobalData.recentEvents.length} recent events`,
             `${GlobalData.settlements.length} settlements`,
             `${GlobalData.quests.length} quests`,
+            `${GlobalData.expeditions.length} expeditions`,
             `${GlobalData.cosmetics.length} cosmetics`
         ];
         const assetEntries = [

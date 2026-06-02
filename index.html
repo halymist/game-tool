@@ -1276,10 +1276,8 @@
                                 </select>
                             </div>
                             <div class="expedition-sidebar-field">
-                                <label for="expeditionNodeQuest">Quest</label>
-                                <select id="expeditionNodeQuest" class="expedition-sidebar-select">
-                                    <option value="">-- Unassigned --</option>
-                                </select>
+                                <label for="expeditionNodeQuestSummary">Available Quests</label>
+                                <div id="expeditionNodeQuestSummary" class="expedition-quest-summary"></div>
                             </div>
                             <div class="expedition-sidebar-field">
                                 <label for="expeditionNodeLabel">Node Text</label>
@@ -2794,7 +2792,7 @@
                     if (status) status.textContent = 'Fetching game data…';
                     console.log('[boot] Starting shared GlobalData preload');
                     await preloadGlobalData([
-                        'settlements', 'quests', 'settlementAssets', 'questAssets', 'expeditionMapAssets',
+                        'settlements', 'quests', 'expeditions', 'settlementAssets', 'questAssets', 'expeditionMapAssets',
                         'items', 'perks', 'npcs', 'servers', 'recentEvents',
                         'itemAssets', 'perkAssets', 'enemyAssets', 'effectAssets',
                         'effects', 'enemies',

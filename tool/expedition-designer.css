@@ -263,6 +263,23 @@
     font-size: 0.85rem;
 }
 
+.expedition-quest-summary {
+    width: 100%;
+    min-height: 38px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    box-sizing: border-box;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.expedition-quest-summary.is-empty {
+    color: var(--text-secondary);
+}
+
 .expedition-sidebar-field textarea {
     min-height: 130px;
     resize: vertical;
