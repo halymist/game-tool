@@ -884,11 +884,17 @@ const DesignerBase = {
      * @returns {Promise<Object>} - Response data
      */
     async apiRequest(endpoint, method = 'GET', body = null) {
+        if (typeof fetchAuthenticatedJson === 'function') {
+            return fetchAuthenticatedJson(endpoint, {
+                method,
+                jsonBody: body === null ? undefined : body
+            });
+        }
+
         const token = await getCurrentAccessToken();
         if (!token) {
             throw new Error('Authentication required');
         }
-        
         const options = {
             method,
             headers: {
@@ -896,11 +902,9 @@ const DesignerBase = {
                 'Content-Type': 'application/json'
             }
         };
-        
         if (body) {
             options.body = JSON.stringify(body);
         }
-        
         const response = await fetch(`${endpoint}`, options);
         return response.json();
     },

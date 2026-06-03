@@ -1,3 +1,4 @@
+-- Active: 1775648580570@@178.104.33.229@5432@Game
 WORLD QUEST COMPENDIUM
 =======================
 170 quests across 17 settlements. Each quest: title, Location (settlement-specific,

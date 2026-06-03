@@ -40,6 +40,66 @@ let expeditionsLoadingPromise = null;
 const DEFAULT_ASSET_PUBLIC_BASE_URL = 'https://pub-b959ac8ae579488bb4ed33c01a618ae2.r2.dev';
 const ASSET_PUBLIC_BASE_URL = String(window.ASSET_PUBLIC_BASE_URL || DEFAULT_ASSET_PUBLIC_BASE_URL).replace(/\/+$/, '');
 const GLOBAL_DATA_LOG_PREFIX = '[GlobalData]';
+const REQUEST_NOTICE_HOST_ID = 'gameRequestNoticeHost';
+
+function escapeRequestNoticeHtml(value) {
+    const node = document.createElement('div');
+    node.textContent = String(value ?? '');
+    return node.innerHTML;
+}
+
+function normalizeRequestErrorMessage(error, fallback = 'Request failed') {
+    const message = String(error?.message || error || '').trim();
+    if (!message) return fallback;
+    if (/networkerror|failed to fetch|load failed|network request failed|fetch resource/i.test(message)) {
+        return 'Could not reach the server. Check the connection and try again.';
+    }
+    if (/authentication required/i.test(message)) {
+        return 'Authentication required.';
+    }
+    return message;
+}
+
+function ensureRequestNoticeHost() {
+    let host = document.getElementById(REQUEST_NOTICE_HOST_ID);
+    if (!host) {
+        host = document.createElement('div');
+        host.id = REQUEST_NOTICE_HOST_ID;
+        host.className = 'game-request-notice-host';
+        document.body.appendChild(host);
+    }
+    return host;
+}
+
+function showGlobalRequestNotice(message, tone = 'error', options = {}) {
+    const text = String(message || '').trim();
+    if (!text) return null;
+
+    const host = ensureRequestNoticeHost();
+    const notice = document.createElement('div');
+    const title = options.title || (tone === 'error' ? 'Request failed' : 'Notice');
+    notice.className = `game-request-notice ${tone === 'error' ? 'is-error' : 'is-info'}`;
+    notice.innerHTML = `
+        <div class="game-request-notice-title">${escapeRequestNoticeHtml(title)}</div>
+        <div class="game-request-notice-message">${escapeRequestNoticeHtml(text)}</div>
+        <button type="button" class="game-request-notice-close" aria-label="Dismiss notice">Close</button>
+    `;
+
+    const close = () => {
+        if (!notice.isConnected) return;
+        notice.classList.add('is-leaving');
+        window.setTimeout(() => notice.remove(), 180);
+    };
+
+    notice.querySelector('.game-request-notice-close')?.addEventListener('click', close);
+    host.appendChild(notice);
+
+    const timeoutMs = Number(options.timeoutMs ?? (tone === 'error' ? 5200 : 3200));
+    if (timeoutMs > 0) {
+        window.setTimeout(close, timeoutMs);
+    }
+    return notice;
+}
 
 function getAssetPublicBaseUrl() {
     return ASSET_PUBLIC_BASE_URL;
@@ -51,9 +111,17 @@ function buildPublicAssetUrl(path) {
 }
 
 async function fetchAuthenticatedJson(url, options = {}) {
-    const { jsonBody, headers = {}, expectSuccess = false, ...fetchOptions } = options;
+    const { jsonBody, headers = {}, expectSuccess = false, suppressNotice = false, ...fetchOptions } = options;
     const token = await getCurrentAccessToken();
-    if (!token) throw new Error('Authentication required');
+    if (!token) {
+        const message = normalizeRequestErrorMessage('Authentication required');
+        if (!suppressNotice) {
+            showGlobalRequestNotice(message, 'error', { title: 'Authentication required' });
+        }
+        const error = new Error(message);
+        error.presented = true;
+        throw error;
+    }
 
     const requestHeaders = {
         'Authorization': `Bearer ${token}`,
@@ -61,11 +129,23 @@ async function fetchAuthenticatedJson(url, options = {}) {
         ...headers,
     };
 
-    const response = await fetch(url, {
-        ...fetchOptions,
-        headers: requestHeaders,
-        body: jsonBody !== undefined ? JSON.stringify(jsonBody) : fetchOptions.body,
-    });
+    let response;
+    try {
+        response = await fetch(url, {
+            ...fetchOptions,
+            headers: requestHeaders,
+            body: jsonBody !== undefined ? JSON.stringify(jsonBody) : fetchOptions.body,
+        });
+    } catch (error) {
+        const message = normalizeRequestErrorMessage(error, 'Could not reach the server.');
+        if (!suppressNotice) {
+            showGlobalRequestNotice(message, 'error', { title: 'Connection problem' });
+        }
+        const wrapped = new Error(message);
+        wrapped.cause = error;
+        wrapped.presented = true;
+        throw wrapped;
+    }
 
     const rawBody = await response.text();
     let payload = null;
@@ -78,12 +158,23 @@ async function fetchAuthenticatedJson(url, options = {}) {
     }
 
     if (!response.ok) {
-        const message = payload?.message || rawBody || `HTTP ${response.status}`;
-        throw new Error(message);
+        const message = normalizeRequestErrorMessage(payload?.message || rawBody || `HTTP ${response.status}`);
+        if (!suppressNotice) {
+            showGlobalRequestNotice(message, 'error');
+        }
+        const error = new Error(message);
+        error.presented = true;
+        throw error;
     }
 
     if (expectSuccess && payload?.success === false) {
-        throw new Error(payload.message || 'Request failed');
+        const message = normalizeRequestErrorMessage(payload.message || 'Request failed');
+        if (!suppressNotice) {
+            showGlobalRequestNotice(message, 'error');
+        }
+        const error = new Error(message);
+        error.presented = true;
+        throw error;
     }
 
     return payload;
@@ -320,6 +411,8 @@ if (typeof window !== 'undefined') {
     window.preloadGlobalData = preloadGlobalData;
     window.syncAfterSave = syncAfterSave;
     window.getGlobalDataSummary = buildGlobalDataSummary;
+    window.normalizeRequestErrorMessage = normalizeRequestErrorMessage;
+    window.showGlobalRequestNotice = showGlobalRequestNotice;
     window.getAssetPublicBaseUrl = getAssetPublicBaseUrl;
     window.buildPublicAssetUrl = buildPublicAssetUrl;
     window.loadServersData = loadServersData;

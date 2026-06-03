@@ -340,6 +340,7 @@ func isAuthenticated(r *http.Request) bool {
 	}
 
 	log.Printf("AUTH SUCCESS - User: %v on %s", username, r.URL.Path)
+	recordUserLastPlayed(username)
 	return true
 }
 

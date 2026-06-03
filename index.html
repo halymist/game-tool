@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="/static/cosmetic-designer.css">
     <link rel="stylesheet" href="/static/combat-tester.css">
     <link rel="stylesheet" href="/static/builds-designer.css">
+    <link rel="stylesheet" href="/static/analytics.css">
     <!-- AWS Cognito SDK for token management -->
     <script src="https://unpkg.com/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
 </head>
@@ -2087,18 +2088,87 @@
             <div class="tool-header">
                 <div class="tool-icon"><svg class="icon icon-lg" style="color:var(--accent)"><use href="#i-chart"/></svg></div>
                 <h1>Game Analytics</h1>
-                <p>View detailed analytics about player behavior and game performance.</p>
+                <p>View server-level population, faction split, and activity trends.</p>
+            </div>
+            <div class="analytics-dashboard">
+                <div class="analytics-toolbar">
+                    <div class="analytics-toolbar-controls">
+                        <div class="analytics-field">
+                            <label for="analyticsServerFilter">Server Scope</label>
+                            <select id="analyticsServerFilter">
+                                <option value="all">All servers</option>
+                            </select>
+                        </div>
+                        <div class="analytics-field">
+                            <label for="analyticsMetricSelect">Metric</label>
+                            <select id="analyticsMetricSelect">
+                                <option value="players">Players</option>
+                                <option value="characters">Characters</option>
+                                <option value="factions">Faction Breakdown</option>
+                                <option value="activity">Active vs Inactive</option>
+                            </select>
+                        </div>
+                        <div class="analytics-field">
+                            <label>&nbsp;</label>
+                            <button type="button" id="analyticsRefreshBtn">Refresh</button>
+                        </div>
+                    </div>
+                    <div id="analyticsStatus" class="analytics-status">Waiting for analytics…</div>
+                </div>
+
+                <div id="analyticsSummaryCards" class="analytics-summary-grid"></div>
+
+                <div class="analytics-main-grid">
+                    <div class="analytics-panel">
+                        <div class="analytics-panel-head">
+                            <h3>Overview Graph</h3>
+                            <span id="analyticsChartSubtitle" class="analytics-chart-subtitle"></span>
+                        </div>
+                        <div id="analyticsLegend" class="analytics-legend"></div>
+                        <div id="analyticsChart" class="analytics-chart"></div>
+                        <div id="analyticsChartEmpty" class="analytics-chart-empty" style="display:none;">No chart data available.</div>
+                    </div>
+
+                    <div class="analytics-panel">
+                        <div class="analytics-panel-head">
+                            <h3>Server Detail</h3>
+                            <span class="analytics-chart-subtitle">Active/inactive uses the last 14 days.</span>
+                        </div>
+                        <div class="analytics-table-wrap">
+                            <table class="analytics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Server</th>
+                                        <th>Day</th>
+                                        <th>Players</th>
+                                        <th>Characters</th>
+                                        <th>Active / Inactive</th>
+                                        <th>Factions</th>
+                                        <th>Started</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="analyticsTableBody">
+                                    <tr><td colspan="7" class="analytics-empty-row">No analytics data yet.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Combat Tester Section -->
         <div id="combat-content" class="page-content" style="display: none;">
             <div class="combat-layout">
-                <!-- Left Sidebar -->
-                <div class="combat-sidebar">
-                    <button type="button" class="combat-sidebar-btn active" data-combat-tab="test">Test</button>
-                    <button type="button" class="combat-sidebar-btn" data-combat-tab="test2">Builds</button>
-                    <button type="button" class="combat-sidebar-btn" data-combat-tab="bulk">Calibration</button>
+                <div class="combat-page-header">
+                    <div class="combat-page-title-group">
+                        <h1 class="combat-page-title">Combat</h1>
+                    </div>
+                    <div class="combat-view-toggle-group" role="tablist" aria-label="Combat views">
+                        <button type="button" class="combat-sidebar-btn active" data-combat-tab="test">Test</button>
+                        <button type="button" class="combat-sidebar-btn" data-combat-tab="test2">Builds</button>
+                        <button type="button" class="combat-sidebar-btn" data-combat-tab="bulk">Calibration</button>
+                    </div>
                 </div>
 
                 <!-- Tab: Test (default) -->
@@ -2114,7 +2184,7 @@
                         <div class="combat-stats-grid">
                             <div class="combat-stat"><label>Strength</label><input type="number" id="combatStr1" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Stamina</label><input type="number" id="combatSta1" value="10" min="1" max="999"></div>
-                            <div class="combat-stat combat-stat-hp"><label>HP</label><span id="combatHpCalc1">100</span></div>
+                            <div class="combat-stat combat-stat-hp"><label>HP</label><input type="number" id="combatHpCalc1" value="50" min="5" max="4995" step="5"></div>
                             <div class="combat-stat"><label>Agility</label><input type="number" id="combatAgi1" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Luck</label><input type="number" id="combatLck1" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Armor</label><input type="number" id="combatArm1" value="10" min="0" max="999"></div>
@@ -2148,7 +2218,7 @@
                         <div class="combat-stats-grid">
                             <div class="combat-stat"><label>Strength</label><input type="number" id="combatStr2" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Stamina</label><input type="number" id="combatSta2" value="10" min="1" max="999"></div>
-                            <div class="combat-stat combat-stat-hp"><label>HP</label><span id="combatHpCalc2">100</span></div>
+                            <div class="combat-stat combat-stat-hp"><label>HP</label><input type="number" id="combatHpCalc2" value="50" min="5" max="4995" step="5"></div>
                             <div class="combat-stat"><label>Agility</label><input type="number" id="combatAgi2" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Luck</label><input type="number" id="combatLck2" value="10" min="0" max="999"></div>
                             <div class="combat-stat"><label>Armor</label><input type="number" id="combatArm2" value="10" min="0" max="999"></div>
@@ -2233,8 +2303,8 @@
 
                         <!-- Overlay footer actions -->
                         <div class="combat-overlay-actions">
-                            <button type="button" id="combatReplayBtn" class="btn-arena-play"><svg class="icon icon-sm"><use href="#i-refresh"/></svg> Replay</button>
-                            <button type="button" id="combatDoneBtn" class="btn-fight"><svg class="icon icon-sm"><use href="#i-check"/></svg> Done</button>
+                            <button type="button" id="combatReplayBtn" class="btn-arena-play">Replay</button>
+                            <button type="button" id="combatDoneBtn" class="btn-fight">Done</button>
                         </div>
                     </div>
                 </div>
@@ -2636,6 +2706,18 @@
                     }
                 }
 
+                // If showing analytics, initialize or reload
+                if (pageName === 'analytics') {
+                    if (window.initAnalyticsDashboard && !window.analyticsDashboardInitialized) {
+                        console.log('Initializing analytics dashboard...');
+                        window.initAnalyticsDashboard();
+                        window.analyticsDashboardInitialized = true;
+                    }
+                    if (window.loadAnalyticsOverview) {
+                        window.loadAnalyticsOverview();
+                    }
+                }
+
                 // If showing cosmetics editor, initialize once
                 if (pageName === 'cosmetics') {
                     if (window.initCosmeticDesigner && !window.cosmeticDesignerInitialized) {
@@ -2817,6 +2899,7 @@
                 'npc-designer.js',
                 'server-designer.js',
                 'player-management.js',
+                'analytics.js',
                 'coupon-designer.js',
                 'chat-moderation.js',
                 'item-designer.js',

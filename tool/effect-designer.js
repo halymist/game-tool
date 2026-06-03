@@ -314,17 +314,20 @@ function updateEffectCoreHelp() {
     const condition = conditionType ? getSelectedText('effectConditionType') : '';
     const conditionValue = document.getElementById('effectConditionValue')?.value || '';
     const durationValue = document.getElementById('effectDuration')?.value || '';
-    const coreLabel = core?.code || core?.name || 'No core effect';
-    const parts = [`${coreLabel}`, `trigger ${trigger}`, `factor ${factorValue} ${factorType}`, `targets ${target}`];
+    const coreLabel = core?.code || core?.name || '';
 
+    let summary = coreLabel
+        ? `${coreLabel} triggers on ${trigger} and targets the ${target} with factor ${factorValue} ${factorType}`
+        : `No core effect selected. Trigger is ${trigger}, target is ${target}, and factor is ${factorValue} ${factorType}`;
     if (condition) {
-        parts.push(conditionValue ? `condition ${condition} ${conditionValue}` : `condition ${condition}`);
+        summary += conditionValue
+            ? ` when ${condition} is ${conditionValue}`
+            : ` when ${condition}`;
     }
     if (durationValue) {
-        parts.push(`duration ${durationValue}`);
+        summary += ` for ${durationValue} turn${durationValue === '1' ? '' : 's'}`;
     }
-
-    let summary = parts.join(' · ');
+    summary += '.';
     if (core?.description) {
         summary += `\n${core.description}`;
     }

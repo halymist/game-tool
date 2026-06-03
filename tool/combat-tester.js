@@ -60,7 +60,15 @@ function initCombatTester() {
     // HP calc on stamina change
     for (const n of [1, 2]) {
         const staInput = document.getElementById(`combatSta${n}`);
-        if (staInput) staInput.addEventListener('input', () => updateHpCalc(n));
+        const hpInput = document.getElementById(`combatHpCalc${n}`);
+        if (staInput) {
+            staInput.addEventListener('input', () => updateHpCalc(n));
+        }
+        if (hpInput) {
+            hpInput.addEventListener('input', () => updateStaminaFromHp(n));
+            hpInput.addEventListener('blur', () => normalizeHpInput(n));
+        }
+        normalizeHpInput(n);
     }
 
     // Fight button readiness
@@ -79,6 +87,7 @@ function initCombatTester() {
     // Overlay controls
     document.getElementById('combatReplayBtn').addEventListener('click', replayCombat);
     document.getElementById('combatDoneBtn').addEventListener('click', closeCombatOverlay);
+    bindCombatOverlayDismiss();
 
     // Subscribe to talent updates
     if (typeof subscribeToGlobalData === 'function') {
@@ -112,7 +121,25 @@ async function loadCombatData() {
 
 function updateHpCalc(panel) {
     const sta = parseInt(document.getElementById(`combatSta${panel}`).value) || 0;
-    document.getElementById(`combatHpCalc${panel}`).textContent = sta * 5;
+    const hpInput = document.getElementById(`combatHpCalc${panel}`);
+    if (hpInput) {
+        hpInput.value = String(Math.max(5, sta * 5));
+    }
+}
+
+function updateStaminaFromHp(panel) {
+    const hpInput = document.getElementById(`combatHpCalc${panel}`);
+    const staInput = document.getElementById(`combatSta${panel}`);
+    if (!hpInput || !staInput) return;
+
+    const hp = parseInt(hpInput.value, 10) || 0;
+    const stamina = Math.max(1, Math.round(hp / 5));
+    staInput.value = String(stamina);
+}
+
+function normalizeHpInput(panel) {
+    updateStaminaFromHp(panel);
+    updateHpCalc(panel);
 }
 
 function checkFightReady() {
@@ -180,9 +207,9 @@ function buildCombatTalentTree(panel) {
             showCombatTalentModal(panel, talent);
         });
 
-        // Hover tooltip
-        cell.addEventListener('mouseenter', (e) => showCombatTalentTooltip(e, panel, talent));
-        cell.addEventListener('mouseleave', hideCombatTalentTooltip);
+        if (typeof DesignerBase?.bindHoverTooltip === 'function') {
+            DesignerBase.bindHoverTooltip(cell, () => getCombatTalentTooltipData(panel, talent));
+        }
 
         const label = document.createElement('div');
         label.className = 'ct-label';
@@ -202,15 +229,12 @@ function buildCombatTalentTree(panel) {
 
 // ── Talent Tooltip ───────────────────────────────────
 
-function showCombatTalentTooltip(e, panel, talent) {
-    hideCombatTalentTooltip();
-
+function getCombatTalentTooltipData(panel, talent) {
     const map = panel === 1 ? combatTalents1 : combatTalents2;
-    const current = map.get(talent.talentId) || { points: 0 };
+    const current = map.get(talent.talentId) || { points: 0, perkId: null };
     const invested = current.points * (talent.factor || 0);
 
     const effect = (GlobalData.effects || []).find(ef => ef.id === talent.effectId);
-    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
     let descText = effect?.description || talent.description || '';
     if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
         descText = DesignerBase.formatEffectDescription(effect || { description: descText }, invested || talent.factor || 0, {
@@ -222,41 +246,48 @@ function showCombatTalentTooltip(e, panel, talent) {
     } else if (talent.factor && descText) {
         descText = `${descText} (${talent.factor})`;
     }
+    const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
     if (!descText && hasPerkSlot) {
         descText = 'Perk slot';
     } else if (!descText) {
         descText = talent.talentName;
     }
 
-    // Add perk info to tooltip
     const cellAssigned = map.get(talent.talentId);
+    const rows = [];
+    if (talent.maxPoints || current.points) {
+        rows.push({ label: 'Points', value: `${current.points || 0}/${talent.maxPoints || '?'}` });
+    }
+    if (talent.factor) {
+        rows.push({ label: 'Value', value: `${invested}` });
+    }
+
+    const sections = [];
     if (cellAssigned?.perkId) {
         const cellPerk = combatPerks.find(p => p.id === cellAssigned.perkId);
         if (cellPerk) {
             const perkEffText = getCTPerkEffectText(cellPerk);
-            if (perkEffText) descText += `\nPerk: ${cellPerk.name}\n${perkEffText}`;
+            const lines = perkEffText ? perkEffText.split('\n').filter(Boolean) : [];
+            if (lines.length) {
+                sections.push({ label: `${cellPerk.name} Effects`, lines });
+            }
+            return {
+                title: talent.talentName || `Talent ${talent.talentId}`,
+                subtitle: `Perk Slot${cellPerk.name ? ` · ${cellPerk.name}` : ''}`,
+                description: descText || talent.talentName || '',
+                rows,
+                sections
+            };
         }
     }
 
-    const tip = document.createElement('div');
-    tip.className = 'ct-tooltip';
-    tip.innerHTML = `
-        <div class="ct-tooltip-name">${_ctEsc(talent.talentName)}</div>
-        <div class="ct-tooltip-desc">${_ctEsc(descText).replace(/\n/g, '<br>')}</div>
-        ${talent.factor ? `<div class="ct-tooltip-factor">Factor: ${talent.factor} per point${current.points > 0 ? ` (invested: ${invested})` : ''}</div>` : ''}
-        <div class="ct-tooltip-points">${current.points} / ${talent.maxPoints} points</div>
-    `;
-
-    document.body.appendChild(tip);
-
-    const rect = e.target.closest('.ct-cell').getBoundingClientRect();
-    tip.style.left = rect.left + rect.width / 2 + 'px';
-    tip.style.top = rect.top - 6 + 'px';
-}
-
-function hideCombatTalentTooltip() {
-    const tip = document.querySelector('.ct-tooltip');
-    if (tip) tip.remove();
+    return {
+        title: talent.talentName || `Talent ${talent.talentId}`,
+        subtitle: 'Talent',
+        description: descText || talent.talentName || '',
+        rows,
+        sections
+    };
 }
 
 function _ctEsc(text) {
@@ -544,6 +575,9 @@ function updateCombatTalentCell(panel, talentId) {
 
     // Update perk indicator
     cell.classList.toggle('has-assigned-perk', !!current.perkId);
+    if (talent && typeof DesignerBase?.refreshHoverTooltip === 'function') {
+        DesignerBase.refreshHoverTooltip(cell, () => getCombatTalentTooltipData(panel, talent));
+    }
 }
 
 // ── Resolve talents → effects ────────────────────────
@@ -590,6 +624,9 @@ function openCombatOverlay() {
 function closeCombatOverlay() {
     const overlay = document.getElementById('combatOverlay');
     overlay.style.display = 'none';
+    if (typeof DesignerBase?.hideHoverTooltip === 'function') {
+        DesignerBase.hideHoverTooltip();
+    }
     if (combatAnimator) { combatAnimator._cancel = true; combatAnimator = null; }
     combatResult = null;
     document.getElementById('combatLogSection').style.display = 'none';
@@ -638,21 +675,7 @@ async function runCombat() {
     };
 
     try {
-        const token = await getCurrentAccessToken();
-        if (!token) { alert('Auth required'); return; }
-
-        const resp = await fetch('/api/testCombat', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-
-        if (!resp.ok) {
-            alert('Combat failed: ' + (await resp.text()));
-            return;
-        }
-
-        combatResult = await resp.json();
+        combatResult = await postAuthenticatedJson('/api/testCombat', payload);
 
         // Open overlay
         openCombatOverlay();
@@ -665,7 +688,15 @@ async function runCombat() {
         combatAnimator.play();
     } catch (e) {
         console.error('Combat error:', e);
-        alert('Error: ' + e.message);
+        if (!e?.presented && typeof showGlobalRequestNotice === 'function') {
+            showGlobalRequestNotice(
+                typeof normalizeRequestErrorMessage === 'function'
+                    ? normalizeRequestErrorMessage(e, 'Combat failed.')
+                    : (e.message || 'Combat failed.'),
+                'error',
+                { title: 'Combat failed' }
+            );
+        }
     } finally {
         btn.disabled = false;
         btn.innerHTML = origHTML;
@@ -740,7 +771,7 @@ class CombatAnimator {
         this.index = 0;
         this._cancel = false;
         this.speed = parseFloat(document.getElementById('arenaSpeed').value) || 1;
-        document.getElementById('arenaPlayBtn').textContent = '▶ Play';
+        document.getElementById('arenaPlayBtn').textContent = 'Play';
         // Restore play/skip/speed controls
         document.getElementById('arenaPlayBtn').style.display = '';
         document.getElementById('arenaSkipBtn').style.display = '';
@@ -751,7 +782,7 @@ class CombatAnimator {
         if (this.playing) return;
         this.playing = true;
         this._cancel = false;
-        document.getElementById('arenaPlayBtn').textContent = '⏸ Pause';
+        document.getElementById('arenaPlayBtn').textContent = 'Pause';
 
         while (this.index < this.log.length && this.playing && !this._cancel) {
             this.speed = parseFloat(document.getElementById('arenaSpeed').value) || 1;
@@ -766,13 +797,13 @@ class CombatAnimator {
         if (this.index >= this.log.length && !this._cancel) {
             this.showResult();
         } else {
-            document.getElementById('arenaPlayBtn').textContent = '▶ Play';
+            document.getElementById('arenaPlayBtn').textContent = 'Play';
         }
     }
 
     pause() {
         this.playing = false;
-        document.getElementById('arenaPlayBtn').textContent = '▶ Play';
+        document.getElementById('arenaPlayBtn').textContent = 'Play';
     }
 
     togglePlay() {
@@ -987,6 +1018,24 @@ class CombatAnimator {
         renderCombatStats();
         showOverlayEndButtons();
     }
+}
+
+function bindCombatOverlayDismiss() {
+    const overlay = document.getElementById('combatOverlay');
+    if (!overlay || overlay.dataset.dismissBound === 'true') return;
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeCombatOverlay();
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (overlay.style.display === 'none') return;
+        closeCombatOverlay();
+    });
+
+    overlay.dataset.dismissBound = 'true';
 }
 
 // ── Combat Log (text) ────────────────────────────────

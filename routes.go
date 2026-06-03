@@ -82,6 +82,7 @@ func registerHTTPRoutes() {
 		{Path: "/api/getServers", Handler: handleGetServers},
 		{Path: "/api/createServer", Handler: handleCreateServer},
 		{Path: "/api/getPlayerManagement", Handler: handleGetPlayerManagement},
+		{Path: "/api/getAnalyticsOverview", Handler: handleGetAnalyticsOverview},
 		{Path: "/api/getCoupons", Handler: handleGetCoupons},
 		{Path: "/api/createCoupon", Handler: handleCreateCoupon},
 		{Path: "/api/deleteCoupon", Handler: handleDeleteCoupon},

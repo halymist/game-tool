@@ -139,7 +139,10 @@ async function loadPlayerManagementData(options = {}) {
         setPlayerStatus('');
     } catch (error) {
         console.error('Error loading player management data:', error);
-        setPlayerStatus(error.message || 'Failed to load players', true);
+        const message = typeof normalizeRequestErrorMessage === 'function'
+            ? normalizeRequestErrorMessage(error, 'Failed to load players')
+            : (error.message || 'Failed to load players');
+        setPlayerStatus(message, true);
         renderPlayerEmptyState('Failed to load player data.');
     } finally {
         playerState.loading = false;
