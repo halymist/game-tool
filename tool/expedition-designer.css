@@ -251,6 +251,13 @@
     gap: 6px;
 }
 
+.expedition-quest-summary-heading {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
 .expedition-sidebar-field label,
 .expedition-sidebar-check {
     font-size: 0.8rem;
@@ -287,7 +294,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-secondary);
-    margin-bottom: 8px;
+    margin-top: 8px;
 }
 
 .expedition-quest-summary-list {

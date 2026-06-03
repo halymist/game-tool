@@ -70,7 +70,7 @@ async function loadEffectDesignerData(options = {}) {
 
 function populateEffectMetaControls() {
     fillSelect('effectTriggerFilter', GlobalData.effectTriggerTypes || [], 'All Triggers');
-    fillSelect('effectCoreEffect', GlobalData.coreEffects || [], '-- None --', core => core.id, core => `${core.code} (${core.id})`);
+    fillSelect('effectCoreEffect', GlobalData.coreEffects || [], '-- None --', core => core.id, core => core.code || core.name || String(core.id));
     fillSelect('effectSlot', GlobalData.effectSlots || [], '-- Any --');
     fillSelect('effectTriggerType', GlobalData.effectTriggerTypes || [], null);
     fillSelect('effectFactorType', GlobalData.effectFactorTypes || [], null);
@@ -155,7 +155,7 @@ function selectEffect(effectId) {
     setValue('effectFactor', effect.factor ?? 1);
     setValue('effectTriggerType', effect.triggerType || 'passive');
     setValue('effectFactorType', effect.factorType || 'percent');
-    setChecked('effectTargetSelf', effect.targetSelf !== false);
+    setValue('effectTargetSide', effect.targetSelf === false ? 'enemy' : 'self');
     setValue('effectConditionType', effect.conditionType || '');
     setValue('effectConditionValue', effect.conditionValue ?? '');
     setValue('effectDuration', effect.duration ?? '');
@@ -178,7 +178,7 @@ function createNewEffect() {
     setValue('effectFactor', 1);
     setValue('effectTriggerType', 'passive');
     setValue('effectFactorType', 'percent');
-    setChecked('effectTargetSelf', true);
+    setValue('effectTargetSide', 'self');
     setValue('effectConditionType', '');
     setValue('effectConditionValue', '');
     setValue('effectDuration', '');
@@ -220,7 +220,7 @@ async function saveEffect(event) {
         factor: parseIntOrZero(document.getElementById('effectFactor')?.value),
         triggerType: document.getElementById('effectTriggerType')?.value || 'passive',
         factorType: document.getElementById('effectFactorType')?.value || 'percent',
-        targetSelf: !!document.getElementById('effectTargetSelf')?.checked,
+        targetSelf: (document.getElementById('effectTargetSide')?.value || 'self') !== 'enemy',
         conditionType: emptyToNull(document.getElementById('effectConditionType')?.value),
         conditionValue: parseIntOrNull(document.getElementById('effectConditionValue')?.value),
         duration: parseIntOrNull(document.getElementById('effectDuration')?.value)
@@ -293,7 +293,7 @@ function readEffectFormSnapshot() {
         factor: document.getElementById('effectFactor')?.value || '',
         triggerType: document.getElementById('effectTriggerType')?.value || '',
         factorType: document.getElementById('effectFactorType')?.value || '',
-        targetSelf: !!document.getElementById('effectTargetSelf')?.checked,
+        targetSide: document.getElementById('effectTargetSide')?.value || 'self',
         conditionType: document.getElementById('effectConditionType')?.value || '',
         conditionValue: document.getElementById('effectConditionValue')?.value || '',
         duration: document.getElementById('effectDuration')?.value || ''
@@ -304,7 +304,38 @@ function updateEffectCoreHelp() {
     const coreId = parseIntOrNull(document.getElementById('effectCoreEffect')?.value);
     const help = document.getElementById('effectCoreHelp');
     const core = (GlobalData.coreEffects || []).find(entry => Number(entry.id) === Number(coreId));
-    if (help) help.textContent = core ? core.description : '';
+    if (!help) return;
+
+    const trigger = getSelectedText('effectTriggerType') || 'passive';
+    const factorType = getSelectedText('effectFactorType') || 'percent';
+    const factorValue = document.getElementById('effectFactor')?.value || '1';
+    const target = (document.getElementById('effectTargetSide')?.value || 'self') === 'enemy' ? 'enemy' : 'self';
+    const conditionType = document.getElementById('effectConditionType')?.value || '';
+    const condition = conditionType ? getSelectedText('effectConditionType') : '';
+    const conditionValue = document.getElementById('effectConditionValue')?.value || '';
+    const durationValue = document.getElementById('effectDuration')?.value || '';
+    const coreLabel = core?.code || core?.name || 'No core effect';
+    const parts = [`${coreLabel}`, `trigger ${trigger}`, `factor ${factorValue} ${factorType}`, `targets ${target}`];
+
+    if (condition) {
+        parts.push(conditionValue ? `condition ${condition} ${conditionValue}` : `condition ${condition}`);
+    }
+    if (durationValue) {
+        parts.push(`duration ${durationValue}`);
+    }
+
+    let summary = parts.join(' · ');
+    if (core?.description) {
+        summary += `\n${core.description}`;
+    }
+    help.textContent = summary;
+}
+
+function getSelectedText(id) {
+    const select = document.getElementById(id);
+    if (!select) return '';
+    const option = select.options[select.selectedIndex];
+    return option ? option.textContent.trim() : '';
 }
 
 function getEffectAssetGallery() {

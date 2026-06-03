@@ -158,6 +158,17 @@
     overflow-y: auto;
 }
 
+#enemySaveBtn.btn-disabled {
+    opacity: 0.58;
+    cursor: help;
+    filter: saturate(0.7);
+}
+
+#enemySaveBtn.btn-disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 /* ── Unified Form ───────────────────────────────────── */
 .enemy-unified-form {
     background: var(--bg-elevated); border: 1px solid var(--border-subtle);

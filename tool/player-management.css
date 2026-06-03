@@ -292,14 +292,14 @@
 
 .player-loadout {
     display: grid;
-    grid-template-columns: 184px minmax(230px, 320px);
+    grid-template-columns: 272px minmax(230px, 320px);
     gap: 16px;
     align-items: start;
 }
 
 .player-equipment-grid {
     display: grid;
-    grid-template-columns: repeat(2, 80px);
+    grid-template-columns: repeat(3, 80px);
     gap: 8px;
 }
 
@@ -599,7 +599,7 @@
     }
 
     .player-loadout {
-        grid-template-columns: 160px minmax(240px, 1fr);
+        grid-template-columns: 272px minmax(240px, 1fr);
     }
 }
 

@@ -6,9 +6,10 @@ const PLAYER_EQUIPMENT_SLOTS = [
     { id: 3, label: 'Hands' },
     { id: 4, label: 'Feet' },
     { id: 5, label: 'Belt' },
-    { id: 6, label: 'Back' },
-    { id: 7, label: 'Weapon' },
-    { id: 8, label: 'Ring' }
+    { id: 6, label: 'Legs' },
+    { id: 7, label: 'Back' },
+    { id: 8, label: 'Amulet' },
+    { id: 9, label: 'Weapon' }
 ];
 const PLAYER_COSMETIC_LAYER_ORDER = ['face', 'ears', 'nose', 'mouth', 'eyes', 'brows', 'beard', 'special', 'hair'];
 
@@ -515,7 +516,6 @@ function renderPlayerTalentTree(talents, perks = []) {
     if (!talents.length) {
         return `
             <div class="player-talents-section">
-                <div class="player-panel-header compact"><h3>Talents</h3></div>
                 <div class="player-empty-list">No talents learned.</div>
             </div>
         `;
@@ -523,7 +523,6 @@ function renderPlayerTalentTree(talents, perks = []) {
 
     return `
         <div class="player-talents-section">
-            <div class="player-panel-header compact"><h3>Talents</h3></div>
             <div class="player-talent-grid talent-grid">
                 ${talents.map(talent => renderPlayerTalentCell(talent, perks)).join('')}
             </div>

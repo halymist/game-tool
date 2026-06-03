@@ -834,12 +834,12 @@ console.log('📦 expedition-designer.js LOADED');
         }
         questEl.classList.remove('is-empty');
         questEl.innerHTML = `
-            <div class="expedition-quest-summary-count">
-                ${assignableQuests.length} ${assignableQuests.length === 1 ? 'available quest' : 'available quests'}
-            </div>
             <ul class="expedition-quest-summary-list">
                 ${assignableQuests.map(q => `<li>${escapeHtml(q.quest_name)}</li>`).join('')}
             </ul>
+            <div class="expedition-quest-summary-count">
+                ${assignableQuests.length} ${assignableQuests.length === 1 ? 'available quest' : 'available quests'}
+            </div>
         `;
     }
 

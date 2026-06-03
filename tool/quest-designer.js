@@ -93,6 +93,28 @@ function getQuestSettlementLocations() {
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function findQuestSettlementLocation(locationId) {
+    const normalized = Number(locationId || 0);
+    if (!(normalized > 0)) return null;
+    const settlementId = Number(questState.selectedSettlementId || 0);
+    const settlements = Array.isArray(GlobalData?.settlements) ? GlobalData.settlements : [];
+    const settlement = settlements.find((item) => Number(item.settlement_id) === settlementId);
+    const locations = Array.isArray(settlement?.locations) ? settlement.locations : [];
+    return locations.find((location) => Number(location.location_id || location.id || 0) === normalized) || null;
+}
+
+function applyQuestLocationBackground(quest, locationId) {
+    if (!quest) return;
+    const location = findQuestSettlementLocation(locationId);
+    const assetId = Number(location?.texture_id || 0);
+    if (!(assetId > 0)) return;
+    const assetCollection = getSharedQuestAssets();
+    const asset = assetCollection.find((entry) => Number(entry.id) === assetId);
+    quest.assetId = assetId;
+    quest.assetUrl = asset?.url || buildQuestAssetRemoteUrl(assetId);
+    quest.assetRemoteUrl = buildQuestAssetRemoteUrl(assetId);
+}
+
 function populateQuestLocationSelect(selectedLocationId = null) {
     const select = document.getElementById('sidebarQuestLocation');
     if (!select) return;
@@ -2855,6 +2877,8 @@ function setupSidebarEventListeners() {
             const quest = questState.quests.get(questState.selectedQuest);
             if (quest) {
                 quest.locationId = e.target.value ? parseInt(e.target.value, 10) : null;
+                applyQuestLocationBackground(quest, quest.locationId);
+                renderQuest(quest);
                 checkQuestSaveConditions();
             }
         });

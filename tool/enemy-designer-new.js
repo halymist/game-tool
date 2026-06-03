@@ -93,6 +93,11 @@ function setupEnemyEventListeners() {
         form.addEventListener('change', checkEnemySaveConditions);
     }
 
+    const saveBtn = document.getElementById('enemySaveBtn');
+    if (saveBtn && typeof DesignerBase?.bindHoverTooltip === 'function') {
+        DesignerBase.bindHoverTooltip(saveBtn, () => getEnemySaveTooltipData());
+    }
+
     bindEnemyIntegerInputs();
     checkEnemySaveConditions();
 }
@@ -136,6 +141,9 @@ async function loadEnemyDesignerData(options = {}) {
         renderPendingEnemyList();
         createEnemyAssetGallery();
         buildTalentTreeGrid();
+        if (selectedEnemyId == null && !isViewingPendingEnemy) {
+            createNewEnemy();
+        }
         
     } catch (error) {
         console.error('Error loading enemy designer data:', error);
@@ -343,6 +351,7 @@ function createNewEnemy() {
     clearEnemyForm();
     clearTalentTree();
     setEnemyFormLocked(false);
+    checkEnemySaveConditions();
     
     renderEnemyList();
 }
@@ -352,13 +361,13 @@ function clearEnemyForm() {
     document.getElementById('enemyName').value = '';
     document.getElementById('enemyDescription').value = '';
     
-    document.getElementById('enemyStrength').value = 0;
-    document.getElementById('enemyStamina').value = 0;
-    document.getElementById('enemyAgility').value = 0;
-    document.getElementById('enemyLuck').value = 0;
-    document.getElementById('enemyArmor').value = 0;
-    document.getElementById('enemyMinDamage').value = 0;
-    document.getElementById('enemyMaxDamage').value = 0;
+    document.getElementById('enemyStrength').value = 5;
+    document.getElementById('enemyStamina').value = 5;
+    document.getElementById('enemyAgility').value = 5;
+    document.getElementById('enemyLuck').value = 5;
+    document.getElementById('enemyArmor').value = 5;
+    document.getElementById('enemyMinDamage').value = 3;
+    document.getElementById('enemyMaxDamage').value = 8;
     
     enemySelectedAssetId = null;
     enemySelectedAssetIcon = null;
@@ -1190,6 +1199,20 @@ function checkEnemySaveConditions() {
     btn.classList.toggle('btn-disabled', !valid);
     btn.setAttribute('aria-disabled', valid ? 'false' : 'true');
     btn.title = valid ? 'Save to Pending' : `Cannot save enemy yet:\n- ${errors.join('\n- ')}`;
+
+    if (typeof DesignerBase?.refreshHoverTooltip === 'function') {
+        DesignerBase.refreshHoverTooltip(btn, () => getEnemySaveTooltipData());
+    }
+}
+
+function getEnemySaveTooltipData() {
+    const errors = getEnemyValidationErrors();
+    if (!errors.length) return null;
+    return {
+        title: 'Cannot Save Yet',
+        subtitle: 'Enemy is still missing required fields',
+        sections: [{ label: 'Still needed', lines: errors }]
+    };
 }
 
 async function handleEnemyIconUpload(file) {
