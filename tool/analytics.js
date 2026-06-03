@@ -91,7 +91,6 @@ function renderAnalyticsDashboard() {
     const servers = getFilteredAnalyticsServers();
     renderAnalyticsSummaryCards(servers);
     renderAnalyticsChart(servers);
-    renderAnalyticsTable(servers);
 }
 
 function renderAnalyticsSummaryCards(servers) {
@@ -143,11 +142,15 @@ function renderAnalyticsChart(servers) {
         <span class="analytics-legend-item"><span class="analytics-legend-swatch" style="background:${entry.color}"></span>${analyticsEscape(entry.label)}</span>
     `).join('');
 
-    const maxValue = Math.max(1, ...chartSeries.groups.map((group) => group.segments.reduce((sum, segment) => sum + segment.value, 0)));
+    const groupTotals = chartSeries.groups.map((group) => group.segments.reduce((sum, segment) => sum + segment.value, 0));
+    const maxValue = Math.max(1, ...groupTotals);
     chart.innerHTML = chartSeries.groups.map((group) => {
         const total = group.segments.reduce((sum, segment) => sum + segment.value, 0);
         const stacks = group.segments.map((segment) => {
-            const height = total > 0 ? (segment.value / maxValue) * 100 : 0;
+            let height = total > 0 ? (segment.value / maxValue) * 100 : 0;
+            if (segment.value > 0 && height < 6) {
+                height = 6;
+            }
             return `<div class="analytics-bar-segment" style="height:${height}%;background:${segment.color}" title="${analyticsEscape(segment.label)}: ${segment.value}"></div>`;
         }).join('');
 
@@ -238,34 +241,6 @@ function buildAnalyticsSeries(metric, servers) {
     };
 }
 
-function renderAnalyticsTable(servers) {
-    const body = document.getElementById('analyticsTableBody');
-    if (!body) return;
-
-    if (!servers.length) {
-        body.innerHTML = '<tr><td colspan="7" class="analytics-empty-row">No analytics data available.</td></tr>';
-        return;
-    }
-
-    body.innerHTML = servers.map((server) => {
-        const factionSummary = (server.factions || []).map((entry) => `${entry.label}: ${entry.count}`).join(' · ') || '—';
-        const activitySummary = typeof server.activePlayerCount === 'number'
-            ? `${server.activePlayerCount} / ${server.inactivePlayerCount || 0}`
-            : '—';
-        return `
-            <tr>
-                <td>${analyticsEscape(server.serverName || `Server ${server.serverId}`)}</td>
-                <td>${server.currentDay || 1}</td>
-                <td>${server.playerCount || 0}</td>
-                <td>${server.characterCount || 0}</td>
-                <td>${activitySummary}</td>
-                <td>${analyticsEscape(factionSummary)}</td>
-                <td>${analyticsEscape(formatAnalyticsDate(server.createdAt))}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
 function analyticsEscape(value) {
     const node = document.createElement('div');
     node.textContent = String(value ?? '');
@@ -275,12 +250,6 @@ function analyticsEscape(value) {
 function analyticsFactionLabel(faction) {
     const map = { 0: 'Neutral', 1: 'Order', 2: 'Guild', 3: 'Companions' };
     return map[Number(faction)] || `Faction ${faction}`;
-}
-
-function formatAnalyticsDate(value) {
-    if (!value) return '—';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }
 
 function formatAnalyticsDateTime(value) {
