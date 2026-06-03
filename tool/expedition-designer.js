@@ -903,8 +903,6 @@ console.log('📦 expedition-designer.js LOADED');
     async function dismissChanges() {
         if (!state.settlementId || state.isSaving || !state.dirty) return;
         await loadSettlementIntoEditor(state.settlementId);
-        setStatus('Changes discarded.');
-        setTimeout(() => setStatus(''), 1200);
     }
 
     function attachEvents() {

@@ -216,13 +216,12 @@ function renderTalentGrid(filterText = '') {
         wrapper.style.gridRow = String(gridRow);
         wrapper.style.gridColumn = String(col);
 
+        const hasPerkSlot = talent.perkSlot === true || talent.perkSlot === 1;
         const cell = document.createElement('div');
-        cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '');
+        cell.className = 'talent-cell' + (talent.talentId === talentEditorState.selectedTalentId ? ' selected' : '') + (hasPerkSlot ? ' has-perk-slot' : '');
 
         const iconUrl = getTalentAssetIcon(talent);
-        const perkIndicator = (talent.perkSlot === true || talent.perkSlot === 1) ? '<div class="talent-perk-indicator">★</div>' : '';
         cell.innerHTML = `
-            ${perkIndicator}
             <div class="talent-max">${talent.maxPoints ?? ''}</div>
             <img class="talent-icon" src="${iconUrl}" alt="Talent ${talent.talentId}" onerror="this.style.display='none'">
             <div class="talent-cell-label">${escapeHtml(talent.talentName) || ''}</div>

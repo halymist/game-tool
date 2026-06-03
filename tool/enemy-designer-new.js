@@ -423,28 +423,51 @@ function getPerkEffectText(perk) {
     return lines.join('\n');
 }
 
-function getTalentTooltip(talent) {
+function getPerkEffectLines(perk) {
+    const text = getPerkEffectText(perk);
+    return text ? text.split('\n').filter(Boolean) : [];
+}
+
+function getTalentTooltipData(talent) {
     const effect = (GlobalData.effects || []).find(e => e.id === talent.effectId);
+    const current = assignedTalents.get(talent.talentId) || { points: 0, perkId: null };
+    const investedValue = Number(current.points || 0) * Number(talent.factor || 0);
     let descText = effect?.description || talent.description || '';
     if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
-        descText = DesignerBase.formatEffectDescription(effect || { description: descText }, talent.factor, {
+        descText = DesignerBase.formatEffectDescription(effect || { description: descText }, investedValue, {
             defaultText: talent.description || '',
             appendPercentWhenNoPlaceholder: false
         });
-    } else if (talent.factor && descText.includes('*')) {
-        descText = descText.replace('*', String(talent.factor));
-    } else if (talent.factor && descText) {
-        descText = `${descText} ${talent.factor}`;
+    } else if (investedValue && descText.includes('*')) {
+        descText = descText.replace('*', String(investedValue));
+    } else if (investedValue && descText) {
+        descText = `${descText} ${investedValue}`;
     }
-    const cellAssigned = assignedTalents.get(talent.talentId);
-    if (cellAssigned?.perkId) {
-        const cellPerk = enemyPerks.find(p => p.id === cellAssigned.perkId);
-        if (cellPerk) {
-            const perkEffText = getPerkEffectText(cellPerk);
-            if (perkEffText) descText += `\nPerk: ${cellPerk.name}\n${perkEffText}`;
+
+    const rows = [];
+    if (talent.maxPoints || current.points) {
+        rows.push({ label: 'Points', value: `${current.points || 0}/${talent.maxPoints || '?'}` });
+    }
+    if (talent.factor) {
+        rows.push({ label: 'Value', value: `${investedValue}` });
+    }
+
+    const cellPerk = current.perkId ? enemyPerks.find(p => p.id === current.perkId) : null;
+    const sections = [];
+    if (cellPerk) {
+        const lines = getPerkEffectLines(cellPerk);
+        if (lines.length) {
+            sections.push({ label: `${cellPerk.name} Effects`, lines });
         }
     }
-    return descText || talent.talentName;
+
+    return {
+        title: talent.talentName || `Talent ${talent.talentId}`,
+        subtitle: cellPerk ? `Perk Slot${cellPerk.name ? ` · ${cellPerk.name}` : ''}` : 'Talent',
+        description: descText || talent.talentName || '',
+        rows,
+        sections
+    };
 }
 
 function buildTalentTreeGrid() {
@@ -468,13 +491,13 @@ function buildTalentTreeGrid() {
         const cell = document.createElement('div');
         cell.className = 'talent-cell';
         cell.dataset.talentId = talent.talentId;
+        cell.classList.toggle('has-perk-slot', talent.perkSlot === true || talent.perkSlot > 0);
+        cell.tabIndex = 0;
 
         const iconUrl = getTalentIconUrl(talent);
-        cell.title = getTalentTooltip(talent);
         cell.innerHTML = `
             <div class="talent-points"><span class="current-points">0</span>/${talent.maxPoints}</div>
             <img class="talent-icon" src="${iconUrl}" alt="${escapeHtml(talent.talentName)}" onerror="this.style.display='none'">
-            ${(talent.perkSlot === true || talent.perkSlot > 0) ? '<div class="perk-indicator">P</div>' : ''}
             <button type="button" class="talent-detail-btn" title="View details">
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             </button>
@@ -510,6 +533,10 @@ function buildTalentTreeGrid() {
         wrapper.appendChild(cell);
         wrapper.appendChild(label);
         grid.appendChild(wrapper);
+
+        if (typeof DesignerBase?.bindHoverTooltip === 'function') {
+            DesignerBase.bindHoverTooltip(cell, () => getTalentTooltipData(talent));
+        }
     });
 }
 
@@ -726,13 +753,12 @@ function updateTalentCellDisplay(talentId) {
     cell.classList.toggle('maxed', current.points === talent?.maxPoints);
     
     // Update perk indicator
-    if (current.perkId) {
-        const perkIndicator = cell.querySelector('.perk-indicator');
-        if (perkIndicator) perkIndicator.classList.add('assigned');
+    cell.classList.toggle('has-assigned-perk', !!current.perkId);
+
+    if (talent && typeof DesignerBase?.refreshHoverTooltip === 'function') {
+        DesignerBase.refreshHoverTooltip(cell, () => getTalentTooltipData(talent));
     }
 
-    // Update tooltip with perk info
-    if (talent) cell.title = getTalentTooltip(talent);
 }
 
 function loadTalentsIntoTree(talents) {

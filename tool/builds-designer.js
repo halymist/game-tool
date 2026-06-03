@@ -284,10 +284,10 @@ function renderTalentTree() {
             : '';
         const hasPerkSlot = talent.perkSlot === true || talent.perkSlot > 0;
 
+        cell.classList.toggle('has-perk-slot', hasPerkSlot);
         cell.innerHTML = `
             <div class="ct-points"><span class="ct-current">0</span>/${talent.maxPoints}</div>
             <img class="ct-icon" src="${iconUrl}" alt="" onerror="this.style.display='none'">
-            ${hasPerkSlot ? '<div class="ct-perk-indicator">P</div>' : ''}
         `;
 
         cell.addEventListener('click', () => upgradeBuildTalent(talent.talentId));
@@ -399,8 +399,7 @@ function updateTalentCell(talentId) {
     cell.classList.toggle('builds-talent-locked', isLocked);
     cell.classList.toggle('has-points', cur.points > 0);
     cell.classList.toggle('maxed', talent && cur.points >= talent.maxPoints);
-    const ind = cell.querySelector('.ct-perk-indicator');
-    if (ind) ind.classList.toggle('assigned', !!cur.perkId);
+    cell.classList.toggle('has-assigned-perk', !!cur.perkId);
 }
 
 function showBuildPerkModal(talent) {

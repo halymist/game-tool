@@ -49,6 +49,86 @@ body {
     flex-direction: column;
 }
 
+.game-hover-tooltip {
+    position: fixed;
+    z-index: 100000;
+    width: min(320px, calc(100vw - 20px));
+    min-width: 220px;
+    padding: 12px 13px;
+    border: 1px solid rgba(212, 173, 94, 0.78);
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(34, 22, 14, 0.99), rgba(12, 10, 9, 0.99)),
+        radial-gradient(circle at top, rgba(214, 175, 96, 0.18), transparent 48%);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 232, 180, 0.08);
+    color: #f3eadc;
+    pointer-events: none;
+}
+
+.game-hover-tooltip-title {
+    color: #f0d69a;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.game-hover-tooltip-subtitle,
+.game-hover-tooltip-duration,
+.game-hover-tooltip-section-label {
+    margin-top: 3px;
+    color: #cbb38a;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.game-hover-tooltip-description {
+    margin-top: 8px;
+    color: #ddd0bd;
+    font-size: 12px;
+    line-height: 1.45;
+    font-style: italic;
+    white-space: pre-wrap;
+}
+
+.game-hover-tooltip-stats,
+.game-hover-tooltip-section {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(212, 173, 94, 0.22);
+}
+
+.game-hover-tooltip-stat-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    color: #e7dcc9;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.game-hover-tooltip-stat-row + .game-hover-tooltip-stat-row,
+.game-hover-tooltip-section-line + .game-hover-tooltip-section-line {
+    margin-top: 4px;
+}
+
+.game-hover-tooltip-stat-row span {
+    color: #bca983;
+}
+
+.game-hover-tooltip-stat-row strong {
+    color: #f6ecd7;
+    font-weight: 700;
+}
+
+.game-hover-tooltip-section-line {
+    color: #e8decf;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
 .header {
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border-default);

@@ -1038,6 +1038,164 @@ const DesignerBase = {
         return text;
     },
 
+    normalizeHoverTooltip(tooltip) {
+        if (!tooltip) return null;
+        if (typeof tooltip === 'string') {
+            return { description: tooltip };
+        }
+        return tooltip;
+    },
+
+    renderHoverTooltipHtml(tooltip) {
+        const normalized = this.normalizeHoverTooltip(tooltip);
+        if (!normalized) return '';
+
+        const title = normalized.title
+            ? `<div class="game-hover-tooltip-title">${this.escapeHtml(normalized.title)}</div>`
+            : '';
+        const subtitle = normalized.subtitle
+            ? `<div class="game-hover-tooltip-subtitle">${this.escapeHtml(normalized.subtitle)}</div>`
+            : '';
+        const description = normalized.description
+            ? `<div class="game-hover-tooltip-description">${this.escapeHtml(normalized.description)}</div>`
+            : '';
+        const duration = normalized.duration
+            ? `<div class="game-hover-tooltip-duration">${this.escapeHtml(normalized.duration)}</div>`
+            : '';
+
+        const rows = Array.isArray(normalized.rows)
+            ? normalized.rows.filter(row => row && row.value !== undefined && row.value !== '')
+            : [];
+        const stats = rows.length ? `
+            <div class="game-hover-tooltip-stats">
+                ${rows.map(row => `
+                    <div class="game-hover-tooltip-stat-row">
+                        <span>${this.escapeHtml(row.label || '')}</span>
+                        <strong>${this.escapeHtml(row.value || '')}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        ` : '';
+
+        const sections = Array.isArray(normalized.sections)
+            ? normalized.sections.filter(section => section && Array.isArray(section.lines) && section.lines.length)
+            : [];
+        const sectionHtml = sections.length ? sections.map(section => `
+            <div class="game-hover-tooltip-section">
+                ${section.label ? `<div class="game-hover-tooltip-section-label">${this.escapeHtml(section.label)}</div>` : ''}
+                ${section.lines.map(line => `<div class="game-hover-tooltip-section-line">${this.escapeHtml(line)}</div>`).join('')}
+            </div>
+        `).join('') : '';
+
+        return `${title}${subtitle}${description}${duration}${stats}${sectionHtml}`;
+    },
+
+    ensureHoverTooltipElement() {
+        if (!this._hoverTooltipState) {
+            this._hoverTooltipState = { element: null, anchor: null, options: null };
+        }
+        if (!this._hoverTooltipState.element) {
+            const element = document.createElement('div');
+            element.className = 'game-hover-tooltip';
+            element.hidden = true;
+            document.body.appendChild(element);
+            this._hoverTooltipState.element = element;
+        }
+        if (!this._hoverTooltipEventsBound) {
+            const reposition = () => this.refreshHoverTooltipPosition();
+            window.addEventListener('scroll', reposition, true);
+            window.addEventListener('resize', reposition);
+            this._hoverTooltipEventsBound = true;
+        }
+        return this._hoverTooltipState.element;
+    },
+
+    positionHoverTooltip(anchor, options = {}) {
+        const element = this._hoverTooltipState?.element;
+        if (!anchor || !element || element.hidden) return;
+
+        const offset = Number(options.offset || 12);
+        const margin = 10;
+        const rect = anchor.getBoundingClientRect();
+        const width = element.offsetWidth;
+        const height = element.offsetHeight;
+
+        let left = rect.left + (rect.width / 2) - (width / 2);
+        left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+        let top = rect.top - height - offset;
+        let placement = 'top';
+        if (top < margin) {
+            top = rect.bottom + offset;
+            placement = 'bottom';
+        }
+        top = Math.max(margin, Math.min(top, window.innerHeight - height - margin));
+
+        element.style.left = `${Math.round(left)}px`;
+        element.style.top = `${Math.round(top)}px`;
+        element.dataset.placement = placement;
+    },
+
+    showHoverTooltip(anchor, tooltip, options = {}) {
+        const normalized = this.normalizeHoverTooltip(tooltip);
+        if (!anchor || !normalized) {
+            this.hideHoverTooltip();
+            return;
+        }
+        const element = this.ensureHoverTooltipElement();
+        element.innerHTML = this.renderHoverTooltipHtml(normalized);
+        element.hidden = false;
+        this._hoverTooltipState.anchor = anchor;
+        this._hoverTooltipState.options = options;
+        this.positionHoverTooltip(anchor, options);
+    },
+
+    refreshHoverTooltipPosition() {
+        if (!this._hoverTooltipState?.anchor || this._hoverTooltipState.element?.hidden) return;
+        this.positionHoverTooltip(this._hoverTooltipState.anchor, this._hoverTooltipState.options || {});
+    },
+
+    refreshHoverTooltip(anchor, tooltip, options = null) {
+        if (!this._hoverTooltipState?.anchor || this._hoverTooltipState.anchor !== anchor || this._hoverTooltipState.element?.hidden) {
+            return;
+        }
+        const normalized = this.normalizeHoverTooltip(typeof tooltip === 'function' ? tooltip(anchor) : tooltip);
+        if (!normalized) {
+            this.hideHoverTooltip(anchor);
+            return;
+        }
+        this._hoverTooltipState.element.innerHTML = this.renderHoverTooltipHtml(normalized);
+        if (options) {
+            this._hoverTooltipState.options = options;
+        }
+        this.positionHoverTooltip(anchor, this._hoverTooltipState.options || {});
+    },
+
+    hideHoverTooltip(anchor = null) {
+        if (!this._hoverTooltipState?.element) return;
+        if (anchor && this._hoverTooltipState.anchor !== anchor) return;
+        this._hoverTooltipState.element.hidden = true;
+        this._hoverTooltipState.element.innerHTML = '';
+        this._hoverTooltipState.anchor = null;
+        this._hoverTooltipState.options = null;
+    },
+
+    bindHoverTooltip(element, getTooltip, options = {}) {
+        if (!element || element.dataset.hoverTooltipBound === 'true') return;
+
+        const show = () => {
+            const tooltip = typeof getTooltip === 'function' ? getTooltip(element) : getTooltip;
+            this.showHoverTooltip(element, tooltip, options);
+        };
+        const hide = () => this.hideHoverTooltip(element);
+
+        element.addEventListener('mouseenter', show);
+        element.addEventListener('mouseleave', hide);
+        element.addEventListener('focus', show);
+        element.addEventListener('blur', hide);
+        element.dataset.hoverTooltipBound = 'true';
+    },
+
     /**
      * Scroll a dropdown into view so the native popup opens downward
      * @param {HTMLSelectElement} element

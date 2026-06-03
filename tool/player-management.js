@@ -122,7 +122,8 @@ async function loadPlayerManagementData(options = {}) {
     }
 
     playerState.loading = true;
-    setPlayerStatus('Loading players...');
+    setPlayerLoading(true);
+    setPlayerStatus('');
     try {
         const data = await getAuthenticatedJson(`/api/getPlayerManagement?serverId=${encodeURIComponent(playerState.serverId)}`, {
             expectSuccess: true,
@@ -141,6 +142,7 @@ async function loadPlayerManagementData(options = {}) {
         renderPlayerEmptyState('Failed to load player data.');
     } finally {
         playerState.loading = false;
+        setPlayerLoading(false);
     }
 }
 
@@ -286,6 +288,7 @@ function renderSelectedPlayerCharacter() {
             </div>
         </div>
     `;
+    bindPlayerHoverTooltips(panel);
 }
 
 function getPlayerEquipment(character) {
@@ -308,7 +311,7 @@ function renderPlayerStat(label, value) {
 
 function renderPlayerSlot(slot, item) {
     return `
-        <div class="player-equip-slot" title="${pmEscapeHtml(slot.label)}">
+        <div class="player-equip-slot">
             ${renderPlayerItemIcon(item)}
             <span>${pmEscapeHtml(slot.label)}</span>
         </div>
@@ -317,7 +320,7 @@ function renderPlayerSlot(slot, item) {
 
 function renderPlayerBagSlot(item) {
     return `
-        <div class="player-bag-slot" title="${pmEscapeHtml(item.item_name || `Slot ${item.slot_id}`)}">
+        <div class="player-bag-slot">
             ${renderPlayerItemIcon(item)}
         </div>
     `;
@@ -327,13 +330,14 @@ function renderPlayerItemIcon(item) {
     if (!item || !item.item_id) {
         return '<div class="player-item-empty"></div>';
     }
-    const name = item.item_name || `Item ${item.item_id}`;
+    const baseItem = findPlayerItem(item.item_id, item.assetID);
+    const tooltipItem = { ...(baseItem || {}), ...item };
+    const name = tooltipItem.item_name || tooltipItem.name || `Item ${item.item_id}`;
     const icon = item.icon || findPlayerItemIcon(item.item_id, item.assetID);
-    const scaled = getScaledItemStats(item);
-    const stats = formatScaledItemStats(item, scaled);
+    const tooltip = buildPlayerItemTooltip(tooltipItem, name);
 
     return `
-        <div class="player-item" title="${pmEscapeHtml(`${name}${stats ? `\n${stats}` : ''}`)}">
+        <div class="player-item player-hover-host" data-player-tooltip="${pmEscapeHtml(encodePlayerTooltip(tooltip))}" tabindex="0">
             ${icon ? `<img src="${pmEscapeHtml(icon)}" alt="${pmEscapeHtml(name)}">` : '<span class="player-item-fallback">?</span>'}
         </div>
     `;
@@ -378,11 +382,9 @@ function getScaledItemStats(item) {
 }
 
 function getItemScaleMultiplier(item) {
-    const currentDay = getSelectedPlayerServerDay();
-    const itemDay = Number(item?.server_day || item?.serverDay || currentDay || 1);
-    if (!currentDay || !itemDay) return 1;
-    const elapsedDays = Math.max(0, currentDay - itemDay);
-    return Math.pow(1.02, elapsedDays);
+    const itemDay = Number(item?.server_day || item?.serverDay || 0);
+    if (!itemDay) return 1;
+    return Math.pow(1.02, Math.max(0, itemDay));
 }
 
 function scaleItemStat(value, multiplier) {
@@ -442,11 +444,13 @@ function renderPlayerAvatar(avatar) {
 
 function renderPlayerActiveEffects(character) {
     const effects = [];
-    (character.perks || []).forEach(perk => {
+    getPlayerActivePerks(character).forEach(perk => {
+        const perkEntry = findPlayerPerk(perk.perk_id || perk.id);
         effects.push({
             label: perk.name || `Perk ${perk.perk_id}`,
             icon: perk.icon,
-            fallback: 'P'
+            fallback: 'P',
+            tooltip: buildPlayerPerkTooltip(perkEntry || perk, 'Perk')
         });
     });
 
@@ -455,7 +459,8 @@ function renderPlayerActiveEffects(character) {
         effects.push({
             label: blessing?.name || `Blessing ${character.blessing_id}`,
             icon: blessing?.icon || '',
-            fallback: 'B'
+            fallback: 'B',
+            tooltip: buildPlayerPerkTooltip(blessing || { id: character.blessing_id, name: `Blessing ${character.blessing_id}` }, 'Blessing')
         });
     }
 
@@ -464,7 +469,12 @@ function renderPlayerActiveEffects(character) {
         effects.push({
             label: item?.name || `Potion ${character.potion_id}`,
             icon: item?.icon || findPlayerItemIcon(character.potion_id),
-            fallback: 'I'
+            fallback: 'I',
+            tooltip: {
+                ...buildPlayerItemTooltip(item || { item_id: character.potion_id }, item?.name || `Potion ${character.potion_id}`),
+                subtitle: 'Potion',
+                duration: formatPlayerRemainingDuration(character.potion_until)
+            }
         });
     }
 
@@ -475,18 +485,25 @@ function renderPlayerActiveEffects(character) {
         ].forEach((elixir, index) => {
             if (!elixir.id) return;
             const effect = findPlayerEffect(elixir.id);
+            const description = formatPlayerEffectText(effect, elixir.factor, effect?.description || '');
             effects.push({
                 label: `${effect?.name || effect?.effect_name || `Elixir effect ${elixir.id}`}${elixir.factor ? ` +${elixir.factor}` : ''}`,
                 icon: '',
-                fallback: `E${index + 1}`
+                fallback: `E${index + 1}`,
+                tooltip: {
+                    title: effect?.name || effect?.effect_name || `Elixir effect ${elixir.id}`,
+                    subtitle: `Elixir effect ${index + 1}`,
+                    description,
+                    duration: formatPlayerRemainingDuration(character.elixir_until)
+                }
             });
         });
     }
 
     return `
-        <div class="player-active-effects" title="Active effects">
+        <div class="player-active-effects">
             ${effects.length ? effects.map(effect => `
-                <span class="player-effect-icon" title="${pmEscapeHtml(effect.label)}">
+                <span class="player-effect-icon player-hover-host" aria-label="${pmEscapeHtml(effect.label)}" data-player-tooltip="${pmEscapeHtml(encodePlayerTooltip(effect.tooltip))}" tabindex="0">
                     ${effect.icon ? `<img src="${pmEscapeHtml(effect.icon)}" alt="${pmEscapeHtml(effect.label)}">` : pmEscapeHtml(effect.fallback)}
                 </span>
             `).join('') : '<span class="player-effect-empty">No active effects</span>'}
@@ -519,12 +536,11 @@ function renderPlayerTalentCell(talent, perks = []) {
     const col = Number(talent.col || 1);
     const gridRow = 9 - row;
     const iconUrl = talent.icon || findPlayerTalentIcon(talent.assetID);
-    const perkIndicator = talent.perkSlot ? '<div class="talent-perk-indicator">*</div>' : '';
     const tooltip = getPlayerTalentTooltip(talent, perks);
+    const assignedPerk = talent.perkSlot ? findPlayerAssignedPerk(talent, perks) : null;
     return `
         <div class="talent-cell-wrapper" style="grid-row:${gridRow};grid-column:${col};">
-            <div class="talent-cell" title="${pmEscapeHtml(tooltip)}">
-                ${perkIndicator}
+            <div class="talent-cell ${talent.perkSlot ? 'has-perk-slot' : ''} ${assignedPerk ? 'has-assigned-perk' : ''} player-hover-host" data-player-tooltip="${pmEscapeHtml(encodePlayerTooltip(tooltip))}" tabindex="0">
                 <div class="talent-max">${talent.points || 0}/${talent.maxPoints || '?'}</div>
                 ${iconUrl ? `<img class="talent-icon" src="${pmEscapeHtml(iconUrl)}" alt="${pmEscapeHtml(talent.name || 'Talent')}" onerror="this.style.display='none'">` : ''}
                 <div class="talent-cell-label">${pmEscapeHtml(talent.name || `Talent ${talent.talent_id}`)}</div>
@@ -536,36 +552,163 @@ function renderPlayerTalentCell(talent, perks = []) {
 function getPlayerTalentTooltip(talent, perks = []) {
     const assignedPerk = talent.perkSlot ? findPlayerAssignedPerk(talent, perks) : null;
     if (assignedPerk) {
-        const parts = [assignedPerk.name || `Perk ${assignedPerk.perk_id || assignedPerk.id}`];
-        if (talent.points || talent.maxPoints) {
-            parts.push(`Slot: ${talent.name || `Talent ${talent.talent_id}`} (${talent.points || 0}/${talent.maxPoints || '?'})`);
-        }
-        const description = assignedPerk.description || findPlayerPerk(assignedPerk.perk_id || assignedPerk.id)?.description || '';
-        if (description) parts.push(description);
-        return parts.join('\n');
+        const perkDefinition = findPlayerPerk(assignedPerk.perk_id || assignedPerk.id) || assignedPerk;
+        return {
+            title: perkDefinition.name || `Perk ${assignedPerk.perk_id || assignedPerk.id}`,
+            subtitle: talent.points || talent.maxPoints
+                ? `Slot: ${talent.name || `Talent ${talent.talent_id}`} (${talent.points || 0}/${talent.maxPoints || '?'})`
+                : talent.name || `Talent ${talent.talent_id}`,
+            description: perkDefinition.description || '',
+            sections: buildPlayerPerkSections(perkDefinition)
+        };
     }
 
     const effect = findPlayerEffect(talent.effectId);
-    const baseDescription = effect?.description || talent.description || '';
     const invested = Number(talent.points || 0) * Number(talent.factor || 0);
-    let descText = baseDescription;
+    const descText = formatPlayerEffectText(effect, invested, talent.description || '');
+    return {
+        title: talent.name || `Talent ${talent.talent_id}`,
+        subtitle: 'Talent',
+        rows: talent.points || talent.maxPoints
+            ? [
+                { label: 'Points', value: `${talent.points || 0}/${talent.maxPoints || '?'}` },
+                ...(talent.factor ? [{ label: 'Value', value: `${invested}` }] : [])
+            ]
+            : [],
+        description: descText
+    };
+}
+
+function getPlayerActivePerks(character) {
+    const talents = Array.isArray(character?.talents) ? character.talents : [];
+    const perks = Array.isArray(character?.perks) ? character.perks : [];
+    const active = talents
+        .filter(talent => talent && talent.perkSlot)
+        .map(talent => findPlayerAssignedPerk(talent, perks))
+        .filter(Boolean);
+    const seen = new Set();
+    return active.filter(perk => {
+        const key = Number(perk.perk_id || perk.id || 0);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+function bindPlayerHoverTooltips(container) {
+    if (!container || typeof DesignerBase?.bindHoverTooltip !== 'function') return;
+    container.querySelectorAll('[data-player-tooltip]').forEach(element => {
+        DesignerBase.bindHoverTooltip(element, () => decodePlayerTooltip(element.dataset.playerTooltip));
+    });
+}
+
+function encodePlayerTooltip(tooltip) {
+    try {
+        return encodeURIComponent(JSON.stringify(tooltip || null));
+    } catch (error) {
+        console.warn('Failed to encode player tooltip', error);
+        return '';
+    }
+}
+
+function decodePlayerTooltip(value) {
+    if (!value) return null;
+    try {
+        return JSON.parse(decodeURIComponent(value));
+    } catch (error) {
+        console.warn('Failed to decode player tooltip', error);
+        return null;
+    }
+}
+
+function buildPlayerPerkTooltip(perk, subtitle) {
+    return {
+        title: perk?.name || `Perk ${perk?.id || '?'}`,
+        subtitle,
+        description: perk?.description || '',
+        sections: buildPlayerPerkSections(perk)
+    };
+}
+
+function buildPlayerPerkSections(perk) {
+    const lines = getPlayerPerkEffectLines(perk);
+    return lines.length ? [{ label: 'Effects', lines }] : [];
+}
+
+function getPlayerPerkEffectLines(perk) {
+    if (!perk) return [];
+    const lines = [];
+    [
+        { effectId: perk.effect1_id, factor: perk.factor1 },
+        { effectId: perk.effect2_id, factor: perk.factor2 }
+    ].forEach(entry => {
+        if (!entry.effectId) return;
+        const effect = findPlayerEffect(entry.effectId);
+        if (!effect) return;
+        const text = formatPlayerEffectText(effect, entry.factor, effect.description || effect.name || '');
+        lines.push(`${effect.name || effect.effect_name || `Effect ${entry.effectId}`}: ${text}`);
+    });
+    return lines;
+}
+
+function buildPlayerItemTooltip(item, fallbackName) {
+    const name = item?.item_name || item?.name || fallbackName || `Item ${item?.item_id || item?.id || '?'}`;
+    const scaled = getScaledItemStats(item || {});
+    const rows = buildPlayerItemStatRows(item || {}, scaled);
+    const effect = findPlayerEffect(item?.effectID || item?.effectId);
+    const effectAmount = Number(item?.effectFactor || item?.effect_factor || 0);
+    const description = formatPlayerEffectText(effect, effectAmount, item?.description || '');
+    return {
+        title: name,
+        subtitle: item?.type ? String(item.type).charAt(0).toUpperCase() + String(item.type).slice(1) : 'Item',
+        description,
+        rows
+    };
+}
+
+function buildPlayerItemStatRows(item, scaled) {
+    const rows = [
+        buildPlayerStatRow('Strength', scaled.strength),
+        buildPlayerStatRow('Stamina', scaled.stamina),
+        buildPlayerStatRow('Agility', scaled.agility),
+        buildPlayerStatRow('Luck', scaled.luck),
+        buildPlayerStatRow('Armor', scaled.armor)
+    ].filter(Boolean);
+    if (item?.minDamage || item?.maxDamage) {
+        rows.push({ label: 'Damage', value: `${scaled.minDamage}-${scaled.maxDamage}` });
+    }
+    return rows;
+}
+
+function buildPlayerStatRow(label, value) {
+    if (!value) return null;
+    const sign = Number(value) > 0 ? '+' : '';
+    return { label, value: `${sign}${value}` };
+}
+
+function formatPlayerEffectText(effect, amount, defaultText) {
+    const baseDescription = effect?.description || defaultText || '';
     if (typeof DesignerBase !== 'undefined' && typeof DesignerBase.formatEffectDescription === 'function') {
-        descText = DesignerBase.formatEffectDescription(effect || { description: baseDescription }, invested, {
-            defaultText: talent.description || '',
+        return DesignerBase.formatEffectDescription(effect || { description: baseDescription }, amount, {
+            defaultText: defaultText || baseDescription,
             appendPercentWhenNoPlaceholder: false
         });
-    } else if (descText && descText.includes('*')) {
-        descText = descText.replace('*', String(invested));
-    } else if (invested && descText) {
-        descText = `${descText} ${invested}`;
     }
+    if (baseDescription && baseDescription.includes('*')) {
+        return baseDescription.replace('*', String(amount));
+    }
+    if (amount && baseDescription) {
+        return `${baseDescription} ${amount}`;
+    }
+    return baseDescription;
+}
 
-    const parts = [talent.name || `Talent ${talent.talent_id}`];
-    if (talent.points || talent.maxPoints) {
-        parts.push(`Points: ${talent.points || 0}/${talent.maxPoints || '?'}`);
-    }
-    if (descText) parts.push(descText);
-    return parts.join('\n');
+function formatPlayerRemainingDuration(value) {
+    if (!isFutureTimestamp(value)) return '';
+    const remainingMs = Math.max(0, new Date(value).getTime() - Date.now());
+    const hours = remainingMs / 3600000;
+    const rounded = hours >= 10 ? hours.toFixed(0) : hours.toFixed(1);
+    return `Expires in ${rounded}h`;
 }
 
 function findPlayerAssignedPerk(talent, perks = []) {
@@ -643,6 +786,13 @@ function buildPlayerAssetUrl(folder, assetId) {
 function formatPlayerFaction(faction) {
     const map = { 1: 'Companions', 2: 'Seekers', 3: 'Wardens' };
     return map[Number(faction)] || `Faction ${faction || '-'}`;
+}
+
+function setPlayerLoading(isLoading) {
+    const refreshBtn = document.getElementById('playerRefreshBtn');
+    if (!refreshBtn) return;
+    refreshBtn.classList.toggle('is-loading', !!isLoading);
+    refreshBtn.disabled = !!isLoading;
 }
 
 function setPlayerStatus(message, isError = false) {
