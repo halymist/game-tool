@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 )
@@ -47,6 +48,8 @@ type expeditionPayload struct {
 type expeditionValidationError string
 
 func (e expeditionValidationError) Error() string { return string(e) }
+
+const maxExpeditionEdgeDistance = 0.40
 
 func orderedNodePair(a, b int) (int, int) {
 	if a > b {
@@ -120,6 +123,78 @@ func ensureNodeLocationHasExpeditionQuests(tx *sql.Tx, locationID int64) error {
 	if !hasQuest {
 		return expeditionValidationError(fmt.Sprintf("location %d has no expedition quests", locationID))
 	}
+	return nil
+}
+
+func validateExpeditionGraph(nodes []expeditionNode, edges []expeditionEdge) error {
+	if len(nodes) == 0 {
+		return nil
+	}
+
+	nodeByClientID := make(map[int]expeditionNode, len(nodes))
+	adjacency := make(map[int]map[int]struct{}, len(nodes))
+	startCount := 0
+	startClientID := 0
+
+	for _, node := range nodes {
+		nodeByClientID[node.ClientID] = node
+		adjacency[node.ClientID] = make(map[int]struct{})
+		if node.IsStart {
+			startCount++
+			startClientID = node.ClientID
+		}
+	}
+
+	if startCount != 1 {
+		return expeditionValidationError("expedition must have exactly one starting node")
+	}
+
+	for _, edge := range edges {
+		if edge.AClientID == edge.BClientID {
+			return expeditionValidationError("expedition cannot connect a node to itself")
+		}
+		nodeA, okA := nodeByClientID[edge.AClientID]
+		nodeB, okB := nodeByClientID[edge.BClientID]
+		if !okA || !okB {
+			return expeditionValidationError("expedition has a connection to a missing node")
+		}
+		distance := math.Hypot(nodeA.PosX-nodeB.PosX, nodeA.PosY-nodeB.PosY)
+		if distance > maxExpeditionEdgeDistance {
+			return expeditionValidationError(fmt.Sprintf("connected nodes %d and %d are too far apart", edge.AClientID, edge.BClientID))
+		}
+		adjacency[edge.AClientID][edge.BClientID] = struct{}{}
+		adjacency[edge.BClientID][edge.AClientID] = struct{}{}
+	}
+
+	for _, node := range nodes {
+		if node.IsStart {
+			continue
+		}
+		if len(adjacency[node.ClientID]) == 0 {
+			return expeditionValidationError(fmt.Sprintf("node %d is isolated", node.ClientID))
+		}
+	}
+
+	visited := map[int]struct{}{startClientID: {}}
+	queue := []int{startClientID}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for next := range adjacency[current] {
+			if _, seen := visited[next]; seen {
+				continue
+			}
+			visited[next] = struct{}{}
+			queue = append(queue, next)
+		}
+	}
+
+	for _, node := range nodes {
+		if _, reachable := visited[node.ClientID]; !reachable {
+			return expeditionValidationError(fmt.Sprintf("node %d is unreachable from the starting node", node.ClientID))
+		}
+	}
+
 	return nil
 }
 
@@ -252,6 +327,10 @@ func handleSaveExpedition(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "every expedition node must have a location", http.StatusBadRequest)
 			return
 		}
+	}
+	if err := validateExpeditionGraph(in.Nodes, in.Edges); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	var expeditionID int

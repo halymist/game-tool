@@ -823,18 +823,24 @@ console.log('📦 expedition-designer.js LOADED');
 
         const assignableQuests = getAssignableQuestsForNode(node);
         if (node.location_id == null) {
-            questEl.textContent = 'No location selected.';
+            questEl.innerHTML = '<div class="expedition-quest-summary-empty">No location selected.</div>';
             questEl.classList.add('is-empty');
             return;
         }
         if (assignableQuests.length === 0) {
-            questEl.textContent = 'No expedition quests for this location.';
+            questEl.innerHTML = '<div class="expedition-quest-summary-empty">No expedition quests for this location.</div>';
             questEl.classList.add('is-empty');
             return;
         }
         questEl.classList.remove('is-empty');
-        questEl.innerHTML = `<strong>${assignableQuests.length}</strong> ${assignableQuests.length === 1 ? 'quest' : 'quests'}: ` +
-            assignableQuests.map(q => escapeHtml(q.quest_name)).join(', ');
+        questEl.innerHTML = `
+            <div class="expedition-quest-summary-count">
+                ${assignableQuests.length} ${assignableQuests.length === 1 ? 'available quest' : 'available quests'}
+            </div>
+            <ul class="expedition-quest-summary-list">
+                ${assignableQuests.map(q => `<li>${escapeHtml(q.quest_name)}</li>`).join('')}
+            </ul>
+        `;
     }
 
     function validateExpeditionForSave() {

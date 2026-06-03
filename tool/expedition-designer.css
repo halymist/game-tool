@@ -25,6 +25,13 @@
     gap: 10px;
 }
 
+.expedition-toolbar .btn-secondary:disabled,
+.expedition-toolbar .btn-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .expedition-settlement-select {
     display: flex;
     align-items: center;
@@ -265,7 +272,6 @@
 
 .expedition-quest-summary {
     width: 100%;
-    min-height: 38px;
     background: var(--bg-input);
     color: var(--text-primary);
     border: 1px solid var(--border-default);
@@ -274,6 +280,30 @@
     box-sizing: border-box;
     font-size: 0.85rem;
     line-height: 1.45;
+}
+
+.expedition-quest-summary-count {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.expedition-quest-summary-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.expedition-quest-summary-list li {
+    margin: 0;
+}
+
+.expedition-quest-summary-empty {
+    min-height: 1.45em;
 }
 
 .expedition-quest-summary.is-empty {
