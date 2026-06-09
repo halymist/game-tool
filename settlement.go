@@ -17,54 +17,53 @@ import (
 
 // Settlement represents a settlement from game.world_info
 type Settlement struct {
-	SettlementID          int              `json:"settlement_id"`
-	SettlementName        string           `json:"settlement_name"`
-	Faction               *int             `json:"faction"`
-	Blacksmith            bool             `json:"blacksmith"`
-	Alchemist             bool             `json:"alchemist"`
-	Enchanter             bool             `json:"enchanter"`
-	Trainer               bool             `json:"trainer"`
-	Church                bool             `json:"church"`
-	Blessing1             *int             `json:"blessing1"`
-	Blessing2             *int             `json:"blessing2"`
-	Blessing3             *int             `json:"blessing3"`
-	SettlementAssetID     *int             `json:"settlement_asset_id"`
-	VendorAssetID         *int             `json:"vendor_asset_id"`
-	HealerAssetID         *int             `json:"healer_asset_id"`
-	BlacksmithAssetID     *int             `json:"blacksmith_asset_id"`
-	AlchemistAssetID      *int             `json:"alchemist_asset_id"`
-	EnchanterAssetID      *int             `json:"enchanter_asset_id"`
-	TrainerAssetID        *int             `json:"trainer_asset_id"`
-	ChurchAssetID         *int             `json:"church_asset_id"`
-	Utility2Type          *string          `json:"utility2_type"`
-	Utility2AssetID       *int             `json:"utility2_asset_id"`
-	Description           *string          `json:"description"`
-	KeyIssues             []string         `json:"key_issues"`
-	Context               *string          `json:"context"`
-	Version               int              `json:"version"`
-	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
-	ExpeditionDescription *string          `json:"expedition_description"`
-	ExpeditionContext     *string          `json:"expedition_context"`
-	ArenaAssetID          *int             `json:"arena_asset_id"`
-	VendorOnEntered       *json.RawMessage `json:"vendor_on_entered"`
-	VendorOnSold          *json.RawMessage `json:"vendor_on_sold"`
-	VendorOnBought        *json.RawMessage `json:"vendor_on_bought"`
-	HealerOnEntered       *json.RawMessage `json:"healer_on_entered"`
-	HealerOnHealed        *json.RawMessage `json:"healer_on_healed"`
-	HealerOnCured         *json.RawMessage `json:"healer_on_cured"`
-	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
-	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
-	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
-	Utility2OnEntered     *json.RawMessage `json:"utility2_on_entered"`
-	Utility2OnPlaced      *json.RawMessage `json:"utility2_on_placed"`
-	Utility2OnAction      *json.RawMessage `json:"utility2_on_action"`
-	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
-	HealerMsgRect         *json.RawMessage `json:"healer_msg_rect"`
-	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
-	Utility2MsgRect       *json.RawMessage `json:"utility2_msg_rect"`
-	VendorItems           []int            `json:"vendor_items"`
-	EnchanterEffects      []int            `json:"enchanter_effects"`
-	Locations             []Location       `json:"locations"`
+	SettlementID      int              `json:"settlement_id"`
+	SettlementName    string           `json:"settlement_name"`
+	Faction           *int             `json:"faction"`
+	Blacksmith        bool             `json:"blacksmith"`
+	Alchemist         bool             `json:"alchemist"`
+	Enchanter         bool             `json:"enchanter"`
+	Trainer           bool             `json:"trainer"`
+	Church            bool             `json:"church"`
+	Blessing1         *int             `json:"blessing1"`
+	Blessing2         *int             `json:"blessing2"`
+	Blessing3         *int             `json:"blessing3"`
+	SettlementAssetID *int             `json:"settlement_asset_id"`
+	VendorAssetID     *int             `json:"vendor_asset_id"`
+	HealerAssetID     *int             `json:"healer_asset_id"`
+	BlacksmithAssetID *int             `json:"blacksmith_asset_id"`
+	AlchemistAssetID  *int             `json:"alchemist_asset_id"`
+	EnchanterAssetID  *int             `json:"enchanter_asset_id"`
+	TrainerAssetID    *int             `json:"trainer_asset_id"`
+	ChurchAssetID     *int             `json:"church_asset_id"`
+	Utility2Type      *string          `json:"utility2_type"`
+	Utility2AssetID   *int             `json:"utility2_asset_id"`
+	Description       *string          `json:"description"`
+	KeyIssues         []string         `json:"key_issues"`
+	Context           *string          `json:"context"`
+	Version           int              `json:"version"`
+	ExpeditionAssetID *int             `json:"expedition_asset_id"`
+	ExpeditionContext *string          `json:"expedition_context"`
+	ArenaAssetID      *int             `json:"arena_asset_id"`
+	VendorOnEntered   *json.RawMessage `json:"vendor_on_entered"`
+	VendorOnSold      *json.RawMessage `json:"vendor_on_sold"`
+	VendorOnBought    *json.RawMessage `json:"vendor_on_bought"`
+	HealerOnEntered   *json.RawMessage `json:"healer_on_entered"`
+	HealerOnHealed    *json.RawMessage `json:"healer_on_healed"`
+	HealerOnCured     *json.RawMessage `json:"healer_on_cured"`
+	UtilityOnEntered  *json.RawMessage `json:"utility_on_entered"`
+	UtilityOnPlaced   *json.RawMessage `json:"utility_on_placed"`
+	UtilityOnAction   *json.RawMessage `json:"utility_on_action"`
+	Utility2OnEntered *json.RawMessage `json:"utility2_on_entered"`
+	Utility2OnPlaced  *json.RawMessage `json:"utility2_on_placed"`
+	Utility2OnAction  *json.RawMessage `json:"utility2_on_action"`
+	VendorMsgRect     *json.RawMessage `json:"vendor_msg_rect"`
+	HealerMsgRect     *json.RawMessage `json:"healer_msg_rect"`
+	UtilityMsgRect    *json.RawMessage `json:"utility_msg_rect"`
+	Utility2MsgRect   *json.RawMessage `json:"utility2_msg_rect"`
+	VendorItems       []int            `json:"vendor_items"`
+	EnchanterEffects  []int            `json:"enchanter_effects"`
+	Locations         []Location       `json:"locations"`
 }
 
 // Location represents a location tied to a settlement
@@ -95,53 +94,52 @@ type GetSettlementAssetsResponse struct {
 
 // SaveSettlementRequest is the request for saving a settlement
 type SaveSettlementRequest struct {
-	SettlementID          *int             `json:"settlement_id"`
-	SettlementName        string           `json:"settlement_name"`
-	Faction               *int             `json:"faction"`
-	Blacksmith            bool             `json:"blacksmith"`
-	Alchemist             bool             `json:"alchemist"`
-	Enchanter             bool             `json:"enchanter"`
-	Trainer               bool             `json:"trainer"`
-	Church                bool             `json:"church"`
-	Blessing1             *int             `json:"blessing1"`
-	Blessing2             *int             `json:"blessing2"`
-	Blessing3             *int             `json:"blessing3"`
-	SettlementAssetID     *int             `json:"settlement_asset_id"`
-	VendorAssetID         *int             `json:"vendor_asset_id"`
-	HealerAssetID         *int             `json:"healer_asset_id"`
-	BlacksmithAssetID     *int             `json:"blacksmith_asset_id"`
-	AlchemistAssetID      *int             `json:"alchemist_asset_id"`
-	EnchanterAssetID      *int             `json:"enchanter_asset_id"`
-	TrainerAssetID        *int             `json:"trainer_asset_id"`
-	ChurchAssetID         *int             `json:"church_asset_id"`
-	Utility2Type          *string          `json:"utility2_type"`
-	Utility2AssetID       *int             `json:"utility2_asset_id"`
-	Description           *string          `json:"description"`
-	KeyIssues             []string         `json:"key_issues"`
-	Context               *string          `json:"context"`
-	ExpeditionAssetID     *int             `json:"expedition_asset_id"`
-	ExpeditionDescription *string          `json:"expedition_description"`
-	ExpeditionContext     *string          `json:"expedition_context"`
-	ArenaAssetID          *int             `json:"arena_asset_id"`
-	VendorOnEntered       *json.RawMessage `json:"vendor_on_entered"`
-	VendorOnSold          *json.RawMessage `json:"vendor_on_sold"`
-	VendorOnBought        *json.RawMessage `json:"vendor_on_bought"`
-	HealerOnEntered       *json.RawMessage `json:"healer_on_entered"`
-	HealerOnHealed        *json.RawMessage `json:"healer_on_healed"`
-	HealerOnCured         *json.RawMessage `json:"healer_on_cured"`
-	UtilityOnEntered      *json.RawMessage `json:"utility_on_entered"`
-	UtilityOnPlaced       *json.RawMessage `json:"utility_on_placed"`
-	UtilityOnAction       *json.RawMessage `json:"utility_on_action"`
-	Utility2OnEntered     *json.RawMessage `json:"utility2_on_entered"`
-	Utility2OnPlaced      *json.RawMessage `json:"utility2_on_placed"`
-	Utility2OnAction      *json.RawMessage `json:"utility2_on_action"`
-	VendorMsgRect         *json.RawMessage `json:"vendor_msg_rect"`
-	HealerMsgRect         *json.RawMessage `json:"healer_msg_rect"`
-	UtilityMsgRect        *json.RawMessage `json:"utility_msg_rect"`
-	Utility2MsgRect       *json.RawMessage `json:"utility2_msg_rect"`
-	VendorItems           []int            `json:"vendor_items"`
-	EnchanterEffects      []int            `json:"enchanter_effects"`
-	Locations             []Location       `json:"locations"`
+	SettlementID      *int             `json:"settlement_id"`
+	SettlementName    string           `json:"settlement_name"`
+	Faction           *int             `json:"faction"`
+	Blacksmith        bool             `json:"blacksmith"`
+	Alchemist         bool             `json:"alchemist"`
+	Enchanter         bool             `json:"enchanter"`
+	Trainer           bool             `json:"trainer"`
+	Church            bool             `json:"church"`
+	Blessing1         *int             `json:"blessing1"`
+	Blessing2         *int             `json:"blessing2"`
+	Blessing3         *int             `json:"blessing3"`
+	SettlementAssetID *int             `json:"settlement_asset_id"`
+	VendorAssetID     *int             `json:"vendor_asset_id"`
+	HealerAssetID     *int             `json:"healer_asset_id"`
+	BlacksmithAssetID *int             `json:"blacksmith_asset_id"`
+	AlchemistAssetID  *int             `json:"alchemist_asset_id"`
+	EnchanterAssetID  *int             `json:"enchanter_asset_id"`
+	TrainerAssetID    *int             `json:"trainer_asset_id"`
+	ChurchAssetID     *int             `json:"church_asset_id"`
+	Utility2Type      *string          `json:"utility2_type"`
+	Utility2AssetID   *int             `json:"utility2_asset_id"`
+	Description       *string          `json:"description"`
+	KeyIssues         []string         `json:"key_issues"`
+	Context           *string          `json:"context"`
+	ExpeditionAssetID *int             `json:"expedition_asset_id"`
+	ExpeditionContext *string          `json:"expedition_context"`
+	ArenaAssetID      *int             `json:"arena_asset_id"`
+	VendorOnEntered   *json.RawMessage `json:"vendor_on_entered"`
+	VendorOnSold      *json.RawMessage `json:"vendor_on_sold"`
+	VendorOnBought    *json.RawMessage `json:"vendor_on_bought"`
+	HealerOnEntered   *json.RawMessage `json:"healer_on_entered"`
+	HealerOnHealed    *json.RawMessage `json:"healer_on_healed"`
+	HealerOnCured     *json.RawMessage `json:"healer_on_cured"`
+	UtilityOnEntered  *json.RawMessage `json:"utility_on_entered"`
+	UtilityOnPlaced   *json.RawMessage `json:"utility_on_placed"`
+	UtilityOnAction   *json.RawMessage `json:"utility_on_action"`
+	Utility2OnEntered *json.RawMessage `json:"utility2_on_entered"`
+	Utility2OnPlaced  *json.RawMessage `json:"utility2_on_placed"`
+	Utility2OnAction  *json.RawMessage `json:"utility2_on_action"`
+	VendorMsgRect     *json.RawMessage `json:"vendor_msg_rect"`
+	HealerMsgRect     *json.RawMessage `json:"healer_msg_rect"`
+	UtilityMsgRect    *json.RawMessage `json:"utility_msg_rect"`
+	Utility2MsgRect   *json.RawMessage `json:"utility2_msg_rect"`
+	VendorItems       []int            `json:"vendor_items"`
+	EnchanterEffects  []int            `json:"enchanter_effects"`
+	Locations         []Location       `json:"locations"`
 }
 
 // SaveSettlementResponse is the response after saving a settlement
@@ -187,7 +185,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 		       settlement_asset_id, vendor_asset_id, healer_asset_id, blacksmith_asset_id, alchemist_asset_id,
 		       enchanter_asset_id, trainer_asset_id, church_asset_id, utility2_type, utility2_asset_id,
 		       description, key_issues, context, COALESCE(version, 1),
-		       expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
+		       expedition_asset_id, expedition_context, arena_asset_id,
 		       vendor_on_entered, vendor_on_sold, vendor_on_bought,
 		       healer_on_entered, healer_on_healed, healer_on_cured,
 		       utility_on_entered, utility_on_placed, utility_on_action,
@@ -213,7 +211,7 @@ func handleGetSettlements(w http.ResponseWriter, r *http.Request) {
 			&s.SettlementAssetID, &s.VendorAssetID, &s.HealerAssetID, &s.BlacksmithAssetID, &s.AlchemistAssetID,
 			&s.EnchanterAssetID, &s.TrainerAssetID, &s.ChurchAssetID, &s.Utility2Type, &s.Utility2AssetID,
 			&s.Description, pq.Array(&s.KeyIssues), &s.Context, &s.Version,
-			&s.ExpeditionAssetID, &s.ExpeditionDescription, &s.ExpeditionContext, &s.ArenaAssetID,
+			&s.ExpeditionAssetID, &s.ExpeditionContext, &s.ArenaAssetID,
 			&s.VendorOnEntered, &s.VendorOnSold, &s.VendorOnBought,
 			&s.HealerOnEntered, &s.HealerOnHealed, &s.HealerOnCured,
 			&s.UtilityOnEntered, &s.UtilityOnPlaced, &s.UtilityOnAction,
@@ -499,21 +497,21 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				enchanter_asset_id = $16, trainer_asset_id = $17, church_asset_id = $18,
 				utility2_type = $19, utility2_asset_id = $20,
 				description = $21, key_issues = $22, context = $23,
-				expedition_asset_id = $24, expedition_description = $25, expedition_context = $26, arena_asset_id = $27,
-				vendor_on_entered = $28, vendor_on_sold = $29, vendor_on_bought = $30,
-				healer_on_entered = $31, healer_on_healed = $32, healer_on_cured = $33,
-				utility_on_entered = $34, utility_on_placed = $35, utility_on_action = $36,
-				utility2_on_entered = $37, utility2_on_placed = $38, utility2_on_action = $39,
-				vendor_msg_rect = $40, healer_msg_rect = $41, utility_msg_rect = $42, utility2_msg_rect = $43,
+				expedition_asset_id = $24, expedition_context = $25, arena_asset_id = $26,
+				vendor_on_entered = $27, vendor_on_sold = $28, vendor_on_bought = $29,
+				healer_on_entered = $30, healer_on_healed = $31, healer_on_cured = $32,
+				utility_on_entered = $33, utility_on_placed = $34, utility_on_action = $35,
+				utility2_on_entered = $36, utility2_on_placed = $37, utility2_on_action = $38,
+				vendor_msg_rect = $39, healer_msg_rect = $40, utility_msg_rect = $41, utility2_msg_rect = $42,
 				version = (SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
-			WHERE settlement_id = $44
+			WHERE settlement_id = $43
 		`, req.SettlementName, req.Faction,
 			req.Blacksmith, req.Alchemist, req.Enchanter, req.Trainer, req.Church,
 			req.Blessing1, req.Blessing2, req.Blessing3,
 			req.SettlementAssetID, req.VendorAssetID, req.HealerAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID, req.Utility2Type, req.Utility2AssetID,
 			req.Description, pq.Array(req.KeyIssues), req.Context,
-			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
+			req.ExpeditionAssetID, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.HealerOnEntered, req.HealerOnHealed, req.HealerOnCured,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,
@@ -538,7 +536,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 				settlement_asset_id, vendor_asset_id, healer_asset_id, blacksmith_asset_id, alchemist_asset_id,
 				enchanter_asset_id, trainer_asset_id, church_asset_id, utility2_type, utility2_asset_id,
 				description, key_issues, context,
-				expedition_asset_id, expedition_description, expedition_context, arena_asset_id,
+				expedition_asset_id, expedition_context, arena_asset_id,
 				vendor_on_entered, vendor_on_sold, vendor_on_bought,
 				healer_on_entered, healer_on_healed, healer_on_cured,
 				utility_on_entered, utility_on_placed, utility_on_action,
@@ -548,7 +546,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			) VALUES (
 				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 				$19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
-				$35, $36, $37, $38, $39, $40, $41, $42, $43,
+				$35, $36, $37, $38, $39, $40, $41, $42,
 				(SELECT COALESCE(MAX(version), 0) + 1 FROM game.world_info)
 			) RETURNING settlement_id
 		`, req.SettlementName, req.Faction,
@@ -557,7 +555,7 @@ func handleSaveSettlement(w http.ResponseWriter, r *http.Request) {
 			req.SettlementAssetID, req.VendorAssetID, req.HealerAssetID, req.BlacksmithAssetID, req.AlchemistAssetID,
 			req.EnchanterAssetID, req.TrainerAssetID, req.ChurchAssetID, req.Utility2Type, req.Utility2AssetID,
 			req.Description, pq.Array(req.KeyIssues), req.Context,
-			req.ExpeditionAssetID, req.ExpeditionDescription, req.ExpeditionContext, req.ArenaAssetID,
+			req.ExpeditionAssetID, req.ExpeditionContext, req.ArenaAssetID,
 			req.VendorOnEntered, req.VendorOnSold, req.VendorOnBought,
 			req.HealerOnEntered, req.HealerOnHealed, req.HealerOnCured,
 			req.UtilityOnEntered, req.UtilityOnPlaced, req.UtilityOnAction,

@@ -1,21 +1,23 @@
 .moderation-layout {
     display: grid;
     grid-template-columns: 1fr 1.2fr;
-    gap: 20px;
-    padding: 20px;
+    gap: 16px;
+    padding: 16px 20px 20px;
     height: calc(100vh - 160px);
     box-sizing: border-box;
+    background: var(--bg-base);
 }
 
 .moderation-panel {
-    background: #141a2a;
-    border: 1px solid #24304a;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-default);
     border-radius: 14px;
     padding: 16px;
-    color: #e2e8f0;
+    color: var(--text-primary);
     display: flex;
     flex-direction: column;
     min-height: 0;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
 }
 
 .moderation-header {
@@ -29,15 +31,25 @@
 .moderation-header h3 {
     margin: 0;
     font-size: 18px;
+    color: var(--text-primary);
 }
 
 .moderation-filter {
     padding: 8px 10px;
-    border: 1px solid #334155;
+    border: 1px solid var(--border-default);
     border-radius: 8px;
-    background: #0b1220;
-    color: #e2e8f0;
+    background: var(--bg-input);
+    color: var(--text-primary);
     min-width: 180px;
+}
+
+.moderation-filter:focus,
+.moderation-add-row input:focus,
+.moderation-add-row select:focus,
+.chat-server-select select:focus,
+.chat-input-row input:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 .moderation-add-row {
@@ -50,24 +62,25 @@
 .moderation-add-row input,
 .moderation-add-row select {
     padding: 8px 10px;
-    border: 1px solid #334155;
+    border: 1px solid var(--border-default);
     border-radius: 8px;
-    background: #0b1220;
-    color: #e2e8f0;
+    background: var(--bg-input);
+    color: var(--text-primary);
 }
 
 .moderation-status {
     min-height: 20px;
     margin-bottom: 8px;
     font-size: 13px;
+    color: var(--text-muted);
 }
 
 .moderation-status.success {
-    color: #68d391;
+    color: var(--success);
 }
 
 .moderation-status.error {
-    color: #fc8181;
+    color: var(--danger);
 }
 
 .moderation-list {
@@ -80,8 +93,8 @@
 
 .banned-word-item {
     position: relative;
-    background: #0f172a;
-    border: 1px solid #253148;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 10px 36px 10px 12px;
     display: flex;
@@ -92,7 +105,7 @@
 
 .banned-word-text {
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .severity-badge {
@@ -103,11 +116,11 @@
     border: 1px solid transparent;
 }
 
-.severity-1 { background: rgba(72, 187, 120, 0.15); color: #68d391; border-color: rgba(72, 187, 120, 0.4); }
-.severity-2 { background: rgba(99, 179, 237, 0.15); color: #63b3ed; border-color: rgba(99, 179, 237, 0.4); }
-.severity-3 { background: rgba(246, 224, 94, 0.15); color: #f6e05e; border-color: rgba(246, 224, 94, 0.4); }
-.severity-4 { background: rgba(245, 101, 101, 0.15); color: #f56565; border-color: rgba(245, 101, 101, 0.4); }
-.severity-5 { background: rgba(229, 62, 62, 0.15); color: #fc8181; border-color: rgba(229, 62, 62, 0.4); }
+.severity-1 { background: rgba(130, 194, 129, 0.14); color: var(--success); border-color: rgba(130, 194, 129, 0.34); }
+.severity-2 { background: rgba(74, 179, 159, 0.14); color: var(--accent); border-color: rgba(74, 179, 159, 0.34); }
+.severity-3 { background: rgba(214, 175, 96, 0.14); color: #d6af60; border-color: rgba(214, 175, 96, 0.34); }
+.severity-4 { background: rgba(224, 115, 92, 0.12); color: #f08b76; border-color: rgba(224, 115, 92, 0.3); }
+.severity-5 { background: rgba(224, 115, 92, 0.18); color: var(--danger); border-color: rgba(224, 115, 92, 0.44); }
 
 .banned-word-delete {
     position: absolute;
@@ -116,9 +129,9 @@
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 1px solid #334155;
+    border: 1px solid var(--border-default);
     background: transparent;
-    color: #a0aec0;
+    color: var(--text-muted);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -128,13 +141,14 @@
 }
 
 .banned-word-delete:hover {
-    color: #fc8181;
-    border-color: rgba(252, 129, 129, 0.6);
+    color: var(--danger);
+    border-color: rgba(224, 115, 92, 0.6);
+    background: rgba(224, 115, 92, 0.08);
 }
 
 .moderation-empty {
     text-align: center;
-    color: #94a3b8;
+    color: var(--text-muted);
     padding: 24px 0;
 }
 
@@ -144,7 +158,7 @@
 
 .chat-subtitle {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 .chat-server-select {
@@ -156,25 +170,25 @@
 
 .chat-server-select label {
     font-size: 12px;
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 .chat-server-select select {
     padding: 8px 10px;
-    border: 1px solid #334155;
+    border: 1px solid var(--border-default);
     border-radius: 8px;
-    background: #0b1220;
-    color: #e2e8f0;
+    background: var(--bg-input);
+    color: var(--text-primary);
 }
 
 .chat-window {
     flex: 1;
     display: flex;
     flex-direction: column;
-    border: 1px solid #253148;
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     overflow: hidden;
-    background: #0b1220;
+    background: var(--bg-input);
 }
 
 .chat-messages {
@@ -184,13 +198,13 @@
 }
 
 .chat-empty {
-    color: #94a3b8;
+    color: var(--text-muted);
     text-align: center;
     margin-top: 24px;
 }
 
 .chat-input-row {
-    border-top: 1px solid #253148;
+    border-top: 1px solid var(--border-subtle);
     padding: 10px;
 }
 
@@ -198,9 +212,9 @@
     width: 100%;
     padding: 8px 10px;
     border-radius: 8px;
-    border: 1px solid #334155;
-    background: #0f172a;
-    color: #94a3b8;
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
 }
 
 @media (max-width: 1100px) {

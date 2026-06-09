@@ -92,6 +92,13 @@
             <h1>Dashboard</h1>
         </div>
         <div class="user-info">
+            <div id="headerCombatToggleHost" class="header-combat-toggle-host" style="display:none;">
+                <div class="combat-view-toggle-group" role="tablist" aria-label="Combat views">
+                    <button type="button" class="combat-sidebar-btn active" data-combat-tab="test">Test</button>
+                    <button type="button" class="combat-sidebar-btn" data-combat-tab="test2">Builds</button>
+                    <button type="button" class="combat-sidebar-btn" data-combat-tab="bulk">Calibration</button>
+                </div>
+            </div>
             <span id="username-display">Admin User</span>
             <button class="logout-btn" onclick="logout()">Logout</button>
         </div>
@@ -178,7 +185,7 @@
                     </a>
                     <a href="#" onclick="showPage('moderation'); return false;" class="tool-card" data-keywords="moderation chat banned words filter">
                         <span class="tool-card-icon"><svg class="icon"><use href="#i-shield"/></svg></span>
-                        <span class="tool-card-title">Chat Moderation</span>
+                        <span class="tool-card-title">Chat</span>
                     </a>
                 </div>
             </div>
@@ -1288,7 +1295,7 @@
                                 <textarea id="expeditionNodeLabel" placeholder="Describe this spot..."></textarea>
                             </div>
                             <div class="expedition-sidebar-field">
-                                <label for="expeditionNodeQuestSummary">Available Quests</label>
+                                <label id="expeditionNodeQuestSummaryLabel" for="expeditionNodeQuestSummary">0 available quests</label>
                                 <div id="expeditionNodeQuestSummary" class="expedition-quest-summary"></div>
                             </div>
                         </div>
@@ -1493,9 +1500,6 @@
                                     <span>Click to select asset</span>
                                 </div>
                             </div>
-                            <div class="expedition-description-overlay">
-                                <textarea id="expeditionDescription" placeholder="Enter expedition description..." class="expedition-textarea"></textarea>
-                            </div>
                         </div>
                     </div>
 
@@ -1571,7 +1575,7 @@
                             <div class="settlement-card-info">
                                 <!-- Church: Blessings -->
                                 <div id="utilityChurchContent" class="utility-content">
-                                    <label>Blessings (Perks)</label>
+                                    <label>Blessings</label>
                                     <div class="blessing-selects">
                                         <select id="blessing1Select">
                                             <option value="">-- None --</option>
@@ -2130,14 +2134,6 @@
         <!-- Combat Tester Section -->
         <div id="combat-content" class="page-content" style="display: none;">
             <div class="combat-layout">
-                <div class="combat-view-toggle-row">
-                    <div class="combat-view-toggle-group" role="tablist" aria-label="Combat views">
-                        <button type="button" class="combat-sidebar-btn active" data-combat-tab="test">Test</button>
-                        <button type="button" class="combat-sidebar-btn" data-combat-tab="test2">Builds</button>
-                        <button type="button" class="combat-sidebar-btn" data-combat-tab="bulk">Calibration</button>
-                    </div>
-                </div>
-
                 <!-- Tab: Test (default) -->
                 <div class="combat-tab-content active" id="combatTabTest" data-combat-tab="test">
                     <div class="combat-tester-container">
@@ -2532,10 +2528,11 @@
                 const cognitoUser = userPool.getCurrentUser();
 
                 if (cognitoUser != null) {
-                    return new Promise((resolve, reject) => {
+                    return new Promise((resolve) => {
                         cognitoUser.getSession((err, session) => {
                             if (err) {
-                                reject(err);
+                                // Expired or invalid session — caller will redirect to login
+                                resolve(null);
                                 return;
                             }
                             if (session.isValid()) {
@@ -2766,6 +2763,11 @@
             const headerTitle = document.querySelector('.header h1');
             if (headerTitle) {
                 headerTitle.textContent = page.title;
+            }
+
+            const combatToggleHost = document.getElementById('headerCombatToggleHost');
+            if (combatToggleHost) {
+                combatToggleHost.style.display = pageName === 'combat' ? 'flex' : 'none';
             }
 
             // Show/hide back button based on current page

@@ -223,7 +223,12 @@ function setupSettlementEventListeners() {
         const select = document.getElementById(id);
         if (!select || select.dataset.mirrorSourceBound === 'true') return;
         select.dataset.mirrorSourceBound = 'true';
-        select.addEventListener('change', () => syncMirroredBlessingSelects());
+        select.addEventListener('change', () => {
+            swapBlessingOnDuplicate(id);
+            syncMirroredBlessingSelects();
+            refreshBlessingDropdownLabels();
+            checkSettlementSaveConditions();
+        });
     });
 
     // Add vendor item button
@@ -264,7 +269,7 @@ function setupSettlementEventListeners() {
     const formInputIds = [
         'settlementName', 'settlementDescription',
         'settlementContext', 'expeditionContext',
-        'factionSelect', 'utilityTypeSelect', 'utility2TypeSelect', 'expeditionDescription',
+        'factionSelect', 'utilityTypeSelect', 'utility2TypeSelect',
         'blessing1Select', 'blessing2Select', 'blessing3Select'
     ];
     formInputIds.forEach(id => {
@@ -294,11 +299,17 @@ async function loadSettlementDesignerData(options = {}) {
 
     // If already loaded once, just re-populate UI from cached GlobalData
     if (!forceReload && settlementDesignerLoaded) {
+        const prevSelectedSettlementId = settlementState.selectedSettlementId;
         settlementState.settlements = GlobalData.settlements;
         settlementState.settlementAssets = GlobalData.settlementAssets;
         settlementState.questAssets = GlobalData.questAssets;
+        // Always refresh blessings in case the global perk list loaded after first init
+        await loadBlessingsData();
         populateSettlementEditorSelect();
         populateBlessingDropdowns();
+        if (prevSelectedSettlementId) {
+            selectSettlement(prevSelectedSettlementId);
+        }
         return;
     }
 
@@ -332,9 +343,11 @@ async function loadSettlementDesignerData(options = {}) {
 // loadSettlementAssets removed — use loadSettlementAssetsData() from global-data.js
 
 async function loadBlessingsData() {
+    const onlyBlessings = (perks) => (perks || []).filter(perk => Boolean(perk?.is_blessing));
+
     // Load perks as blessings - they're in the perks table
     if (typeof getPerks === 'function') {
-        settlementState.blessings = getPerks() || [];
+        settlementState.blessings = onlyBlessings(getPerks());
     } else {
         try {
             const token = await getCurrentAccessToken();
@@ -350,10 +363,11 @@ async function loadBlessingsData() {
 
             if (response.ok) {
                 const data = await response.json();
-                settlementState.blessings = data.perks || [];
+                settlementState.blessings = onlyBlessings(data.perks);
             }
         } catch (error) {
             console.error('Error loading perks:', error);
+            settlementState.blessings = [];
         }
     }
 }
@@ -487,6 +501,11 @@ function populateBlessingDropdowns() {
         'blessing1Select', 'blessing2Select', 'blessing3Select',
         'utility2Blessing1Select', 'utility2Blessing2Select', 'utility2Blessing3Select'
     ];
+
+    const previousValues = {};
+    blessingSelects.forEach(selectId => {
+        previousValues[selectId] = document.getElementById(selectId)?.value || '';
+    });
     
     blessingSelects.forEach(selectId => {
         const select = document.getElementById(selectId);
@@ -500,7 +519,69 @@ function populateBlessingDropdowns() {
             option.textContent = perk.perk_name || perk.name || `Perk ${perk.perk_id || perk.id}`;
             select.appendChild(option);
         });
+
+        if (previousValues[selectId] && select.querySelector(`option[value="${previousValues[selectId]}"]`)) {
+            select.value = previousValues[selectId];
+        }
     });
+    syncMirroredBlessingSelects();
+    refreshBlessingDropdownLabels();
+}
+
+// Highlight options that are already selected in blessing slots.
+function refreshBlessingDropdownLabels() {
+    const SLOTS = ['blessing1Select', 'blessing2Select', 'blessing3Select'];
+
+    const usedValues = new Set(
+        SLOTS.map(id => document.getElementById(id)?.value).filter(Boolean)
+    );
+
+    SLOTS.forEach(selectId => {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        Array.from(select.options).forEach(opt => {
+            if (!opt.value) {
+                opt.textContent = '-- None --';
+                opt.style.backgroundColor = '';
+                opt.style.color = '';
+                opt.style.fontWeight = '';
+                return;
+            }
+            const perk = settlementState.blessings.find(p => String(p.perk_id || p.id) === opt.value);
+            const baseName = perk ? (perk.perk_name || perk.name || `Perk ${opt.value}`) : opt.value;
+            opt.textContent = baseName;
+            if (usedValues.has(opt.value)) {
+                opt.style.backgroundColor = 'rgba(74, 179, 159, 0.18)';
+                opt.style.color = '#fff8ea';
+                opt.style.fontWeight = '600';
+            } else {
+                opt.style.backgroundColor = '';
+                opt.style.color = '';
+                opt.style.fontWeight = '';
+            }
+        });
+    });
+}
+
+// When a slot is changed to a value already held by another slot, swap them.
+function swapBlessingOnDuplicate(changedId) {
+    const SLOTS = ['blessing1Select', 'blessing2Select', 'blessing3Select'];
+    const changedEl = document.getElementById(changedId);
+    if (!changedEl) return;
+    const newVal = changedEl.value;
+    const prevVal = changedEl.dataset.prevBlessingValue || '';
+    if (newVal) {
+        for (const otherId of SLOTS.filter(id => id !== changedId)) {
+            const otherEl = document.getElementById(otherId);
+            if (!otherEl) continue;
+            if (otherEl.value === newVal) {
+                otherEl.value = prevVal;
+                otherEl.dataset.prevBlessingValue = prevVal;
+                break;
+            }
+        }
+    }
+    changedEl.dataset.prevBlessingValue = newVal;
 }
 
 function bindMirroredBlessingSelect(mirrorId, sourceId) {
@@ -652,17 +733,16 @@ function populateSettlementForm(settlement) {
     const blessing1 = document.getElementById('blessing1Select');
     const blessing2 = document.getElementById('blessing2Select');
     const blessing3 = document.getElementById('blessing3Select');
-    if (blessing1) blessing1.value = settlement.blessing1 || '';
-    if (blessing2) blessing2.value = settlement.blessing2 || '';
-    if (blessing3) blessing3.value = settlement.blessing3 || '';
+    if (blessing1) { blessing1.value = settlement.blessing1 || ''; blessing1.dataset.prevBlessingValue = blessing1.value; }
+    if (blessing2) { blessing2.value = settlement.blessing2 || ''; blessing2.dataset.prevBlessingValue = blessing2.value; }
+    if (blessing3) { blessing3.value = settlement.blessing3 || ''; blessing3.dataset.prevBlessingValue = blessing3.value; }
     syncMirroredBlessingSelects();
+    refreshBlessingDropdownLabels();
 
     // Expedition and Arena
     updateAssetPreview('expedition', settlement.expedition_asset_id);
     updateAssetPreview('arena', settlement.arena_asset_id);
-    
-    const expeditionDesc = document.getElementById('expeditionDescription');
-    if (expeditionDesc) expeditionDesc.value = settlement.expedition_description || '';
+
     const expeditionContext = document.getElementById('expeditionContext');
     if (expeditionContext) expeditionContext.value = settlement.expedition_context || '';
 
@@ -1249,8 +1329,12 @@ function createNewSettlement() {
     document.getElementById('blessing1Select').value = '';
     document.getElementById('blessing2Select').value = '';
     document.getElementById('blessing3Select').value = '';
+    ['blessing1Select', 'blessing2Select', 'blessing3Select'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.dataset.prevBlessingValue = '';
+    });
     syncMirroredBlessingSelects();
-    document.getElementById('expeditionDescription').value = '';
+    refreshBlessingDropdownLabels();
     document.getElementById('expeditionContext').value = '';
 
     // Clear asset previews
@@ -1536,7 +1620,6 @@ async function saveSettlement() {
         ? getListBuilderItems('settlementKeyIssues')
         : parseListInput(document.getElementById('settlementKeyIssues')?.value || '');
     const context = document.getElementById('settlementContext')?.value.trim() || null;
-    const expeditionDescription = document.getElementById('expeditionDescription')?.value.trim() || null;
     const expeditionContext = document.getElementById('expeditionContext')?.value.trim() || null;
 
     const vendorResponsesObj = buildResponsesObject(settlementState.vendorResponses);
@@ -1579,7 +1662,6 @@ async function saveSettlement() {
         church_asset_id: utilityAssetsByType.church || null,
         // New expedition and arena fields
         expedition_asset_id: expeditionAssetId,
-        expedition_description: expeditionDescription,
         expedition_context: expeditionContext,
         arena_asset_id: arenaAssetId,
         // Vendor responses (JSONB with arrays per type)
@@ -1731,7 +1813,6 @@ function getSettlementFormSnapshot() {
             : (document.getElementById('settlementKeyIssues')?.value || ''),
         context: document.getElementById('settlementContext')?.value || '',
         expeditionContext: document.getElementById('expeditionContext')?.value || '',
-        expeditionDescription: document.getElementById('expeditionDescription')?.value || '',
         faction: document.getElementById('factionSelect')?.value || '',
         utilityType: document.getElementById('utilityTypeSelect')?.value || '',
         utility2Type: document.getElementById('utility2TypeSelect')?.value || '',

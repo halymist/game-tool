@@ -744,6 +744,7 @@ console.log('📦 expedition-designer.js LOADED');
             locationEl.innerHTML = '<option value="">-- No location --</option>';
             locationEl.value = '';
             questEl.textContent = '';
+            updateQuestSummaryLabel(0);
             isStartEl.checked = false;
             return;
         }
@@ -756,6 +757,12 @@ console.log('📦 expedition-designer.js LOADED');
         locationEl.value = node.location_id ? String(node.location_id) : '';
         refreshNodeSidebarQuestOptions();
         isStartEl.checked = !!node.is_start;
+    }
+
+    function updateQuestSummaryLabel(count) {
+        const label = $('expeditionNodeQuestSummaryLabel');
+        if (!label) return;
+        label.textContent = `${count} available quest${count === 1 ? '' : 's'}`;
     }
 
     function clearNodeSelection() {
@@ -822,6 +829,7 @@ console.log('📦 expedition-designer.js LOADED');
         if (!node) return;
 
         const assignableQuests = getAssignableQuestsForNode(node);
+        updateQuestSummaryLabel(assignableQuests.length);
         if (node.location_id == null) {
             questEl.innerHTML = '<div class="expedition-quest-summary-empty">No location selected.</div>';
             questEl.classList.add('is-empty');
@@ -837,9 +845,6 @@ console.log('📦 expedition-designer.js LOADED');
             <ul class="expedition-quest-summary-list">
                 ${assignableQuests.map(q => `<li>${escapeHtml(q.quest_name)}</li>`).join('')}
             </ul>
-            <div class="expedition-quest-summary-count">
-                ${assignableQuests.length} ${assignableQuests.length === 1 ? 'available quest' : 'available quests'}
-            </div>
         `;
     }
 
